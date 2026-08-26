@@ -1,0 +1,20 @@
+{
+  "system_name": "748686 自生长知识系统",
+  "version": "1.0",
+  "timezone": "Asia/Shanghai",
+  "daily_time": "07:00",
+  "root_dir": "01_自生长知识系统",
+  "horizon_hours": 24,
+  "max_items_for_ai": 30,
+  "generate_daily": true,
+  "generate_weekly": true,
+  "generate_topic_reports": true,
+  "send_feishu": false,
+  "feishu_webhook_secret": "FEISHU_WEBHOOK",
+  "ai": {
+    "provider": "openai_compatible",
+    "base_url_env": "AI_BASE_URL",
+    "api_key_env": "AI_API_KEY",
+    "model_env": "AI_MODEL"
+  }
+}

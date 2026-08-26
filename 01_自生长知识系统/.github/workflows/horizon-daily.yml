@@ -1,0 +1,94 @@
+name: 01 自生长知识系统 - 每日运行
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 北京/上海/香港时间 07:00 = UTC 23:00（夏令时地区请按你的目标时间调整）
+    - cron: '0 23 * * *'
+
+permissions:
+  contents: write
+
+jobs:
+  daily:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout 748686obsidian
+        uses: actions/checkout@v4
+
+      - name: Checkout Horizon
+        uses: actions/checkout@v4
+        with:
+          repository: Thysrael/Horizon
+          path: /tmp/horizon
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Horizon
+        working-directory: /tmp/horizon
+        run: uv sync
+
+      - name: Build Horizon config from RSS list
+        env:
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          AI_BASE_URL: ${{ secrets.AI_BASE_URL }}
+          AI_MODEL: ${{ secrets.AI_MODEL }}
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("01_自生长知识系统/00_System")
+          cfg=json.loads((p/"horizon_config.json").read_text())
+          rss=json.loads((p/"rss_sources.json").read_text())
+          cfg["sources"]["rss"]=[x for x in rss if x.get("enabled", True)]
+          (p/"horizon_runtime_config.json").write_text(json.dumps(cfg,ensure_ascii=False,indent=2))
+          PY
+
+      - name: Run Horizon
+        working-directory: /tmp/horizon
+        env:
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          AI_BASE_URL: ${{ secrets.AI_BASE_URL }}
+          AI_MODEL: ${{ secrets.AI_MODEL }}
+        run: |
+          uv run horizon --hours 24 --config "$GITHUB_WORKSPACE/01_自生长知识系统/00_System/horizon_runtime_config.json"
+
+      - name: Run self-growing knowledge pipeline
+        env:
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          AI_BASE_URL: ${{ secrets.AI_BASE_URL }}
+          AI_MODEL: ${{ secrets.AI_MODEL }}
+        run: |
+          python 01_自生长知识系统/scripts/knowledge_pipeline.py
+
+      - name: Generate weekly report
+        if: always()
+        env:
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          AI_BASE_URL: ${{ secrets.AI_BASE_URL }}
+          AI_MODEL: ${{ secrets.AI_MODEL }}
+        run: |
+          python 01_自生长知识系统/scripts/weekly_report.py
+
+      - name: Send daily report to Feishu
+        if: success()
+        env:
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+        run: |
+          REPORT=$(find 01_自生长知识系统/05_日报 -name '*.md' -type f | sort | tail -1)
+          python 01_自生长知识系统/scripts/send_feishu.py "$REPORT"
+
+      - name: Commit generated knowledge
+        run: |
+          git config user.name "748686 Knowledge Bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add 01_自生长知识系统
+          git diff --cached --quiet || git commit -m "chore: daily knowledge update $(date -u +%Y-%m-%d)"
+          git push

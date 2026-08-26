@@ -1,0 +1,31 @@
+{
+  "ai": {
+    "provider": "openai",
+    "model": "${AI_MODEL}",
+    "api_key_env": "AI_API_KEY",
+    "base_url": "${AI_BASE_URL}",
+    "throttle_sec": 1
+  },
+  "sources": {
+    "rss": []
+  },
+  "collection": {
+    "time_window_hours": 24
+  },
+  "processing": {
+    "profiles_dir": "/tmp/horizon/profiles",
+    "default_profile": "tech-news"
+  },
+  "digest": {
+    "max_items": 20
+  },
+  "webhook": {
+    "enabled": false,
+    "url_env": "HORIZON_WEBHOOK_URL",
+    "platform": "feishu",
+    "layout": "collapsible",
+    "languages": [
+      "zh"
+    ]
+  }
+}
