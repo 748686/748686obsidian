@@ -12,10 +12,10 @@
   "collection": {
     "time_window_hours": 24
   },
-  "processing": {
-    "profiles_dir": "/tmp/horizon/profiles",
-    "default_profile": "tech-news"
-  },
+ "processing": {
+  "profiles_dir": "${HORIZON_PROFILES_DIR}",
+  "default_profile": "tech-news"
+},
   "digest": {
     "max_items": 20
   },
