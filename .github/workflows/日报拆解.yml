@@ -110,7 +110,7 @@ jobs:
           echo "Horizon Digest Split V4"
           echo "=========================================="
 
-          python scripts/split_horizon_digest_v4.py \
+          python scripts/horizon_split.py \
             --input "$INPUT" \
             --output "$OUTPUT" \
             --date "$TODAY"
