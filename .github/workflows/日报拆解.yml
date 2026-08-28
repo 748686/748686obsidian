@@ -7,9 +7,7 @@ permissions:
   contents: write
 
 jobs:
-
   split:
-
     runs-on: ubuntu-latest
 
     steps:
@@ -17,21 +15,17 @@ jobs:
       # ============================================================
       # 1. Checkout
       # ============================================================
-
       - name: Checkout 748686obsidian
-
         uses: actions/checkout@v4
 
-
       # ============================================================
-      # 2. 获取日期
+      # 2. 获取今天日期
       # ============================================================
-
       - name: Set date
-
         id: date
-
+        shell: bash
         run: |
+          set -e
 
           TODAY=$(date -u +%Y-%m-%d)
 
@@ -40,120 +34,114 @@ jobs:
           echo "=========================================="
           echo "TODAY"
           echo "=========================================="
-
           echo "$TODAY"
 
-
       # ============================================================
-      # 3. 设置路径
+      # 3. 设置所有路径
       # ============================================================
-
       - name: Set paths
-
         id: paths
-
+        shell: bash
         run: |
-
           set -e
 
           TODAY="${{ steps.date.outputs.today }}"
 
           RAW_DIR="01_自生长知识系统/Raw News/$TODAY"
 
-          OUTPUT="01_自生长知识系统/Raw News/${TODAY}-Atomic"
-
           ZH="${RAW_DIR}/${TODAY}-summary-zh.md"
-
           EN="${RAW_DIR}/${TODAY}-summary-en.md"
+
+          OUTPUT="01_自生长知识系统/Raw News/${TODAY}-Atomic"
 
           SCRIPT="01_自生长知识系统/scripts/horizon_split.py"
 
-          echo "raw_dir=$RAW_DIR" >> "$GITHUB_OUTPUT"
-
           echo "zh=$ZH" >> "$GITHUB_OUTPUT"
-
           echo "en=$EN" >> "$GITHUB_OUTPUT"
-
           echo "output=$OUTPUT" >> "$GITHUB_OUTPUT"
-
           echo "script=$SCRIPT" >> "$GITHUB_OUTPUT"
 
+          echo "=========================================="
+          echo "PATH CONFIGURATION"
+          echo "=========================================="
+
+          echo "DATE:"
+          echo "$TODAY"
+
           echo
-          echo "=========================================="
-          echo "PATHS"
-          echo "=========================================="
+          echo "ZH:"
+          echo "$ZH"
 
-          echo "RAW : $RAW_DIR"
-          echo "ZH  : $ZH"
-          echo "EN  : $EN"
-          echo "OUT : $OUTPUT"
-          echo "PY  : $SCRIPT"
+          echo
+          echo "EN:"
+          echo "$EN"
 
+          echo
+          echo "OUTPUT:"
+          echo "$OUTPUT"
+
+          echo
+          echo "SCRIPT:"
+          echo "$SCRIPT"
 
       # ============================================================
-      # 4. 检查日报
+      # 4. 检查中文日报
       # ============================================================
-
-      - name: Check Horizon digests
-
+      - name: Check Chinese digest
+        shell: bash
         run: |
-
           set -e
 
-          ZH="${{ steps.paths.outputs.zh }}"
-
-          EN="${{ steps.paths.outputs.en }}"
+          FILE="${{ steps.paths.outputs.zh }}"
 
           echo "=========================================="
-          echo "CHECK HORIZON DIGESTS"
+          echo "CHECK CHINESE DIGEST"
           echo "=========================================="
 
-
-          if [ ! -f "$ZH" ]; then
-
-            echo "❌ Chinese digest missing:"
-            echo "$ZH"
-
+          if [ ! -f "$FILE" ]; then
+            echo "❌ Chinese Horizon digest not found:"
+            echo "$FILE"
             exit 1
-
           fi
-
-
-          if [ ! -f "$EN" ]; then
-
-            echo "❌ English digest missing:"
-            echo "$EN"
-
-            exit 1
-
-          fi
-
 
           echo "✅ Chinese digest found"
 
+          echo
+          echo "File size:"
+          wc -c "$FILE"
+
+      # ============================================================
+      # 5. 检查英文日报
+      # ============================================================
+      - name: Check English digest
+        shell: bash
+        run: |
+          set -e
+
+          FILE="${{ steps.paths.outputs.en }}"
+
+          echo "=========================================="
+          echo "CHECK ENGLISH DIGEST"
+          echo "=========================================="
+
+          if [ ! -f "$FILE" ]; then
+            echo "❌ English Horizon digest not found:"
+            echo "$FILE"
+            exit 1
+          fi
+
           echo "✅ English digest found"
 
-
           echo
-          echo "Chinese size:"
-
-          wc -c "$ZH"
-
-
-          echo
-          echo "English size:"
-
-          wc -c "$EN"
-
+          echo "File size:"
+          wc -c "$FILE"
 
       # ============================================================
-      # 5. 检查 Python
+      # 6. 检查 Python 拆解脚本
       # ============================================================
-
       - name: Check splitter
-
+        shell: bash
         run: |
-
           set -e
 
           SCRIPT="${{ steps.paths.outputs.script }}"
@@ -162,494 +150,384 @@ jobs:
           echo "CHECK SPLITTER"
           echo "=========================================="
 
-
           if [ ! -f "$SCRIPT" ]; then
-
             echo "❌ Splitter not found:"
             echo "$SCRIPT"
-
             exit 1
-
           fi
 
+          echo "✅ Splitter found:"
+          echo "$SCRIPT"
 
-          echo "✅ Splitter found"
+          echo
+          echo "Python syntax check:"
 
-          python --version
+          python -m py_compile "$SCRIPT"
 
+          echo "✅ Python syntax OK"
 
       # ============================================================
-      # 6. Setup Python
+      # 7. Setup Python
       # ============================================================
-
       - name: Setup Python
-
         uses: actions/setup-python@v5
-
         with:
-
           python-version: "3.12"
 
-
       # ============================================================
-      # 7. 执行双语拆解
+      # 8. 再次确认 Python 参数接口
       # ============================================================
-
-      - name: Run Horizon Bilingual Split V6
-
+      - name: Check splitter arguments
+        shell: bash
         run: |
+          set -e
 
+          SCRIPT="${{ steps.paths.outputs.script }}"
+
+          echo "=========================================="
+          echo "CHECK SPLITTER ARGUMENTS"
+          echo "=========================================="
+
+          python "$SCRIPT" --help
+
+      # ============================================================
+      # 9. 执行中文 + 英文双语拆解
+      # ============================================================
+      - name: Split Chinese and English
+        shell: bash
+        run: |
           set -e
 
           TODAY="${{ steps.date.outputs.today }}"
 
           ZH="${{ steps.paths.outputs.zh }}"
-
           EN="${{ steps.paths.outputs.en }}"
-
           OUTPUT="${{ steps.paths.outputs.output }}"
-
           SCRIPT="${{ steps.paths.outputs.script }}"
 
-
           echo "=========================================="
-
           echo "HORIZON BILINGUAL SPLIT V6"
-
           echo "=========================================="
 
+          echo
+          echo "SCRIPT:"
+          echo "$SCRIPT"
+
+          echo
+          echo "DATE:"
+          echo "$TODAY"
+
+          echo
+          echo "CHINESE INPUT:"
+          echo "$ZH"
+
+          echo
+          echo "ENGLISH INPUT:"
+          echo "$EN"
+
+          echo
+          echo "OUTPUT:"
+          echo "$OUTPUT"
+
+          echo
+          echo "=========================================="
+          echo "RUNNING SPLITTER"
+          echo "=========================================="
 
           python "$SCRIPT" \
-
             --zh "$ZH" \
-
             --en "$EN" \
-
             --output "$OUTPUT" \
-
             --date "$TODAY"
 
+          echo
+          echo "=========================================="
+          echo "SPLITTER FINISHED"
+          echo "=========================================="
 
       # ============================================================
-      # 8. 验证目录
+      # 10. 验证 Atomic 根目录
       # ============================================================
-
-      - name: Validate output directories
-
+      - name: Validate Atomic root
+        shell: bash
         run: |
-
           set -e
 
           TODAY="${{ steps.date.outputs.today }}"
 
-          ROOT="01_自生长知识系统/Raw News/${TODAY}-Atomic"
-
-          ZH="$ROOT/zh"
-
-          EN="$ROOT/en"
-
+          DIR="01_自生长知识系统/Raw News/${TODAY}-Atomic"
 
           echo "=========================================="
-
-          echo "VALIDATE DIRECTORIES"
-
+          echo "VALIDATE ATOMIC ROOT"
           echo "=========================================="
 
-
-          if [ ! -d "$ZH" ]; then
-
-            echo "❌ zh directory missing"
-
+          if [ ! -d "$DIR" ]; then
+            echo "❌ Atomic directory missing:"
+            echo "$DIR"
             exit 1
-
           fi
 
-
-          if [ ! -d "$EN" ]; then
-
-            echo "❌ en directory missing"
-
-            exit 1
-
-          fi
-
-
-          echo "✅ zh directory exists"
-
-          echo "✅ en directory exists"
-
-
-      # ============================================================
-      # 9. 验证文件数量
-      # ============================================================
-
-      - name: Validate file counts
-
-        run: |
-
-          set -e
-
-          TODAY="${{ steps.date.outputs.today }}"
-
-          ROOT="01_自生长知识系统/Raw News/${TODAY}-Atomic"
-
-          ZH="$ROOT/zh"
-
-          EN="$ROOT/en"
-
-
-          ZH_COUNT=$(find "$ZH" -maxdepth 1 -type f -name "*.md" | wc -l)
-
-          EN_COUNT=$(find "$EN" -maxdepth 1 -type f -name "*.md" | wc -l)
-
-
-          echo "=========================================="
-
-          echo "FILE COUNTS"
-
-          echo "=========================================="
-
-
-          echo "Chinese : $ZH_COUNT"
-
-          echo "English : $EN_COUNT"
-
-
-          if [ "$ZH_COUNT" -eq 0 ]; then
-
-            echo "❌ Chinese files = 0"
-
-            exit 1
-
-          fi
-
-
-          if [ "$EN_COUNT" -eq 0 ]; then
-
-            echo "❌ English files = 0"
-
-            exit 1
-
-          fi
-
-
-      # ============================================================
-      # 10. 检查内容长度
-      # ============================================================
-
-      - name: Validate content quality
-
-        run: |
-
-          set -e
-
-          TODAY="${{ steps.date.outputs.today }}"
-
-          ROOT="01_自生长知识系统/Raw News/${TODAY}-Atomic"
-
-
-          echo "=========================================="
-
-          echo "CONTENT QUALITY CHECK"
-
-          echo "=========================================="
-
-
-          FAILED=0
-
-
-          while IFS= read -r FILE
-
-          do
-
-            SIZE=$(wc -c < "$FILE")
-
-
-            if [ "$SIZE" -lt 250 ]; then
-
-              echo "❌ TOO SHORT: $FILE ($SIZE bytes)"
-
-              FAILED=1
-
-            else
-
-              echo "✅ $FILE ($SIZE bytes)"
-
-            fi
-
-          done < <(
-
-            find "$ROOT" \
-
-              -type f \
-
-              -name "*.md" \
-
-              | sort
-
-          )
-
-
-          if [ "$FAILED" -eq 1 ]; then
-
-            echo
-
-            echo "❌ Content quality check failed."
-
-            exit 1
-
-          fi
-
+          echo "✅ Atomic root exists"
 
           echo
-
-          echo "✅ Content quality check passed."
-
+          echo "Directory:"
+          find "$DIR" -maxdepth 2 -type d | sort
 
       # ============================================================
-      # 11. 检查 YAML
+      # 11. 验证中文
       # ============================================================
-
-      - name: Validate front matter
-
+      - name: Validate Chinese Atomic News
+        shell: bash
         run: |
-
-          set -e
-
-          TODAY="${{ steps.date.outputs.today }}"
-
-          ROOT="01_自生长知识系统/Raw News/${TODAY}-Atomic"
-
-
-          echo "=========================================="
-
-          echo "FRONT MATTER CHECK"
-
-          echo "=========================================="
-
-
-          FAILED=0
-
-
-          while IFS= read -r FILE
-
-          do
-
-            echo
-
-            echo "Checking: $FILE"
-
-
-            if ! head -n 1 "$FILE" | grep -q "^---$"; then
-
-              echo "❌ Missing YAML front matter"
-
-              FAILED=1
-
-              continue
-
-            fi
-
-
-            for FIELD in \
-
-              "title:" \
-
-              "date:" \
-
-              "type:" \
-
-              "source:" \
-
-              "language:" \
-
-              "original_source:" \
-
-              "original_url:" \
-
-              "status:"
-
-            do
-
-              if ! grep -q "^$FIELD" "$FILE"; then
-
-                echo "❌ Missing field: $FIELD"
-
-                FAILED=1
-
-              fi
-
-            done
-
-
-          done < <(
-
-            find "$ROOT" \
-
-              -type f \
-
-              -name "*.md" \
-
-              | sort
-
-          )
-
-
-          if [ "$FAILED" -eq 1 ]; then
-
-            echo
-
-            echo "❌ Front matter validation failed."
-
-            exit 1
-
-          fi
-
-
-          echo
-
-          echo "✅ Front matter validation passed."
-
-
-      # ============================================================
-      # 12. 预览中文
-      # ============================================================
-
-      - name: Preview Chinese
-
-        run: |
-
           set -e
 
           TODAY="${{ steps.date.outputs.today }}"
 
           DIR="01_自生长知识系统/Raw News/${TODAY}-Atomic/zh"
 
-
+          echo "=========================================="
+          echo "VALIDATE CHINESE ATOMIC NEWS"
           echo "=========================================="
 
-          echo "CHINESE PREVIEW"
+          if [ ! -d "$DIR" ]; then
+            echo "❌ Chinese directory missing:"
+            echo "$DIR"
+            exit 1
+          fi
 
-          echo "=========================================="
-
-
-          FILE=$(find "$DIR" \
-
+          COUNT=$(find "$DIR" \
             -maxdepth 1 \
-
             -type f \
-
             -name "*.md" \
+            | wc -l)
 
-            | sort \
+          echo "Chinese MD files: $COUNT"
 
-            | head -n 1)
-
+          if [ "$COUNT" -eq 0 ]; then
+            echo "❌ No Chinese Atomic News generated."
+            exit 1
+          fi
 
           echo
-
-          echo "$FILE"
-
-          echo
-
-          sed -n '1,80p' "$FILE"
-
+          echo "Chinese files:"
+          find "$DIR" \
+            -maxdepth 1 \
+            -type f \
+            -name "*.md" \
+            | sort
 
       # ============================================================
-      # 13. 预览英文
+      # 12. 验证英文
       # ============================================================
-
-      - name: Preview English
-
+      - name: Validate English Atomic News
+        shell: bash
         run: |
-
           set -e
 
           TODAY="${{ steps.date.outputs.today }}"
 
           DIR="01_自生长知识系统/Raw News/${TODAY}-Atomic/en"
 
-
+          echo "=========================================="
+          echo "VALIDATE ENGLISH ATOMIC NEWS"
           echo "=========================================="
 
-          echo "ENGLISH PREVIEW"
+          if [ ! -d "$DIR" ]; then
+            echo "❌ English directory missing:"
+            echo "$DIR"
+            exit 1
+          fi
 
-          echo "=========================================="
-
-
-          FILE=$(find "$DIR" \
-
+          COUNT=$(find "$DIR" \
             -maxdepth 1 \
-
             -type f \
-
             -name "*.md" \
+            | wc -l)
 
-            | sort \
+          echo "English MD files: $COUNT"
 
-            | head -n 1)
-
+          if [ "$COUNT" -eq 0 ]; then
+            echo "❌ No English Atomic News generated."
+            exit 1
+          fi
 
           echo
-
-          echo "$FILE"
-
-          echo
-
-          sed -n '1,80p' "$FILE"
-
+          echo "English files:"
+          find "$DIR" \
+            -maxdepth 1 \
+            -type f \
+            -name "*.md" \
+            | sort
 
       # ============================================================
-      # 14. Git 提交
+      # 13. 检查双语数量
       # ============================================================
-
-      - name: Commit Atomic News
-
+      - name: Compare bilingual counts
+        shell: bash
         run: |
-
           set -e
 
           TODAY="${{ steps.date.outputs.today }}"
 
-          ROOT="01_自生长知识系统/Raw News/${TODAY}-Atomic"
+          ZH_DIR="01_自生长知识系统/Raw News/${TODAY}-Atomic/zh"
+          EN_DIR="01_自生长知识系统/Raw News/${TODAY}-Atomic/en"
 
+          ZH_COUNT=$(find "$ZH_DIR" \
+            -maxdepth 1 \
+            -type f \
+            -name "*.md" \
+            | wc -l)
+
+          EN_COUNT=$(find "$EN_DIR" \
+            -maxdepth 1 \
+            -type f \
+            -name "*.md" \
+            | wc -l)
+
+          echo "=========================================="
+          echo "BILINGUAL RESULT"
+          echo "=========================================="
+
+          echo "ZH: $ZH_COUNT"
+          echo "EN: $EN_COUNT"
+
+          if [ "$ZH_COUNT" -le 0 ]; then
+            echo "❌ Chinese result is empty."
+            exit 1
+          fi
+
+          if [ "$EN_COUNT" -le 0 ]; then
+            echo "❌ English result is empty."
+            exit 1
+          fi
+
+          echo
+          echo "✅ Both languages generated."
+
+      # ============================================================
+      # 14. 检查 YAML Front Matter
+      # ============================================================
+      - name: Validate Front Matter
+        shell: bash
+        run: |
+          set -e
+
+          TODAY="${{ steps.date.outputs.today }}"
+
+          ZH_DIR="01_自生长知识系统/Raw News/${TODAY}-Atomic/zh"
+          EN_DIR="01_自生长知识系统/Raw News/${TODAY}-Atomic/en"
+
+          echo "=========================================="
+          echo "VALIDATE FRONT MATTER"
+          echo "=========================================="
+
+          for DIR in "$ZH_DIR" "$EN_DIR"
+          do
+            FILE=$(find "$DIR" \
+              -maxdepth 1 \
+              -type f \
+              -name "*.md" \
+              | sort \
+              | head -n 1)
+
+            if [ -z "$FILE" ]; then
+              echo "❌ No markdown file found in $DIR"
+              exit 1
+            fi
+
+            echo
+            echo "Checking:"
+            echo "$FILE"
+
+            if ! head -n 1 "$FILE" | grep -q "^---$"; then
+              echo "❌ YAML Front Matter missing:"
+              echo "$FILE"
+              exit 1
+            fi
+
+            echo "✅ Front Matter detected"
+
+            sed -n '1,18p' "$FILE"
+          done
+
+      # ============================================================
+      # 15. 检查原文信息字段
+      # ============================================================
+      - name: Validate source metadata
+        shell: bash
+        run: |
+          set -e
+
+          TODAY="${{ steps.date.outputs.today }}"
+
+          DIR="01_自生长知识系统/Raw News/${TODAY}-Atomic"
+
+          echo "=========================================="
+          echo "VALIDATE SOURCE METADATA"
+          echo "=========================================="
+
+          FOUND=0
+
+          while IFS= read -r FILE
+          do
+            if grep -q "^original_source:" "$FILE" || \
+               grep -q "^source:" "$FILE"; then
+
+              FOUND=1
+
+              echo "Metadata found:"
+              echo "$FILE"
+
+              sed -n '1,18p' "$FILE"
+
+              break
+            fi
+          done < <(
+            find "$DIR" \
+              -type f \
+              -name "*.md" \
+              | sort
+          )
+
+          if [ "$FOUND" -eq 0 ]; then
+            echo "⚠️ Warning: no source metadata detected."
+            echo "The workflow will continue."
+          else
+            echo "✅ Source metadata detected."
+          fi
+
+      # ============================================================
+      # 16. Git 提交
+      # ============================================================
+      - name: Commit Atomic News
+        shell: bash
+        run: |
+          set -e
+
+          TODAY="${{ steps.date.outputs.today }}"
 
           git config user.name "748686 Knowledge Bot"
-
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-
-          git add "$ROOT"
-
+          git add \
+            "01_自生长知识系统/Raw News/${TODAY}-Atomic"
 
           if git diff --cached --quiet; then
-
             echo "No Atomic News changes."
-
           else
 
             git commit \
-
-              -m "chore: split Horizon bilingual digest into atomic news ${TODAY}"
+              -m "chore: split bilingual Horizon digest into atomic news ${TODAY}"
 
             git push
-
           fi
 
-
           echo
-
           echo "=========================================="
-
           echo "✅ HORIZON BILINGUAL SPLIT V6 COMPLETE"
-
           echo "=========================================="
 
-
           echo
-
-          echo "Output:"
-
-          echo "$ROOT/zh"
-
-          echo "$ROOT/en"
+          echo "Generated:"
+          echo "  zh → ${TODAY}-Atomic/zh"
+          echo "  en → ${TODAY}-Atomic/en"
