@@ -105,7 +105,7 @@ jobs:
         run: |
           uv run horizon \
             --hours 24 \
-            --config "$GITHUB_WORKSPACE/01_自生长知识系统/00_System/horizon_runtime_config.json"
+            --config data/config.github.json
 
       # ==========================================
       # 8. 获取自己的 Horizon gh-pages
