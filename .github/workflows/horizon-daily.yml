@@ -1,0 +1,190 @@
+name: 01 自生长知识系统 - Horizon 测试
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  horizon:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # ==========================================
+      # 1. 获取自己的 748686obsidian 仓库
+      # ==========================================
+      - name: Checkout 748686obsidian
+        uses: actions/checkout@v4
+
+      # ==========================================
+      # 2. 获取自己的 Horizon main
+      # ==========================================
+      - name: Checkout my Horizon main
+        uses: actions/checkout@v4
+        with:
+          repository: 748686/Horizon
+          ref: main
+          path: horizon
+
+      # ==========================================
+      # 3. 安装 uv
+      # ==========================================
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      # ==========================================
+      # 4. 设置 Python
+      # ==========================================
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # ==========================================
+      # 5. 安装 Horizon
+      # ==========================================
+      - name: Install Horizon
+        working-directory: horizon
+        run: |
+          uv sync
+
+      # ==========================================
+      # 6. 生成 Horizon 运行配置
+      # ==========================================
+      - name: Build Horizon config
+        env:
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          AI_BASE_URL: ${{ secrets.AI_BASE_URL }}
+          AI_MODEL: ${{ secrets.AI_MODEL }}
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          system_dir = Path("01_自生长知识系统/00_System")
+
+          config_file = system_dir / "horizon_config.json"
+          rss_file = system_dir / "rss_sources.json"
+          runtime_file = system_dir / "horizon_runtime_config.json"
+
+          config = json.loads(
+              config_file.read_text(encoding="utf-8")
+          )
+
+          rss = json.loads(
+              rss_file.read_text(encoding="utf-8")
+          )
+
+          config["sources"]["rss"] = [
+              item
+              for item in rss
+              if item.get("enabled", True)
+          ]
+
+          runtime_file.write_text(
+              json.dumps(
+                  config,
+                  ensure_ascii=False,
+                  indent=2
+              ),
+              encoding="utf-8"
+          )
+
+          print("Horizon runtime config created:")
+          print(runtime_file)
+
+      # ==========================================
+      # 7. 运行自己的 Horizon
+      # ==========================================
+      - name: Run Horizon
+        working-directory: horizon
+        env:
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          AI_BASE_URL: ${{ secrets.AI_BASE_URL }}
+          AI_MODEL: ${{ secrets.AI_MODEL }}
+        run: |
+          uv run horizon \
+            --hours 24 \
+            --config "$GITHUB_WORKSPACE/01_自生长知识系统/00_System/horizon_runtime_config.json"
+
+      # ==========================================
+      # 8. 获取自己的 Horizon gh-pages
+      # ==========================================
+      - name: Checkout Horizon gh-pages
+        uses: actions/checkout@v4
+        with:
+          repository: 748686/Horizon
+          ref: gh-pages
+          path: horizon-pages
+
+      # ==========================================
+      # 9. 查看 Horizon gh-pages/_posts
+      # ==========================================
+      - name: Inspect Horizon posts
+        run: |
+          echo "=========================================="
+          echo "Horizon gh-pages/_posts"
+          echo "=========================================="
+
+          if [ -d "horizon-pages/_posts" ]; then
+            find horizon-pages/_posts \
+              -type f \
+              -name "*.md" \
+              | sort
+          else
+            echo "_posts directory not found"
+            exit 1
+          fi
+
+      # ==========================================
+      # 10. 把 Horizon 日报复制到 Raw News
+      # ==========================================
+      - name: Copy Horizon posts to Raw News
+        run: |
+          set -e
+
+          TODAY=$(date -u +%Y-%m-%d)
+
+          RAW_DIR="01_自生长知识系统/Raw News/$TODAY"
+
+          mkdir -p "$RAW_DIR"
+
+          echo "=========================================="
+          echo "Copying Horizon posts"
+          echo "=========================================="
+
+          find horizon-pages/_posts \
+            -type f \
+            -name "*.md" \
+            -exec cp {} "$RAW_DIR/" \;
+
+          echo ""
+          echo "=========================================="
+          echo "Raw News result"
+          echo "=========================================="
+
+          find "$RAW_DIR" \
+            -maxdepth 1 \
+            -type f \
+            | sort
+
+      # ==========================================
+      # 11. 保存到 748686obsidian
+      # ==========================================
+      - name: Commit Raw News
+        run: |
+          git config user.name "748686 Knowledge Bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add "01_自生长知识系统/Raw News"
+
+          if git diff --cached --quiet; then
+            echo "No Raw News changes"
+          else
+            git commit \
+              -m "chore: import Horizon Raw News $(date -u +%Y-%m-%d)"
+
+            git push
+          fi
