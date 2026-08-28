@@ -1,4 +1,4 @@
-name: 01 自生长知识系统 - 日报拆解测试
+name: 02 自生长知识系统 - Horizon日报拆解 V3
 
 on:
   workflow_dispatch:
@@ -7,85 +7,690 @@ permissions:
   contents: write
 
 jobs:
-  split:
+  split-horizon-digest:
     runs-on: ubuntu-latest
 
     steps:
 
-      # =====================================================
-      # 1. 获取 748686obsidian
-      # =====================================================
+      # ==========================================================
+      # 1. Checkout 748686obsidian
+      # ==========================================================
       - name: Checkout 748686obsidian
         uses: actions/checkout@v4
 
-      # =====================================================
-      # 2. 显示 Raw News 当前结构
-      # =====================================================
-      - name: Inspect Raw News
+      # ==========================================================
+      # 2. 找到最新 Raw News 日报
+      # ==========================================================
+      - name: Find latest Horizon digest
+        id: find_digest
+        shell: bash
         run: |
+          set -e
+
+          BASE="01_自生长知识系统/Raw News"
+
           echo "=========================================="
-          echo "Raw News"
+          echo "Searching Horizon Raw News"
           echo "=========================================="
 
-          find "01_自生长知识系统/Raw News" \
-            -maxdepth 2 \
-            -type f \
-            -name "*.md" \
-            | sort
+          if [ ! -d "$BASE" ]; then
+            echo "ERROR: $BASE not found"
+            exit 1
+          fi
 
-      # =====================================================
-      # 3. 运行日报拆解器
-      # =====================================================
-      - name: Split Horizon Digest
+          LATEST=$(find "$BASE" \
+            -mindepth 1 \
+            -maxdepth 1 \
+            -type d \
+            -name "2026-*" \
+            | sort \
+            | tail -n 1)
+
+          if [ -z "$LATEST" ]; then
+            echo "ERROR: No date directory found"
+            exit 1
+          fi
+
+          DATE=$(basename "$LATEST")
+
+          echo "Latest date: $DATE"
+          echo "Latest directory: $LATEST"
+
+          ZH="$LATEST/${DATE}-summary-zh.md"
+          EN="$LATEST/${DATE}-summary-en.md"
+
+          if [ ! -f "$ZH" ] && [ ! -f "$EN" ]; then
+            echo "ERROR: No Horizon summary found"
+            echo "Expected:"
+            echo "$ZH"
+            echo "$EN"
+            exit 1
+          fi
+
+          echo "zh=$ZH" >> "$GITHUB_OUTPUT"
+          echo "en=$EN" >> "$GITHUB_OUTPUT"
+          echo "date=$DATE" >> "$GITHUB_OUTPUT"
+
+      # ==========================================================
+      # 3. 安装 Python
+      # ==========================================================
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # ==========================================================
+      # 4. 创建第三版拆解脚本
+      # ==========================================================
+      - name: Create V3 splitter
+        shell: bash
         run: |
-          python "01_自生长知识系统/scripts/split_horizon_digest.py"
+          cat > /tmp/split_horizon_v3.py <<'PY'
+          from pathlib import Path
+          import re
+          import sys
+          import unicodedata
 
-      # =====================================================
-      # 4. 检查生成结果
-      # =====================================================
+
+          def clean_filename(name: str) -> str:
+              """
+              将新闻标题转换成安全的 Markdown 文件名。
+              """
+
+              name = unicodedata.normalize("NFKC", name)
+
+              # 去掉 Markdown 标记
+              name = re.sub(r'[*_`#]+', '', name)
+
+              # 去掉 Horizon 常见编号
+              name = re.sub(r'^\s*\d+[\.\、\)]\s*', '', name)
+
+              # 去掉评分
+              name = re.sub(r'\s*[（(]\s*\d+(?:\.\d+)?\s*/\s*10\s*[）)]\s*$', '', name)
+              name = re.sub(r'\s+\d+(?:\.\d+)?\s*/\s*10\s*$', '', name)
+
+              # 文件系统非法字符
+              name = re.sub(r'[\\/:*?"<>|]', '-', name)
+
+              # 压缩空白
+              name = re.sub(r'\s+', ' ', name).strip()
+
+              # 去除首尾符号
+              name = name.strip(' .-_')
+
+              if not name:
+                  name = "未命名新闻"
+
+              # 防止文件名过长
+              return name[:100]
+
+
+          def extract_score(text: str):
+              """
+              从新闻附近提取 Horizon 评分。
+              """
+
+              patterns = [
+                  r'(\d+(?:\.\d+)?)\s*/\s*10',
+                  r'评分[:：]?\s*(\d+(?:\.\d+)?)',
+              ]
+
+              for pattern in patterns:
+                  m = re.search(pattern, text)
+                  if m:
+                      try:
+                          return float(m.group(1))
+                      except:
+                          pass
+
+              return None
+
+
+          def is_heading_line(line: str) -> bool:
+              """
+              判断是否像新闻标题。
+              """
+
+              s = line.strip()
+
+              if not s:
+                  return False
+
+              # Markdown 标题
+              if re.match(r'^#{1,6}\s+', s):
+                  return True
+
+              # Horizon 新闻列表
+              if re.match(r'^\d+[\.\、\)]\s+', s):
+                  return True
+
+              return False
+
+
+          def clean_title(line: str) -> str:
+              s = line.strip()
+
+              s = re.sub(r'^#{1,6}\s*', '', s)
+
+              s = re.sub(
+                  r'^\d+[\.\、\)]\s*',
+                  '',
+                  s
+              )
+
+              # 去掉末尾评分
+              s = re.sub(
+                  r'\s+\d+(?:\.\d+)?\s*/\s*10\s*$',
+                  '',
+                  s
+              )
+
+              return s.strip()
+
+
+          def find_articles(text: str):
+              """
+              Horizon Summary V3 解析器。
+
+              核心思想：
+              1. 找到 Horizon 的编号新闻
+              2. 使用后面的同名标题作为正文起点
+              3. 将每篇新闻切出来
+              """
+
+              lines = text.splitlines()
+
+              candidates = []
+
+              # --------------------------------------------------
+              # 第一阶段：找到日报顶部的重要资讯列表
+              # --------------------------------------------------
+
+              for i, line in enumerate(lines):
+
+                  m = re.match(
+                      r'^\s*(\d+)[\.\、\)]\s+(.+?)\s*$',
+                      line
+                  )
+
+                  if not m:
+                      continue
+
+                  number = int(m.group(1))
+                  title = clean_title(m.group(2))
+
+                  # 排除明显不是新闻的编号
+                  if len(title) < 6:
+                      continue
+
+                  # 如果后面紧跟评分，则更像 Horizon 新闻
+                  nearby = "\n".join(
+                      lines[i:min(i + 3, len(lines))]
+                  )
+
+                  score = extract_score(nearby)
+
+                  candidates.append({
+                      "number": number,
+                      "title": title,
+                      "score": score,
+                      "list_index": i,
+                  })
+
+              # --------------------------------------------------
+              # 去重
+              # --------------------------------------------------
+
+              unique = []
+
+              seen = set()
+
+              for item in candidates:
+
+                  key = re.sub(
+                      r'\s+',
+                      '',
+                      item["title"]
+                  ).lower()
+
+                  if key in seen:
+                      continue
+
+                  seen.add(key)
+                  unique.append(item)
+
+              # --------------------------------------------------
+              # 第二阶段：
+              # 找到每条新闻真正的正文标题
+              # --------------------------------------------------
+
+              articles = []
+
+              for index, item in enumerate(unique):
+
+                  title = item["title"]
+
+                  # 从列表之后搜索相同标题
+                  start_search = item["list_index"] + 1
+
+                  body_start = None
+
+                  normalized_title = re.sub(
+                      r'\s+',
+                      '',
+                      title
+                  )
+
+                  for j in range(
+                      start_search,
+                      len(lines)
+                  ):
+
+                      candidate = clean_title(lines[j])
+
+                      normalized_candidate = re.sub(
+                          r'\s+',
+                          '',
+                          candidate
+                      )
+
+                      if (
+                          normalized_candidate == normalized_title
+                          or normalized_title in normalized_candidate
+                          or normalized_candidate in normalized_title
+                      ):
+                          body_start = j
+                          break
+
+                  # ------------------------------------------------
+                  # 如果找不到正文标题
+                  # ------------------------------------------------
+
+                  if body_start is None:
+
+                      # 仍然保留标题，避免静默丢失
+                      body_start = item["list_index"]
+
+                  # ------------------------------------------------
+                  # 找下一篇正文的开始位置
+                  # ------------------------------------------------
+
+                  body_end = len(lines)
+
+                  if index + 1 < len(unique):
+
+                      next_title = unique[index + 1]["title"]
+
+                      normalized_next = re.sub(
+                          r'\s+',
+                          '',
+                          next_title
+                      )
+
+                      for j in range(
+                          body_start + 1,
+                          len(lines)
+                      ):
+
+                          candidate = clean_title(lines[j])
+
+                          normalized_candidate = re.sub(
+                              r'\s+',
+                              '',
+                              candidate
+                          )
+
+                          if (
+                              normalized_candidate == normalized_next
+                              or normalized_next in normalized_candidate
+                              or normalized_candidate in normalized_next
+                          ):
+                              body_end = j
+                              break
+
+                  body = "\n".join(
+                      lines[body_start:body_end]
+                  ).strip()
+
+                  articles.append({
+                      "number": item["number"],
+                      "title": title,
+                      "score": item["score"],
+                      "body": body,
+                  })
+
+              return articles
+
+
+          def make_markdown(article, date, language):
+
+              title = article["title"]
+
+              score = article["score"]
+
+              if score is None:
+                  score_text = ""
+              else:
+                  score_text = f"{score:.1f}"
+
+              body = article["body"]
+
+              # 去掉正文最开始重复的标题
+              body_lines = body.splitlines()
+
+              if body_lines:
+
+                  first = clean_title(body_lines[0])
+
+                  if (
+                      re.sub(r'\s+', '', first)
+                      ==
+                      re.sub(r'\s+', '', title)
+                  ):
+                      body_lines = body_lines[1:]
+
+              body = "\n".join(body_lines).strip()
+
+              if not body:
+                  body = "（Horizon 未提供正文内容）"
+
+              return f"""---
+          title: "{title.replace('"', '\\"')}"
+          date: {date}
+          type: "原子新闻"
+          source: "Horizon"
+          language: "{language}"
+          horizon_score: {score_text if score_text else 'null'}
+          status: "待AI处理"
+          ---
+
+          # {title}
+
+          ## Horizon 摘要
+
+          {body}
+
+          ## AI二次处理
+
+          待27 Skills处理
+
+          ## 知识关联
+
+          待AI建立
+
+          ## 最终分类
+
+          待AI分类
+          """
+
+
+          def process_file(
+              source_file: Path,
+              output_dir: Path,
+              date: str,
+              language: str
+          ):
+
+              print()
+              print("=" * 70)
+              print(f"Processing: {source_file}")
+              print("=" * 70)
+
+              text = source_file.read_text(
+                  encoding="utf-8"
+              )
+
+              articles = find_articles(text)
+
+              print(
+                  f"Detected {len(articles)} candidate articles"
+              )
+
+              if not articles:
+                  print(
+                      "ERROR: No articles detected."
+                  )
+                  return 0
+
+              output_dir.mkdir(
+                  parents=True,
+                  exist_ok=True
+              )
+
+              generated = 0
+
+              for article in articles:
+
+                  filename = clean_filename(
+                      article["title"]
+                  )
+
+                  # 如果同名文件冲突
+                  path = output_dir / f"{filename}.md"
+
+                  counter = 2
+
+                  while path.exists():
+
+                      path = output_dir / (
+                          f"{filename}-{counter}.md"
+                      )
+
+                      counter += 1
+
+                  content = make_markdown(
+                      article,
+                      date,
+                      language
+                  )
+
+                  path.write_text(
+                      content,
+                      encoding="utf-8"
+                  )
+
+                  generated += 1
+
+                  score = article["score"]
+
+                  score_display = (
+                      f"{score:.1f}/10"
+                      if score is not None
+                      else "N/A"
+                  )
+
+                  print(
+                      f"[{generated}] "
+                      f"{article['title']} "
+                      f"({score_display})"
+                  )
+
+              print(
+                  f"Generated {generated} files."
+              )
+
+              return generated
+
+
+          def main():
+
+              date = sys.argv[1]
+              zh_file = Path(sys.argv[2])
+              en_file = Path(sys.argv[3])
+
+              output_dir = Path(
+                  f"01_自生长知识系统/Raw News/"
+                  f"{date}-Atomic"
+              )
+
+              total = 0
+
+              if zh_file.exists():
+
+                  total += process_file(
+                      zh_file,
+                      output_dir,
+                      date,
+                      "zh"
+                  )
+
+              if en_file.exists():
+
+                  total += process_file(
+                      en_file,
+                      output_dir,
+                      date,
+                      "en"
+                  )
+
+              print()
+              print("=" * 70)
+              print(
+                  f"TOTAL GENERATED: {total}"
+              )
+              print("=" * 70)
+
+              # --------------------------------------------------
+              # 最重要的保险：
+              # 如果没有任何文件，Action 必须失败
+              # --------------------------------------------------
+
+              if total == 0:
+
+                  print(
+                      "ERROR: Horizon digest was found "
+                      "but no atomic news were generated."
+                  )
+
+                  sys.exit(1)
+
+
+          if __name__ == "__main__":
+              main()
+          PY
+
+      # ==========================================================
+      # 5. 执行拆解
+      # ==========================================================
+      - name: Split Horizon Digest V3
+        shell: bash
+        run: |
+          set -e
+
+          DATE="${{ steps.find_digest.outputs.date }}"
+          ZH="${{ steps.find_digest.outputs.zh }}"
+          EN="${{ steps.find_digest.outputs.en }}"
+
+          echo "=========================================="
+          echo "Horizon Digest Splitter V3"
+          echo "=========================================="
+
+          echo "Date: $DATE"
+          echo "ZH:   $ZH"
+          echo "EN:   $EN"
+
+          python /tmp/split_horizon_v3.py \
+            "$DATE" \
+            "$ZH" \
+            "$EN"
+
+      # ==========================================================
+      # 6. 检查生成结果
+      # ==========================================================
       - name: Inspect Atomic News
+        shell: bash
         run: |
+          set -e
+
+          DATE="${{ steps.find_digest.outputs.date }}"
+
+          ATOMIC_DIR="01_自生长知识系统/Raw News/${DATE}-Atomic"
+
           echo "=========================================="
-          echo "Atomic News"
+          echo "Atomic News Directory"
           echo "=========================================="
 
-          find "01_自生长知识系统/Raw News" \
-            -maxdepth 2 \
+          if [ ! -d "$ATOMIC_DIR" ]; then
+            echo "ERROR: Atomic directory not found"
+            exit 1
+          fi
+
+          COUNT=$(find "$ATOMIC_DIR" \
+            -maxdepth 1 \
+            -type f \
+            -name "*.md" \
+            | wc -l)
+
+          echo "Atomic MD count: $COUNT"
+
+          if [ "$COUNT" -eq 0 ]; then
+            echo "ERROR: Zero atomic files"
+            exit 1
+          fi
+
+          echo ""
+          echo "Generated files:"
+          find "$ATOMIC_DIR" \
+            -maxdepth 1 \
             -type f \
             -name "*.md" \
             | sort
 
-      # =====================================================
-      # 5. 显示生成数量
-      # =====================================================
-      - name: Count Atomic News
-        run: |
-          echo "=========================================="
-          echo "Atomic News Count"
-          echo "=========================================="
-
-          find "01_自生长知识系统/Raw News" \
-            -mindepth 2 \
-            -maxdepth 2 \
-            -type f \
-            -name "*.md" \
-            | wc -l
-
-      # =====================================================
-      # 6. 提交原子新闻
-      # =====================================================
+      # ==========================================================
+      # 7. Commit
+      # ==========================================================
       - name: Commit Atomic News
+        shell: bash
         run: |
+          set -e
+
+          DATE="${{ steps.find_digest.outputs.date }}"
+
           git config user.name "748686 Knowledge Bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add "01_自生长知识系统/Raw News"
+          git add \
+            "01_自生长知识系统/Raw News/${DATE}-Atomic"
 
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
             git commit \
-              -m "test: split Horizon digest into atomic news"
+              -m "feat: split Horizon digest into atomic news ${DATE}"
 
             git push
           fi
+
+      # ==========================================================
+      # 8. 最终报告
+      # ==========================================================
+      - name: Final report
+        shell: bash
+        run: |
+          DATE="${{ steps.find_digest.outputs.date }}"
+
+          ATOMIC_DIR="01_自生长知识系统/Raw News/${DATE}-Atomic"
+
+          COUNT=$(find "$ATOMIC_DIR" \
+            -maxdepth 1 \
+            -type f \
+            -name "*.md" \
+            | wc -l)
+
+          echo ""
+          echo "=========================================="
+          echo "✅ Horizon Digest Split V3 COMPLETE"
+          echo "=========================================="
+          echo ""
+          echo "Date:"
+          echo "$DATE"
+          echo ""
+          echo "Atomic News:"
+          echo "$COUNT"
+          echo ""
+          echo "Output:"
+          echo "$ATOMIC_DIR"
+          echo ""
+          echo "Next stage:"
+          echo "27 Skills → AI Processing"
+          echo "=========================================="
