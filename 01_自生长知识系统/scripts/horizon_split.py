@@ -2,17 +2,19 @@
 # -*- coding: utf-8 -*-
 
 """
-Horizon 双语日报拆解器 V5
+Horizon Bilingual Digest Splitter V6
 
-核心目标：
-1. 同时处理 summary-zh.md 和 summary-en.md
-2. 中文、英文分别拆解
+功能：
+1. 同时处理中文 / 英文 Horizon 日报
+2. 自动识别排行资讯
 3. 每条资讯生成独立 Markdown
-4. source 使用真实新闻来源，而不是 Horizon
-5. 尽可能保留 Horizon 对该新闻的完整摘要
-6. 尝试提取作者、来源、原文链接
-7. 不依赖固定的 Horizon UI 文案
-8. 为后续 27 Skills AI 二次处理保留足够上下文
+4. zh / en 分开保存
+5. 保留 Horizon 的完整上下文
+6. 尽可能提取真实新闻来源
+7. 尽可能提取原文 URL
+8. YAML Front Matter 标准化
+9. 不使用“原子新闻”作为新闻类型
+10. Horizon 只作为 original_source
 """
 
 from __future__ import annotations
@@ -21,7 +23,6 @@ import argparse
 import html
 import re
 from pathlib import Path
-from urllib.parse import urlparse
 
 
 # ============================================================
@@ -40,6 +41,7 @@ def clean_text(text: str) -> str:
     replacements = {
         "&#x27;": "'",
         "&#X27;": "'",
+        "&#39;": "'",
         "&apos;": "'",
         "&quot;": '"',
         "&amp;": "&",
@@ -49,40 +51,33 @@ def clean_text(text: str) -> str:
         "[&-x27;": "'",
         "[&-×27;": "'",
         "&#×27;": "'",
-        "&-x27;": "'",
-        "&-×27;": "'",
-        "&#x2": "",
     }
 
     for old, new in replacements.items():
         text = text.replace(old, new)
 
-    # 清除 HTML 标签
+    # HTML 标签
     text = re.sub(r"<[^>]+>", "", text)
 
-    # 清理多余空格
-    text = re.sub(r"[ \t]+", " ", text)
+    # Markdown 图片
+    text = re.sub(r"!\[[^\]]*\]\([^)]+\)", "", text)
 
-    # 清理明显残留
-    text = text.replace("?/10", "")
-    text = text.replace("？/10", "")
+    # 多余空格
+    text = re.sub(r"[ \t]+", " ", text)
 
     return text.strip()
 
 
 def yaml_escape(text: str) -> str:
-    """安全生成 YAML 双引号字符串。"""
-
     text = clean_text(text)
     text = text.replace("\\", "\\\\")
     text = text.replace('"', '\\"')
     text = text.replace("\n", " ")
-
     return text
 
 
 # ============================================================
-# 语言识别
+# 语言判断
 # ============================================================
 
 def detect_language(path: Path, content: str) -> str:
@@ -105,156 +100,91 @@ def detect_language(path: Path, content: str) -> str:
 # 来源识别
 # ============================================================
 
-SOURCE_PATTERNS = [
-    # 国际媒体
-    (r"\bReuters\b", "Reuters"),
-    (r"\bCNN\b", "CNN"),
-    (r"\bBBC\b", "BBC"),
-    (r"\bABC News\b", "ABC News"),
-    (r"\bNBC\b", "NBC News"),
-    (r"\bCBS\b", "CBS News"),
-    (r"\bNPR\b", "NPR"),
-    (r"\bThe New York Times\b", "The New York Times"),
-    (r"\bNew York Times\b", "The New York Times"),
-    (r"\bWashington Post\b", "The Washington Post"),
-    (r"\bThe Washington Post\b", "The Washington Post"),
-    (r"\bBloomberg\b", "Bloomberg"),
-    (r"\bThe Guardian\b", "The Guardian"),
-    (r"\bGuardian\b", "The Guardian"),
-    (r"\bFinancial Times\b", "Financial Times"),
-    (r"\bThe Economist\b", "The Economist"),
-    (r"\bEconomist\b", "The Economist"),
-    (r"\bThe Atlantic\b", "The Atlantic"),
-    (r"\bAtlantic\b", "The Atlantic"),
-    (r"\bFox News\b", "Fox News"),
-    (r"\bFrance 24\b", "France 24"),
-    (r"\bLe Monde\b", "Le Monde"),
-    (r"\bLe Figaro\b", "Le Figaro"),
-    (r"\bDer Spiegel\b", "Der Spiegel"),
-    (r"\bFAZ\b", "Frankfurter Allgemeine Zeitung"),
-    (r"\bFrankfurter Allgemeine Zeitung\b", "Frankfurter Allgemeine Zeitung"),
-    (r"\bThe Observer\b", "The Observer"),
-    (r"\bJapan Times\b", "The Japan Times"),
-    (r"\bThe Japan Times\b", "The Japan Times"),
-
-    # 中国大陆
-    (r"人民日报", "人民日报"),
-    (r"新华社", "新华社"),
-    (r"央视", "央视"),
-    (r"中国新闻网", "中国新闻网"),
-    (r"中国日报", "中国日报"),
-    (r"环球时报", "环球时报"),
-    (r"澎湃", "澎湃新闻"),
-    (r"财新", "财新"),
-    (r"第一财经", "第一财经"),
-    (r"证券时报", "证券时报"),
-    (r"界面新闻", "界面新闻"),
-    (r"36氪", "36氪"),
-    (r"虎嗅", "虎嗅"),
-
-    # 香港
-    (r"\bSCMP\b", "South China Morning Post"),
-    (r"South China Morning Post", "South China Morning Post"),
-    (r"\bRTHK\b", "RTHK"),
-    (r"\bHKFP\b", "Hong Kong Free Press"),
-    (r"\bTVB\b", "TVB"),
-    (r"\bNow\b", "Now TV"),
-
-    # 台湾
-    (r"中央社", "中央社"),
-    (r"联合报", "联合报"),
-    (r"自由时报", "自由时报"),
-    (r"工商时报", "工商时报"),
-    (r"经济日报", "经济日报"),
-    (r"TVBS", "TVBS"),
-    (r"三立", "三立新闻"),
-    (r"东森", "东森新闻"),
-
-    # 日本
-    (r"\bNHK\b", "NHK"),
-    (r"共同社", "共同社"),
-    (r"日经", "日本经济新闻"),
-    (r"朝日新闻", "朝日新闻"),
-    (r"读卖新闻", "读卖新闻"),
-    (r"每日新闻", "每日新闻"),
-
-    # 韩国
-    (r"韩联社", "韩联社"),
-    (r"\bKBS\b", "KBS"),
-    (r"\bMBC\b", "MBC"),
-    (r"\bSBS\b", "SBS"),
-    (r"\bYTN\b", "YTN"),
-    (r"朝鲜日报", "朝鲜日报"),
-    (r"中央日报", "中央日报"),
-
-    # 科技 / 社区
-    (r"\bHacker News\b", "Hacker News"),
-    (r"\bOpenAI Blog\b", "OpenAI"),
-    (r"\bOpenAI\b", "OpenAI"),
-    (r"\bLessWrong\b", "LessWrong"),
-    (r"\bReddit\b", "Reddit"),
+KNOWN_SOURCES = [
+    "Reuters",
+    "BBC",
+    "CNN",
+    "ABC News",
+    "NBC News",
+    "CBS News",
+    "NPR",
+    "The New York Times",
+    "The Washington Post",
+    "The Guardian",
+    "The Economist",
+    "Financial Times",
+    "Fox News",
+    "Associated Press",
+    "AP",
+    "Bloomberg",
+    "The Atlantic",
+    "France 24",
+    "Le Monde",
+    "Le Figaro",
+    "Der Spiegel",
+    "Frankfurter Allgemeine Zeitung",
+    "Japan Times",
+    "NHK",
+    "KBS",
+    "MBC",
+    "SBS",
+    "YTN",
+    "人民日报",
+    "新华社",
+    "央视",
+    "中国新闻网",
+    "中国日报",
+    "环球时报",
+    "澎湃新闻",
+    "财新",
+    "第一财经",
+    "证券时报",
+    "界面新闻",
+    "36氪",
+    "虎嗅",
 ]
 
 
 def detect_source(text: str) -> str:
-    """
-    从标题、正文和来源信息中识别真实来源。
 
-    注意：
-    Horizon 本身永远不会作为 source。
-    """
+    text_clean = clean_text(text)
 
-    text = clean_text(text)
-
-    for pattern, source in SOURCE_PATTERNS:
-        if re.search(pattern, text, re.I):
+    for source in KNOWN_SOURCES:
+        if source.lower() in text_clean.lower():
             return source
 
-    # Hacker News 常见格式
-    if re.search(
-        r"hackernews|hacker news",
-        text,
-        re.I,
-    ):
-        return "Hacker News"
+    # URL 域名识别
+    domains = {
+        "reuters.com": "Reuters",
+        "bbc.com": "BBC",
+        "bbc.co.uk": "BBC",
+        "cnn.com": "CNN",
+        "nytimes.com": "The New York Times",
+        "washingtonpost.com": "The Washington Post",
+        "theguardian.com": "The Guardian",
+        "ft.com": "Financial Times",
+        "bloomberg.com": "Bloomberg",
+        "npr.org": "NPR",
+        "apnews.com": "Associated Press",
+        "abcnews.go.com": "ABC News",
+        "nbcnews.com": "NBC News",
+        "cbsnews.com": "CBS News",
+        "foxnews.com": "Fox News",
+        "france24.com": "France 24",
+        "lemonde.fr": "Le Monde",
+        "lefigaro.fr": "Le Figaro",
+        "spiegel.de": "Der Spiegel",
+        "faz.net": "Frankfurter Allgemeine Zeitung",
+        "japantimes.co.jp": "Japan Times",
+        "nhk.or.jp": "NHK",
+        "kbs.co.kr": "KBS",
+    }
 
-    # Reddit
-    if re.search(r"\breddit\b", text, re.I):
-        return "Reddit"
+    for domain, source in domains.items():
+        if domain in text_clean.lower():
+            return source
 
-    # 如果没有识别到
     return "Unknown"
-
-
-# ============================================================
-# 作者 / 发布者识别
-# ============================================================
-
-def detect_author(text: str) -> str:
-
-    text = clean_text(text)
-
-    patterns = [
-        r"(?:作者|作者为|撰稿人)[：:\s]+([^\n，。,；;]+)",
-        r"(?:by|By)\s+([A-Z][A-Za-z0-9 ._-]{1,80})",
-        r"提交者[：:\s]+([^\s，。,；;]+)",
-    ]
-
-    for pattern in patterns:
-
-        match = re.search(
-            pattern,
-            text,
-            re.I,
-        )
-
-        if match:
-            author = clean_text(match.group(1))
-
-            if 1 <= len(author) <= 100:
-                return author
-
-    return ""
 
 
 # ============================================================
@@ -265,92 +195,131 @@ def extract_urls(text: str) -> list[str]:
 
     urls = re.findall(
         r"https?://[^\s<>\]\)]+",
-        text,
+        text
     )
 
-    result = []
+    cleaned = []
 
     for url in urls:
 
-        url = url.rstrip(".,;，。；）)】")
+        url = url.rstrip(
+            ".,;:!?)]}>'\""
+        )
 
-        try:
-            parsed = urlparse(url)
+        if url not in cleaned:
+            cleaned.append(url)
 
-            if parsed.scheme in {"http", "https"}:
-                result.append(url)
-
-        except Exception:
-            continue
-
-    # 去重
-    seen = set()
-    output = []
-
-    for url in result:
-        if url not in seen:
-            seen.add(url)
-            output.append(url)
-
-    return output
+    return cleaned
 
 
 # ============================================================
-# Horizon 条目解析
+# Horizon 条目识别
 # ============================================================
+
+def is_rank_line(line: str):
+
+    return re.match(
+        r"^\s*(\d{1,3})\s*[\.\、\)]\s*(.+?)\s*$",
+        line
+    )
+
+
+def is_score_line(line: str):
+
+    return re.search(
+        r"(\d+(?:\.\d+)?)\s*/\s*10",
+        line
+    )
+
+
+def is_section_heading(line: str):
+
+    patterns = [
+        r"^科技新闻$",
+        r"^财经新闻$",
+        r"^国际新闻$",
+        r"^国内新闻$",
+        r"^AI新闻$",
+        r"^重要资讯$",
+        r"^核心资讯$",
+        r"^Horizon$",
+        r"^Horizon 摘要$",
+        r"^AI Creator Radar$",
+        r"^AI创作者雷达$",
+        r"^参考链接$",
+        r"^Tags?$",
+    ]
+
+    return any(
+        re.search(pattern, line, re.I)
+        for pattern in patterns
+    )
+
 
 def extract_ranked_items(content: str):
 
     lines = content.splitlines()
 
     items = []
-
     current = None
 
-    for raw_line in lines:
+    for raw in lines:
 
-        original = raw_line.rstrip()
-        line = clean_text(original)
+        line = clean_text(raw)
 
         if not line:
             continue
 
-        # ----------------------------------------------------
+        # --------------------------------------------
         # 数字排行
-        #
-        # 1. 标题
-        # 2. 标题
-        # ----------------------------------------------------
+        # --------------------------------------------
 
-        match = re.match(
-            r"^(\d{1,3})\s*[\.\、\)]\s*(.+?)\s*$",
-            line,
-        )
+        match = is_rank_line(line)
 
         if match:
 
             if current:
                 items.append(current)
 
+            rank = int(match.group(1))
+            title = clean_text(match.group(2))
+
+            # 去掉标题尾部评分
+            score_match = re.search(
+                r"(\d+(?:\.\d+)?)\s*/\s*10",
+                title
+            )
+
+            score = None
+
+            if score_match:
+
+                score = float(
+                    score_match.group(1)
+                )
+
+                title = re.sub(
+                    r"\s*\d+(?:\.\d+)?\s*/\s*10",
+                    "",
+                    title
+                ).strip()
+
             current = {
-                "rank": int(match.group(1)),
-                "title": clean_text(match.group(2)),
-                "score": None,
+                "rank": rank,
+                "title": title,
+                "score": score,
                 "body": [],
             }
 
             continue
 
-        # ----------------------------------------------------
-        # 中文版面新闻
-        #
-        # 01版-xxx
-        # ［01版-xxx］
-        # ----------------------------------------------------
+        # --------------------------------------------
+        # 中文版面标题
+        # --------------------------------------------
 
         match = re.match(
             r"^[\[［]?\s*(\d{1,2})\s*版\s*[-—–:：]?\s*(.+?)[\]］]?\s*$",
-            line,
+            line
         )
 
         if match:
@@ -367,14 +336,11 @@ def extract_ranked_items(content: str):
 
             continue
 
-        # ----------------------------------------------------
+        # --------------------------------------------
         # 评分
-        # ----------------------------------------------------
+        # --------------------------------------------
 
-        score_match = re.search(
-            r"(\d+(?:\.\d+)?)\s*/\s*10",
-            line,
-        )
+        score_match = is_score_line(line)
 
         if score_match and current:
 
@@ -383,9 +349,9 @@ def extract_ranked_items(content: str):
             )
 
             remaining = re.sub(
-                r"(\d+(?:\.\d+)?)\s*/\s*10",
+                r"\d+(?:\.\d+)?\s*/\s*10",
                 "",
-                line,
+                line
             ).strip()
 
             if remaining:
@@ -395,50 +361,16 @@ def extract_ranked_items(content: str):
 
             continue
 
-        # ----------------------------------------------------
-        # Horizon UI 噪声
-        # ----------------------------------------------------
+        # --------------------------------------------
+        # UI 噪声
+        # --------------------------------------------
 
-        skip_patterns = [
-
-            r"^Horizon$",
-            r"^Horizon 摘要$",
-            r"^Horizon Summary$",
-
-            r"^AI Creator Radar$",
-            r"^AI创作者雷达$",
-
-            r"^科技新闻$",
-            r"^财经新闻$",
-            r"^国际新闻$",
-            r"^国内新闻$",
-            r"^社会新闻$",
-            r"^体育新闻$",
-
-            r"^核心资讯$",
-            r"^重要资讯$",
-
-            r"^参考链接$",
-            r"^Tags?$",
-
-            r"^背景$",
-            r"^影响$",
-            r"^社区讨论$",
-            r"^深度分析$",
-
-            r"^从 .* 条内容中筛选",
-
-        ]
-
-        if any(
-            re.search(pattern, line, re.I)
-            for pattern in skip_patterns
-        ):
+        if is_section_heading(line):
             continue
 
-        # ----------------------------------------------------
-        # 正文
-        # ----------------------------------------------------
+        # --------------------------------------------
+        # 当前新闻正文
+        # --------------------------------------------
 
         if current:
             current["body"].append(line)
@@ -450,13 +382,12 @@ def extract_ranked_items(content: str):
 
 
 # ============================================================
-# 条目清理
+# 新闻清理
 # ============================================================
 
 def normalize_items(items):
 
     result = []
-
     seen = set()
 
     for item in items:
@@ -468,22 +399,19 @@ def normalize_items(items):
         if not title:
             continue
 
-        # 清除标题尾部评分
+        # 删除评分
         title = re.sub(
             r"\s*\d+(?:\.\d+)?\s*/\s*10\s*$",
             "",
-            title,
+            title
         ).strip()
 
-        # 清除明显的 Horizon 残留
-        title = re.sub(
-            r"^Horizon\s*[:：]\s*",
+        # 删除重复
+        key = re.sub(
+            r"\W+",
             "",
-            title,
-            flags=re.I,
+            title.lower()
         )
-
-        key = title.lower()
 
         if key in seen:
             continue
@@ -499,6 +427,7 @@ def normalize_items(items):
             if not line:
                 continue
 
+            # 重复标题
             if line == title:
                 continue
 
@@ -518,12 +447,23 @@ def normalize_items(items):
 
 def make_atomic_markdown(
     item,
-    language: str,
-    date: str,
-    rank: int,
+    language,
+    date,
 ):
 
-    title = item["title"]
+    title = clean_text(
+        item["title"]
+    )
+
+    body = item.get("body", [])
+
+    combined = "\n".join(body)
+
+    urls = extract_urls(combined)
+
+    source = detect_source(
+        title + "\n" + combined
+    )
 
     score = item.get("score")
 
@@ -533,176 +473,129 @@ def make_atomic_markdown(
         else "null"
     )
 
-    # --------------------------------------------------------
-    # 尽可能从该条新闻自己的正文识别真实来源
-    # --------------------------------------------------------
-
-    source_text = " ".join(
-        [title] + item.get("body", [])
+    original_url = (
+        urls[0]
+        if urls
+        else ""
     )
 
-    source = detect_source(source_text)
+    if language == "zh":
 
-    author = detect_author(source_text)
+        type_name = "新闻"
 
-    urls = extract_urls(source_text)
+        front = f"""---
+title: "{yaml_escape(title)}"
+date: {date}
+type: "{type_name}"
+source: "{yaml_escape(source)}"
+language: "zh"
+horizon_score: {score_text}
+original_source: "Horizon"
+original_url: "{yaml_escape(original_url)}"
+status: "待AI处理"
+---
 
-    # --------------------------------------------------------
-    # YAML
-    # --------------------------------------------------------
+# {title}
 
-    front = [
-        "---",
-        f'title: "{yaml_escape(title)}"',
-        f"date: {date}",
-        'type: "新闻"',
-        f'source: "{yaml_escape(source)}"',
-    ]
+## Horizon 摘要
 
-    if author:
-        front.append(
-            f'author: "{yaml_escape(author)}"'
+"""
+
+    else:
+
+        type_name = "新闻"
+
+        front = f"""---
+title: "{yaml_escape(title)}"
+date: {date}
+type: "{type_name}"
+source: "{yaml_escape(source)}"
+language: "en"
+horizon_score: {score_text}
+original_source: "Horizon"
+original_url: "{yaml_escape(original_url)}"
+status: "待AI处理"
+---
+
+# {title}
+
+## Horizon Summary
+
+"""
+
+    # 保留完整正文
+    content = "\n\n".join(body).strip()
+
+    if content:
+
+        front += content
+        front += "\n\n"
+
+    else:
+
+        front += (
+            "Horizon 日报中未提供该条目的完整正文。"
+            "\n\n"
+            if language == "zh"
+            else
+            "The Horizon digest did not provide "
+            "a full body for this item.\n\n"
         )
 
-    front.extend([
-        f"language: {language}",
-        f"horizon_score: {score_text}",
-        'status: "待AI处理"',
-        "---",
-        "",
-    ])
+    # 原文
+    front += "## 原文信息\n\n"
 
-    # --------------------------------------------------------
-    # 正文
-    # --------------------------------------------------------
+    front += f"- Source: {source}\n"
 
-    content = []
+    if original_url:
 
-    content.append(f"# {title}")
-    content.append("")
-
-    content.append("## 新闻摘要")
-    content.append("")
-
-    body = item.get("body", [])
-
-    # 删除明显的重复 Horizon UI 文案
-    clean_body = []
-
-    for line in body:
-
-        lower = line.lower()
-
-        if (
-            "本文来自 horizon 日报拆解" in lower
-            or
-            "this item was extracted from the horizon digest" in lower
-        ):
-            continue
-
-        clean_body.append(line)
-
-    if clean_body:
-
-        content.extend(
-            clean_body
+        front += (
+            f"- Original URL: {original_url}\n"
         )
 
     else:
 
-        content.append(
-            "当前日报中未提供该资讯的完整摘要，"
-            "等待后续 AI 获取原文并补充。"
+        front += (
+            "- Original URL: 未从 Horizon 日报中找到\n"
         )
 
-    # --------------------------------------------------------
-    # 原文链接
-    # --------------------------------------------------------
-
-    if urls:
-
-        content.append("")
-        content.append("## 原文链接")
-        content.append("")
-
-        for url in urls:
-            content.append(
-                f"- {url}"
-            )
-
-    # --------------------------------------------------------
-    # 数据来源
-    # --------------------------------------------------------
-
-    content.append("")
-    content.append("## 来源信息")
-    content.append("")
-    content.append(
-        f"- 来源：{source}"
+    front += (
+        "\n## AI处理状态\n\n"
+        "等待后续 AI 二次处理及 27 Skills 分析。\n"
     )
 
-    if author:
-        content.append(
-            f"- 作者：{author}"
-        )
-
-    content.append(
-        "- Horizon：日报聚合与初步筛选"
-    )
-
-    content.append(
-        "- 后续处理：27 Skills AI 深度处理"
-    )
-
-    content.append("")
-
-    return (
-        "\n".join(front)
-        + "\n"
-        + "\n".join(content)
-        + "\n"
-    )
+    return front
 
 
 # ============================================================
 # 文件名
 # ============================================================
 
-def safe_filename(
-    title: str,
-    rank: int,
-):
+def safe_filename(title, rank):
 
     title = clean_text(title)
 
-    # 删除非法字符
     title = re.sub(
         r'[\\/:*?"<>|]',
         "",
-        title,
+        title
     )
 
-    # 删除 Markdown 噪声
     title = re.sub(
         r"[#\[\]{}]",
         "",
-        title,
+        title
     )
 
-    # HTML entity
-    title = html.unescape(title)
-
-    # 空白
     title = re.sub(
         r"\s+",
         " ",
-        title,
+        title
     ).strip()
 
     if not title:
         title = "untitled"
 
-    # 文件名长度限制
     title = title[:100]
 
     return f"{rank:03d}-{title}.md"
@@ -713,17 +606,15 @@ def safe_filename(
 # ============================================================
 
 def split_one(
-    input_file: Path,
-    output_dir: Path,
-    date: str,
-    language: str,
+    input_file,
+    output_dir,
+    date,
+    language,
 ):
 
     print()
     print("=" * 70)
-    print(
-        f"Processing {language.upper()} Horizon digest"
-    )
+    print(f"Processing {language.upper()}")
     print("=" * 70)
 
     print(f"Input : {input_file}")
@@ -751,7 +642,7 @@ def split_one(
     if not items:
 
         raise RuntimeError(
-            f"无法从 {input_file} 提取 Horizon 资讯。"
+            f"无法从 {input_file} 提取新闻。"
         )
 
     output_dir.mkdir(
@@ -763,7 +654,7 @@ def split_one(
 
     for index, item in enumerate(
         items,
-        start=1,
+        start=1
     ):
 
         filename = safe_filename(
@@ -777,7 +668,6 @@ def split_one(
             item=item,
             language=language,
             date=date,
-            rank=index,
         )
 
         path.write_text(
@@ -785,20 +675,20 @@ def split_one(
             encoding="utf-8",
         )
 
-        count += 1
+        # 内容长度保护
+        if len(markdown) < 250:
 
-        source = detect_source(
-            item["title"]
-            + " "
-            + " ".join(item["body"])
-        )
+            raise RuntimeError(
+                f"生成文件异常过短：{path}"
+            )
 
         print(
             f"[{language}] "
             f"{index:03d} "
-            f"[{source}] "
             f"{item['title']}"
         )
+
+        count += 1
 
     print()
     print(
@@ -809,50 +699,37 @@ def split_one(
 
 
 # ============================================================
-# 主程序
+# Main
 # ============================================================
 
 def main():
 
-    parser = argparse.ArgumentParser(
-        description=(
-            "Horizon bilingual digest splitter V5"
-        )
-    )
+    parser = argparse.ArgumentParser()
 
     parser.add_argument(
         "--zh",
         required=True,
-        help="中文 Horizon summary",
     )
 
     parser.add_argument(
         "--en",
         required=True,
-        help="英文 Horizon summary",
     )
 
     parser.add_argument(
         "--output",
         required=True,
-        help="Atomic 输出根目录",
     )
 
     parser.add_argument(
         "--date",
         required=True,
-        help="日期，例如 2026-08-28",
     )
 
     args = parser.parse_args()
 
-    zh_input = Path(
-        args.zh
-    )
-
-    en_input = Path(
-        args.en
-    )
+    zh_input = Path(args.zh)
+    en_input = Path(args.en)
 
     output_root = Path(
         args.output
@@ -860,40 +737,23 @@ def main():
 
     print("=" * 70)
     print(
-        "Horizon Bilingual Digest Splitter V5"
+        "Horizon Bilingual Digest Splitter V6"
     )
     print("=" * 70)
 
-    print(f"ZH : {zh_input}")
-    print(f"EN : {en_input}")
-    print(f"OUT: {output_root}")
-    print(f"DATE: {args.date}")
-
-    # ========================================================
-    # 中文
-    # ========================================================
-
     zh_count = split_one(
-        input_file=zh_input,
-        output_dir=output_root / "zh",
-        date=args.date,
-        language="zh",
+        zh_input,
+        output_root / "zh",
+        args.date,
+        "zh",
     )
-
-    # ========================================================
-    # 英文
-    # ========================================================
 
     en_count = split_one(
-        input_file=en_input,
-        output_dir=output_root / "en",
-        date=args.date,
-        language="en",
+        en_input,
+        output_root / "en",
+        args.date,
+        "en",
     )
-
-    # ========================================================
-    # 最终验证
-    # ========================================================
 
     print()
     print("=" * 70)
@@ -901,31 +761,35 @@ def main():
     print("=" * 70)
 
     print(
-        f"Chinese News : {zh_count}"
+        f"Chinese Atomic News : {zh_count}"
     )
 
     print(
-        f"English News : {en_count}"
+        f"English Atomic News : {en_count}"
     )
 
     if zh_count <= 0:
-
         raise RuntimeError(
-            "❌ 中文日报没有生成任何新闻。"
+            "中文拆解失败"
         )
 
     if en_count <= 0:
-
         raise RuntimeError(
-            "❌ 英文日报没有生成任何新闻。"
+            "英文拆解失败"
         )
 
     print()
-    print("✅ 中文拆解成功")
-    print("✅ 英文拆解成功")
-    print("✅ 真实 source 字段已启用")
-    print("✅ Horizon 不再作为新闻 source")
-    print("✅ 双语日报拆解全部完成")
+    print(
+        "✅ 中文拆解成功"
+    )
+
+    print(
+        "✅ 英文拆解成功"
+    )
+
+    print(
+        "✅ Horizon 双语拆解完成"
+    )
 
 
 if __name__ == "__main__":
