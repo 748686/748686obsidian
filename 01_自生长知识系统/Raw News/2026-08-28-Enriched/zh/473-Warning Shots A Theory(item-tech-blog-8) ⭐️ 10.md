@@ -4,11 +4,13 @@ date: 2026-08-28
 type: "news"
 source: "BBC"
 source_url: "https://www.bbc.co.uk/news/articles/ckgwdn1g58yo?at_medium=RSS&at_campaign=rss"
+source_type: "original"
 language: "zh"
 horizon_score: 0.0
-source_status: "fetched"
+source_status: "found"
 content_status: "full"
 ai_status: "pending"
+horizon_source: "Horizon"
 original_title: "Trump signs order to rename Lake Ontario to Lake America - BBC News"
 ---
 
@@ -2223,10 +2225,10 @@ rss · 人民日报\(People&\#x27;s Daily\) · 8月28日 00:26
 
 ## 原文信息
 
+- 原始来源：BBC
 - 原文标题：Trump signs order to rename Lake Ontario to Lake America - BBC News
 - 原文链接：https://www.bbc.co.uk/news/articles/ckgwdn1g58yo?at_medium=RSS&at_campaign=rss
-- 页面摘要：Trump's order comes after the trade talks between the US and Canada collapsed late last week.
-
+- 页面摘要：Canada has rejected the new name of the lake, which straddles both countries, as their row deepens.
 
 ## 原文正文
 
@@ -2236,8 +2238,6 @@ Figure caption,
 
 Watch: Trump signs executive order renaming Lake Ontario to Lake America
 
-By
-
 Jessica Murphy
 
 Canada digital editor
@@ -2246,33 +2246,31 @@ Published
 
 27 August 2026
 
-Updated 7 hours ago
+Updated 40 minutes ago
 
 US President Donald Trump has signed an executive order seeking to change the name of Lake Ontario to Lake America.
 
 The move comes after trade talks between the US and Canada collapsed last week, and the US imposed new 50% tariffs on $20bn (C$28bn) worth of Canadian goods. Canada will implement "dollar for dollar" counter tariffs next month.
 
-Trump said on Thursday the move was "official, effective immediately" and that his administration has "filed all the necessary papers" to rename the lake, which straddles both countries.
+Trump said the move to rename the lake, which straddles both countries, was effective immediately. He has broad discretion over how the US recognises landmarks but other countries do not have to follow.
 
-In response, Canadian Prime Minister Mark Carney said "things must be called by their name, and this lake is called Lake Ontario – today and forever".
-
-Trump has repeatedly posted threats about renaming the lake on social media amid the trade dispute.
+In response, Canadian Prime Minister Mark Carney said "things must be called by their name, and this lake is called Lake Ontario - today and forever".
 
 Text of the executive order says it gives the US Department of the Interior 30 days to update the name change with the Geographic Names Information Service - the official repository of domestic geographic names in the US.
 
 Carney noted that the name Lake Ontario could be traced back more than 400 years, adding that it preceded the formation of the Canadian Confederation and the US Declaration of Independence.
 
-He wrote on social media: "We know that the United States is changing. Their trade relations, their foreign policy, their national monuments, their hydronyms.
+"We know that the United States is changing. Their trade relations, their foreign policy, their national monuments, their hydronyms.
 
-"Canadian women and men also know that things must be called by their name, and this lake is called Lake Ontario – today and forever."
+"Canadian women and men also know that things must be called by their name, and this lake is called Lake Ontario - today and forever."
 
-When Trump took the White House in 2025, he signed a similar order that changed the Gulf of Mexico to the Gulf of America. Mexico has rejected the name change, arguing a single country cannot rename a shared body of international water.
+There is no universally recognised international body setting the names of international waters.
+
+When Trump took to the White House in 2025, he signed a similar order that changed the Gulf of Mexico to the Gulf of America. Mexico has rejected the name change, arguing a single country cannot rename a shared body of international water.
 
 It also led to a legal dispute between Mexico and tech giant
 
 Google, which renamed the gulf in its maps application.
-
-,
 
 external
 
@@ -2284,15 +2282,9 @@ Figure caption,
 
 Lake Ontario to Lake America: Can Trump rename it?
 
-There is no universally recognised international body setting the names of international waters. While the US president has broad discretion over how his country officially recognises landmarks, other countries do not have to follow.
+Canadian officials dismissed Trump's move to rename the lake.
 
-Canada does not have to recognise name changes made by other countries and officials there have dismissed the idea.
-
-Ontario Premier Doug Ford wrote on social media, "It's Lake Ontario to Canadians and the rest of the world. Now and forever."
-
-Nova Scotia Premier Tim Houston agreed, saying "We're into some real foolishness now. It's Lake Ontario, buddy."
-
-"We'll always call it Lake Ontario," said Industry Minister Melanie Joly on Tuesday.
+Ontario Premier Doug Ford wrote: "It's Lake Ontario to Canadians and the rest of the world. Now and forever." Other premiers and ministers made similar statements.
 
 The names of four of the Great Lakes - Ontario, Huron, Michigan and Erie - originate from indigenous words. Lake Superior was named after an anglicised French word. Lake Ontario, the smallest of the Great Lakes, borders both the Canadian province and the US state of New York.
 
@@ -2304,29 +2296,33 @@ Image caption,
 
 Trump said he had signed all the necessary documents to rename the lake on Thursday
 
-As he signed the order on Thursday in the Oval Office, Trump said it wasn't a direct message to Canada, but that America's northern neighbour "has been ripping us off for a long time on trade".
+There was a mixed reaction from US politicians.
 
-Trump said he'd been thinking about renaming the lake "for a long time".
+Trump's Secretary of the Interior Doug Burgum applauded the move, writing: "We're on it, Mr. President!"
 
-"So if you think about it, we have a gulf and we have a lake," Trump said.
+"The places and waters that border our nation and support our economy should reflect the greatness of the United States," he said, adding that the US Geological Survey "maps our country for the world to see, and we are PROUD to implement your Executive Order to rename LAKE AMERICA".
 
-"Now, all we need is an ocean. So maybe we'll have to change the name of the Atlantic and or the Pacific. Maybe we'll change them both."
+But Democratic lawmaker Debbie Dingell of Michigan, the US state that borders four of the five Great Lakes, said that she would introduce a bill in Congress to nullify the name change, calling Trump's order "idiotic".
 
-The name change request comes amid a trade dispute that has seen US-Canada relations fall to new lows, with insults thrown back-and-forth between the Trump administration and Canadian officials over the past week.
+She wrote: "The Great Lakes are a shared treasure that generations of Americans and Canadians have worked together to protect".
 
-There was a hint on Thursday that there was room for a return to the negotiating table sometime in the future.
+Democratic New York Governor Kathy Hochul said her state, the sole US state bordering Lake Ontario, would not be calling it Lake America.
 
-Canadian US trade minister, Dominic LeBlanc, said in a post on X that the US had withdrawn some of its demands around labelling requirements in French "and is confirming that measures to promote French language and Canadian culture will not be subject to future US trade actions".
+As he signed the order on Thursday in the Oval Office, Trump said it was not a direct message to Canada, but that America's northern neighbour "has been ripping us off for a long time on trade".
 
-"We look forward to further constructive US clarifications on their other positions, which would create the possibility of a mutually beneficial trade agreement that respects Canadian sovereignty".
+US-Canada relations have fallen to new lows, with insults thrown back and forth over the past week.
 
-Trade talks collapsed at the last minute late on Friday night, with both sides accusing the other of demanding last-minute changes to a tentative deal.
+But there was a hint on Thursday that there was room for a return to the negotiating table.
+
+Canadian US trade minister, Dominic LeBlanc, said the US had withdrawn some of its demands around labelling requirements in French, one of the sticking points. The US has maintained it never made demands about language.
+
+Both sides have accused the other of demanding last-minute changes that caused the breakdown in trade negotiations.
 
 Canada's retaliation tests the limit of American power under Trump
 
 Published
 
-1 day ago
+2 days ago
 
 'Half my business will be gone' - firms in Canada and US fear trade war
 
@@ -2334,19 +2330,13 @@ Published
 
 3 days ago
 
-Democratic lawmaker Debbie Dingell of Michigan, the US state that borders four of the five Great Lakes, said that she would introduce a bill in Congress to nullify the name change, calling Trump's order "idiotic".
+Follow the twists and turns of Trump's second term with North America correspondent Anthony Zurcher's weekly US Politics Unspun newsletter. Readers in the UK can
 
-She wrote, "The Great Lakes are a shared treasure that generations of Americans and Canadians have worked together to protect".
+sign up here
 
-Other Democratic lawmakers in the US also criticised the order on social media, calling for the Trump administration to get back to negotiating on a trade deal. Some mocked Trump's idea and posted their own ideas to change the names of other landmarks.
+. Those outside the UK can
 
-Wisconsin's governor joked, "I just renamed Lake Michigan Lake Wisconsin," in a social media post with a video of himself signing a napkin on one of the Great Lakes. "See, I can sign napkins that say things, too," he added.
-
-New York Governor Kathy Hochul said her state, the sole US state bordering Lake Ontario, "won't be calling it" Lake America.
-
-Meanwhile, Trump's Secretary of the Interior Doug Burgum applauded the move, writing, "We're on it, Mr. President!"
-
-"The places and waters that border our nation and support our economy should reflect the greatness of the United States," he said, adding that the US Geological Survey "maps our country for the world to see, and we are PROUD to implement your Executive Order to rename LAKE AMERICA".
+sign up here
 
 Related topics
 
@@ -2360,4 +2350,4 @@ Trump tariffs
 
 ## AI 处理状态
 
-等待 27 Skills 进行后续处理。
+等待 27 Skills 进行后续分析。

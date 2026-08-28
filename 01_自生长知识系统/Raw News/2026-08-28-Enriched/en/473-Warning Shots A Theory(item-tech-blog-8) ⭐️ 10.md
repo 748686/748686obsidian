@@ -4,11 +4,13 @@ date: 2026-08-28
 type: "news"
 source: "BBC"
 source_url: "https://www.bbc.co.uk/news/articles/ckgwdn1g58yo?at_medium=RSS&at_campaign=rss"
+source_type: "original"
 language: "en"
 horizon_score: 0.0
-source_status: "fetched"
+source_status: "found"
 content_status: "full"
 ai_status: "pending"
+horizon_source: "Horizon"
 original_title: "Trump signs order to rename Lake Ontario to Lake America - BBC News"
 ---
 
@@ -2217,10 +2219,10 @@ rss · 人民日报\(People&\#x27;s Daily\) · Aug 28, 00:26
 
 ## 原文信息
 
+- 原始来源：BBC
 - 原文标题：Trump signs order to rename Lake Ontario to Lake America - BBC News
 - 原文链接：https://www.bbc.co.uk/news/articles/ckgwdn1g58yo?at_medium=RSS&at_campaign=rss
 - 页面摘要：Canada has rejected the new name of the lake, which straddles both countries, as their row deepens.
-
 
 ## 原文正文
 
@@ -2230,8 +2232,6 @@ Figure caption,
 
 Watch: Trump signs executive order renaming Lake Ontario to Lake America
 
-By
-
 Jessica Murphy
 
 Canada digital editor
@@ -2240,7 +2240,7 @@ Published
 
 27 August 2026
 
-Updated 14 minutes ago
+Updated 40 minutes ago
 
 US President Donald Trump has signed an executive order seeking to change the name of Lake Ontario to Lake America.
 
@@ -2265,8 +2265,6 @@ When Trump took to the White House in 2025, he signed a similar order that chang
 It also led to a legal dispute between Mexico and tech giant
 
 Google, which renamed the gulf in its maps application.
-
-,
 
 external
 
@@ -2318,7 +2316,7 @@ Canada's retaliation tests the limit of American power under Trump
 
 Published
 
-1 day ago
+2 days ago
 
 'Half my business will be gone' - firms in Canada and US fear trade war
 
@@ -2334,8 +2332,6 @@ sign up here
 
 sign up here
 
-.
-
 Related topics
 
 Canada
@@ -2348,4 +2344,4 @@ Trump tariffs
 
 ## AI 处理状态
 
-等待 27 Skills 进行后续处理。
+等待 27 Skills 进行后续分析。

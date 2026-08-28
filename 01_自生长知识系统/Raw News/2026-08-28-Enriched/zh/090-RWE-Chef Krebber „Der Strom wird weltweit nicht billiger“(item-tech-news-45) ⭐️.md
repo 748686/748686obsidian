@@ -4,11 +4,13 @@ date: 2026-08-28
 type: "news"
 source: "Unknown"
 source_url: ""
+source_type: "digest"
 language: "zh"
 horizon_score: 2.0
-source_status: "pending_search"
+source_status: "not_found"
 content_status: "horizon_summary_only"
 ai_status: "pending"
+horizon_source: "Horizon"
 original_title: ""
 ---
 
@@ -33,16 +35,13 @@ Horizon 日报中未提供该条目的完整正文。
 
 ## 原文获取状态
 
-当前 Atomic News 中没有检测到原始文章链接。
+本条新闻在 Horizon 日报中没有提供原始文章链接。
 
-本条新闻将进入下一阶段的原文搜索：
+系统已经执行标题搜索，但目前没有获得可确认的原文。
 
-标题 + 日期 + Horizon 信息
-
-目前禁止将 Horizon 摘要误认为原文。
-
+因此本文件不会把 Horizon 摘要误认为新闻原文。
 
 
 ## AI 处理状态
 
-等待 27 Skills 进行后续处理。
+等待 27 Skills 进行后续分析。
