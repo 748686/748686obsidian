@@ -100,10 +100,8 @@ jobs:
       - name: Run Horizon
         working-directory: horizon
         env:
-           AI_API_KEY: ${{ secrets.AI_API_KEY }}
-           AI_BASE_URL: ${{ secrets.AI_BASE_URL }}
-           AI_MODEL: ${{ secrets.AI_MODEL }}
-           HORIZON_PROFILES_DIR: ${{ github.workspace }}/horizon/profiles
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          HORIZON_PROFILES_DIR: ${{ github.workspace }}/horizon/profiles
         run: |
           uv run horizon \
             --hours 24 \
