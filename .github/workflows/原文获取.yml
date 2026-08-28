@@ -1,4 +1,4 @@
-name: 03 原文获取 - Source Enrichment V2.1
+name: 03 原文获取 - Source Enrichment V3
 
 on:
   workflow_dispatch:
@@ -21,6 +21,7 @@ jobs:
       - name: Checkout 748686obsidian
         uses: actions/checkout@v4
 
+
       # ============================================================
       # 2. 获取日期
       # ============================================================
@@ -33,12 +34,12 @@ jobs:
 
           TODAY=$(date -u +%Y-%m-%d)
 
-          echo "today=$TODAY" >> "$GITHUB_OUTPUT"
+          echo "today=$TODAY" \
+            >> "$GITHUB_OUTPUT"
 
-          echo "=========================================="
-          echo "DATE"
-          echo "=========================================="
+          echo "DATE:"
           echo "$TODAY"
+
 
       # ============================================================
       # 3. 设置路径
@@ -55,16 +56,23 @@ jobs:
           ATOMIC_ROOT="01_自生长知识系统/Raw News/${TODAY}-Atomic"
 
           ZH="${ATOMIC_ROOT}/zh"
+
           EN="${ATOMIC_ROOT}/en"
 
           OUTPUT="01_自生长知识系统/Raw News/${TODAY}-Enriched"
 
-          echo "zh=$ZH" >> "$GITHUB_OUTPUT"
-          echo "en=$EN" >> "$GITHUB_OUTPUT"
-          echo "output=$OUTPUT" >> "$GITHUB_OUTPUT"
+          echo "zh=$ZH" \
+            >> "$GITHUB_OUTPUT"
 
+          echo "en=$EN" \
+            >> "$GITHUB_OUTPUT"
+
+          echo "output=$OUTPUT" \
+            >> "$GITHUB_OUTPUT"
+
+          echo
           echo "=========================================="
-          echo "SOURCE ENRICHMENT PATHS"
+          echo "SOURCE ENRICHMENT V3"
           echo "=========================================="
 
           echo "ZH:"
@@ -78,117 +86,157 @@ jobs:
           echo "OUTPUT:"
           echo "$OUTPUT"
 
+
       # ============================================================
-      # 4. 检查 Atomic
+      # 4. 检查 Atomic 中文
       # ============================================================
 
-      - name: Check Atomic News
+      - name: Check Chinese Atomic
         run: |
 
           set -e
 
-          ZH="${{ steps.paths.outputs.zh }}"
-          EN="${{ steps.paths.outputs.en }}"
+          DIR="${{ steps.paths.outputs.zh }}"
 
-          echo "=========================================="
-          echo "CHECK ATOMIC NEWS"
-          echo "=========================================="
+          if [ ! -d "$DIR" ]; then
 
-          if [ ! -d "$ZH" ]; then
             echo "❌ Chinese Atomic directory missing:"
-            echo "$ZH"
+            echo "$DIR"
+
             exit 1
+
           fi
 
-          if [ ! -d "$EN" ]; then
+          COUNT=$(find "$DIR" \
+            -maxdepth 1 \
+            -type f \
+            -name "*.md" \
+            | wc -l)
+
+          echo "Chinese Atomic:"
+          echo "$COUNT"
+
+          if [ "$COUNT" -eq 0 ]; then
+
+            echo "❌ No Chinese Atomic files."
+
+            exit 1
+
+          fi
+
+
+      # ============================================================
+      # 5. 检查 Atomic 英文
+      # ============================================================
+
+      - name: Check English Atomic
+        run: |
+
+          set -e
+
+          DIR="${{ steps.paths.outputs.en }}"
+
+          if [ ! -d "$DIR" ]; then
+
             echo "❌ English Atomic directory missing:"
-            echo "$EN"
+            echo "$DIR"
+
             exit 1
+
           fi
 
-          ZH_COUNT=$(find "$ZH" \
+          COUNT=$(find "$DIR" \
             -maxdepth 1 \
             -type f \
             -name "*.md" \
             | wc -l)
 
-          EN_COUNT=$(find "$EN" \
-            -maxdepth 1 \
-            -type f \
-            -name "*.md" \
-            | wc -l)
+          echo "English Atomic:"
+          echo "$COUNT"
 
-          echo "Chinese: $ZH_COUNT"
-          echo "English: $EN_COUNT"
+          if [ "$COUNT" -eq 0 ]; then
 
-          if [ "$ZH_COUNT" -eq 0 ]; then
-            echo "❌ No Chinese Atomic News."
+            echo "❌ No English Atomic files."
+
             exit 1
+
           fi
 
-          if [ "$EN_COUNT" -eq 0 ]; then
-            echo "❌ No English Atomic News."
-            exit 1
-          fi
 
       # ============================================================
-      # 5. 检查 Source Enrichment V2.1
+      # 6. 检查脚本
       # ============================================================
 
-      - name: Check source enrichment script
+      - name: Check Source Enrichment V3
         run: |
 
           set -e
 
           SCRIPT="01_自生长知识系统/scripts/source_enrichment.py"
 
-          echo "=========================================="
-          echo "CHECK SOURCE ENRICHMENT V2.1"
-          echo "=========================================="
-
           if [ ! -f "$SCRIPT" ]; then
-            echo "❌ Script not found:"
+
+            echo "❌ Script missing:"
             echo "$SCRIPT"
+
             exit 1
+
           fi
 
-          echo "✅ Script found:"
-          echo "$SCRIPT"
+          echo "✅ Script found"
+
 
       # ============================================================
-      # 6. Setup Python
+      # 7. Setup Python
       # ============================================================
 
       - name: Setup Python
         uses: actions/setup-python@v5
+
         with:
+
           python-version: "3.12"
 
+
       # ============================================================
-      # 7. 检查 Agnes API
+      # 8. Install dependencies
+      # ============================================================
+
+      - name: Install dependencies
+        run: |
+
+          set -e
+
+          python -m pip install --upgrade pip
+
+          pip install requests
+
+
+      # ============================================================
+      # 9. 检查 Agnes API
       # ============================================================
 
       - name: Check Agnes API configuration
         env:
+
           AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
-          AGNES_API_BASE_URL: ${{ secrets.AGNES_API_BASE_URL }}
-          AGNES_API_MODEL: ${{ secrets.AGNES_API_MODEL }}
 
         run: |
 
           set -e
 
           echo "=========================================="
-          echo "CHECK AGNES API CONFIGURATION"
+          echo "CHECK AGNES API"
           echo "=========================================="
 
           if [ -z "$AGNES_API_KEY" ]; then
 
-            echo "❌ AGNES_API_KEY is missing."
+            echo "❌ AGNES_API_KEY is NOT configured."
 
             echo
-            echo "Please create GitHub repository secret:"
-            echo "AGNES_API_KEY"
+            echo "GitHub:"
+            echo "Settings → Secrets and variables"
+            echo "→ Actions → New repository secret"
 
             exit 1
 
@@ -196,29 +244,115 @@ jobs:
 
           echo "✅ AGNES_API_KEY detected."
 
-          if [ -n "$AGNES_API_BASE_URL" ]; then
-            echo "AGNES_API_BASE_URL configured."
-          else
-            echo "AGNES_API_BASE_URL not set."
-            echo "Using default OpenAI-compatible endpoint."
-          fi
+          echo "Key length:"
+          echo "${#AGNES_API_KEY}"
 
-          if [ -n "$AGNES_API_MODEL" ]; then
-            echo "AGNES_API_MODEL configured."
-          else
-            echo "AGNES_API_MODEL not set."
-            echo "Using default model."
-          fi
 
       # ============================================================
-      # 8. 执行 V2.1
+      # 10. Agnes API 最小连接测试
       # ============================================================
 
-      - name: Run Source Enrichment V2.1
+      - name: Test Agnes API
         env:
+
           AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
-          AGNES_API_BASE_URL: ${{ secrets.AGNES_API_BASE_URL }}
-          AGNES_API_MODEL: ${{ secrets.AGNES_API_MODEL }}
+
+        run: |
+
+          set -e
+
+          echo "=========================================="
+          echo "TEST AGNES API"
+          echo "=========================================="
+
+          python - <<'PY'
+
+          import os
+          import requests
+
+          url = (
+              "https://apihub.agnes-ai.com/v1"
+              "/chat/completions"
+          )
+
+          payload = {
+
+              "model":
+                  "agnes-2.5-flash",
+
+              "messages": [
+
+                  {
+                      "role":
+                          "user",
+
+                      "content":
+                          "Reply only with OK."
+                  }
+
+              ],
+
+              "temperature":
+                  0,
+
+              "max_tokens":
+                  10,
+
+              "stream":
+                  False,
+          }
+
+          response = requests.post(
+
+              url,
+
+              headers={
+
+                  "Authorization":
+                      "Bearer "
+                      + os.environ[
+                          "AGNES_API_KEY"
+                      ],
+
+                  "Content-Type":
+                      "application/json",
+              },
+
+              json=payload,
+
+              timeout=30,
+          )
+
+          print(
+              "HTTP:",
+              response.status_code
+          )
+
+          if response.status_code != 200:
+
+              print(
+                  response.text[:1000]
+              )
+
+              raise SystemExit(
+                  "Agnes API test failed."
+              )
+
+          print(
+              "✅ Agnes API connection OK."
+          )
+
+          PY
+
+
+      # ============================================================
+      # 11. 执行 V3
+      # ============================================================
+
+      - name: Run Source Enrichment V3
+        env:
+
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
 
         run: |
 
@@ -227,41 +361,31 @@ jobs:
           TODAY="${{ steps.date.outputs.today }}"
 
           ZH="${{ steps.paths.outputs.zh }}"
+
           EN="${{ steps.paths.outputs.en }}"
+
           OUTPUT="${{ steps.paths.outputs.output }}"
 
           SCRIPT="01_自生长知识系统/scripts/source_enrichment.py"
 
           echo "=========================================="
-          echo "HORIZON SOURCE ENRICHMENT V2.1"
+          echo "HORIZON SOURCE ENRICHMENT V3"
           echo "=========================================="
 
-          echo "Date:"
-          echo "$TODAY"
+          echo
+          echo "RSS"
+          echo "↓"
+
+          echo "TITLE MATCH"
+          echo "↓"
+
+          echo "AGNES API"
+          echo "↓"
+
+          echo "WEB FETCH"
 
           echo
-          echo "Chinese:"
-          echo "$ZH"
-
-          echo
-          echo "English:"
-          echo "$EN"
-
-          echo
-          echo "Output:"
-          echo "$OUTPUT"
-
-          echo
-          echo "Search strategy:"
-          echo "1. Direct URL"
-          echo "2. Google News RSS"
-          echo "3. Bing News RSS"
-          echo "4. Parallel title matching"
-          echo "5. AGNES API fallback"
-          echo "6. Source page fetch"
-
-          echo
-          echo "Running..."
+          echo "Starting..."
 
           python "$SCRIPT" \
             --zh "$ZH" \
@@ -269,8 +393,9 @@ jobs:
             --output "$OUTPUT" \
             --date "$TODAY"
 
+
       # ============================================================
-      # 9. 验证中文
+      # 12. 验证中文
       # ============================================================
 
       - name: Validate Chinese Enriched
@@ -278,18 +403,14 @@ jobs:
 
           set -e
 
-          TODAY="${{ steps.date.outputs.today }}"
-
-          DIR="01_自生长知识系统/Raw News/${TODAY}-Enriched/zh"
-
-          echo "=========================================="
-          echo "VALIDATE CHINESE ENRICHED"
-          echo "=========================================="
+          DIR="${{ steps.paths.outputs.output }}/zh"
 
           if [ ! -d "$DIR" ]; then
-            echo "❌ Directory missing:"
-            echo "$DIR"
+
+            echo "❌ Chinese Enriched missing."
+
             exit 1
+
           fi
 
           COUNT=$(find "$DIR" \
@@ -298,15 +419,18 @@ jobs:
             -name "*.md" \
             | wc -l)
 
-          echo "Chinese Enriched files: $COUNT"
+          echo "Chinese Enriched:"
+          echo "$COUNT"
 
           if [ "$COUNT" -eq 0 ]; then
-            echo "❌ No Chinese Enriched files."
+
             exit 1
+
           fi
 
+
       # ============================================================
-      # 10. 验证英文
+      # 13. 验证英文
       # ============================================================
 
       - name: Validate English Enriched
@@ -314,18 +438,14 @@ jobs:
 
           set -e
 
-          TODAY="${{ steps.date.outputs.today }}"
-
-          DIR="01_自生长知识系统/Raw News/${TODAY}-Enriched/en"
-
-          echo "=========================================="
-          echo "VALIDATE ENGLISH ENRICHED"
-          echo "=========================================="
+          DIR="${{ steps.paths.outputs.output }}/en"
 
           if [ ! -d "$DIR" ]; then
-            echo "❌ Directory missing:"
-            echo "$DIR"
+
+            echo "❌ English Enriched missing."
+
             exit 1
+
           fi
 
           COUNT=$(find "$DIR" \
@@ -334,15 +454,18 @@ jobs:
             -name "*.md" \
             | wc -l)
 
-          echo "English Enriched files: $COUNT"
+          echo "English Enriched:"
+          echo "$COUNT"
 
           if [ "$COUNT" -eq 0 ]; then
-            echo "❌ No English Enriched files."
+
             exit 1
+
           fi
 
+
       # ============================================================
-      # 11. Front Matter
+      # 14. Front Matter
       # ============================================================
 
       - name: Validate Front Matter
@@ -350,9 +473,7 @@ jobs:
 
           set -e
 
-          TODAY="${{ steps.date.outputs.today }}"
-
-          ROOT="01_自生长知识系统/Raw News/${TODAY}-Enriched"
+          ROOT="${{ steps.paths.outputs.output }}"
 
           echo "=========================================="
           echo "VALIDATE FRONT MATTER"
@@ -361,39 +482,46 @@ jobs:
           for DIR in \
             "$ROOT/zh" \
             "$ROOT/en"
+
           do
 
             FILE=$(find "$DIR" \
               -maxdepth 1 \
               -type f \
               -name "*.md" \
-              | head -n 1 || true)
+              | head -n 1)
 
             if [ -z "$FILE" ]; then
-              echo "❌ No markdown file:"
-              echo "$DIR"
+
+              echo "❌ No markdown file."
+
               exit 1
+
             fi
 
             echo
             echo "Checking:"
             echo "$FILE"
 
-            FIRST_LINE=$(head -n 1 "$FILE")
+            FIRST=$(head -n 1 "$FILE")
 
-            if [ "$FIRST_LINE" != "---" ]; then
+            if [ "$FIRST" != "---" ]; then
+
               echo "❌ Front Matter missing."
+
               exit 1
+
             fi
 
-            echo "✅ Front Matter detected"
+            echo "✅ Front Matter OK"
 
             sed -n '1,25p' "$FILE"
 
           done
 
+
       # ============================================================
-      # 12. 来源统计
+      # 15. 来源统计
       # ============================================================
 
       - name: Report source status
@@ -401,12 +529,11 @@ jobs:
 
           set -e
 
-          TODAY="${{ steps.date.outputs.today }}"
+          ROOT="${{ steps.paths.outputs.output }}"
 
-          ROOT="01_自生长知识系统/Raw News/${TODAY}-Enriched"
-
+          echo
           echo "=========================================="
-          echo "SOURCE STATUS REPORT"
+          echo "SOURCE STATUS"
           echo "=========================================="
 
           echo
@@ -418,63 +545,40 @@ jobs:
             | wc -l || true
 
           echo
-          echo "Search Match:"
+          echo "Unresolved:"
           grep -R \
-            'search_method: "rss_title_match"' \
+            'source_status: "unresolved"' \
             "$ROOT" \
             --include="*.md" \
             | wc -l || true
 
           echo
-          echo "AGNES Match:"
+          echo "RSS + Agnes:"
           grep -R \
-            'search_method: "rss_then_agnes"' \
+            'search_method: "rss+agnes_api"' \
             "$ROOT" \
             --include="*.md" \
             | wc -l || true
 
           echo
-          echo "Pending Search:"
+          echo "RSS only:"
           grep -R \
-            'source_status: "pending_search"' \
+            'search_method: "rss"' \
             "$ROOT" \
             --include="*.md" \
             | wc -l || true
 
           echo
-          echo "Fetch Failed:"
+          echo "Direct URL:"
           grep -R \
-            'source_status: "fetch_failed"' \
+            'search_method: "direct_url"' \
             "$ROOT" \
             --include="*.md" \
             | wc -l || true
 
-      # ============================================================
-      # 13. 找出 unresolved 新闻
-      # ============================================================
-
-      - name: Report unresolved news
-        run: |
-
-          set -e
-
-          TODAY="${{ steps.date.outputs.today }}"
-
-          ROOT="01_自生长知识系统/Raw News/${TODAY}-Enriched"
-
-          echo "=========================================="
-          echo "UNRESOLVED NEWS"
-          echo "=========================================="
-
-          grep -R \
-            -l \
-            'source_status: "pending_search"' \
-            "$ROOT" \
-            --include="*.md" \
-            || true
 
       # ============================================================
-      # 14. Git Commit
+      # 16. Git Commit
       # ============================================================
 
       - name: Commit Enriched News
@@ -484,10 +588,12 @@ jobs:
 
           TODAY="${{ steps.date.outputs.today }}"
 
-          git config user.name \
+          git config \
+            user.name \
             "748686 Knowledge Bot"
 
-          git config user.email \
+          git config \
+            user.email \
             "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add \
@@ -500,7 +606,8 @@ jobs:
           else
 
             git commit \
-              -m "chore: source enrichment v2.1 ${TODAY}"
+              -m \
+              "chore: source enrichment v3 ${TODAY}"
 
             git push
 
@@ -508,11 +615,10 @@ jobs:
 
           echo
           echo "=========================================="
-          echo "✅ SOURCE ENRICHMENT V2.1 COMPLETE"
+          echo "✅ SOURCE ENRICHMENT V3 COMPLETE"
           echo "=========================================="
 
           echo
           echo "Output:"
-          echo "Raw News/${TODAY}-Enriched/"
-          echo "  ├── zh"
-          echo "  └── en"
+          echo \
+            "01_自生长知识系统/Raw News/${TODAY}-Enriched/"
