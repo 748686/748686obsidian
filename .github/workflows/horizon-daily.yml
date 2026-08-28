@@ -101,7 +101,6 @@ jobs:
         working-directory: horizon
         env:
           AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
-          HORIZON_PROFILES_DIR: ${{ github.workspace }}/horizon/profiles
         run: |
           uv run horizon \
             --hours 24 \
