@@ -1,0 +1,216 @@
+name: 02 日报拆解 - Horizon Digest V4
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  split:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # ============================================================
+      # 1. Checkout 748686obsidian
+      # ============================================================
+      - name: Checkout 748686obsidian
+        uses: actions/checkout@v4
+
+      # ============================================================
+      # 2. 获取今天日期
+      # ============================================================
+      - name: Set date
+        id: date
+        run: |
+          echo "today=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+      # ============================================================
+      # 3. 检查 Raw News
+      # ============================================================
+      - name: Inspect Raw News
+        run: |
+          set -e
+
+          TODAY="${{ steps.date.outputs.today }}"
+
+          RAW_DIR="01_自生长知识系统/Raw News/$TODAY"
+
+          echo "=========================================="
+          echo "Today's Raw News"
+          echo "=========================================="
+
+          if [ ! -d "$RAW_DIR" ]; then
+            echo "❌ Raw News directory not found:"
+            echo "$RAW_DIR"
+            exit 1
+          fi
+
+          find "$RAW_DIR" \
+            -maxdepth 1 \
+            -type f \
+            -name "*.md" \
+            -print
+
+      # ============================================================
+      # 4. 找到 Horizon 中文/英文日报
+      # ============================================================
+      - name: Find Horizon digest
+        id: digest
+        run: |
+          set -e
+
+          TODAY="${{ steps.date.outputs.today }}"
+          RAW_DIR="01_自生长知识系统/Raw News/$TODAY"
+
+          echo "=========================================="
+          echo "Searching Horizon digest"
+          echo "=========================================="
+
+          DIGEST=$(find "$RAW_DIR" \
+            -maxdepth 1 \
+            -type f \
+            -name "*summary*.md" \
+            | sort \
+            | head -n 1)
+
+          if [ -z "$DIGEST" ]; then
+            echo "❌ No Horizon summary found."
+            exit 1
+          fi
+
+          echo "Using:"
+          echo "$DIGEST"
+
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+
+      # ============================================================
+      # 5. 安装 Python
+      # ============================================================
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # ============================================================
+      # 6. 运行 V4 拆解器
+      # ============================================================
+      - name: Split Horizon Digest V4
+        run: |
+          set -e
+
+          TODAY="${{ steps.date.outputs.today }}"
+
+          INPUT="${{ steps.digest.outputs.digest }}"
+
+          OUTPUT="01_自生长知识系统/Raw News/${TODAY}-Atomic"
+
+          echo "=========================================="
+          echo "Horizon Digest Split V4"
+          echo "=========================================="
+
+          python scripts/split_horizon_digest_v4.py \
+            --input "$INPUT" \
+            --output "$OUTPUT" \
+            --date "$TODAY"
+
+      # ============================================================
+      # 7. 检查生成结果
+      # ============================================================
+      - name: Validate Atomic News
+        run: |
+          set -e
+
+          TODAY="${{ steps.date.outputs.today }}"
+
+          ATOMIC_DIR="01_自生长知识系统/Raw News/${TODAY}-Atomic"
+
+          echo "=========================================="
+          echo "Atomic News"
+          echo "=========================================="
+
+          if [ ! -d "$ATOMIC_DIR" ]; then
+            echo "❌ Atomic directory not created."
+            exit 1
+          fi
+
+          COUNT=$(find "$ATOMIC_DIR" \
+            -maxdepth 1 \
+            -type f \
+            -name "*.md" \
+            | wc -l)
+
+          echo "Generated MD files: $COUNT"
+
+          if [ "$COUNT" -eq 0 ]; then
+            echo "❌ No Atomic News generated."
+            exit 1
+          fi
+
+          echo
+          echo "Files:"
+          find "$ATOMIC_DIR" \
+            -maxdepth 1 \
+            -type f \
+            -name "*.md" \
+            | sort
+
+      # ============================================================
+      # 8. 检查 YAML Front Matter
+      # ============================================================
+      - name: Preview generated files
+        run: |
+          set -e
+
+          TODAY="${{ steps.date.outputs.today }}"
+
+          ATOMIC_DIR="01_自生长知识系统/Raw News/${TODAY}-Atomic"
+
+          echo "=========================================="
+          echo "Preview first 3 Atomic News files"
+          echo "=========================================="
+
+          find "$ATOMIC_DIR" \
+            -maxdepth 1 \
+            -type f \
+            -name "*.md" \
+            | sort \
+            | head -n 3 \
+            | while read FILE
+          do
+            echo
+            echo "------------------------------------------"
+            echo "$FILE"
+            echo "------------------------------------------"
+            sed -n '1,35p' "$FILE"
+          done
+
+      # ============================================================
+      # 9. 提交到 748686obsidian
+      # ============================================================
+      - name: Commit Atomic News
+        run: |
+          set -e
+
+          TODAY="${{ steps.date.outputs.today }}"
+
+          git config user.name "748686 Knowledge Bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            "01_自生长知识系统/Raw News/${TODAY}-Atomic"
+
+          if git diff --cached --quiet; then
+            echo "No Atomic News changes."
+          else
+            git commit \
+              -m "chore: split Horizon digest into atomic news ${TODAY}"
+
+            git push
+          fi
+
+          echo
+          echo "=========================================="
+          echo "✅ Atomic News V4 COMPLETE"
+          echo "=========================================="
