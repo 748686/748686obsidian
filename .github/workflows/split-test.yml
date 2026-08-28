@@ -1,0 +1,91 @@
+name: 01 自生长知识系统 - 日报拆解测试
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  split:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # =====================================================
+      # 1. 获取 748686obsidian
+      # =====================================================
+      - name: Checkout 748686obsidian
+        uses: actions/checkout@v4
+
+      # =====================================================
+      # 2. 显示 Raw News 当前结构
+      # =====================================================
+      - name: Inspect Raw News
+        run: |
+          echo "=========================================="
+          echo "Raw News"
+          echo "=========================================="
+
+          find "01_自生长知识系统/Raw News" \
+            -maxdepth 2 \
+            -type f \
+            -name "*.md" \
+            | sort
+
+      # =====================================================
+      # 3. 运行日报拆解器
+      # =====================================================
+      - name: Split Horizon Digest
+        run: |
+          python "01_自生长知识系统/scripts/split_horizon_digest.py"
+
+      # =====================================================
+      # 4. 检查生成结果
+      # =====================================================
+      - name: Inspect Atomic News
+        run: |
+          echo "=========================================="
+          echo "Atomic News"
+          echo "=========================================="
+
+          find "01_自生长知识系统/Raw News" \
+            -maxdepth 2 \
+            -type f \
+            -name "*.md" \
+            | sort
+
+      # =====================================================
+      # 5. 显示生成数量
+      # =====================================================
+      - name: Count Atomic News
+        run: |
+          echo "=========================================="
+          echo "Atomic News Count"
+          echo "=========================================="
+
+          find "01_自生长知识系统/Raw News" \
+            -mindepth 2 \
+            -maxdepth 2 \
+            -type f \
+            -name "*.md" \
+            | wc -l
+
+      # =====================================================
+      # 6. 提交原子新闻
+      # =====================================================
+      - name: Commit Atomic News
+        run: |
+          git config user.name "748686 Knowledge Bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add "01_自生长知识系统/Raw News"
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit \
+              -m "test: split Horizon digest into atomic news"
+
+            git push
+          fi
