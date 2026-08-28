@@ -4,67 +4,59 @@
 """
 Horizon Source Enrichment V2
 
-处理逻辑：
+目标：
 
-第一层：
-    1. Atomic News 中寻找已有 URL
-    2. 有 URL -> 直接抓取
-    3. 无 URL -> 使用公开新闻搜索/RSS候选来源
-    4. 根据标题进行候选匹配
-    5. 匹配成功 -> 抓取原文
+1. 同时处理 zh / en
+2. 有原文 URL：
+   → 直接抓取
 
-第二层：
-    如果第一层无法找到可靠来源：
-        -> 调用 Agnes API
-        -> 使用标题 + 日期 + Horizon 摘要
-        -> 请求 Agnes 判断候选来源
-        -> 返回候选 URL
-        -> 再抓取候选网页
+3. 没有 URL：
+   → 第一阶段：
+      Google News RSS 批量搜索候选来源
+      → 标题匹配
+      → 验证 URL
+      → 抓取原文
 
-最终：
+4. 第一阶段仍然失败：
+   → 第二阶段：
+      Agnes API 批量识别候选来源
+      → 验证 URL
+      → 抓取原文
 
-fetched
-partial
-pending_search
-fetch_failed
-
-重要原则：
-
-1. 永远不把 Horizon 当真实新闻来源
-2. 永远不伪造 source_url
-3. Agnes 找不到时宁可 pending_search
-4. 不修改 Atomic 原始文件
-5. 输出到：
+5. 永远不修改 Atomic News
+6. 输出：
    Raw News/YYYY-MM-DD-Enriched/zh
    Raw News/YYYY-MM-DD-Enriched/en
 
-Agnes：
+7. 不把 Horizon 当成真实新闻来源
+8. 记录：
+   source
+   source_url
+   source_status
+   content_status
+   search_method
+   original_title
 
-环境变量：
-    AGNES_API_KEY
-
-可选：
-    AGNES_BASE_URL
-
-默认：
-    https://apihub.agnes-ai.com/v1
-
-模型：
-    agnes-2.5-flash
+9. 尽量并发执行，避免逐条慢速等待
 """
 
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import html
 import json
 import os
 import re
 import time
 from pathlib import Path
-from urllib.parse import quote, urljoin, urlparse
+from urllib.parse import (
+    quote_plus,
+    urlparse,
+)
 
 import requests
+from bs4 import BeautifulSoup
 
 
 # ============================================================
@@ -75,7 +67,19 @@ DEFAULT_AGNES_BASE_URL = (
     "https://apihub.agnes-ai.com/v1"
 )
 
-AGNES_MODEL = "agnes-2.5-flash"
+DEFAULT_AGNES_MODEL = (
+    "agnes-2.5-flash"
+)
+
+REQUEST_TIMEOUT = 10
+
+RSS_TIMEOUT = 8
+
+MAX_WORKERS = 8
+
+AGNES_BATCH_SIZE = 12
+
+MAX_ARTICLE_LENGTH = 30000
 
 USER_AGENT = (
     "Mozilla/5.0 "
@@ -83,35 +87,40 @@ USER_AGENT = (
     "+https://github.com/748686/748686obsidian)"
 )
 
-TIMEOUT = 20
 
-MAX_ARTICLE_CHARS = 30000
+# ============================================================
+# Session
+# ============================================================
 
-REQUEST_RETRIES = 2
+def create_session():
+
+    session = requests.Session()
+
+    session.headers.update({
+        "User-Agent": USER_AGENT,
+        "Accept": (
+            "text/html,application/xhtml+xml,"
+            "application/xml;q=0.9,*/*;q=0.8"
+        ),
+        "Accept-Language": (
+            "zh-CN,zh;q=0.9,en;q=0.8"
+        ),
+    })
+
+    return session
+
+
+SESSION = create_session()
 
 
 # ============================================================
-# 基础文本
+# 文本
 # ============================================================
 
 def clean_text(text: str) -> str:
 
     if not text:
         return ""
-
-    replacements = {
-        "&#x27;": "'",
-        "&#X27;": "'",
-        "&apos;": "'",
-        "&quot;": '"',
-        "&amp;": "&",
-        "&lt;": "<",
-        "&gt;": ">",
-        "&nbsp;": " ",
-    }
-
-    for old, new in replacements.items():
-        text = text.replace(old, new)
 
     text = html.unescape(text)
 
@@ -154,22 +163,91 @@ def yaml_escape(text: str) -> str:
 
     text = clean_text(text)
 
-    text = text.replace(
-        "\\",
-        "\\\\",
-    )
-
-    text = text.replace(
-        '"',
-        '\\"',
-    )
-
-    text = text.replace(
-        "\n",
-        " ",
+    text = (
+        text
+        .replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("\n", " ")
     )
 
     return text
+
+
+def normalize_title(title: str) -> str:
+
+    title = clean_text(title).lower()
+
+    title = re.sub(
+        r"[^a-z0-9\u4e00-\u9fff]+",
+        " ",
+        title,
+    )
+
+    title = re.sub(
+        r"\s+",
+        " ",
+        title,
+    )
+
+    return title.strip()
+
+
+def title_tokens(title: str):
+
+    normalized = normalize_title(title)
+
+    return set(
+        normalized.split()
+    )
+
+
+def title_similarity(a: str, b: str):
+
+    a_norm = normalize_title(a)
+    b_norm = normalize_title(b)
+
+    if not a_norm or not b_norm:
+        return 0.0
+
+    if a_norm == b_norm:
+        return 1.0
+
+    if (
+        a_norm in b_norm
+        or b_norm in a_norm
+    ):
+        return 0.92
+
+    a_tokens = title_tokens(a)
+    b_tokens = title_tokens(b)
+
+    if not a_tokens or not b_tokens:
+        return 0.0
+
+    intersection = (
+        len(a_tokens & b_tokens)
+    )
+
+    union = (
+        len(a_tokens | b_tokens)
+    )
+
+    jaccard = (
+        intersection / union
+        if union
+        else 0
+    )
+
+    coverage = (
+        intersection / len(a_tokens)
+        if a_tokens
+        else 0
+    )
+
+    return max(
+        jaccard,
+        coverage * 0.85,
+    )
 
 
 # ============================================================
@@ -193,7 +271,7 @@ def parse_front_matter(content: str):
 
     body = parts[2].lstrip()
 
-    data = {}
+    metadata = {}
 
     for line in raw_yaml.splitlines():
 
@@ -209,15 +287,15 @@ def parse_front_matter(content: str):
 
         value = value.strip()
 
-        value = value.strip(
-            '"'
-        ).strip(
-            "'"
+        value = (
+            value
+            .strip('"')
+            .strip("'")
         )
 
-        data[key] = value
+        metadata[key] = value
 
-    return data, body
+    return metadata, body
 
 
 # ============================================================
@@ -241,821 +319,1159 @@ def extract_urls(text: str):
 
         try:
 
-            parsed = urlparse(
-                url
-            )
+            parsed = urlparse(url)
 
             if parsed.scheme in (
                 "http",
                 "https",
             ):
-
                 if url not in result:
                     result.append(url)
 
         except Exception:
-            pass
+            continue
 
     return result
 
 
 # ============================================================
-# HTML
+# 来源名称
 # ============================================================
 
-def extract_html_title(content: str):
-
-    match = re.search(
-        r"<title[^>]*>(.*?)</title>",
-        content,
-        flags=re.I | re.S,
-    )
-
-    if match:
-        return clean_text(
-            match.group(1)
-        )
-
-    return ""
-
-
-def extract_meta_content(
-    content: str,
-    name: str,
-):
-
-    patterns = [
-
-        rf'<meta[^>]+(?:name|property)=["\']'
-        rf'{re.escape(name)}["\'][^>]+'
-        rf'content=["\'](.*?)["\']',
-
-        rf'<meta[^>]+content=["\'](.*?)["\']'
-        rf'[^>]+(?:name|property)=["\']'
-        rf'{re.escape(name)}["\']',
-    ]
-
-    for pattern in patterns:
-
-        match = re.search(
-            pattern,
-            content,
-            flags=re.I | re.S,
-        )
-
-        if match:
-            return clean_text(
-                match.group(1)
-            )
-
-    return ""
-
-
-def extract_article_text(content: str):
-
-    # article 优先
-    match = re.search(
-        r"<article[^>]*>(.*?)</article>",
-        content,
-        flags=re.I | re.S,
-    )
-
-    if match:
-        article = match.group(1)
-    else:
-        article = content
-
-    article = re.sub(
-        r"<script.*?</script>",
-        "",
-        article,
-        flags=re.I | re.S,
-    )
-
-    article = re.sub(
-        r"<style.*?</style>",
-        "",
-        article,
-        flags=re.I | re.S,
-    )
-
-    article = re.sub(
-        r"<noscript.*?</noscript>",
-        "",
-        article,
-        flags=re.I | re.S,
-    )
-
-    article = re.sub(
-        r"<[^>]+>",
-        "\n",
-        article,
-    )
-
-    article = html.unescape(
-        article
-    )
-
-    lines = []
-
-    for line in article.splitlines():
-
-        line = re.sub(
-            r"[ \t]+",
-            " ",
-            line,
-        ).strip()
-
-        if not line:
-            continue
-
-        if len(line) < 2:
-            continue
-
-        lines.append(line)
-
-    cleaned = []
-
-    previous = None
-
-    for line in lines:
-
-        if line == previous:
-            continue
-
-        cleaned.append(line)
-
-        previous = line
-
-    text = "\n\n".join(
-        cleaned
-    )
-
-    return text[:MAX_ARTICLE_CHARS]
-
-
-# ============================================================
-# URL 抓取
-# ============================================================
-
-def fetch_url(url: str):
-
-    print()
-    print("Fetching:")
-    print(url)
-
-    headers = {
-        "User-Agent": USER_AGENT,
-        "Accept": (
-            "text/html,application/xhtml+xml,"
-            "application/xml;q=0.9,*/*;q=0.8"
-        ),
-    }
-
-    last_error = ""
-
-    for attempt in range(
-        REQUEST_RETRIES + 1
-    ):
-
-        try:
-
-            response = requests.get(
-                url,
-                headers=headers,
-                timeout=TIMEOUT,
-                allow_redirects=True,
-            )
-
-            response.raise_for_status()
-
-            response.encoding = (
-                response.apparent_encoding
-                or response.encoding
-            )
-
-            content = response.text
-
-            title = extract_html_title(
-                content
-            )
-
-            description = extract_meta_content(
-                content,
-                "description",
-            )
-
-            article = extract_article_text(
-                content
-            )
-
-            return {
-                "ok": True,
-                "url": response.url,
-                "title": title,
-                "description": description,
-                "article": article,
-                "status_code": response.status_code,
-            }
-
-        except Exception as exc:
-
-            last_error = str(
-                exc
-            )
-
-            print(
-                f"⚠️ Fetch attempt "
-                f"{attempt + 1} failed: "
-                f"{exc}"
-            )
-
-            if attempt < REQUEST_RETRIES:
-
-                time.sleep(
-                    2 ** attempt
-                )
-
-    return {
-        "ok": False,
-        "error": last_error,
-        "url": url,
-    }
-
-
-# ============================================================
-# 标题匹配
-# ============================================================
-
-def normalize_title(title: str):
-
-    title = clean_text(
-        title
-    ).lower()
-
-    title = re.sub(
-        r"[^\w\u4e00-\u9fff ]+",
-        " ",
-        title,
-    )
-
-    title = re.sub(
-        r"\s+",
-        " ",
-        title,
-    )
-
-    return title.strip()
-
-
-def title_similarity(
-    target: str,
-    candidate: str,
-):
-
-    a = normalize_title(
-        target
-    )
-
-    b = normalize_title(
-        candidate
-    )
-
-    if not a or not b:
-        return 0.0
-
-    if a == b:
-        return 1.0
-
-    if a in b or b in a:
-        return 0.90
-
-    a_words = set(
-        a.split()
-    )
-
-    b_words = set(
-        b.split()
-    )
-
-    if not a_words or not b_words:
-        return 0.0
-
-    intersection = (
-        a_words & b_words
-    )
-
-    union = (
-        a_words | b_words
-    )
-
-    return len(
-        intersection
-    ) / len(
-        union
-    )
-
-
-# ============================================================
-# 搜索候选来源
-# ============================================================
-
-def search_candidates(
-    title: str,
-    date: str,
-):
-
-    print()
-    print(
-        "Searching candidate sources..."
-    )
-
-    query = f'"{title}" {date}'
-
-    candidates = []
-
-    # --------------------------------------------------------
-    # Google/Bing 风格 RSS 新闻搜索
-    # 使用 Google News RSS
-    # --------------------------------------------------------
-
-    rss_url = (
-        "https://news.google.com/rss/search?"
-        f"q={quote(query)}&hl=en-US&gl=US&ceid=US:en"
-    )
+DOMAIN_SOURCE_MAP = {
+
+    "cnn.com": "CNN",
+    "reuters.com": "Reuters",
+    "apnews.com": "AP",
+    "bbc.com": "BBC",
+    "bbc.co.uk": "BBC",
+    "nytimes.com": "The New York Times",
+    "washingtonpost.com": "The Washington Post",
+    "wsj.com": "The Wall Street Journal",
+    "bloomberg.com": "Bloomberg",
+    "npr.org": "NPR",
+    "abcnews.go.com": "ABC News",
+    "nbcnews.com": "NBC News",
+    "cbsnews.com": "CBS News",
+    "theguardian.com": "The Guardian",
+    "ft.com": "Financial Times",
+    "economist.com": "The Economist",
+    "scmp.com": "SCMP",
+    "nhk.or.jp": "NHK",
+    "kyodonews.net": "Kyodo News",
+    "nikkei.com": "Nikkei",
+    "lemonde.fr": "Le Monde",
+    "lefigaro.fr": "Le Figaro",
+}
+
+
+def source_from_url(url: str):
 
     try:
 
-        response = requests.get(
-            rss_url,
-            headers={
-                "User-Agent": USER_AGENT
-            },
-            timeout=TIMEOUT,
+        hostname = (
+            urlparse(url)
+            .hostname
+            or ""
+        )
+
+        hostname = hostname.lower()
+
+        if hostname.startswith("www."):
+            hostname = hostname[4:]
+
+        if hostname in DOMAIN_SOURCE_MAP:
+            return DOMAIN_SOURCE_MAP[
+                hostname
+            ]
+
+        for domain, name in DOMAIN_SOURCE_MAP.items():
+
+            if hostname.endswith(
+                "." + domain
+            ):
+                return name
+
+        parts = hostname.split(".")
+
+        if len(parts) >= 2:
+            return parts[-2].capitalize()
+
+    except Exception:
+        pass
+
+    return "Unknown"
+
+
+# ============================================================
+# 网页抓取
+# ============================================================
+
+def extract_jsonld_article(
+    soup: BeautifulSoup,
+):
+
+    scripts = soup.find_all(
+        "script",
+        type=re.compile(
+            r"application/ld\+json",
+            re.I,
+        ),
+    )
+
+    for script in scripts:
+
+        raw = script.string
+
+        if not raw:
+            continue
+
+        try:
+
+            data = json.loads(
+                raw.strip()
+            )
+
+        except Exception:
+            continue
+
+        objects = []
+
+        if isinstance(data, dict):
+
+            objects.append(data)
+
+            graph = data.get(
+                "@graph"
+            )
+
+            if isinstance(
+                graph,
+                list,
+            ):
+                objects.extend(graph)
+
+        elif isinstance(data, list):
+
+            objects.extend(data)
+
+        for obj in objects:
+
+            if not isinstance(
+                obj,
+                dict,
+            ):
+                continue
+
+            obj_type = obj.get(
+                "@type",
+                "",
+            )
+
+            if isinstance(
+                obj_type,
+                list,
+            ):
+                obj_type = " ".join(
+                    str(x)
+                    for x in obj_type
+                )
+
+            if "article" not in str(
+                obj_type
+            ).lower():
+                continue
+
+            article_body = obj.get(
+                "articleBody",
+                "",
+            )
+
+            headline = obj.get(
+                "headline",
+                "",
+            )
+
+            if article_body:
+
+                return (
+                    clean_text(
+                        str(headline)
+                    ),
+                    clean_text(
+                        str(article_body)
+                    ),
+                )
+
+    return "", ""
+
+
+def extract_page(url: str):
+
+    try:
+
+        response = SESSION.get(
+            url,
+            timeout=REQUEST_TIMEOUT,
+            allow_redirects=True,
         )
 
         response.raise_for_status()
 
-        xml = response.text
-
-        items = re.findall(
-            r"<item>(.*?)</item>",
-            xml,
-            flags=re.I | re.S,
+        content_type = (
+            response.headers
+            .get(
+                "content-type",
+                "",
+            )
+            .lower()
         )
 
-        for item in items[:20]:
+        if (
+            "html" not in content_type
+            and "xhtml" not in content_type
+        ):
+            return {
+                "ok": False,
+                "error": "not_html",
+                "url": response.url,
+            }
 
-            title_match = re.search(
-                r"<title>(.*?)</title>",
-                item,
-                flags=re.I | re.S,
-            )
+        soup = BeautifulSoup(
+            response.text,
+            "html.parser",
+        )
 
-            link_match = re.search(
-                r"<link>(.*?)</link>",
-                item,
-                flags=re.I | re.S,
-            )
+        # ----------------------------------------------------
+        # 标题
+        # ----------------------------------------------------
 
-            source_match = re.search(
-                r"<source[^>]*>(.*?)</source>",
-                item,
-                flags=re.I | re.S,
-            )
+        title = ""
 
-            if not title_match or not link_match:
-                continue
-
-            candidate_title = clean_text(
-                html.unescape(
-                    title_match.group(1)
+        if soup.title:
+            title = clean_text(
+                soup.title.get_text(
+                    " ",
+                    strip=True,
                 )
             )
 
-            candidate_url = clean_text(
-                html.unescape(
-                    link_match.group(1)
+        og_title = soup.find(
+            "meta",
+            property="og:title",
+        )
+
+        if og_title:
+
+            candidate = clean_text(
+                og_title.get(
+                    "content",
+                    "",
                 )
             )
 
-            source = (
-                clean_text(
-                    source_match.group(1)
+            if candidate:
+                title = candidate
+
+        # ----------------------------------------------------
+        # description
+        # ----------------------------------------------------
+
+        description = ""
+
+        meta_description = soup.find(
+            "meta",
+            attrs={
+                "name": "description"
+            },
+        )
+
+        if meta_description:
+
+            description = clean_text(
+                meta_description.get(
+                    "content",
+                    "",
                 )
-                if source_match
+            )
+
+        # ----------------------------------------------------
+        # JSON-LD
+        # ----------------------------------------------------
+
+        json_title, json_article = (
+            extract_jsonld_article(
+                soup
+            )
+        )
+
+        if json_title:
+            title = json_title
+
+        article = json_article
+
+        # ----------------------------------------------------
+        # article HTML
+        # ----------------------------------------------------
+
+        if len(article) < 500:
+
+            article_node = soup.find(
+                "article"
+            )
+
+            if article_node:
+
+                article = clean_text(
+                    article_node.get_text(
+                        "\n",
+                        strip=True,
+                    )
+                )
+
+        # ----------------------------------------------------
+        # fallback paragraphs
+        # ----------------------------------------------------
+
+        if len(article) < 500:
+
+            paragraphs = []
+
+            for p in soup.find_all(
+                "p"
+            ):
+
+                text = clean_text(
+                    p.get_text(
+                        " ",
+                        strip=True,
+                    )
+                )
+
+                if len(text) >= 40:
+                    paragraphs.append(
+                        text
+                    )
+
+            article = "\n\n".join(
+                paragraphs
+            )
+
+        article = article[
+            :MAX_ARTICLE_LENGTH
+        ]
+
+        return {
+            "ok": True,
+            "url": response.url,
+            "title": title,
+            "description": description,
+            "article": article,
+            "status_code": response.status_code,
+        }
+
+    except Exception as exc:
+
+        return {
+            "ok": False,
+            "error": str(exc),
+            "url": url,
+        }
+
+
+# ============================================================
+# Google News RSS
+# ============================================================
+
+def google_news_search(
+    title: str,
+    language: str,
+):
+
+    query = title
+
+    if language == "zh":
+
+        url = (
+            "https://news.google.com/rss/search?"
+            f"q={quote_plus(query)}"
+            "&hl=zh-CN"
+            "&gl=CN"
+            "&ceid=CN:zh-Hans"
+        )
+
+    else:
+
+        url = (
+            "https://news.google.com/rss/search?"
+            f"q={quote_plus(query)}"
+            "&hl=en-US"
+            "&gl=US"
+            "&ceid=US:en"
+        )
+
+    try:
+
+        response = SESSION.get(
+            url,
+            timeout=RSS_TIMEOUT,
+        )
+
+        response.raise_for_status()
+
+        soup = BeautifulSoup(
+            response.text,
+            "xml",
+        )
+
+        candidates = []
+
+        for item in soup.find_all(
+            "item"
+        )[:10]:
+
+            item_title = clean_text(
+                item.title.get_text()
+                if item.title
                 else ""
             )
 
+            link = ""
+
+            if item.link:
+
+                link = clean_text(
+                    item.link.get_text(
+                        strip=True
+                    )
+                )
+
+            description = ""
+
+            if item.description:
+
+                description = clean_text(
+                    item.description.get_text()
+                )
+
+            published = ""
+
+            if item.pubDate:
+
+                published = clean_text(
+                    item.pubDate.get_text()
+                )
+
+            if not link:
+                continue
+
             score = title_similarity(
                 title,
-                candidate_title,
+                item_title,
             )
 
             candidates.append({
-                "title": candidate_title,
-                "url": candidate_url,
-                "source": source,
+                "title": item_title,
+                "url": link,
+                "description": description,
+                "published": published,
                 "score": score,
             })
+
+        candidates.sort(
+            key=lambda x: x["score"],
+            reverse=True,
+        )
+
+        return candidates
 
     except Exception as exc:
 
         print(
-            f"⚠️ RSS search failed: {exc}"
+            f"RSS search failed: {title} "
+            f"→ {exc}"
         )
 
-    candidates.sort(
-        key=lambda x: x["score"],
-        reverse=True,
-    )
+        return []
 
-    print(
-        f"Candidates found: "
-        f"{len(candidates)}"
-    )
 
-    for candidate in candidates[:5]:
+# ============================================================
+# RSS 批量搜索
+# ============================================================
 
-        print(
-            f"  {candidate['score']:.2f} "
-            f"{candidate['title']}"
+def search_rss_batch(items):
+
+    results = {}
+
+    print()
+    print("=" * 70)
+    print("PHASE 1 — GOOGLE NEWS RSS")
+    print("=" * 70)
+
+    with concurrent.futures.ThreadPoolExecutor(
+        max_workers=MAX_WORKERS
+    ) as executor:
+
+        futures = {}
+
+        for item in items:
+
+            future = executor.submit(
+                google_news_search,
+                item["title"],
+                item["language"],
+            )
+
+            futures[future] = item
+
+        for future in concurrent.futures.as_completed(
+            futures
+        ):
+
+            item = futures[future]
+
+            try:
+
+                candidates = future.result()
+
+            except Exception:
+
+                candidates = []
+
+            results[
+                item["path"]
+            ] = candidates
+
+            best = (
+                candidates[0]
+                if candidates
+                else None
+            )
+
+            if best:
+
+                print(
+                    f"RSS ✓ "
+                    f"{item['language']} "
+                    f"{item['title'][:55]} "
+                    f"→ "
+                    f"{best['score']:.2f}"
+                )
+
+            else:
+
+                print(
+                    f"RSS ? "
+                    f"{item['title'][:55]}"
+                )
+
+    return results
+
+
+# ============================================================
+# RSS 候选验证
+# ============================================================
+
+def validate_rss_candidates(
+    items,
+    rss_results,
+):
+
+    unresolved = []
+
+    resolved = {}
+
+    print()
+    print("=" * 70)
+    print("VALIDATING RSS CANDIDATES")
+    print("=" * 70)
+
+    for item in items:
+
+        candidates = rss_results.get(
+            item["path"],
+            [],
         )
 
-    return candidates[:10]
+        accepted = None
+
+        for candidate in candidates[:5]:
+
+            score = candidate[
+                "score"
+            ]
+
+            # 标题必须达到较高相似度
+            if score < 0.58:
+                continue
+
+            page = extract_page(
+                candidate["url"]
+            )
+
+            if not page.get("ok"):
+                continue
+
+            page_title = page.get(
+                "title",
+                "",
+            )
+
+            final_score = max(
+                score,
+                title_similarity(
+                    item["title"],
+                    page_title,
+                ),
+            )
+
+            if final_score < 0.58:
+                continue
+
+            if len(
+                page.get(
+                    "article",
+                    "",
+                )
+            ) < 300:
+
+                continue
+
+            accepted = {
+                "source": source_from_url(
+                    page["url"]
+                ),
+                "source_url": page["url"],
+                "original_title": (
+                    page.get("title")
+                    or candidate["title"]
+                ),
+                "description": page.get(
+                    "description",
+                    "",
+                ),
+                "article": page[
+                    "article"
+                ],
+                "search_method": (
+                    "google_news_rss"
+                ),
+                "match_score": final_score,
+                "source_status": "fetched",
+                "content_status": "full",
+            }
+
+            break
+
+        if accepted:
+
+            resolved[
+                item["path"]
+            ] = accepted
+
+            print(
+                f"✓ RSS MATCH "
+                f"{item['title'][:55]}"
+            )
+
+        else:
+
+            unresolved.append(item)
+
+            print(
+                f"→ API FALLBACK "
+                f"{item['title'][:55]}"
+            )
+
+    return resolved, unresolved
 
 
 # ============================================================
 # Agnes API
 # ============================================================
 
-def get_agnes_config():
+def agnes_chat(
+    prompt: str,
+):
 
     api_key = os.getenv(
         "AGNES_API_KEY"
     )
 
+    if not api_key:
+        return None
+
     base_url = os.getenv(
         "AGNES_BASE_URL",
         DEFAULT_AGNES_BASE_URL,
-    ).rstrip("/")
-
-    return api_key, base_url
-
-
-def call_agnes(
-    title: str,
-    date: str,
-    horizon_summary: str,
-    candidates: list,
-):
-
-    api_key, base_url = (
-        get_agnes_config()
     )
 
-    if not api_key:
-
-        print(
-            "ℹ️ AGNES_API_KEY not configured."
-        )
-
-        return None
-
-    print()
-    print(
-        "Calling Agnes API..."
+    model = os.getenv(
+        "AGNES_MODEL",
+        DEFAULT_AGNES_MODEL,
     )
 
-    candidate_text = "\n".join(
-        [
-            f"{i + 1}. "
-            f"{c['title']} | "
-            f"{c['url']} | "
-            f"{c.get('source', '')}"
-            for i, c in enumerate(
-                candidates[:10]
-            )
-        ]
+    url = (
+        base_url.rstrip("/")
+        + "/chat/completions"
     )
-
-    if not candidate_text:
-
-        candidate_text = (
-            "No candidate source was "
-            "found by RSS search."
-        )
-
-    system_prompt = """
-你是新闻来源验证专家。
-
-任务：
-根据新闻标题、日期、Horizon摘要和候选来源，
-判断最可能的真实原始新闻来源。
-
-严格规则：
-
-1. 不允许把 Horizon 当新闻媒体。
-2. 不允许凭空制造 URL。
-3. 只能从候选 URL 中选择，或者明确返回 null。
-4. 如果候选来源与标题明显不匹配，返回 null。
-5. 优先选择 Reuters、AP、BBC、CNN、ABC、NBC、
-   CBS、NPR、NYT、WSJ、Bloomberg、Guardian、
-   FT、NHK、新华社等真实新闻媒体。
-6. source 必须是真实媒体名称。
-7. confidence 必须在 0 到 1 之间。
-8. 只返回 JSON。
-"""
-
-    user_prompt = f"""
-新闻标题：
-{title}
-
-日期：
-{date}
-
-Horizon摘要：
-{horizon_summary[:8000]}
-
-候选来源：
-{candidate_text}
-
-请返回：
-
-{{
-  "source": "真实媒体名称或 null",
-  "url": "候选 URL 或 null",
-  "original_title": "候选来源标题或 null",
-  "confidence": 0.0,
-  "reason": "简短判断理由"
-}}
-
-只有 confidence >= 0.80 才认为匹配成功。
-"""
 
     payload = {
-        "model": AGNES_MODEL,
+        "model": model,
         "messages": [
             {
                 "role": "system",
-                "content": system_prompt.strip(),
+                "content": (
+                    "You are a news source "
+                    "identification assistant. "
+                    "Never invent URLs. "
+                    "Only return a URL when "
+                    "you are reasonably confident "
+                    "it is the original article. "
+                    "Return valid JSON only."
+                ),
             },
             {
                 "role": "user",
-                "content": user_prompt.strip(),
+                "content": prompt,
             },
         ],
-        "temperature": 0.0,
+        "temperature": 0,
+        "max_tokens": 3000,
     }
 
     headers = {
-        "Authorization": (
-            f"Bearer {api_key}"
-        ),
-        "Content-Type": (
-            "application/json"
-        ),
+        "Authorization":
+            f"Bearer {api_key}",
+        "Content-Type":
+            "application/json",
     }
-
-    endpoint = (
-        f"{base_url}/chat/completions"
-    )
 
     try:
 
-        response = requests.post(
-            endpoint,
+        response = SESSION.post(
+            url,
             headers=headers,
             json=payload,
-            timeout=60,
+            timeout=25,
         )
 
         response.raise_for_status()
 
         data = response.json()
 
-        content = (
+        return (
             data["choices"][0]
             ["message"]
             ["content"]
         )
 
-        # 清理 markdown JSON
-        content = re.sub(
-            r"^```json\s*",
-            "",
-            content.strip(),
-            flags=re.I,
-        )
-
-        content = re.sub(
-            r"\s*```$",
-            "",
-            content.strip(),
-        )
-
-        result = json.loads(
-            content
-        )
-
-        confidence = float(
-            result.get(
-                "confidence",
-                0,
-            )
-        )
-
-        if confidence < 0.80:
-
-            print(
-                f"⚠️ Agnes confidence too low: "
-                f"{confidence}"
-            )
-
-            return None
-
-        url = result.get(
-            "url"
-        )
-
-        if not url:
-            return None
-
-        # 必须是 http/https
-        parsed = urlparse(
-            url
-        )
-
-        if parsed.scheme not in (
-            "http",
-            "https",
-        ):
-            return None
-
-        print(
-            "✅ Agnes source candidate:"
-        )
-
-        print(
-            f"Source: "
-            f"{result.get('source')}"
-        )
-
-        print(
-            f"URL: {url}"
-        )
-
-        print(
-            f"Confidence: "
-            f"{confidence}"
-        )
-
-        return result
-
     except Exception as exc:
 
         print(
-            f"⚠️ Agnes API failed: "
-            f"{exc}"
+            f"Agnes API error: {exc}"
         )
 
         return None
 
 
+def parse_json_response(text: str):
+
+    if not text:
+        return []
+
+    text = text.strip()
+
+    # Markdown JSON fence
+    text = re.sub(
+        r"^```json\s*",
+        "",
+        text,
+        flags=re.I,
+    )
+
+    text = re.sub(
+        r"^```\s*",
+        "",
+        text,
+    )
+
+    text = re.sub(
+        r"\s*```$",
+        "",
+        text,
+    )
+
+    try:
+
+        data = json.loads(
+            text
+        )
+
+        if isinstance(
+            data,
+            list,
+        ):
+            return data
+
+        if isinstance(
+            data,
+            dict,
+        ):
+
+            if isinstance(
+                data.get("items"),
+                list,
+            ):
+                return data["items"]
+
+    except Exception:
+        pass
+
+    # 尝试从文本中找 JSON array
+    match = re.search(
+        r"$begin:math:display$\[\\s\\S\]\*$end:math:display$",
+        text,
+    )
+
+    if match:
+
+        try:
+
+            data = json.loads(
+                match.group(0)
+            )
+
+            if isinstance(
+                data,
+                list,
+            ):
+                return data
+
+        except Exception:
+            pass
+
+    return []
+
+
 # ============================================================
-# 来源推断
+# Agnes 批量搜索
 # ============================================================
 
-def resolve_source(
-    title: str,
-    date: str,
-    horizon_summary: str,
+def agnes_batch(
+    items,
 ):
 
-    # --------------------------------------------------------
-    # 第一层：RSS
-    # --------------------------------------------------------
+    if not items:
+        return {}
 
-    candidates = search_candidates(
-        title,
-        date,
-    )
+    if not os.getenv(
+        "AGNES_API_KEY"
+    ):
 
-    # 高置信候选直接尝试
-    for candidate in candidates:
-
-        if candidate["score"] < 0.82:
-            continue
-
+        print()
         print(
-            "Trying RSS candidate:"
+            "⚠️ AGNES_API_KEY not configured."
         )
 
-        print(
-            candidate["url"]
-        )
+        return {}
 
-        fetched = fetch_url(
-            candidate["url"]
-        )
-
-        if not fetched.get("ok"):
-            continue
-
-        fetched_title = (
-            fetched.get("title")
-            or candidate["title"]
-        )
-
-        similarity = title_similarity(
-            title,
-            fetched_title,
-        )
-
-        if similarity >= 0.75:
-
-            fetched["source"] = (
-                candidate.get(
-                    "source"
-                )
-                or ""
-            )
-
-            fetched["match_score"] = (
-                similarity
-            )
-
-            return fetched
-
-    # --------------------------------------------------------
-    # 第二层：Agnes
-    # --------------------------------------------------------
+    results = {}
 
     print()
-    print(
-        "RSS search did not produce "
-        "a reliable source."
-    )
+    print("=" * 70)
+    print("PHASE 2 — AGNES API BATCH")
+    print("=" * 70)
 
-    agnes_result = call_agnes(
-        title=title,
-        date=date,
-        horizon_summary=horizon_summary,
-        candidates=candidates,
-    )
+    for start in range(
+        0,
+        len(items),
+        AGNES_BATCH_SIZE,
+    ):
 
-    if not agnes_result:
-        return None
-
-    url = agnes_result.get(
-        "url"
-    )
-
-    fetched = fetch_url(
-        url
-    )
-
-    if not fetched.get("ok"):
-
-        return None
-
-    fetched["source"] = (
-        agnes_result.get(
-            "source"
-        )
-        or ""
-    )
-
-    fetched["match_score"] = (
-        title_similarity(
-            title,
-            fetched.get(
-                "title",
-                "",
-            ),
-        )
-    )
-
-    # 最终安全阈值
-    if fetched["match_score"] < 0.70:
+        batch = items[
+            start:
+            start + AGNES_BATCH_SIZE
+        ]
 
         print(
-            "⚠️ Final title match too low."
+            f"Agnes batch "
+            f"{start + 1}-"
+            f"{start + len(batch)} "
+            f"/ {len(items)}"
         )
 
-        return None
+        news_lines = []
 
-    return fetched
+        for index, item in enumerate(
+            batch,
+            start=1,
+        ):
+
+            news_lines.append(
+                f"""
+ITEM {index}
+language: {item['language']}
+date: {item['date']}
+title: {item['title']}
+Horizon summary:
+{item['summary'][:1500]}
+""".strip()
+            )
+
+        prompt = f"""
+Identify the original news source for
+each news item below.
+
+This is a source-identification task.
+
+Rules:
+
+1. Prefer the actual original publisher.
+2. Do not return Horizon as a source.
+3. Do not invent a URL.
+4. If uncertain, return an empty URL.
+5. Prefer Reuters, AP, CNN, BBC,
+   Bloomberg, NYT, WSJ, Guardian,
+   official government sources, etc.
+6. Return ONE JSON array.
+7. Preserve ITEM numbers.
+8. Return:
+
+[
+  {{
+    "item": 1,
+    "source": "CNN",
+    "url": "https://...",
+    "title": "original article title",
+    "confidence": 0.92
+  }}
+]
+
+News items:
+
+{chr(10).join(news_lines)}
+"""
+
+        response = agnes_chat(
+            prompt
+        )
+
+        parsed = parse_json_response(
+            response
+        )
+
+        for obj in parsed:
+
+            if not isinstance(
+                obj,
+                dict,
+            ):
+                continue
+
+            try:
+
+                item_index = int(
+                    obj.get(
+                        "item",
+                        0,
+                    )
+                )
+
+            except Exception:
+                continue
+
+            if not (
+                1 <= item_index
+                <= len(batch)
+            ):
+                continue
+
+            url = clean_text(
+                str(
+                    obj.get(
+                        "url",
+                        "",
+                    )
+                )
+            )
+
+            if not url.startswith(
+                "http"
+            ):
+                continue
+
+            batch_item = batch[
+                item_index - 1
+            ]
+
+            results[
+                batch_item["path"]
+            ] = {
+                "candidate_url": url,
+                "candidate_source": clean_text(
+                    str(
+                        obj.get(
+                            "source",
+                            "",
+                        )
+                    )
+                ),
+                "candidate_title": clean_text(
+                    str(
+                        obj.get(
+                            "title",
+                            "",
+                        )
+                    )
+                ),
+                "confidence": obj.get(
+                    "confidence",
+                    0,
+                ),
+            }
+
+    return results
+
+
+# ============================================================
+# 验证 Agnes URL
+# ============================================================
+
+def validate_agnes_results(
+    items,
+    agnes_results,
+):
+
+    resolved = {}
+
+    print()
+    print("=" * 70)
+    print("VALIDATING AGNES RESULTS")
+    print("=" * 70)
+
+    for item in items:
+
+        candidate = agnes_results.get(
+            item["path"]
+        )
+
+        if not candidate:
+
+            continue
+
+        url = candidate[
+            "candidate_url"
+        ]
+
+        page = extract_page(
+            url
+        )
+
+        if not page.get("ok"):
+
+            print(
+                f"✗ API URL failed "
+                f"{item['title'][:55]}"
+            )
+
+            continue
+
+        page_title = page.get(
+            "title",
+            "",
+        )
+
+        score = title_similarity(
+            item["title"],
+            page_title,
+        )
+
+        api_confidence = candidate.get(
+            "confidence",
+            0,
+        )
+
+        try:
+            api_confidence = float(
+                api_confidence
+            )
+        except Exception:
+            api_confidence = 0
+
+        final_score = max(
+            score,
+            api_confidence,
+        )
+
+        if final_score < 0.55:
+
+            print(
+                f"✗ API title mismatch "
+                f"{item['title'][:55]}"
+            )
+
+            continue
+
+        article = page.get(
+            "article",
+            "",
+        )
+
+        if len(article) < 300:
+
+            print(
+                f"✗ API page too short "
+                f"{item['title'][:55]}"
+            )
+
+            continue
+
+        resolved[
+            item["path"]
+        ] = {
+            "source": source_from_url(
+                page["url"]
+            ),
+            "source_url": page[
+                "url"
+            ],
+            "original_title": (
+                page.get("title")
+                or candidate.get(
+                    "candidate_title",
+                    "",
+                )
+            ),
+            "description": page.get(
+                "description",
+                "",
+            ),
+            "article": article,
+            "search_method": (
+                "agnes_api"
+            ),
+            "match_score": final_score,
+            "source_status": "fetched",
+            "content_status": "full",
+        }
+
+        print(
+            f"✓ API MATCH "
+            f"{item['title'][:55]}"
+        )
+
+    return resolved
 
 
 # ============================================================
 # 生成 Enriched
 # ============================================================
 
-def build_enriched_markdown(
-    original_content: str,
-    metadata: dict,
-    source_data: dict | None,
+def build_enriched(
+    original_content,
+    metadata,
+    source_data,
 ):
 
     title = metadata.get(
@@ -1078,85 +1494,56 @@ def build_enriched_markdown(
         "null",
     )
 
-    # Atomic 正文
+    source = source_data.get(
+        "source",
+        "Unknown",
+    )
+
+    source_url = source_data.get(
+        "source_url",
+        "",
+    )
+
+    original_title = source_data.get(
+        "original_title",
+        "",
+    )
+
+    description = source_data.get(
+        "description",
+        "",
+    )
+
+    article = source_data.get(
+        "article",
+        "",
+    )
+
+    source_status = source_data.get(
+        "source_status",
+        "pending_search",
+    )
+
+    content_status = source_data.get(
+        "content_status",
+        "horizon_summary_only",
+    )
+
+    search_method = source_data.get(
+        "search_method",
+        "none",
+    )
+
+    match_score = source_data.get(
+        "match_score",
+        0,
+    )
+
     _, original_body = (
         parse_front_matter(
             original_content
         )
     )
-
-    source = ""
-
-    source_url = ""
-
-    original_title = ""
-
-    description = ""
-
-    article = ""
-
-    if source_data and source_data.get(
-        "ok"
-    ):
-
-        source = (
-            source_data.get(
-                "source"
-            )
-            or ""
-        )
-
-        source_url = (
-            source_data.get(
-                "url"
-            )
-            or ""
-        )
-
-        original_title = (
-            source_data.get(
-                "title"
-            )
-            or ""
-        )
-
-        description = (
-            source_data.get(
-                "description"
-            )
-            or ""
-        )
-
-        article = (
-            source_data.get(
-                "article"
-            )
-            or ""
-        )
-
-        source_status = "fetched"
-
-        content_status = (
-            "full"
-            if len(article) >= 500
-            else "partial"
-        )
-
-        if not source:
-
-            source = "Unknown"
-
-    else:
-
-        source = "Unknown"
-
-        source_status = (
-            "pending_search"
-        )
-
-        content_status = (
-            "horizon_summary_only"
-        )
 
     front = f"""---
 title: "{yaml_escape(title)}"
@@ -1168,6 +1555,8 @@ language: "{yaml_escape(language)}"
 horizon_score: {horizon_score}
 source_status: "{source_status}"
 content_status: "{content_status}"
+search_method: "{search_method}"
+match_score: {match_score:.2f}
 ai_status: "pending"
 original_title: "{yaml_escape(original_title)}"
 ---
@@ -1183,25 +1572,16 @@ original_title: "{yaml_escape(original_title)}"
 
     if source_status == "fetched":
 
-        body += """
+        body += f"""
 
 ## 原文信息
 
+- 来源：{source}
+- 原文标题：{original_title}
+- 原文链接：{source_url}
+- 来源获取方式：{search_method}
+- 标题匹配度：{match_score:.2f}
 """
-
-        body += (
-            f"- Source: {source}\n"
-        )
-
-        body += (
-            f"- 原文标题："
-            f"{original_title}\n"
-        )
-
-        body += (
-            f"- 原文链接："
-            f"{source_url}\n"
-        )
 
         if description:
 
@@ -1216,9 +1596,7 @@ original_title: "{yaml_escape(original_title)}"
 
 """
 
-        body += (
-            article.strip()
-        )
+        body += article.strip()
 
     else:
 
@@ -1226,19 +1604,13 @@ original_title: "{yaml_escape(original_title)}"
 
 ## 原文获取状态
 
-当前自动流程没有找到足够可靠的真实原文。
+当前自动搜索仍未找到可信的原始文章。
 
-已执行：
+本条新闻不会把 Horizon 摘要
+错误地当作原文。
 
-1. 新闻 RSS 候选搜索
-2. 标题匹配
-3. 网页抓取验证
-4. Agnes API 二次来源判断
+下一阶段可继续进行原文搜索。
 
-仍无法确认时，不生成虚假来源。
-
-本条新闻保留为 Horizon 摘要，
-等待后续搜索或人工确认。
 """
 
     body += """
@@ -1256,164 +1628,318 @@ original_title: "{yaml_escape(original_title)}"
 
 
 # ============================================================
-# 单文件
+# 读取 Atomic
 # ============================================================
 
-def process_file(
-    input_file: Path,
-    output_file: Path,
+def load_items(
+    input_dir,
+    language,
 ):
+
+    files = sorted(
+        input_dir.glob("*.md")
+    )
+
+    items = []
+
+    for path in files:
+
+        content = path.read_text(
+            encoding="utf-8",
+            errors="replace",
+        )
+
+        metadata, body = (
+            parse_front_matter(
+                content
+            )
+        )
+
+        title = metadata.get(
+            "title",
+            path.stem,
+        )
+
+        urls = extract_urls(
+            content
+        )
+
+        items.append({
+            "path": str(path),
+            "file": path,
+            "content": content,
+            "metadata": metadata,
+            "body": body,
+            "title": title,
+            "language": language,
+            "date": metadata.get(
+                "date",
+                "",
+            ),
+            "summary": body,
+            "urls": urls,
+        })
+
+    return items
+
+
+# ============================================================
+# 主处理
+# ============================================================
+
+def process_language(
+    input_dir,
+    output_dir,
+    language,
+):
+
+    items = load_items(
+        input_dir,
+        language,
+    )
+
+    if not items:
+
+        return 0
 
     print()
     print("=" * 70)
+    print(
+        f"LANGUAGE: {language.upper()}"
+    )
+    print(
+        f"Atomic files: {len(items)}"
+    )
+    print("=" * 70)
+
+    resolved = {}
+
+    # --------------------------------------------------------
+    # 第一层：已有 URL
+    # --------------------------------------------------------
+
+    url_items = [
+        item
+        for item in items
+        if item["urls"]
+    ]
+
+    no_url_items = [
+        item
+        for item in items
+        if not item["urls"]
+    ]
+
+    print()
+    print(
+        f"Existing URL: {len(url_items)}"
+    )
 
     print(
-        f"Processing: {input_file.name}"
+        f"No URL: {len(no_url_items)}"
     )
 
-    content = input_file.read_text(
-        encoding="utf-8",
-        errors="replace",
-    )
+    # 已有 URL 也并发抓取
+    if url_items:
 
-    metadata, body = (
-        parse_front_matter(
-            content
-        )
-    )
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=MAX_WORKERS
+        ) as executor:
 
-    title = metadata.get(
-        "title",
-        "",
-    )
+            futures = {}
 
-    date = metadata.get(
-        "date",
-        "",
-    )
+            for item in url_items:
 
-    urls = extract_urls(
-        content
-    )
+                futures[
+                    executor.submit(
+                        extract_page,
+                        item["urls"][0],
+                    )
+                ] = item
 
-    source_data = None
+            for future in concurrent.futures.as_completed(
+                futures
+            ):
+
+                item = futures[
+                    future
+                ]
+
+                try:
+
+                    page = future.result()
+
+                except Exception:
+
+                    page = {
+                        "ok": False
+                    }
+
+                if page.get("ok"):
+
+                    article = page.get(
+                        "article",
+                        "",
+                    )
+
+                    if len(article) >= 300:
+
+                        resolved[
+                            item["path"]
+                        ] = {
+                            "source": source_from_url(
+                                page["url"]
+                            ),
+                            "source_url": page[
+                                "url"
+                            ],
+                            "original_title": page.get(
+                                "title",
+                                "",
+                            ),
+                            "description": page.get(
+                                "description",
+                                "",
+                            ),
+                            "article": article,
+                            "search_method": (
+                                "atomic_url"
+                            ),
+                            "match_score": 1.0,
+                            "source_status": "fetched",
+                            "content_status": "full",
+                        }
 
     # --------------------------------------------------------
-    # 1. Atomic 已有 URL
+    # 第二层：RSS
     # --------------------------------------------------------
 
-    if urls:
+    unresolved = [
+        item
+        for item in items
+        if item["path"]
+        not in resolved
+    ]
 
-        print(
-            f"Existing URL detected: "
-            f"{urls[0]}"
-        )
-
-        fetched = fetch_url(
-            urls[0]
-        )
-
-        if fetched.get("ok"):
-
-            fetched["source"] = (
-                metadata.get(
-                    "source",
-                    "",
-                )
-            )
-
-            source_data = fetched
-
-    # --------------------------------------------------------
-    # 2. 没有 URL -> 搜索 + Agnes
-    # --------------------------------------------------------
-
-    if not source_data:
-
-        print(
-            "No reliable existing source."
-        )
-
-        source_data = resolve_source(
-            title=title,
-            date=date,
-            horizon_summary=body,
-        )
-
-    enriched = build_enriched_markdown(
-        original_content=content,
-        metadata=metadata,
-        source_data=source_data,
+    rss_results = search_rss_batch(
+        unresolved
     )
 
-    output_file.parent.mkdir(
+    rss_resolved, rss_unresolved = (
+        validate_rss_candidates(
+            unresolved,
+            rss_results,
+        )
+    )
+
+    resolved.update(
+        rss_resolved
+    )
+
+    # --------------------------------------------------------
+    # 第三层：Agnes
+    # --------------------------------------------------------
+
+    final_unresolved = [
+        item
+        for item in items
+        if item["path"]
+        not in resolved
+    ]
+
+    print()
+    print(
+        f"Need Agnes fallback: "
+        f"{len(final_unresolved)}"
+    )
+
+    agnes_candidates = agnes_batch(
+        final_unresolved
+    )
+
+    agnes_resolved = (
+        validate_agnes_results(
+            final_unresolved,
+            agnes_candidates,
+        )
+    )
+
+    resolved.update(
+        agnes_resolved
+    )
+
+    # --------------------------------------------------------
+    # 输出
+    # --------------------------------------------------------
+
+    output_dir.mkdir(
         parents=True,
         exist_ok=True,
     )
 
-    output_file.write_text(
-        enriched,
-        encoding="utf-8",
-    )
+    fetched = 0
+    pending = 0
 
-    if source_data:
+    for item in items:
 
-        print(
-            "✅ SOURCE FOUND"
+        if item["path"] in resolved:
+
+            source_data = resolved[
+                item["path"]
+            ]
+
+            fetched += 1
+
+        else:
+
+            source_data = {
+                "source": "Unknown",
+                "source_url": "",
+                "original_title": "",
+                "description": "",
+                "article": "",
+                "search_method": (
+                    "unresolved"
+                ),
+                "match_score": 0,
+                "source_status": (
+                    "pending_search"
+                ),
+                "content_status": (
+                    "horizon_summary_only"
+                ),
+            }
+
+            pending += 1
+
+        enriched = build_enriched(
+            item["content"],
+            item["metadata"],
+            source_data,
         )
-
-    else:
-
-        print(
-            "⚠️ SOURCE NOT FOUND"
-        )
-
-
-# ============================================================
-# 语言目录
-# ============================================================
-
-def process_language(
-    input_dir: Path,
-    output_dir: Path,
-):
-
-    if not input_dir.exists():
-
-        print(
-            f"⚠️ Missing directory: "
-            f"{input_dir}"
-        )
-
-        return 0
-
-    files = sorted(
-        input_dir.glob(
-            "*.md"
-        )
-    )
-
-    count = 0
-
-    for file in files:
 
         output_file = (
             output_dir
-            / file.name
+            / item["file"].name
         )
 
-        process_file(
-            file,
-            output_file,
+        output_file.write_text(
+            enriched,
+            encoding="utf-8",
         )
 
-        count += 1
+    print()
+    print(
+        f"✓ {language.upper()} "
+        f"fetched: {fetched}"
+    )
 
-        time.sleep(
-            0.3
-        )
+    print(
+        f"→ {language.upper()} "
+        f"pending: {pending}"
+    )
 
-    return count
+    return len(items)
 
 
 # ============================================================
@@ -1424,8 +1950,7 @@ def main():
 
     parser = argparse.ArgumentParser(
         description=(
-            "Horizon Source "
-            "Enrichment V2"
+            "Horizon Source Enrichment V2"
         )
     )
 
@@ -1464,11 +1989,9 @@ def main():
     )
 
     print("=" * 70)
-
     print(
         "HORIZON SOURCE ENRICHMENT V2"
     )
-
     print("=" * 70)
 
     print(
@@ -1487,49 +2010,42 @@ def main():
         f"Output: {output_root}"
     )
 
-    api_key, base_url = (
-        get_agnes_config()
+    print()
+    print(
+        "Strategy:"
     )
-
-    if api_key:
-
-        print(
-            "Agnes API: ENABLED"
-        )
-
-        print(
-            f"Agnes Base URL: "
-            f"{base_url}"
-        )
-
-        print(
-            f"Agnes Model: "
-            f"{AGNES_MODEL}"
-        )
-
-    else:
-
-        print(
-            "Agnes API: DISABLED "
-            "(AGNES_API_KEY missing)"
-        )
+    print(
+        "1. Existing URL"
+    )
+    print(
+        "2. Google News RSS"
+    )
+    print(
+        "3. Agnes API batch fallback"
+    )
+    print(
+        "4. URL validation"
+    )
+    print(
+        "5. Article extraction"
+    )
 
     zh_count = process_language(
         zh_input,
         output_root / "zh",
+        "zh",
     )
 
     en_count = process_language(
         en_input,
         output_root / "en",
+        "en",
     )
 
     print()
     print("=" * 70)
-
-    print(
-        "FINAL RESULT"
-    )
+    print("FINAL RESULT")
+    print("=" * 70)
 
     print(
         f"Chinese: {zh_count}"
@@ -1545,12 +2061,12 @@ def main():
     ):
 
         raise RuntimeError(
-            "没有发现 Atomic News 文件。"
+            "没有发现 Atomic News。"
         )
 
     print()
     print(
-        "✅ SOURCE ENRICHMENT V2 COMPLETE"
+        "✅ HORIZON SOURCE ENRICHMENT V2 COMPLETE"
     )
 
 
