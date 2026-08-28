@@ -271,8 +271,8 @@ jobs:
           import requests
 
           url = (
-              "https://apihub.agnes-ai.com/v1"
-              "/chat/completions"
+              "https://api.agnes-ai.cn/v1"
+              
           )
 
           payload = {
