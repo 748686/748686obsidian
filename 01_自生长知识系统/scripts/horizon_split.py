@@ -2,15 +2,16 @@
 # -*- coding: utf-8 -*-
 
 """
-Horizon Digest -> Atomic News Splitter
+Horizon 双语日报拆解器
 
 功能：
-1. 读取 Horizon 中文/英文日报
-2. 自动识别编号新闻
-3. 每条新闻生成一个独立 Markdown
-4. 自动生成标准 YAML Front Matter
-5. 输出到指定 Atomic 目录
-6. 不依赖 Horizon 固定的“从 X 条内容中筛选出 Y 条”文字
+1. 同时处理 Horizon summary-zh.md 和 summary-en.md
+2. 自动识别日报中的重要资讯条目
+3. 每条资讯生成一个独立 Markdown
+4. 中文、英文分别存放
+5. 自动生成标准 YAML Front Matter
+6. 不依赖固定的「从 X 条内容中筛选出 Y 条」文字
+7. 支持 Horizon 中英文日报格式略有变化的情况
 """
 
 from __future__ import annotations
@@ -20,12 +21,16 @@ import re
 from pathlib import Path
 
 
+# ============================================================
+# 工具函数
+# ============================================================
+
 def clean_text(text: str) -> str:
-    """清理 Horizon 导出过程中常见的 HTML/XML 转义。"""
+    """清理 Horizon 文本中的常见 HTML/编码残留。"""
 
     replacements = {
         "&#x27;": "'",
-        "&#39;": "'",
+        "&#X27;": "'",
         "&apos;": "'",
         "&quot;": '"',
         "&amp;": "&",
@@ -34,87 +39,74 @@ def clean_text(text: str) -> str:
         "&nbsp;": " ",
         "[&-x27;": "'",
         "[&-×27;": "'",
-        "&-x27;": "'",
-        "&-×27;": "'",
         "&#×27;": "'",
-        "&#×2": "",
+        "&#x2": "",
     }
 
     for old, new in replacements.items():
         text = text.replace(old, new)
 
-    # 清理连续空格
-    text = re.sub(r"[ \t]+", " ", text)
+    # 清除明显的 HTML 标签
+    text = re.sub(r"<[^>]+>", "", text)
 
-    # 清理过多空行
-    text = re.sub(r"\n{3,}", "\n\n", text)
+    # 清除连续空格
+    text = re.sub(r"[ \t]+", " ", text)
 
     return text.strip()
 
 
-def yaml_escape(value: str) -> str:
+def yaml_escape(text: str) -> str:
     """安全生成 YAML 双引号字符串。"""
-
-    value = clean_text(value)
-    value = value.replace("\\", "\\\\")
-    value = value.replace('"', '\\"')
-    value = value.replace("\n", " ")
-
-    return f'"{value}"'
+    text = clean_text(text)
+    text = text.replace("\\", "\\\\")
+    text = text.replace('"', '\\"')
+    text = text.replace("\n", " ")
+    return text
 
 
-def detect_language(text: str) -> str:
-    """判断日报语言。"""
+def detect_language(path: Path, content: str) -> str:
+    """优先根据文件名判断语言，否则根据内容判断。"""
 
-    zh_count = len(re.findall(r"[\u4e00-\u9fff]", text))
-    en_count = len(re.findall(r"[A-Za-z]", text))
+    name = path.name.lower()
 
-    if zh_count >= en_count:
+    if "-zh" in name or "_zh" in name or "zh" in name:
         return "zh"
 
-    return "en"
+    if "-en" in name or "_en" in name or "en" in name:
+        return "en"
+
+    chinese = len(re.findall(r"[\u4e00-\u9fff]", content))
+    english = len(re.findall(r"[A-Za-z]", content))
+
+    return "zh" if chinese >= english else "en"
 
 
-def extract_score(text: str) -> str | None:
-    """尝试从标题附近提取 Horizon 分数。"""
+# ============================================================
+# 提取 Horizon 资讯条目
+# ============================================================
 
-    patterns = [
-        r"(\d+(?:\.\d+)?)\s*/\s*10",
-        r"评分[：:\s]*(\d+(?:\.\d+)?)",
-        r"score[：:\s]*(\d+(?:\.\d+)?)",
-    ]
-
-    for pattern in patterns:
-        match = re.search(pattern, text, re.IGNORECASE)
-
-        if match:
-            return match.group(1)
-
-    return None
-
-
-def is_numbered_item(line: str) -> bool:
+def extract_ranked_items(content: str):
     """
-    判断是不是 Horizon 编号新闻。
-
-    支持：
+    提取类似：
 
     1. 标题
-    2. 标题
-    10. 标题
-    01. 标题
+    8.0/10
+
+    或：
+
+    1. 标题  8.0/10
+
+    或：
+
+    01版-xxxx
+    7.0/10
+
+    的 Horizon 条目。
     """
 
-    return bool(
-        re.match(
-            r"^\s*\d{1,3}\s*[\.\、]\s*\S+",
-            line
-        )
-    )
+    content = clean_text(content)
 
-
-def parse_numbered_items(lines: list[str]) -> list[dict]:
-    """提取编号新闻。"""
+    lines = content.splitlines()
 
     items = []
 
@@ -122,36 +114,117 @@ def parse_numbered_items(lines: list[str]) -> list[dict]:
 
     for raw_line in lines:
 
-        line = clean_text(raw_line)
+        line = raw_line.strip()
 
         if not line:
-            if current:
-                current["lines"].append("")
             continue
 
-        match = re.match(
-            r"^\s*(\d{1,3})\s*[\.\、]\s*(.+?)\s*$",
+        # ----------------------------------------------------
+        # 普通数字排行：
+        # 1. 标题
+        # 2. 标题
+        # ----------------------------------------------------
+
+        m = re.match(
+            r"^(\d{1,3})\s*[\.\、\)]\s*(.+?)\s*$",
             line
         )
 
-        if match:
-
+        if m:
             if current:
                 items.append(current)
 
-            number = int(match.group(1))
-            title = match.group(2).strip()
-
             current = {
-                "number": number,
-                "title": title,
-                "lines": []
+                "rank": int(m.group(1)),
+                "title": clean_text(m.group(2)),
+                "score": None,
+                "body": [],
             }
 
             continue
 
+        # ----------------------------------------------------
+        # 中文版面标题：
+        #
+        # 01版-xxx
+        # 02版-xxx
+        #
+        # 或：
+        # ［01版-xxx］
+        # ----------------------------------------------------
+
+        m = re.match(
+            r"^[\[［]?\s*(\d{1,2})\s*版\s*[-—–:：]?\s*(.+?)[\]］]?\s*$",
+            line
+        )
+
+        if m:
+
+            if current:
+                items.append(current)
+
+            current = {
+                "rank": len(items) + 1,
+                "title": clean_text(m.group(2)),
+                "score": None,
+                "body": [],
+            }
+
+            continue
+
+        # ----------------------------------------------------
+        # 评分
+        # ----------------------------------------------------
+
+        score_match = re.search(
+            r"(\d+(?:\.\d+)?)\s*/\s*10",
+            line
+        )
+
+        if score_match and current:
+
+            current["score"] = float(score_match.group(1))
+
+            # 如果评分后还有文字，保留下来
+            remaining = re.sub(
+                r"(\d+(?:\.\d+)?)\s*/\s*10",
+                "",
+                line
+            ).strip()
+
+            if remaining:
+                current["body"].append(remaining)
+
+            continue
+
+        # ----------------------------------------------------
+        # 过滤明显不是正文的 Horizon UI 字段
+        # ----------------------------------------------------
+
+        skip_patterns = [
+            r"^Horizon\s*$",
+            r"^Horizon 摘要$",
+            r"^AI Creator Radar$",
+            r"^AI创作者雷达$",
+            r"^科技新闻$",
+            r"^财经新闻$",
+            r"^国际新闻$",
+            r"^核心资讯$",
+            r"^重要资讯$",
+            r"^从 .* 条内容中筛选",
+            r"^参考链接$",
+            r"^Tags?$",
+        ]
+
+        if any(re.search(p, line, re.I) for p in skip_patterns):
+            continue
+
+        # ----------------------------------------------------
+        # 当前条目的正文
+        # ----------------------------------------------------
+
         if current:
-            current["lines"].append(line)
+            current["body"].append(line)
 
     if current:
         items.append(current)
@@ -159,355 +232,347 @@ def parse_numbered_items(lines: list[str]) -> list[dict]:
     return items
 
 
-def remove_digest_noise(lines: list[str]) -> list[str]:
-    """
-    去掉日报中明显不是正文新闻的内容。
-    """
+# ============================================================
+# 二次清理
+# ============================================================
+
+def normalize_items(items):
 
     result = []
 
-    noise_patterns = [
-        r"^Horizon Summary",
-        r"^Horizon 摘要",
-        r"^日报",
-        r"^科技新闻$",
-        r"^AI 创作者雷达$",
-        r"^AI Creator Radar$",
-        r"^从 .* 条内容中筛选",
-        r"^Fetched .* items",
-        r"^Analyzing content",
-    ]
+    seen = set()
 
-    for line in lines:
+    for item in items:
 
-        cleaned = clean_text(line)
+        title = clean_text(item["title"])
 
-        if not cleaned:
-            result.append("")
+        if not title:
             continue
 
-        skip = False
+        # 清理标题中的评分
+        title = re.sub(
+            r"\s*\d+(?:\.\d+)?\s*/\s*10\s*$",
+            "",
+            title
+        ).strip()
 
-        for pattern in noise_patterns:
-            if re.search(pattern, cleaned, re.IGNORECASE):
-                skip = True
-                break
+        # 清理重复标题
+        key = title.lower()
 
-        if not skip:
-            result.append(cleaned)
+        if key in seen:
+            continue
+
+        seen.add(key)
+
+        body = []
+
+        for line in item["body"]:
+
+            line = clean_text(line)
+
+            if not line:
+                continue
+
+            # 排除一些明显的重复标题
+            if line == title:
+                continue
+
+            body.append(line)
+
+        item["title"] = title
+        item["body"] = body
+
+        result.append(item)
 
     return result
 
 
-def safe_filename(title: str, number: int) -> str:
-    """生成安全文件名。"""
+# ============================================================
+# 生成 Atomic Markdown
+# ============================================================
+
+def make_atomic_markdown(
+    item,
+    language: str,
+    date: str,
+    rank: int,
+) -> str:
+
+    title = item["title"]
+    score = item.get("score")
+
+    score_text = (
+        f"{score:.1f}"
+        if isinstance(score, (int, float))
+        else ""
+    )
+
+    if language == "zh":
+
+        front = f"""---
+title: "{yaml_escape(title)}"
+date: {date}
+type: "原子新闻"
+source: "Horizon"
+language: "zh"
+horizon_score: {score_text if score_text else "null"}
+status: "待AI处理"
+---
+
+# {title}
+
+## Horizon 摘要
+
+"""
+
+    else:
+
+        front = f"""---
+title: "{yaml_escape(title)}"
+date: {date}
+type: "Atomic News"
+source: "Horizon"
+language: "en"
+horizon_score: {score_text if score_text else "null"}
+status: "待AI处理"
+---
+
+# {title}
+
+## Horizon Summary
+
+"""
+
+    body = "\n\n".join(item["body"])
+
+    if not body:
+        body = (
+            "本文来自 Horizon 日报拆解，"
+            "等待后续 AI 二次处理。"
+            if language == "zh"
+            else
+            "This item was extracted from the Horizon digest "
+            "and is waiting for further AI processing."
+        )
+
+    return front + body.strip() + "\n"
+
+
+# ============================================================
+# 安全文件名
+# ============================================================
+
+def safe_filename(title: str, rank: int) -> str:
 
     title = clean_text(title)
 
-    # 去掉 Markdown / Horizon 常见符号
-    title = re.sub(r"[#*_`]", "", title)
-
-    # 替换 Windows / Linux 不适合的字符
+    # 删除 Linux/Windows 不适合文件名的字符
     title = re.sub(
         r'[\\/:*?"<>|]',
-        "-",
+        "",
         title
     )
 
-    # 压缩空格
-    title = re.sub(r"\s+", " ", title).strip()
-
-    # 避免文件名过长
-    title = title[:100]
-
-    if not title:
-        title = "Untitled"
-
-    return f"{number:02d}-{title}.md"
-
-
-def build_atomic_markdown(
-    item: dict,
-    date: str,
-    language: str,
-    source_digest: str
-) -> str:
-
-    title = clean_text(item["title"])
-
-    body_lines = [
-        clean_text(x)
-        for x in item["lines"]
-        if clean_text(x)
-    ]
-
-    body = "\n\n".join(body_lines)
-
-    score = extract_score(
-        title + "\n" + body
+    # 删除 Markdown/HTML 噪声
+    title = re.sub(
+        r"[#\[\]{}]",
+        "",
+        title
     )
 
-    frontmatter = [
-        "---",
-        f"title: {yaml_escape(title)}",
-        f"date: {date}",
-        'type: "原子新闻"',
-        'source: "Horizon"',
-        f"language: {yaml_escape(language)}",
-    ]
+    title = re.sub(
+        r"\s+",
+        " ",
+        title
+    ).strip()
 
-    if score is None:
-        frontmatter.append("horizon_score: null")
-    else:
-        frontmatter.append(
-            f"horizon_score: {score}"
-        )
+    if not title:
+        title = "untitled"
 
-    frontmatter.extend([
-        'status: "待AI处理"',
-        f"source_digest: {yaml_escape(source_digest)}",
-        "---",
-        "",
-    ])
+    # 防止文件名过长
+    title = title[:100]
 
-    content = "\n".join(frontmatter)
-
-    content += f"# {title}\n\n"
-
-    if score:
-        content += f"**Horizon 评分：{score}/10**\n\n"
-
-    if body:
-        content += "## Horizon 摘要\n\n"
-        content += body
-        content += "\n\n"
-
-    content += "## AI 二次处理\n\n"
-    content += "待 27 Skills 处理。\n\n"
-
-    content += "## 知识关联\n\n"
-    content += "待 AI 建立。\n\n"
-
-    content += "## 最终分类\n\n"
-    content += "待 AI 分类。\n"
-
-    return content
+    return f"{rank:03d}-{title}.md"
 
 
-def split_digest(
+# ============================================================
+# 单语言拆解
+# ============================================================
+
+def split_one(
     input_file: Path,
     output_dir: Path,
-    date: str
-) -> int:
+    date: str,
+    language: str,
+):
 
+    print()
     print("=" * 70)
-    print("Horizon Digest Splitter")
+    print(f"Processing {language.upper()} Horizon digest")
     print("=" * 70)
 
     print(f"Input : {input_file}")
     print(f"Output: {output_dir}")
-    print(f"Date  : {date}")
-    print()
 
     if not input_file.exists():
         raise FileNotFoundError(
-            f"找不到输入日报：{input_file}"
+            f"找不到 Horizon 日报：{input_file}"
         )
 
-    text = input_file.read_text(
+    content = input_file.read_text(
         encoding="utf-8",
-        errors="replace"
+        errors="replace",
     )
 
-    text = clean_text(text)
+    items = extract_ranked_items(content)
 
-    lines = text.splitlines()
-
-    language = detect_language(text)
-
-    print(f"Detected language: {language}")
-
-    # ---------------------------------------------------------
-    # 第一步：尝试找正文编号新闻
-    # ---------------------------------------------------------
-
-    lines = remove_digest_noise(lines)
-
-    items = parse_numbered_items(lines)
-
-    print(f"Detected numbered items: {len(items)}")
-
-    # ---------------------------------------------------------
-    # 第二步：过滤明显不是新闻的项目
-    # ---------------------------------------------------------
-
-    filtered = []
-
-    for item in items:
-
-        title = clean_text(item["title"])
-
-        if len(title) < 4:
-            continue
-
-        # 排除纯评分
-        if re.fullmatch(
-            r"\d+(?:\.\d+)?\s*/\s*10",
-            title
-        ):
-            continue
-
-        filtered.append(item)
-
-    items = filtered
-
-    print(f"Valid atomic items: {len(items)}")
+    items = normalize_items(items)
 
     if not items:
         raise RuntimeError(
-            "没有识别到任何编号新闻。"
-            "请检查 Horizon 日报格式。"
+            f"无法从 {input_file} 提取 Horizon 资讯。"
         )
-
-    # ---------------------------------------------------------
-    # 创建输出目录
-    # ---------------------------------------------------------
 
     output_dir.mkdir(
         parents=True,
-        exist_ok=True
+        exist_ok=True,
     )
 
-    # ---------------------------------------------------------
-    # 防止重复运行造成旧文件残留
-    # ---------------------------------------------------------
+    count = 0
 
-    for old_file in output_dir.glob("*.md"):
-
-        try:
-            old_file.unlink()
-        except Exception:
-            pass
-
-    # ---------------------------------------------------------
-    # 生成 Atomic News
-    # ---------------------------------------------------------
-
-    generated = 0
-
-    source_digest = input_file.name
-
-    for item in items:
-
-        number = item["number"]
-        title = clean_text(item["title"])
+    for index, item in enumerate(items, start=1):
 
         filename = safe_filename(
-            title,
-            number
+            item["title"],
+            index,
         )
 
-        target = output_dir / filename
+        path = output_dir / filename
 
-        markdown = build_atomic_markdown(
+        markdown = make_atomic_markdown(
             item=item,
-            date=date,
             language=language,
-            source_digest=source_digest
+            date=date,
+            rank=index,
         )
 
-        target.write_text(
+        path.write_text(
             markdown,
-            encoding="utf-8"
+            encoding="utf-8",
         )
 
-        generated += 1
+        count += 1
 
         print(
-            f"[{generated:03d}] {target.name}"
+            f"[{language}] {index:03d} "
+            f"{item['title']}"
         )
-
-    # ---------------------------------------------------------
-    # 生成索引
-    # ---------------------------------------------------------
-
-    index = [
-        "---",
-        f"title: {date} Horizon Atomic News Index",
-        f"date: {date}",
-        'type: "原子新闻索引"',
-        'source: "Horizon"',
-        "---",
-        "",
-        f"# {date} Horizon Atomic News",
-        "",
-        f"共生成 **{generated}** 条原子新闻。",
-        "",
-    ]
-
-    for item in items:
-
-        title = clean_text(item["title"])
-
-        filename = safe_filename(
-            title,
-            item["number"]
-        )
-
-        index.append(
-            f"- [[{filename[:-3]}]]"
-        )
-
-    index.append("")
-
-    (output_dir / "_index.md").write_text(
-        "\n".join(index),
-        encoding="utf-8"
-    )
 
     print()
-    print("=" * 70)
-    print("✅ Horizon Digest Split COMPLETE")
-    print("=" * 70)
-    print(f"Generated: {generated}")
-    print(f"Directory: {output_dir}")
+    print(
+        f"✅ {language.upper()} generated: {count}"
+    )
 
-    return generated
+    return count
 
+
+# ============================================================
+# 主程序
+# ============================================================
 
 def main():
 
     parser = argparse.ArgumentParser(
-        description="Split Horizon digest into atomic news"
+        description="Horizon bilingual digest splitter"
     )
 
     parser.add_argument(
-        "--input",
-        required=True
+        "--zh",
+        required=True,
+        help="中文 Horizon summary",
+    )
+
+    parser.add_argument(
+        "--en",
+        required=True,
+        help="英文 Horizon summary",
     )
 
     parser.add_argument(
         "--output",
-        required=True
+        required=True,
+        help="Atomic 输出根目录",
     )
 
     parser.add_argument(
         "--date",
-        required=True
+        required=True,
+        help="日期，例如 2026-08-28",
     )
 
     args = parser.parse_args()
 
-    count = split_digest(
-        input_file=Path(args.input),
-        output_dir=Path(args.output),
-        date=args.date
+    zh_input = Path(args.zh)
+    en_input = Path(args.en)
+    output_root = Path(args.output)
+
+    print("=" * 70)
+    print("Horizon Bilingual Digest Splitter")
+    print("=" * 70)
+
+    print(f"ZH : {zh_input}")
+    print(f"EN : {en_input}")
+    print(f"OUT: {output_root}")
+    print(f"DATE: {args.date}")
+
+    # --------------------------------------------------------
+    # 中文
+    # --------------------------------------------------------
+
+    zh_count = split_one(
+        input_file=zh_input,
+        output_dir=output_root / "zh",
+        date=args.date,
+        language="zh",
     )
 
-    if count <= 0:
+    # --------------------------------------------------------
+    # 英文
+    # --------------------------------------------------------
+
+    en_count = split_one(
+        input_file=en_input,
+        output_dir=output_root / "en",
+        date=args.date,
+        language="en",
+    )
+
+    # --------------------------------------------------------
+    # 最终验证
+    # --------------------------------------------------------
+
+    print()
+    print("=" * 70)
+    print("FINAL VALIDATION")
+    print("=" * 70)
+
+    print(f"Chinese Atomic News : {zh_count}")
+    print(f"English Atomic News : {en_count}")
+
+    if zh_count <= 0:
         raise RuntimeError(
-            "没有生成任何 Atomic News。"
+            "❌ 中文日报没有生成任何 Atomic News。"
         )
+
+    if en_count <= 0:
+        raise RuntimeError(
+            "❌ 英文日报没有生成任何 Atomic News。"
+        )
+
+    print()
+    print("✅ 中文拆解成功")
+    print("✅ 英文拆解成功")
+    print("✅ Horizon 双语日报拆解全部完成")
 
 
 if __name__ == "__main__":
