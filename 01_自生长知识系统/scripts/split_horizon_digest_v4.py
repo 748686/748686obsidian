@@ -551,7 +551,6 @@ def split_digest(input_file: Path, output_dir: Path, date: str):
 def main():
 
     parser = argparse.ArgumentParser()
-
     parser.add_argument(
         "--input",
         required=True,
