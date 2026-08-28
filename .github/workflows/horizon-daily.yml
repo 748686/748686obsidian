@@ -41,7 +41,34 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      # ==========================================
+      # DEBUG：检查 Horizon 实际下载了什么
+      # ==========================================
+      - name: Check Horizon profiles
+        working-directory: horizon
+        run: |
+          echo "===== Horizon directory ====="
+          pwd
 
+          echo ""
+          echo "===== profiles directory ====="
+          ls -la profiles || true
+
+          echo ""
+          echo "===== profiles files ====="
+          find profiles -maxdepth 3 -type f -print 2>/dev/null || true
+           - name: Check Horizon revision
+           working-directory: horizon
+           run: |
+          echo "===== Horizon revision ====="
+          git branch --show-current
+          git rev-parse HEAD
+          git log -1 --oneline
+
+          echo ""
+          echo "===== Git status ====="
+          git status --short
+      
       # ==========================================
       # 5. 安装 Horizon
       # ==========================================
