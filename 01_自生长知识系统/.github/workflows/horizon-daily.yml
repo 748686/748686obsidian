@@ -17,10 +17,11 @@ jobs:
       - name: Checkout 748686obsidian
         uses: actions/checkout@v4
 
-      - name: Checkout Horizon
+      - name: Checkout my Horizon
         uses: actions/checkout@v4
         with:
-          repository: Thysrael/Horizon
+          repository: 748686/Horizon
+          ref: main
           path: /tmp/horizon
 
       - name: Install uv
