@@ -40,18 +40,7 @@ jobs:
           path: horizon
 
       # ==========================================================
-      # 3. Checkout Horizon gh-pages
-      # ==========================================================
-
-      - name: Checkout Horizon gh-pages
-        uses: actions/checkout@v4
-        with:
-          repository: 748686/Horizon
-          ref: gh-pages
-          path: horizon-pages
-
-      # ==========================================================
-      # 4. Setup Python
+      # 3. Setup Python
       # ==========================================================
 
       - name: Setup Python
@@ -60,17 +49,17 @@ jobs:
           python-version: "3.12"
 
       # ==========================================================
-      # 5. Install uv
+      # 4. Install uv
       # ==========================================================
 
       - name: Install uv
         uses: astral-sh/setup-uv@v6
 
       # ==========================================================
-      # 6. Install Python dependencies
+      # 5. Install Horizon
       # ==========================================================
 
-      - name: Install dependencies
+      - name: Install Horizon
         working-directory: horizon
         run: |
           set -e
@@ -81,8 +70,11 @@ jobs:
 
           uv sync
 
+          echo
+          echo "✅ Horizon installed"
+
       # ==========================================================
-      # 7. Check Agnes API configuration
+      # 6. Check Agnes API configuration
       # ==========================================================
 
       - name: Check Agnes API configuration
@@ -105,11 +97,10 @@ jobs:
           echo "Model: agnes-2.5-flash"
 
       # ==========================================================
-      # 8. Define today's date
+      # 7. Define today's date
       # ==========================================================
 
       - name: Set system date
-        id: date
         run: |
           set -e
 
@@ -126,17 +117,19 @@ jobs:
           echo "Today: $TODAY"
 
       # ==========================================================
-      # 9. Build Horizon runtime config
+      # 8. Build Horizon runtime config
+      #
+      # IMPORTANT:
+      # 不覆盖 Horizon 自带的 data/config.github.json
+      # 与已经测试通过的 Horizon 测试版保持一致
       # ==========================================================
 
       - name: Build Horizon runtime config
-        env:
-          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
         run: |
           set -e
 
           echo "=========================================="
-          echo "BUILD HORIZON CONFIG"
+          echo "BUILD HORIZON RUNTIME CONFIG"
           echo "=========================================="
 
           python - <<'PY'
@@ -147,8 +140,6 @@ jobs:
           system_dir = Path(
               "01_自生长知识系统/00_System"
           )
-
-          horizon_dir = Path("horizon")
 
           config_file = (
               system_dir /
@@ -163,12 +154,6 @@ jobs:
           runtime_file = (
               system_dir /
               "horizon_runtime_config.json"
-          )
-
-          horizon_runtime_file = (
-              horizon_dir /
-              "data" /
-              "config.github.json"
           )
 
           print("Config:")
@@ -216,32 +201,12 @@ jobs:
               encoding="utf-8"
           )
 
-          horizon_runtime_file.parent.mkdir(
-              parents=True,
-              exist_ok=True
-          )
-
-          horizon_runtime_file.write_text(
-              json.dumps(
-                  config,
-                  ensure_ascii=False,
-                  indent=2
-              ),
-              encoding="utf-8"
-          )
-
           print()
           print(
               "✅ Horizon runtime config created"
           )
 
-          print(
-              runtime_file
-          )
-
-          print(
-              horizon_runtime_file
-          )
+          print(runtime_file)
 
           print()
           print(
@@ -251,8 +216,21 @@ jobs:
 
           PY
 
+          echo
+          echo "=========================================="
+          echo "IMPORTANT HORIZON CONFIG"
+          echo "=========================================="
+
+          echo "Using Horizon native config:"
+          echo "horizon/data/config.github.json"
+
+          echo
+          echo "The native Horizon config will NOT be overwritten."
+
       # ==========================================================
-      # 10. Run Horizon
+      # 9. Run Horizon
+      #
+      # 与已经测试通过的 Horizon 测试版完全一致
       # ==========================================================
 
       - name: Run Horizon
@@ -273,12 +251,42 @@ jobs:
           echo "Model: agnes-2.5-flash"
           echo "Hours: 24"
 
+          echo
+          echo "Config:"
+          echo "data/config.github.json"
+
+          echo
+          echo "Checking Horizon profiles..."
+
+          if [ -d "profiles" ]; then
+            find profiles \
+              -maxdepth 2 \
+              -type f \
+              | sort
+          else
+            echo "profiles directory not found at repository root"
+          fi
+
+          echo
+          echo "Running Horizon..."
+
           uv run horizon \
             --hours 24 \
             --config data/config.github.json
 
           echo
           echo "✅ Horizon completed"
+
+      # ==========================================================
+      # 10. Checkout Horizon gh-pages
+      # ==========================================================
+
+      - name: Checkout Horizon gh-pages
+        uses: actions/checkout@v4
+        with:
+          repository: 748686/Horizon
+          ref: gh-pages
+          path: horizon-pages
 
       # ==========================================================
       # 11. Inspect Horizon output
@@ -341,7 +349,7 @@ jobs:
 
           echo
           echo "Raw News:"
-          
+
           find "$RAW_DIR" \
             -maxdepth 1 \
             -type f \
@@ -421,6 +429,7 @@ jobs:
 
           echo
           echo "Chinese Atomic:"
+
           find "$ZH_DIR" \
             -type f \
             -name "*.md" \
@@ -428,6 +437,7 @@ jobs:
 
           echo
           echo "English Atomic:"
+
           find "$EN_DIR" \
             -type f \
             -name "*.md" \
@@ -456,7 +466,6 @@ jobs:
           echo "HORIZON SOURCE ENRICHMENT V2"
           echo "=========================================="
 
-          echo
           echo "Chinese Atomic:"
           echo "$ZH"
 
@@ -489,7 +498,7 @@ jobs:
           echo "✅ Source Enrichment V2 completed"
 
       # ==========================================================
-      # 15. Validate Enriched Chinese
+      # 15. Validate Chinese Enriched
       # ==========================================================
 
       - name: Validate Chinese Enriched
@@ -521,7 +530,7 @@ jobs:
           fi
 
       # ==========================================================
-      # 16. Validate Enriched English
+      # 16. Validate English Enriched
       # ==========================================================
 
       - name: Validate English Enriched
@@ -618,11 +627,13 @@ jobs:
 
           from pathlib import Path
           from collections import Counter
+          import os
           import re
 
-          root = Path(
-              "01_自生长知识系统/Raw News"
-          ) / f"{__import__('os').environ['TODAY']}-Enriched"
+          root = (
+              Path("01_自生长知识系统/Raw News")
+              / f"{os.environ['TODAY']}-Enriched"
+          )
 
           counter = Counter()
 
@@ -687,6 +698,7 @@ jobs:
 
           echo
           echo "Skills:"
+
           find "01_自生长知识系统/Skills" \
             -type f \
             -name "*.md" \
@@ -738,6 +750,7 @@ jobs:
 
           echo
           echo "Raw News:"
+
           find \
             "01_自生长知识系统/Raw News/$TODAY" \
             -type f \
@@ -746,6 +759,7 @@ jobs:
 
           echo
           echo "Atomic News:"
+
           find \
             "01_自生长知识系统/Raw News/$TODAY-Atomic" \
             -type f \
@@ -754,6 +768,7 @@ jobs:
 
           echo
           echo "Enriched News:"
+
           find \
             "01_自生长知识系统/Raw News/$TODAY-Enriched" \
             -type f \
@@ -762,6 +777,7 @@ jobs:
 
           echo
           echo "Daily Reports:"
+
           find \
             "01_自生长知识系统/05_日报" \
             -type f \
@@ -771,6 +787,7 @@ jobs:
 
           echo
           echo "Knowledge:"
+
           find \
             "01_自生长知识系统/08_知识库" \
             -type f \
@@ -780,6 +797,7 @@ jobs:
 
           echo
           echo "Topics:"
+
           find \
             "01_自生长知识系统/07_专题报告" \
             -type f \
@@ -789,6 +807,7 @@ jobs:
 
           echo
           echo "Weekly:"
+
           find \
             "01_自生长知识系统/06_周报" \
             -type f \
@@ -833,7 +852,7 @@ jobs:
           fi
 
       # ==========================================================
-      # 23. Complete
+      # 23. Complete job
       # ==========================================================
 
       - name: Complete job
@@ -842,36 +861,47 @@ jobs:
           echo "=========================================="
           echo "748686 自生长知识系统"
           echo "=========================================="
+
           echo
           echo "TODAY:"
           echo "$TODAY"
+
           echo
           echo "Horizon:"
           echo "✅ completed"
+
           echo
           echo "Raw News:"
           echo "✅ completed"
+
           echo
           echo "Atomic News:"
           echo "✅ completed"
+
           echo
           echo "Source Enrichment V2:"
           echo "✅ completed"
+
           echo
           echo "27 Skills:"
           echo "✅ Knowledge Pipeline V2 completed"
+
           echo
           echo "Knowledge Cards:"
           echo "✅ generated"
+
           echo
           echo "Topic Candidates:"
           echo "✅ generated"
+
           echo
           echo "Weekly Report:"
           echo "✅ generated"
+
           echo
           echo "GitHub:"
           echo "✅ pushed"
+
           echo
           echo "=========================================="
           echo "SYSTEM COMPLETE"
