@@ -404,8 +404,8 @@ jobs:
           echo
           echo "✅ Both languages generated."
 
-      # ============================================================
-      # 14. 检查 YAML Front Matter
+          # ============================================================
+      # 14. 验证 YAML Front Matter
       # ============================================================
       - name: Validate Front Matter
         shell: bash
@@ -423,15 +423,33 @@ jobs:
 
           for DIR in "$ZH_DIR" "$EN_DIR"
           do
-            FILE=$(find "$DIR" \
-              -maxdepth 1 \
-              -type f \
-              -name "*.md" \
-              | sort \
-              | head -n 1)
+            echo
+            echo "Checking directory:"
+            echo "$DIR"
+
+            if [ ! -d "$DIR" ]; then
+              echo "❌ Directory not found:"
+              echo "$DIR"
+              exit 1
+            fi
+
+            FILE=""
+
+            while IFS= read -r CANDIDATE
+            do
+              FILE="$CANDIDATE"
+              break
+            done < <(
+              find "$DIR" \
+                -maxdepth 1 \
+                -type f \
+                -name "*.md" \
+                -print
+            )
 
             if [ -z "$FILE" ]; then
-              echo "❌ No markdown file found in $DIR"
+              echo "❌ No markdown file found in:"
+              echo "$DIR"
               exit 1
             fi
 
@@ -439,17 +457,33 @@ jobs:
             echo "Checking:"
             echo "$FILE"
 
-            if ! head -n 1 "$FILE" | grep -q "^---$"; then
+            FIRST_LINE=$(head -n 1 "$FILE")
+
+            if [ "$FIRST_LINE" != "---" ]; then
               echo "❌ YAML Front Matter missing:"
               echo "$FILE"
+              echo
+              echo "First line was:"
+              echo "$FIRST_LINE"
               exit 1
             fi
 
-            echo "✅ Front Matter detected"
+            echo "✅ YAML Front Matter detected"
 
-            sed -n '1,18p' "$FILE"
+            echo
+            echo "---------- Preview ----------"
+
+            sed -n '1,20p' "$FILE"
+
+            echo
+            echo "---------- End Preview ----------"
+
           done
 
+          echo
+          echo "=========================================="
+          echo "✅ FRONT MATTER VALIDATION COMPLETE"
+          echo "=========================================="
       # ============================================================
       # 15. 检查原文信息字段
       # ============================================================
