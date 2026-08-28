@@ -60,7 +60,27 @@ jobs:
           AI_MODEL: ${{ secrets.AI_MODEL }}
         run: |
           uv run horizon --hours 24 --config "$GITHUB_WORKSPACE/01_自生长知识系统/00_System/horizon_runtime_config.json"
+      - name: Checkout Horizon gh-pages
+        uses: actions/checkout@v4
+        with:
+          repository: 748686/Horizon
+          ref: gh-pages
+          path: /tmp/horizon-pages
 
+      - name: Copy Horizon daily reports to Raw News
+        run: |
+          set -e
+
+          RAW_DIR="01_自生长知识系统/Raw News/$(date -u +%Y-%m-%d)"
+          mkdir -p "$RAW_DIR"
+
+          echo "Horizon gh-pages _posts:"
+          find /tmp/horizon-pages/_posts -type f -name '*.md' | sort || true
+
+          cp /tmp/horizon-pages/_posts/*.md "$RAW_DIR/" 2>/dev/null || true
+
+          echo "Raw News:"
+          find "$RAW_DIR" -type f -maxdepth 1 -print | sort
       - name: Run self-growing knowledge pipeline
         env:
           AI_API_KEY: ${{ secrets.AI_API_KEY }}
