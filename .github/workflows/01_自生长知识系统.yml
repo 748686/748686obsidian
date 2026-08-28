@@ -1,0 +1,1004 @@
+name: 01 自生长知识系统 - 每日运行
+
+on:
+  workflow_dispatch:
+
+  schedule:
+    # 北京 / 上海 / 香港时间每天 07:00
+    # GitHub Actions 使用 UTC
+    - cron: "0 23 * * *"
+
+permissions:
+  contents: write
+
+
+# ============================================================
+# 全局环境
+# ============================================================
+
+env:
+
+  # ----------------------------------------------------------
+  # Agnes AI
+  # ----------------------------------------------------------
+
+  AI_BASE_URL: "https://api.agnes-ai.cn/v1"
+
+  AI_MODEL: "agnes-2.5-flash"
+
+  # AI_API_KEY 不直接写入这里
+  # 在 job.env 中通过 GitHub Secret 注入
+
+
+# ============================================================
+# Job
+# ============================================================
+
+jobs:
+
+  daily:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # ======================================================
+      # 01. Checkout 主知识库
+      # ======================================================
+
+      - name: Checkout 748686obsidian
+
+        uses: actions/checkout@v4
+
+        with:
+          fetch-depth: 0
+
+
+      # ======================================================
+      # 02. 显示系统目录
+      # ======================================================
+
+      - name: Check System Structure
+
+        run: |
+
+          set -e
+
+          echo "=========================================="
+          echo "748686 自生长知识系统"
+          echo "=========================================="
+
+          echo
+          echo "Repository:"
+          pwd
+
+          echo
+          echo "System directory:"
+          ls -la "01_自生长知识系统"
+
+          echo
+          echo "Scripts:"
+          ls -la "01_自生长知识系统/scripts"
+
+          echo
+          echo "System config:"
+          ls -la "01_自生长知识系统/00_System"
+
+
+      # ======================================================
+      # 03. Setup Python
+      # ======================================================
+
+      - name: Setup Python
+
+        uses: actions/setup-python@v5
+
+        with:
+          python-version: "3.12"
+
+
+      # ======================================================
+      # 04. Install dependencies
+      # ======================================================
+
+      - name: Install dependencies
+
+        run: |
+
+          set -e
+
+          python -m pip install --upgrade pip
+
+          pip install \
+            requests \
+            feedparser \
+            beautifulsoup4 \
+            lxml \
+            trafilatura
+
+
+      # ======================================================
+      # 05. Check Agnes API configuration
+      # ======================================================
+
+      - name: Check Agnes API configuration
+
+        env:
+
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+
+        run: |
+
+          set -e
+
+          echo "=========================================="
+          echo "CHECK AGNES API CONFIGURATION"
+          echo "=========================================="
+
+          if [ -z "$AGNES_API_KEY" ]; then
+            echo "❌ AGNES_API_KEY is missing."
+            exit 1
+          fi
+
+          echo "Agnes API Key: configured"
+
+          echo "AI_BASE_URL:"
+          echo "$AI_BASE_URL"
+
+          echo "AI_MODEL:"
+          echo "$AI_MODEL"
+
+
+      # ======================================================
+      # 06. Test Agnes API
+      # ======================================================
+
+      - name: Test Agnes API
+
+        env:
+
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+
+        run: |
+
+          set -e
+
+          echo "=========================================="
+          echo "TEST AGNES API"
+          echo "=========================================="
+
+          python - <<'PY'
+
+          import os
+          import requests
+
+          url = (
+              os.environ["AI_BASE_URL"]
+              + "/chat/completions"
+          )
+
+          payload = {
+
+              "model":
+                  os.environ["AI_MODEL"],
+
+              "messages": [
+
+                  {
+                      "role":
+                          "user",
+
+                      "content":
+                          "Reply only with OK."
+                  }
+
+              ],
+
+              "temperature":
+                  0,
+
+              "max_tokens":
+                  10,
+
+              "stream":
+                  False,
+          }
+
+          response = requests.post(
+
+              url,
+
+              headers={
+
+                  "Authorization":
+                      "Bearer "
+                      + os.environ[
+                          "AGNES_API_KEY"
+                      ],
+
+                  "Content-Type":
+                      "application/json",
+              },
+
+              json=payload,
+
+              timeout=30,
+          )
+
+          print(
+              "HTTP:",
+              response.status_code
+          )
+
+          if response.status_code != 200:
+
+              print(
+                  response.text[:1000]
+              )
+
+              raise SystemExit(
+                  "Agnes API test failed."
+              )
+
+          print(
+              "✅ Agnes API connection OK."
+          )
+
+          PY
+
+
+      # ======================================================
+      # 07. 准备 Horizon 临时目录
+      # ======================================================
+
+      - name: Prepare Horizon workspace
+
+        run: |
+
+          set -e
+
+          echo "=========================================="
+          echo "PREPARE HORIZON"
+          echo "=========================================="
+
+          rm -rf /tmp/horizon
+
+          mkdir -p /tmp/horizon
+
+          echo "Horizon workspace:"
+          ls -la /tmp/horizon
+
+
+      # ======================================================
+      # 08. Checkout Horizon
+      #
+      # 注意：
+      # 这里使用 GitHub Secrets 中的 Horizon 配置。
+      #
+      # 如果你的 Horizon 是独立私有仓库，
+      # 需要在 Secrets 中提供：
+      #
+      # HORIZON_REPO
+      # HORIZON_TOKEN
+      #
+      # 例如：
+      # HORIZON_REPO = 748686/horizon
+      #
+      # ======================================================
+
+      - name: Checkout Horizon
+
+        uses: actions/checkout@v4
+
+        with:
+
+          repository: ${{ secrets.HORIZON_REPO }}
+
+          token: ${{ secrets.HORIZON_TOKEN }}
+
+          path: /tmp/horizon
+
+          fetch-depth: 1
+
+
+      # ======================================================
+      # 09. 检查 Horizon
+      # ======================================================
+
+      - name: Check Horizon
+
+        run: |
+
+          set -e
+
+          echo "=========================================="
+          echo "CHECK HORIZON"
+          echo "=========================================="
+
+          if [ ! -d "/tmp/horizon" ]; then
+
+            echo "❌ Horizon directory missing."
+
+            exit 1
+
+          fi
+
+          echo
+          echo "Horizon files:"
+
+          find /tmp/horizon \
+            -maxdepth 2 \
+            -type f \
+            | head -100
+
+
+      # ======================================================
+      # 10. 运行 Horizon
+      #
+      # 这里兼容常见 Horizon 项目入口。
+      #
+      # 优先：
+      # main.py
+      #
+      # 其次：
+      # horizon.py
+      #
+      # 如果你的 Horizon 仓库本身已经有执行入口，
+      # 这里会直接执行。
+      # ======================================================
+
+      - name: Run Horizon
+
+        env:
+
+          OPENAI_API_KEY: ${{ secrets.AGNES_API_KEY }}
+
+          HORIZON_API_KEY: ${{ secrets.AGNES_API_KEY }}
+
+        run: |
+
+          set -e
+
+          echo "=========================================="
+          echo "RUN HORIZON"
+          echo "=========================================="
+
+          cd /tmp/horizon
+
+          if [ -f "requirements.txt" ]; then
+
+            pip install -r requirements.txt
+
+          fi
+
+          if [ -f "main.py" ]; then
+
+            echo "Running main.py"
+
+            python main.py
+
+          elif [ -f "horizon.py" ]; then
+
+            echo "Running horizon.py"
+
+            python horizon.py
+
+          else
+
+            echo "❌ Cannot find Horizon entrypoint."
+
+            echo
+            echo "Available Python files:"
+
+            find . \
+              -maxdepth 3 \
+              -name "*.py"
+
+            exit 1
+
+          fi
+
+
+      # ======================================================
+      # 11. 检查 Horizon 输出
+      # ======================================================
+
+      - name: Check Horizon output
+
+        run: |
+
+          set -e
+
+          echo "=========================================="
+          echo "CHECK HORIZON OUTPUT"
+          echo "=========================================="
+
+          if [ -d "/tmp/horizon/data/summaries" ]; then
+
+            echo
+            echo "Horizon summaries:"
+
+            find /tmp/horizon/data/summaries \
+              -type f \
+              -maxdepth 3 \
+              -print
+
+          else
+
+            echo "⚠️ summaries directory not found."
+
+          fi
+
+
+      # ======================================================
+      # 12. 复制 Horizon 输出到知识库
+      # ======================================================
+
+      - name: Import Horizon summaries
+
+        run: |
+
+          set -e
+
+          TODAY="$(TZ=Asia/Shanghai date +%Y-%m-%d)"
+
+          TARGET="01_自生长知识系统/Raw News/${TODAY}-Horizon"
+
+          mkdir -p "$TARGET"
+
+          if [ -d "/tmp/horizon/data/summaries" ]; then
+
+            cp -R \
+              /tmp/horizon/data/summaries/. \
+              "$TARGET/"
+
+          fi
+
+          echo
+          echo "Imported Horizon data:"
+          find "$TARGET" -type f | head -100
+
+
+      # ======================================================
+      # 13. Source Enrichment V2
+      #
+      # 顺序：
+      #
+      # RSS / 搜索候选
+      #       ↓
+      # 标题匹配
+      #       ↓
+      # 网页抓取
+      #       ↓
+      # 失败
+      #       ↓
+      # Agnes API
+      #
+      # 不把摘要伪装成原文。
+      # ======================================================
+
+      - name: Run Source Enrichment V2
+
+        env:
+
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+
+          AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
+
+          AI_BASE_URL: "https://api.agnes-ai.cn/v1"
+
+          AI_MODEL: "agnes-2.5-flash"
+
+        run: |
+
+          set -e
+
+          TODAY="$(TZ=Asia/Shanghai date +%Y-%m-%d)"
+
+          ZH="01_自生长知识系统/Raw News/${TODAY}-Atomic/zh"
+
+          EN="01_自生长知识系统/Raw News/${TODAY}-Atomic/en"
+
+          OUTPUT="01_自生长知识系统/Raw News/${TODAY}-Enriched"
+
+          SCRIPT="01_自生长知识系统/scripts/source_enrichment.py"
+
+          echo "=========================================="
+          echo "HORIZON SOURCE ENRICHMENT V2"
+          echo "=========================================="
+
+          echo
+          echo "Date:"
+          echo "$TODAY"
+
+          echo
+          echo "Chinese Atomic:"
+          echo "$ZH"
+
+          echo
+          echo "English Atomic:"
+          echo "$EN"
+
+          echo
+          echo "Output:"
+          echo "$OUTPUT"
+
+          echo
+          echo "Script:"
+          echo "$SCRIPT"
+
+          if [ ! -f "$SCRIPT" ]; then
+
+            echo "❌ Source Enrichment script missing."
+
+            exit 1
+
+          fi
+
+          if [ ! -d "$ZH" ]; then
+
+            echo "⚠️ Chinese Atomic directory not found:"
+            echo "$ZH"
+
+          fi
+
+          if [ ! -d "$EN" ]; then
+
+            echo "⚠️ English Atomic directory not found:"
+            echo "$EN"
+
+          fi
+
+          echo
+          echo "Running..."
+
+          python "$SCRIPT" \
+            --zh "$ZH" \
+            --en "$EN" \
+            --output "$OUTPUT" \
+            --date "$TODAY"
+
+
+      # ======================================================
+      # 14. Validate Chinese Enriched
+      # ======================================================
+
+      - name: Validate Chinese Enriched
+
+        run: |
+
+          set -e
+
+          TODAY="$(TZ=Asia/Shanghai date +%Y-%m-%d)"
+
+          DIR="01_自生长知识系统/Raw News/${TODAY}-Enriched/zh"
+
+          echo "=========================================="
+          echo "VALIDATE CHINESE ENRICHED"
+          echo "=========================================="
+
+          if [ ! -d "$DIR" ]; then
+
+            echo "⚠️ Chinese Enriched directory does not exist."
+
+            exit 0
+
+          fi
+
+          COUNT=$(find "$DIR" -type f -name "*.md" | wc -l)
+
+          echo "Chinese Enriched files: $COUNT"
+
+
+      # ======================================================
+      # 15. Validate English Enriched
+      # ======================================================
+
+      - name: Validate English Enriched
+
+        run: |
+
+          set -e
+
+          TODAY="$(TZ=Asia/Shanghai date +%Y-%m-%d)"
+
+          DIR="01_自生长知识系统/Raw News/${TODAY}-Enriched/en"
+
+          echo "=========================================="
+          echo "VALIDATE ENGLISH ENRICHED"
+          echo "=========================================="
+
+          if [ ! -d "$DIR" ]; then
+
+            echo "⚠️ English Enriched directory does not exist."
+
+            exit 0
+
+          fi
+
+          COUNT=$(find "$DIR" -type f -name "*.md" | wc -l)
+
+          echo "English Enriched files: $COUNT"
+
+
+      # ======================================================
+      # 16. Validate Front Matter
+      # ======================================================
+
+      - name: Validate Front Matter
+
+        run: |
+
+          set -e
+
+          TODAY="$(TZ=Asia/Shanghai date +%Y-%m-%d)"
+
+          DIR="01_自生长知识系统/Raw News/${TODAY}-Enriched"
+
+          echo "=========================================="
+          echo "VALIDATE FRONT MATTER"
+          echo "=========================================="
+
+          if [ ! -d "$DIR" ]; then
+
+            echo "❌ Enriched directory missing."
+
+            exit 1
+
+          fi
+
+          TOTAL=0
+          BAD=0
+
+          while IFS= read -r -d '' FILE; do
+
+            TOTAL=$((TOTAL + 1))
+
+            if ! head -n 1 "$FILE" | grep -q "^---$"; then
+
+              echo "⚠️ Missing Front Matter:"
+              echo "$FILE"
+
+              BAD=$((BAD + 1))
+
+            fi
+
+          done < <(
+            find "$DIR" \
+              -type f \
+              -name "*.md" \
+              -print0
+          )
+
+          echo
+          echo "Total Markdown files: $TOTAL"
+          echo "Invalid Front Matter: $BAD"
+
+          if [ "$TOTAL" -eq 0 ]; then
+
+            echo "❌ No Enriched Markdown files."
+
+            exit 1
+
+          fi
+
+
+      # ======================================================
+      # 17. Report source status
+      # ======================================================
+
+      - name: Report source status
+
+        run: |
+
+          set -e
+
+          TODAY="$(TZ=Asia/Shanghai date +%Y-%m-%d)"
+
+          DIR="01_自生长知识系统/Raw News/${TODAY}-Enriched"
+
+          echo "=========================================="
+          echo "SOURCE STATUS REPORT"
+          echo "=========================================="
+
+          python - "$DIR" <<'PY'
+
+          import sys
+          from pathlib import Path
+
+          root = Path(sys.argv[1])
+
+          stats = {}
+
+          for path in root.rglob("*.md"):
+
+              text = path.read_text(
+                  encoding="utf-8",
+                  errors="replace"
+              )
+
+              status = "unknown"
+
+              for line in text.splitlines():
+
+                  if line.startswith("source_status:"):
+
+                      status = line.split(
+                          ":",
+                          1
+                      )[1].strip()
+
+                      break
+
+              stats[status] = (
+                  stats.get(status, 0) + 1
+              )
+
+          print()
+
+          for key, value in sorted(
+              stats.items()
+          ):
+
+              print(
+                  f"{key}: {value}"
+              )
+
+          print()
+
+          PY
+
+
+      # ======================================================
+      # 18. Run Knowledge Pipeline V2
+      #
+      # 这里正式进入 27 Skills。
+      #
+      # 新闻
+      #   ↓
+      # AI分类
+      #   ↓
+      # skill_routes.json
+      #   ↓
+      # 动态选择 Skills
+      #   ↓
+      # 知识分析
+      #   ↓
+      # 知识卡片
+      #   ↓
+      # 专题
+      #   ↓
+      # Watchlist
+      # ======================================================
+
+      - name: Run Knowledge Pipeline V2
+
+        env:
+
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+
+          AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
+
+          AI_BASE_URL: "https://api.agnes-ai.cn/v1"
+
+          AI_MODEL: "agnes-2.5-flash"
+
+        run: |
+
+          set -e
+
+          echo "=========================================="
+          echo "KNOWLEDGE PIPELINE V2"
+          echo "=========================================="
+
+          SCRIPT="01_自生长知识系统/scripts/knowledge_pipeline.py"
+
+          if [ ! -f "$SCRIPT" ]; then
+
+            echo "❌ Knowledge Pipeline missing."
+
+            exit 1
+
+          fi
+
+          python "$SCRIPT"
+
+
+      # ======================================================
+      # 19. Run Weekly Report V2
+      # ======================================================
+
+      - name: Run Weekly Report V2
+
+        env:
+
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+
+          AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
+
+          AI_BASE_URL: "https://api.agnes-ai.cn/v1"
+
+          AI_MODEL: "agnes-2.5-flash"
+
+        run: |
+
+          set -e
+
+          echo "=========================================="
+          echo "WEEKLY REPORT V2"
+          echo "=========================================="
+
+          SCRIPT="01_自生长知识系统/scripts/weekly_report.py"
+
+          if [ ! -f "$SCRIPT" ]; then
+
+            echo "❌ Weekly Report script missing."
+
+            exit 1
+
+          fi
+
+          python "$SCRIPT"
+
+
+      # ======================================================
+      # 20. Final output validation
+      # ======================================================
+
+      - name: Validate final outputs
+
+        run: |
+
+          set -e
+
+          TODAY="$(TZ=Asia/Shanghai date +%Y-%m-%d)"
+
+          echo "=========================================="
+          echo "FINAL OUTPUT VALIDATION"
+          echo "=========================================="
+
+          echo
+          echo "Today's Enriched:"
+          find \
+            "01_自生长知识系统/Raw News/${TODAY}-Enriched" \
+            -type f \
+            -name "*.md" \
+            2>/dev/null \
+            | wc -l
+
+          echo
+          echo "Daily Reports:"
+          find \
+            "01_自生长知识系统/05_日报" \
+            -type f \
+            -name "*.md" \
+            2>/dev/null \
+            | tail -10
+
+          echo
+          echo "Knowledge:"
+          find \
+            "01_自生长知识系统/08_知识库" \
+            -type f \
+            -name "*.md" \
+            2>/dev/null \
+            | tail -10
+
+          echo
+          echo "Topics:"
+          find \
+            "01_自生长知识系统/07_专题报告" \
+            -type f \
+            -name "*.md" \
+            2>/dev/null \
+            | tail -10
+
+          echo
+          echo "Weekly:"
+          find \
+            "01_自生长知识系统/06_周报" \
+            -type f \
+            -name "*.md" \
+            2>/dev/null \
+            | tail -10
+
+
+      # ======================================================
+      # 21. Git status
+      # ======================================================
+
+      - name: Git status
+
+        run: |
+
+          echo "=========================================="
+          echo "GIT STATUS"
+          echo "=========================================="
+
+          git status --short
+
+
+      # ======================================================
+      # 22. Commit Enriched News
+      # ======================================================
+
+      - name: Commit Enriched News
+
+        run: |
+
+          set -e
+
+          git config user.name "748686 Knowledge Bot"
+
+          git config user.email "748686@users.noreply.github.com"
+
+          git add \
+            "01_自生长知识系统"
+
+          if git diff --cached --quiet; then
+
+            echo "No changes to commit."
+
+            exit 0
+
+          fi
+
+          TODAY="$(TZ=Asia/Shanghai date +%Y-%m-%d)"
+
+          git commit \
+            -m "knowledge: ${TODAY} daily pipeline"
+
+
+      # ======================================================
+      # 23. Push
+      # ======================================================
+
+      - name: Push changes
+
+        run: |
+
+          set -e
+
+          git push origin HEAD
+
+
+      # ======================================================
+      # 24. Complete
+      # ======================================================
+
+      - name: Complete job
+
+        run: |
+
+          echo
+          echo "=========================================="
+          echo "748686 自生长知识系统"
+          echo "=========================================="
+
+          echo
+          echo "HORIZON                    ✅"
+
+          echo "SOURCE ENRICHMENT V2       ✅"
+
+          echo "AGNES API                  ✅"
+
+          echo "ENRICHED NEWS              ✅"
+
+          echo "27 SKILLS PIPELINE         ✅"
+
+          echo "KNOWLEDGE CARDS            ✅"
+
+          echo "TOPIC CANDIDATES           ✅"
+
+          echo "DAILY REPORT               ✅"
+
+          echo "WEEKLY REPORT V2           ✅"
+
+          echo "GIT COMMIT                 ✅"
+
+          echo "GIT PUSH                   ✅"
+
+          echo
+          echo "=========================================="
+          echo "PIPELINE COMPLETE"
+          echo "=========================================="
