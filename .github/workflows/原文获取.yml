@@ -1,0 +1,424 @@
+name: 03 原文获取 - Source Enrichment V1
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  enrich:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # ============================================================
+      # 1. Checkout
+      # ============================================================
+      - name: Checkout 748686obsidian
+        uses: actions/checkout@v4
+
+      # ============================================================
+      # 2. 获取日期
+      # ============================================================
+      - name: Set date
+        id: date
+        run: |
+          echo "today=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+      # ============================================================
+      # 3. 设置路径
+      # ============================================================
+      - name: Set paths
+        id: paths
+        run: |
+
+          set -e
+
+          TODAY="${{ steps.date.outputs.today }}"
+
+          ATOMIC_ROOT="01_自生长知识系统/Raw News/${TODAY}-Atomic"
+
+          ZH="${ATOMIC_ROOT}/zh"
+          EN="${ATOMIC_ROOT}/en"
+
+          OUTPUT="01_自生长知识系统/Raw News/${TODAY}-Enriched"
+
+          echo "today=$TODAY" >> "$GITHUB_OUTPUT"
+          echo "zh=$ZH" >> "$GITHUB_OUTPUT"
+          echo "en=$EN" >> "$GITHUB_OUTPUT"
+          echo "output=$OUTPUT" >> "$GITHUB_OUTPUT"
+
+          echo "=========================================="
+          echo "SOURCE ENRICHMENT"
+          echo "=========================================="
+
+          echo "DATE:"
+          echo "$TODAY"
+
+          echo
+          echo "ZH:"
+          echo "$ZH"
+
+          echo
+          echo "EN:"
+          echo "$EN"
+
+          echo
+          echo "OUTPUT:"
+          echo "$OUTPUT"
+
+      # ============================================================
+      # 4. 检查 Atomic 中文目录
+      # ============================================================
+      - name: Check Chinese Atomic
+        run: |
+
+          set -e
+
+          DIR="${{ steps.paths.outputs.zh }}"
+
+          echo "=========================================="
+          echo "Checking Chinese Atomic"
+          echo "=========================================="
+
+          if [ ! -d "$DIR" ]; then
+            echo "❌ Chinese Atomic directory not found:"
+            echo "$DIR"
+            exit 1
+          fi
+
+          COUNT=$(find "$DIR" \
+            -maxdepth 1 \
+            -type f \
+            -name "*.md" \
+            | wc -l)
+
+          echo "Chinese Atomic files: $COUNT"
+
+          if [ "$COUNT" -eq 0 ]; then
+            echo "❌ No Chinese Atomic News."
+            exit 1
+          fi
+
+      # ============================================================
+      # 5. 检查 Atomic 英文目录
+      # ============================================================
+      - name: Check English Atomic
+        run: |
+
+          set -e
+
+          DIR="${{ steps.paths.outputs.en }}"
+
+          echo "=========================================="
+          echo "Checking English Atomic"
+          echo "=========================================="
+
+          if [ ! -d "$DIR" ]; then
+            echo "❌ English Atomic directory not found:"
+            echo "$DIR"
+            exit 1
+          fi
+
+          COUNT=$(find "$DIR" \
+            -maxdepth 1 \
+            -type f \
+            -name "*.md" \
+            | wc -l)
+
+          echo "English Atomic files: $COUNT"
+
+          if [ "$COUNT" -eq 0 ]; then
+            echo "❌ No English Atomic News."
+            exit 1
+          fi
+
+      # ============================================================
+      # 6. 检查脚本
+      # ============================================================
+      - name: Check source enrichment script
+        run: |
+
+          set -e
+
+          SCRIPT="01_自生长知识系统/scripts/source_enrichment.py"
+
+          echo "=========================================="
+          echo "Checking Source Enrichment Script"
+          echo "=========================================="
+
+          if [ ! -f "$SCRIPT" ]; then
+            echo "❌ Script not found:"
+            echo "$SCRIPT"
+            exit 1
+          fi
+
+          echo "✅ Script found:"
+          echo "$SCRIPT"
+
+      # ============================================================
+      # 7. Setup Python
+      # ============================================================
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # ============================================================
+      # 8. 安装依赖
+      # ============================================================
+      - name: Install dependencies
+        run: |
+
+          set -e
+
+          python -m pip install --upgrade pip
+
+          pip install requests
+
+      # ============================================================
+      # 9. 执行原文获取
+      # ============================================================
+      - name: Run Source Enrichment
+        run: |
+
+          set -e
+
+          TODAY="${{ steps.paths.outputs.today }}"
+
+          ZH="${{ steps.paths.outputs.zh }}"
+          EN="${{ steps.paths.outputs.en }}"
+          OUTPUT="${{ steps.paths.outputs.output }}"
+
+          SCRIPT="01_自生长知识系统/scripts/source_enrichment.py"
+
+          echo "=========================================="
+          echo "HORIZON SOURCE ENRICHMENT V1"
+          echo "=========================================="
+
+          echo
+          echo "Chinese Atomic:"
+          echo "$ZH"
+
+          echo
+          echo "English Atomic:"
+          echo "$EN"
+
+          echo
+          echo "Output:"
+          echo "$OUTPUT"
+
+          echo
+          echo "Running..."
+
+          python "$SCRIPT" \
+            --zh "$ZH" \
+            --en "$EN" \
+            --output "$OUTPUT"
+
+      # ============================================================
+      # 10. 验证中文 Enriched
+      # ============================================================
+      - name: Validate Chinese Enriched
+        run: |
+
+          set -e
+
+          TODAY="${{ steps.paths.outputs.today }}"
+
+          DIR="01_自生长知识系统/Raw News/${TODAY}-Enriched/zh"
+
+          echo "=========================================="
+          echo "Chinese Enriched"
+          echo "=========================================="
+
+          if [ ! -d "$DIR" ]; then
+            echo "❌ Chinese Enriched directory missing:"
+            echo "$DIR"
+            exit 1
+          fi
+
+          COUNT=$(find "$DIR" \
+            -maxdepth 1 \
+            -type f \
+            -name "*.md" \
+            | wc -l)
+
+          echo "Chinese Enriched files: $COUNT"
+
+          if [ "$COUNT" -eq 0 ]; then
+            echo "❌ No Chinese Enriched files."
+            exit 1
+          fi
+
+          find "$DIR" \
+            -maxdepth 1 \
+            -type f \
+            -name "*.md" \
+            | sort \
+            | head -n 10
+
+      # ============================================================
+      # 11. 验证英文 Enriched
+      # ============================================================
+      - name: Validate English Enriched
+        run: |
+
+          set -e
+
+          TODAY="${{ steps.paths.outputs.today }}"
+
+          DIR="01_自生长知识系统/Raw News/${TODAY}-Enriched/en"
+
+          echo "=========================================="
+          echo "English Enriched"
+          echo "=========================================="
+
+          if [ ! -d "$DIR" ]; then
+            echo "❌ English Enriched directory missing:"
+            echo "$DIR"
+            exit 1
+          fi
+
+          COUNT=$(find "$DIR" \
+            -maxdepth 1 \
+            -type f \
+            -name "*.md" \
+            | wc -l)
+
+          echo "English Enriched files: $COUNT"
+
+          if [ "$COUNT" -eq 0 ]; then
+            echo "❌ No English Enriched files."
+            exit 1
+          fi
+
+          find "$DIR" \
+            -maxdepth 1 \
+            -type f \
+            -name "*.md" \
+            | sort \
+            | head -n 10
+
+      # ============================================================
+      # 12. 检查 Front Matter
+      # ============================================================
+      - name: Validate Front Matter
+        run: |
+
+          set -e
+
+          TODAY="${{ steps.paths.outputs.today }}"
+
+          ROOT="01_自生长知识系统/Raw News/${TODAY}-Enriched"
+
+          echo "=========================================="
+          echo "VALIDATE ENRICHED FRONT MATTER"
+          echo "=========================================="
+
+          for DIR in \
+            "$ROOT/zh" \
+            "$ROOT/en"
+          do
+
+            FILE=$(find "$DIR" \
+              -maxdepth 1 \
+              -type f \
+              -name "*.md" \
+              | head -n 1 || true)
+
+            if [ -z "$FILE" ]; then
+              echo "❌ No markdown file in:"
+              echo "$DIR"
+              exit 1
+            fi
+
+            echo
+            echo "Checking:"
+            echo "$FILE"
+
+            if ! head -n 1 "$FILE" | grep -q "^---$"; then
+              echo "❌ Front Matter missing."
+              exit 1
+            fi
+
+            echo "✅ Front Matter detected"
+
+            sed -n '1,25p' "$FILE"
+
+          done
+
+      # ============================================================
+      # 13. 统计原文状态
+      # ============================================================
+      - name: Report source status
+        run: |
+
+          set -e
+
+          TODAY="${{ steps.paths.outputs.today }}"
+
+          ROOT="01_自生长知识系统/Raw News/${TODAY}-Enriched"
+
+          echo "=========================================="
+          echo "SOURCE STATUS REPORT"
+          echo "=========================================="
+
+          echo
+          echo "Fetched:"
+          grep -R 'source_status: "fetched"' "$ROOT" \
+            --include="*.md" \
+            | wc -l || true
+
+          echo
+          echo "Pending Search:"
+          grep -R 'source_status: "pending_search"' "$ROOT" \
+            --include="*.md" \
+            | wc -l || true
+
+          echo
+          echo "Fetch Failed:"
+          grep -R 'source_status: "fetch_failed"' "$ROOT" \
+            --include="*.md" \
+            | wc -l || true
+
+      # ============================================================
+      # 14. Git 提交
+      # ============================================================
+      - name: Commit Enriched News
+        run: |
+
+          set -e
+
+          TODAY="${{ steps.paths.outputs.today }}"
+
+          git config user.name "748686 Knowledge Bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            "01_自生长知识系统/Raw News/${TODAY}-Enriched"
+
+          if git diff --cached --quiet; then
+
+            echo "No Enriched News changes."
+
+          else
+
+            git commit \
+              -m "chore: enrich Horizon atomic news ${TODAY}"
+
+            git push
+
+          fi
+
+          echo
+          echo "=========================================="
+          echo "✅ SOURCE ENRICHMENT COMPLETE"
+          echo "=========================================="
+
+          echo
+          echo "Output:"
+          echo "Raw News/${TODAY}-Enriched/"
+          echo "  ├── zh"
+          echo "  └── en"
