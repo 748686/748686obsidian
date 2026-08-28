@@ -1,11 +1,19 @@
 {
   "ai": {
-    "provider": "openai",
-    "model": "${AI_MODEL}",
-    "api_key_env": "AI_API_KEY",
-    "base_url": "${AI_BASE_URL}",
-    "throttle_sec": 1
-  },
+  "provider": "openai",
+  "model": "agnes-2.5-flash",
+  "base_url": "https://api.agnes-ai.cn/v1",
+  "api_key_env": "AGNES_API_KEY",
+  "temperature": 0.3,
+  "max_tokens": 8192,
+  "throttle_sec": 1,
+  "languages": [
+    "zh",
+    "en"
+  ],
+  "analysis_concurrency": 5,
+  "enrichment_concurrency": 5
+},
   "sources": {
     "rss": []
   },
