@@ -444,10 +444,10 @@ jobs:
             | sort
 
       # ==========================================================
-      # 14. Source Enrichment V2
+      # 14. Source Enrichment V3
       # ==========================================================
 
-      - name: Run Source Enrichment V2
+      - name: Run Source Enrichment V3
         env:
           AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
           AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
@@ -463,7 +463,7 @@ jobs:
           SCRIPT="01_自生长知识系统/scripts/source_enrichment.py"
 
           echo "=========================================="
-          echo "HORIZON SOURCE ENRICHMENT V2"
+          echo "HORIZON SOURCE ENRICHMENT V3"
           echo "=========================================="
 
           echo "Chinese Atomic:"
@@ -495,7 +495,7 @@ jobs:
             --date "$TODAY"
 
           echo
-          echo "✅ Source Enrichment V2 completed"
+          echo "✅ Source Enrichment V3 completed"
 
       # ==========================================================
       # 15. Validate Chinese Enriched
