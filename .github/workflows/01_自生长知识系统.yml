@@ -443,7 +443,7 @@ jobs:
             -name "*.md" \
             | sort
 
-      # ==========================================================
+           # ==========================================================
       # 14. Source Enrichment V3
       # ==========================================================
 
@@ -456,16 +456,24 @@ jobs:
         run: |
           set -e
 
+          echo "=========================================="
+          echo "INSTALL SOURCE ENRICHMENT DEPENDENCIES"
+          echo "=========================================="
+
+          python -m pip install --upgrade pip
+          python -m pip install requests
+
+          echo "=========================================="
+          echo "HORIZON SOURCE ENRICHMENT V3"
+          echo "=========================================="
+
           ZH="01_自生长知识系统/Raw News/$TODAY-Atomic/zh"
           EN="01_自生长知识系统/Raw News/$TODAY-Atomic/en"
           OUTPUT="01_自生长知识系统/Raw News/$TODAY-Enriched"
 
           SCRIPT="01_自生长知识系统/scripts/source_enrichment.py"
 
-          echo "=========================================="
-          echo "HORIZON SOURCE ENRICHMENT V3"
-          echo "=========================================="
-
+          echo
           echo "Chinese Atomic:"
           echo "$ZH"
 
@@ -496,7 +504,6 @@ jobs:
 
           echo
           echo "✅ Source Enrichment V3 completed"
-
       # ==========================================================
       # 15. Validate Chinese Enriched
       # ==========================================================
