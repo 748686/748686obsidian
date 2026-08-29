@@ -1,0 +1,298 @@
+name: TEST - Knowledge Pipeline
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  knowledge-pipeline-test:
+
+    runs-on: ubuntu-latest
+
+    env:
+      TZ: Asia/Shanghai
+
+      # ==========================================
+      # AGNES AI
+      # ==========================================
+
+      AI_BASE_URL: https://api.agnes-ai.cn/v1
+      AI_MODEL: agnes-2.5-flash
+      AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
+
+    steps:
+
+      # ==========================================
+      # 1. Checkout
+      # ==========================================
+
+      - name: Checkout 748686obsidian
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ==========================================
+      # 2. 设置北京时间
+      # ==========================================
+
+      - name: Set timezone
+        run: |
+          set -e
+
+          sudo timedatectl set-timezone Asia/Shanghai || true
+
+          echo "=========================================="
+          echo "TIMEZONE"
+          echo "=========================================="
+
+          date
+          echo "TZ=$TZ"
+
+      # ==========================================
+      # 3. 检查 Python
+      # ==========================================
+
+      - name: Check Python
+        run: |
+          set -e
+
+          echo "=========================================="
+          echo "PYTHON"
+          echo "=========================================="
+
+          python3 --version
+
+      # ==========================================
+      # 4. 检查 Knowledge Pipeline
+      # ==========================================
+
+      - name: Check Knowledge Pipeline
+        run: |
+          set -e
+
+          SCRIPT="01_自生长知识系统/scripts/knowledge_pipeline.py"
+
+          echo "=========================================="
+          echo "CHECK KNOWLEDGE PIPELINE"
+          echo "=========================================="
+
+          if [ ! -f "$SCRIPT" ]; then
+            echo "❌ Knowledge Pipeline not found:"
+            echo "$SCRIPT"
+            exit 1
+          fi
+
+          echo "✅ Found:"
+          echo "$SCRIPT"
+
+      # ==========================================
+      # 5. 检查 AGNES AI 配置
+      # ==========================================
+
+      - name: Check AGNES configuration
+        run: |
+          set -e
+
+          echo "=========================================="
+          echo "AGNES AI CONFIGURATION"
+          echo "=========================================="
+
+          echo "AI_BASE_URL=$AI_BASE_URL"
+          echo "AI_MODEL=$AI_MODEL"
+
+          if [ -z "$AI_API_KEY" ]; then
+            echo "❌ AGNES_API_KEY is missing"
+            echo ""
+            echo "请确认 GitHub Repository Secrets 中存在："
+            echo "AGNES_API_KEY"
+            exit 1
+          fi
+
+          echo "✅ AGNES_API_KEY exists"
+
+      # ==========================================
+      # 6. 显示北京时间
+      # ==========================================
+
+      - name: Determine Beijing date
+        run: |
+          set -e
+
+          TODAY=$(TZ=Asia/Shanghai date '+%Y-%m-%d')
+
+          echo "TODAY=$TODAY" >> "$GITHUB_ENV"
+
+          echo "=========================================="
+          echo "BEIJING DATE"
+          echo "=========================================="
+
+          echo "Beijing Date: $TODAY"
+
+      # ==========================================
+      # 7. 检查当天 Enriched
+      # ==========================================
+
+      - name: Check today's Enriched data
+        run: |
+          set -e
+
+          DIR="01_自生长知识系统/Raw News/${TODAY}-Enriched"
+
+          echo "=========================================="
+          echo "CHECK ENRICHED"
+          echo "=========================================="
+
+          echo "Directory:"
+          echo "$DIR"
+
+          if [ ! -d "$DIR" ]; then
+            echo "❌ Today's Enriched directory does not exist"
+            echo ""
+            echo "Expected:"
+            echo "$DIR"
+            exit 1
+          fi
+
+          COUNT=$(find "$DIR" \
+            -type f \
+            -name "*.md" \
+            | wc -l)
+
+          echo ""
+          echo "Enriched files: $COUNT"
+
+          if [ "$COUNT" -eq 0 ]; then
+            echo "❌ Today's Enriched directory is empty"
+            exit 1
+          fi
+
+          echo ""
+          echo "Files:"
+          find "$DIR" \
+            -type f \
+            -name "*.md" \
+            -print
+
+          echo ""
+          echo "✅ Enriched data exists"
+
+      # ==========================================
+      # 8. 运行 Knowledge Pipeline
+      # ==========================================
+
+      - name: Run Knowledge Pipeline
+        run: |
+          set -e
+
+          SCRIPT="01_自生长知识系统/scripts/knowledge_pipeline.py"
+
+          echo "=========================================="
+          echo "KNOWLEDGE PIPELINE TEST"
+          echo "=========================================="
+
+          echo "Date: $TODAY"
+          echo "Timezone: Asia/Shanghai"
+          echo "AI Base URL: $AI_BASE_URL"
+          echo "AI Model: $AI_MODEL"
+          echo ""
+
+          python3 "$SCRIPT"
+
+      # ==========================================
+      # 9. 验证输出
+      # ==========================================
+
+      - name: Validate Knowledge Pipeline output
+        run: |
+          set -e
+
+          echo "=========================================="
+          echo "VALIDATE OUTPUT"
+          echo "=========================================="
+
+          REPORT="01_自生长知识系统/05_日报/${TODAY:0:4}/${TODAY:5:2}/${TODAY}.md"
+
+          KNOWLEDGE="01_自生长知识系统/08_知识库/${TODAY:0:4}/${TODAY:5:2}/${TODAY}_知识卡片.md"
+
+          TOPICS="01_自生长知识系统/07_专题报告/${TODAY:0:4}/${TODAY:5:2}/${TODAY}_专题候选.md"
+
+          echo ""
+          echo "Expected outputs:"
+          echo ""
+          echo "Daily Report:"
+          echo "$REPORT"
+          echo ""
+          echo "Knowledge:"
+          echo "$KNOWLEDGE"
+          echo ""
+          echo "Topics:"
+          echo "$TOPICS"
+
+          FAILED=0
+
+          if [ -f "$REPORT" ]; then
+            echo "✅ Daily Report exists"
+          else
+            echo "❌ Daily Report missing"
+            FAILED=1
+          fi
+
+          if [ -f "$KNOWLEDGE" ]; then
+            echo "✅ Knowledge Cards exists"
+          else
+            echo "❌ Knowledge Cards missing"
+            FAILED=1
+          fi
+
+          if [ -f "$TOPICS" ]; then
+            echo "✅ Topic Candidates exists"
+          else
+            echo "❌ Topic Candidates missing"
+            FAILED=1
+          fi
+
+          if [ "$FAILED" -ne 0 ]; then
+            echo ""
+            echo "❌ Knowledge Pipeline output validation failed"
+            exit 1
+          fi
+
+          echo ""
+          echo "=========================================="
+          echo "✅ KNOWLEDGE PIPELINE TEST PASSED"
+          echo "=========================================="
+
+      # ==========================================
+      # 10. 提交测试产生的文件
+      # ==========================================
+
+      - name: Commit generated knowledge files
+        run: |
+          set -e
+
+          echo "=========================================="
+          echo "COMMIT OUTPUT"
+          echo "=========================================="
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            "01_自生长知识系统/05_日报" \
+            "01_自生长知识系统/07_专题报告" \
+            "01_自生长知识系统/08_知识库" \
+            "01_自生长知识系统/00_System/运行日志"
+
+          if git diff --cached --quiet; then
+            echo "No new files to commit"
+            exit 0
+          fi
+
+          git commit -m "test: run knowledge pipeline ${TODAY}"
+
+          git push
+
+          echo ""
+          echo "✅ Generated files pushed to GitHub"
