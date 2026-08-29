@@ -1,0 +1,513 @@
+name: 01 自生长知识系统 - Horizon Raw News 拉取测试
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+
+  sync-horizon-raw-news:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # ==========================================================
+      # 1. Checkout 748686obsidian
+      # ==========================================================
+
+      - name: Checkout 748686obsidian
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ==========================================================
+      # 2. 设置北京时间
+      #
+      # 系统统一使用 Asia/Shanghai
+      # ==========================================================
+
+      - name: Set Beijing Time
+        run: |
+          set -e
+
+          export TZ=Asia/Shanghai
+
+          TODAY=$(date +%Y-%m-%d)
+          YESTERDAY=$(date -d "1 day ago" +%Y-%m-%d)
+          DAY_BEFORE_YESTERDAY=$(date -d "2 days ago" +%Y-%m-%d)
+
+          echo "TZ=Asia/Shanghai" >> "$GITHUB_ENV"
+
+          echo "TODAY=$TODAY" >> "$GITHUB_ENV"
+          echo "YESTERDAY=$YESTERDAY" >> "$GITHUB_ENV"
+          echo "DAY_BEFORE_YESTERDAY=$DAY_BEFORE_YESTERDAY" >> "$GITHUB_ENV"
+
+          echo "=========================================="
+          echo "SYSTEM TIME"
+          echo "=========================================="
+
+          echo
+          echo "Timezone:"
+          echo "Asia/Shanghai"
+
+          echo
+          echo "Current time:"
+          date '+%Y-%m-%d %H:%M:%S'
+
+          echo
+          echo "Dates to check:"
+          echo "前天: $DAY_BEFORE_YESTERDAY"
+          echo "昨天: $YESTERDAY"
+          echo "今天: $TODAY"
+
+
+      # ==========================================================
+      # 3. 获取 748686/Horizon 的 gh-pages
+      #
+      # 这里只获取 gh-pages。
+      #
+      # 不运行 Horizon。
+      # 不使用 Horizon main。
+      # ==========================================================
+
+      - name: Checkout Horizon gh-pages
+        uses: actions/checkout@v4
+        with:
+          repository: 748686/Horizon
+          ref: gh-pages
+          path: horizon-pages
+          fetch-depth: 1
+
+
+      # ==========================================================
+      # 4. 检查 Horizon _posts
+      # ==========================================================
+
+      - name: Verify Horizon posts
+        run: |
+          set -e
+
+          echo "=========================================="
+          echo "CHECK HORIZON GH-PAGES"
+          echo "=========================================="
+
+          POSTS_DIR="horizon-pages/_posts"
+
+          echo
+          echo "Horizon posts directory:"
+          echo "$POSTS_DIR"
+
+          if [ ! -d "$POSTS_DIR" ]; then
+            echo
+            echo "❌ Horizon _posts directory does not exist"
+            exit 1
+          fi
+
+          echo
+          echo "Horizon _posts exists."
+
+          echo
+          echo "Total markdown files:"
+          find "$POSTS_DIR" \
+            -maxdepth 1 \
+            -type f \
+            -name "*.md" \
+            | wc -l
+
+
+      # ==========================================================
+      # 5. 比对并拉取
+      #
+      # 核心逻辑：
+      #
+      # 前天 / 昨天 / 今天
+      #
+      # 先检查自己的 Raw News。
+      #
+      # 有文件：
+      #     SKIP
+      #
+      # 没有文件：
+      #     去 Horizon _posts 查找
+      #
+      # 找到：
+      #     拉取
+      #
+      # 找不到：
+      #     记录 WARNING
+      #
+      # 不会因为某一天不存在而直接失败。
+      # ==========================================================
+
+      - name: Compare and Sync Missing Dates
+        run: |
+          set -e
+
+          POSTS_DIR="horizon-pages/_posts"
+          RAW_ROOT="01_自生长知识系统/Raw News"
+
+          echo "=========================================="
+          echo "HORIZON RAW NEWS SMART SYNC"
+          echo "=========================================="
+
+          echo
+          echo "Raw News root:"
+          echo "$RAW_ROOT"
+
+          echo
+          echo "Horizon posts:"
+          echo "$POSTS_DIR"
+
+          mkdir -p "$RAW_ROOT"
+
+          TOTAL_COPIED=0
+          TOTAL_SKIPPED=0
+          TOTAL_NOT_FOUND=0
+
+          # ======================================================
+          # 函数：处理一个日期
+          # ======================================================
+
+          sync_date() {
+
+            local DATE="$1"
+
+            local LOCAL_DIR="$RAW_ROOT/$DATE"
+
+            echo
+            echo "=================================================="
+            echo "CHECK DATE: $DATE"
+            echo "=================================================="
+
+            echo
+            echo "Local directory:"
+            echo "$LOCAL_DIR"
+
+            # ----------------------------------------------------
+            # 先检查我们自己的 Raw News
+            # ----------------------------------------------------
+
+            if [ -d "$LOCAL_DIR" ]; then
+
+              LOCAL_COUNT=$(find "$LOCAL_DIR" \
+                -maxdepth 1 \
+                -type f \
+                -name "*.md" \
+                | wc -l)
+
+              echo
+              echo "Local markdown files:"
+              echo "$LOCAL_COUNT"
+
+              if [ "$LOCAL_COUNT" -gt 0 ]; then
+
+                echo
+                echo "✅ Local Raw News already exists"
+                echo "⏭️ SKIP $DATE"
+
+                TOTAL_SKIPPED=$((TOTAL_SKIPPED + 1))
+
+                return 0
+
+              fi
+
+              echo
+              echo "⚠️ Local directory exists but is empty"
+              echo "▶️ Will check Horizon"
+            
+            else
+
+              echo
+              echo "❌ Local directory does not exist"
+              echo "▶️ Will check Horizon"
+
+            fi
+
+            # ----------------------------------------------------
+            # 本地没有 → 检查 Horizon _posts
+            # ----------------------------------------------------
+
+            echo
+            echo "Searching Horizon _posts:"
+            echo "$DATE*.md"
+
+            FOUND_FILES=$(find "$POSTS_DIR" \
+              -maxdepth 1 \
+              -type f \
+              -name "$DATE*.md" \
+              | sort)
+
+            if [ -z "$FOUND_FILES" ]; then
+
+              echo
+              echo "⚠️ Horizon has no files for $DATE"
+
+              TOTAL_NOT_FOUND=$((TOTAL_NOT_FOUND + 1))
+
+              return 0
+
+            fi
+
+            # ----------------------------------------------------
+            # 找到了
+            # ----------------------------------------------------
+
+            echo
+            echo "✅ Horizon files found:"
+
+            echo "$FOUND_FILES"
+
+            mkdir -p "$LOCAL_DIR"
+
+            while IFS= read -r FILE; do
+
+              if [ -z "$FILE" ]; then
+                continue
+              fi
+
+              FILENAME=$(basename "$FILE")
+
+              echo
+              echo "------------------------------------------"
+              echo "COPY"
+              echo "------------------------------------------"
+
+              echo "Date:"
+              echo "$DATE"
+
+              echo "File:"
+              echo "$FILENAME"
+
+              echo "From:"
+              echo "$FILE"
+
+              echo "To:"
+              echo "$LOCAL_DIR/$FILENAME"
+
+              cp "$FILE" "$LOCAL_DIR/$FILENAME"
+
+              TOTAL_COPIED=$((TOTAL_COPIED + 1))
+
+            done <<< "$FOUND_FILES"
+
+            echo
+            echo "✅ $DATE synchronization completed"
+
+          }
+
+
+          # ======================================================
+          # 只检查：
+          #
+          # 前天
+          # 昨天
+          # 今天
+          # ======================================================
+
+          sync_date "$DAY_BEFORE_YESTERDAY"
+          sync_date "$YESTERDAY"
+          sync_date "$TODAY"
+
+
+          # ======================================================
+          # 最终统计
+          # ======================================================
+
+          echo
+          echo "=================================================="
+          echo "SYNC SUMMARY"
+          echo "=================================================="
+
+          echo
+          echo "Dates checked:"
+          echo "3"
+
+          echo
+          echo "Dates skipped:"
+          echo "$TOTAL_SKIPPED"
+
+          echo
+          echo "Files copied:"
+          echo "$TOTAL_COPIED"
+
+          echo
+          echo "Dates not found in Horizon:"
+          echo "$TOTAL_NOT_FOUND"
+
+
+      # ==========================================================
+      # 6. 最终检查 Raw News
+      # ==========================================================
+
+      - name: Show Raw News Result
+        run: |
+          set -e
+
+          RAW_ROOT="01_自生长知识系统/Raw News"
+
+          echo "=========================================="
+          echo "RAW NEWS FINAL RESULT"
+          echo "=========================================="
+
+          echo
+          echo "前天:"
+          echo "$DAY_BEFORE_YESTERDAY"
+
+          if [ -d "$RAW_ROOT/$DAY_BEFORE_YESTERDAY" ]; then
+
+            find "$RAW_ROOT/$DAY_BEFORE_YESTERDAY" \
+              -maxdepth 1 \
+              -type f \
+              -name "*.md" \
+              | sort
+
+          else
+
+            echo "Directory does not exist"
+
+          fi
+
+
+          echo
+          echo "昨天:"
+          echo "$YESTERDAY"
+
+          if [ -d "$RAW_ROOT/$YESTERDAY" ]; then
+
+            find "$RAW_ROOT/$YESTERDAY" \
+              -maxdepth 1 \
+              -type f \
+              -name "*.md" \
+              | sort
+
+          else
+
+            echo "Directory does not exist"
+
+          fi
+
+
+          echo
+          echo "今天:"
+          echo "$TODAY"
+
+          if [ -d "$RAW_ROOT/$TODAY" ]; then
+
+            find "$RAW_ROOT/$TODAY" \
+              -maxdepth 1 \
+              -type f \
+              -name "*.md" \
+              | sort
+
+          else
+
+            echo "Directory does not exist"
+
+          fi
+
+
+      # ==========================================================
+      # 7. Commit
+      #
+      # 只提交 Raw News。
+      # ==========================================================
+
+      - name: Commit Raw News
+        run: |
+          set -e
+
+          echo "=========================================="
+          echo "COMMIT RAW NEWS"
+          echo "=========================================="
+
+          git config user.name \
+            "748686 Knowledge Bot"
+
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            "01_自生长知识系统/Raw News"
+
+          if git diff --cached --quiet; then
+
+            echo
+            echo "=========================================="
+            echo "NO CHANGES"
+            echo "=========================================="
+
+            echo
+            echo "所有需要的日期已经存在，"
+            echo "或者 Horizon 没有对应日期的文件。"
+
+          else
+
+            echo
+            echo "Changes detected:"
+
+            git diff --cached \
+              --stat
+
+            echo
+            echo "Committing..."
+
+            git commit \
+              -m "chore: sync Horizon Raw News $TODAY"
+
+            echo
+            echo "Pushing..."
+
+            git push
+
+            echo
+            echo "✅ Raw News pushed to GitHub"
+
+          fi
+
+
+      # ==========================================================
+      # 8. 完成
+      # ==========================================================
+
+      - name: Complete
+        run: |
+          echo
+          echo "=========================================="
+          echo "HORIZON RAW NEWS SYNC COMPLETE"
+          echo "=========================================="
+
+          echo
+          echo "检查范围:"
+          echo "前天 / 昨天 / 今天"
+
+          echo
+          echo "前天:"
+          echo "$DAY_BEFORE_YESTERDAY"
+
+          echo
+          echo "昨天:"
+          echo "$YESTERDAY"
+
+          echo
+          echo "今天:"
+          echo "$TODAY"
+
+          echo
+          echo "目标:"
+          echo "748686obsidian"
+          echo "└── 01_自生长知识系统"
+          echo "    └── Raw News"
+
+          echo
+          echo "来源:"
+          echo "748686/Horizon"
+          echo "└── gh-pages"
+          echo "    └── _posts"
+
+          echo
+          echo "=========================================="
+          echo "SYNC COMPLETE"
+          echo "=========================================="
