@@ -1,0 +1,666 @@
+name: Horizon 缺口补拉测试
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+
+  pull-horizon-missing:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # ==========================================================
+      # 1. Checkout 748686obsidian
+      # ==========================================================
+
+      - name: Checkout 748686obsidian
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+
+      # ==========================================================
+      # 2. 设置北京时间
+      #
+      # 检查范围：
+      #
+      # 前天
+      # 昨天
+      # 今天
+      #
+      # 例如：
+      #
+      # TODAY      = 2026-08-30
+      # YESTERDAY  = 2026-08-29
+      # DAY_BEFORE = 2026-08-28
+      # ==========================================================
+
+      - name: Set Beijing Dates
+        run: |
+          set -e
+
+          export TZ=Asia/Shanghai
+
+          TODAY=$(date +%Y-%m-%d)
+          YESTERDAY=$(date -d "1 day ago" +%Y-%m-%d)
+          DAY_BEFORE=$(date -d "2 days ago" +%Y-%m-%d)
+
+          echo "TZ=Asia/Shanghai" >> "$GITHUB_ENV"
+
+          echo "TODAY=$TODAY" >> "$GITHUB_ENV"
+          echo "YESTERDAY=$YESTERDAY" >> "$GITHUB_ENV"
+          echo "DAY_BEFORE=$DAY_BEFORE" >> "$GITHUB_ENV"
+
+          echo "=========================================="
+          echo "DATE RANGE"
+          echo "=========================================="
+
+          echo
+          echo "Current Beijing time:"
+          date '+%Y-%m-%d %H:%M:%S'
+
+          echo
+          echo "Today:"
+          echo "$TODAY"
+
+          echo
+          echo "Yesterday:"
+          echo "$YESTERDAY"
+
+          echo
+          echo "Day before yesterday:"
+          echo "$DAY_BEFORE"
+
+
+      # ==========================================================
+      # 3. 获取 Horizon gh-pages
+      #
+      # 这里只读取：
+      #
+      # 748686/Horizon
+      # gh-pages
+      # _posts
+      #
+      # 不运行 Horizon。
+      # 不使用 AI。
+      # 不读取 Horizon config。
+      # ==========================================================
+
+      - name: Checkout Horizon gh-pages
+        uses: actions/checkout@v4
+        with:
+          repository: 748686/Horizon
+          ref: gh-pages
+          path: horizon-pages
+          fetch-depth: 1
+
+
+      # ==========================================================
+      # 4. 检查 Horizon _posts
+      # ==========================================================
+
+      - name: Verify Horizon posts
+        run: |
+          set -e
+
+          POSTS_DIR="horizon-pages/_posts"
+
+          echo "=========================================="
+          echo "HORIZON GH-PAGES"
+          echo "=========================================="
+
+          echo
+          echo "Repository:"
+          echo "748686/Horizon"
+
+          echo
+          echo "Branch:"
+          echo "gh-pages"
+
+          echo
+          echo "Directory:"
+          echo "$POSTS_DIR"
+
+          if [ ! -d "$POSTS_DIR" ]; then
+            echo
+            echo "❌ Horizon _posts directory does not exist"
+            exit 1
+          fi
+
+          echo
+          echo "Horizon posts count:"
+
+          find "$POSTS_DIR" \
+            -maxdepth 1 \
+            -type f \
+            -name "*.md" \
+            | wc -l
+
+          echo
+          echo "Recent Horizon posts:"
+
+          find "$POSTS_DIR" \
+            -maxdepth 1 \
+            -type f \
+            -name "*.md" \
+            | sort \
+            | tail -30
+
+
+      # ==========================================================
+      # 5. 核心：
+      #
+      # 先检查 748686obsidian 本地 Raw News
+      #
+      # 再决定哪些日期需要去 Horizon 补拉。
+      #
+      # 判断标准：
+      #
+      # 对应日期目录存在
+      # AND
+      # 目录里面至少有一个 .md
+      #
+      # → 认为该日期已有数据，不拉。
+      #
+      # 否则：
+      #
+      # → 标记为需要补拉。
+      # ==========================================================
+
+      - name: Check local Raw News gaps
+        run: |
+          set -e
+
+          RAW_ROOT="01_自生长知识系统/Raw News"
+
+          echo "=========================================="
+          echo "CHECK LOCAL RAW NEWS"
+          echo "=========================================="
+
+          echo
+          echo "Local root:"
+          echo "$RAW_ROOT"
+
+          mkdir -p "$RAW_ROOT"
+
+          echo
+          echo "------------------------------------------"
+          echo "CHECK $DAY_BEFORE"
+          echo "------------------------------------------"
+
+          DIR="$RAW_ROOT/$DAY_BEFORE"
+
+          if [ -d "$DIR" ] && \
+             find "$DIR" \
+               -maxdepth 1 \
+               -type f \
+               -name "*.md" \
+               | grep -q .; then
+
+            echo "✅ $DAY_BEFORE already exists"
+            echo "SKIP_$DAY_BEFORE=true" >> "$GITHUB_ENV"
+
+          else
+
+            echo "❌ $DAY_BEFORE missing"
+            echo "PULL_$DAY_BEFORE=true" >> "$GITHUB_ENV"
+
+          fi
+
+
+          echo
+          echo "------------------------------------------"
+          echo "CHECK $YESTERDAY"
+          echo "------------------------------------------"
+
+          DIR="$RAW_ROOT/$YESTERDAY"
+
+          if [ -d "$DIR" ] && \
+             find "$DIR" \
+               -maxdepth 1 \
+               -type f \
+               -name "*.md" \
+               | grep -q .; then
+
+            echo "✅ $YESTERDAY already exists"
+            echo "SKIP_$YESTERDAY=true" >> "$GITHUB_ENV"
+
+          else
+
+            echo "❌ $YESTERDAY missing"
+            echo "PULL_$YESTERDAY=true" >> "$GITHUB_ENV"
+
+          fi
+
+
+          echo
+          echo "------------------------------------------"
+          echo "CHECK $TODAY"
+          echo "------------------------------------------"
+
+          DIR="$RAW_ROOT/$TODAY"
+
+          if [ -d "$DIR" ] && \
+             find "$DIR" \
+               -maxdepth 1 \
+               -type f \
+               -name "*.md" \
+               | grep -q .; then
+
+            echo "✅ $TODAY already exists"
+            echo "SKIP_$TODAY=true" >> "$GITHUB_ENV"
+
+          else
+
+            echo "❌ $TODAY missing"
+            echo "PULL_$TODAY=true" >> "$GITHUB_ENV"
+
+          fi
+
+
+          echo
+          echo "=========================================="
+          echo "GAP CHECK COMPLETE"
+          echo "=========================================="
+
+
+      # ==========================================================
+      # 6. 汇总需要补拉的日期
+      # ==========================================================
+
+      - name: Show pull plan
+        run: |
+          set -e
+
+          echo "=========================================="
+          echo "PULL PLAN"
+          echo "=========================================="
+
+          echo
+          echo "$DAY_BEFORE:"
+
+          if [ "${PULL_$DAY_BEFORE:-false}" = "true" ]; then
+            echo "➡️ NEED PULL"
+          else
+            echo "⏭️ SKIP"
+          fi
+
+          echo
+          echo "$YESTERDAY:"
+
+          if [ "${PULL_$YESTERDAY:-false}" = "true" ]; then
+            echo "➡️ NEED PULL"
+          else
+            echo "⏭️ SKIP"
+          fi
+
+          echo
+          echo "$TODAY:"
+
+          if [ "${PULL_$TODAY:-false}" = "true" ]; then
+            echo "➡️ NEED PULL"
+          else
+            echo "⏭️ SKIP"
+          fi
+
+
+      # ==========================================================
+      # 7. 从 Horizon 补拉缺失日期
+      #
+      # 注意：
+      #
+      # 不是把整个 _posts 全部复制。
+      #
+      # 每一个日期单独寻找：
+      #
+      # YYYY-MM-DD*.md
+      #
+      # ==========================================================
+
+      - name: Pull missing Horizon posts
+        run: |
+          set -e
+
+          POSTS_DIR="horizon-pages/_posts"
+          RAW_ROOT="01_自生长知识系统/Raw News"
+
+          echo "=========================================="
+          echo "PULL MISSING HORIZON POSTS"
+          echo "=========================================="
+
+
+          # ======================================================
+          # 函数：处理一个日期
+          # ======================================================
+
+          pull_date() {
+
+            DATE="$1"
+
+            LOCAL_DIR="$RAW_ROOT/$DATE"
+
+            echo
+            echo "=========================================="
+            echo "PROCESS DATE: $DATE"
+            echo "=========================================="
+
+
+            # ----------------------------------------------------
+            # 再检查一次本地
+            #
+            # 防止前面的判断出现任何异常。
+            # ----------------------------------------------------
+
+            if [ -d "$LOCAL_DIR" ] && \
+               find "$LOCAL_DIR" \
+                 -maxdepth 1 \
+                 -type f \
+                 -name "*.md" \
+                 | grep -q .; then
+
+              echo
+              echo "⏭️ Local data already exists:"
+              echo "$LOCAL_DIR"
+
+              find "$LOCAL_DIR" \
+                -maxdepth 1 \
+                -type f \
+                -name "*.md" \
+                | sort
+
+              return 0
+
+            fi
+
+
+            # ----------------------------------------------------
+            # 本地没有 → 创建目录
+            # ----------------------------------------------------
+
+            mkdir -p "$LOCAL_DIR"
+
+            echo
+            echo "Local data missing."
+            echo "Searching Horizon:" 
+            echo "$POSTS_DIR"
+
+
+            # ----------------------------------------------------
+            # 查找对应日期的 Horizon 文件
+            # ----------------------------------------------------
+
+            FILES=$(find "$POSTS_DIR" \
+              -maxdepth 1 \
+              -type f \
+              -name "$DATE*.md" \
+              | sort)
+
+
+            # ----------------------------------------------------
+            # 没找到
+            #
+            # 注意：
+            #
+            # 这里不让整个系统失败。
+            #
+            # 因为：
+            #
+            # 本地没有
+            # +
+            # Horizon 也没有
+            #
+            # 只是说明这个日期目前没有可补数据。
+            # ----------------------------------------------------
+
+            if [ -z "$FILES" ]; then
+
+              echo
+              echo "⚠️ No Horizon posts found for:"
+              echo "$DATE"
+
+              echo
+              echo "Nothing to pull."
+
+              return 0
+
+            fi
+
+
+            # ----------------------------------------------------
+            # 找到了 → 拉取
+            # ----------------------------------------------------
+
+            COUNT=0
+
+            while IFS= read -r FILE; do
+
+              [ -z "$FILE" ] && continue
+
+              FILENAME=$(basename "$FILE")
+
+              echo
+              echo "Copy:"
+              echo "$FILENAME"
+
+              cp "$FILE" "$LOCAL_DIR/$FILENAME"
+
+              COUNT=$((COUNT + 1))
+
+            done <<< "$FILES"
+
+
+            echo
+            echo "Copied:"
+            echo "$COUNT"
+
+
+            # ----------------------------------------------------
+            # 最终确认
+            # ----------------------------------------------------
+
+            FINAL_COUNT=$(find "$LOCAL_DIR" \
+              -maxdepth 1 \
+              -type f \
+              -name "*.md" \
+              | wc -l)
+
+            echo
+            echo "Local $DATE count:"
+            echo "$FINAL_COUNT"
+
+            if [ "$FINAL_COUNT" -gt 0 ]; then
+
+              echo
+              echo "✅ $DATE successfully filled"
+
+            else
+
+              echo
+              echo "⚠️ $DATE still has no files"
+
+            fi
+
+          }
+
+
+          # ======================================================
+          # 只处理三天
+          # ======================================================
+
+          pull_date "$DAY_BEFORE"
+
+          pull_date "$YESTERDAY"
+
+          pull_date "$TODAY"
+
+
+      # ==========================================================
+      # 8. 最终结果
+      # ==========================================================
+
+      - name: Verify final Raw News
+        run: |
+          set -e
+
+          RAW_ROOT="01_自生长知识系统/Raw News"
+
+          echo "=========================================="
+          echo "FINAL RAW NEWS RESULT"
+          echo "=========================================="
+
+
+          for DATE in \
+            "$DAY_BEFORE" \
+            "$YESTERDAY" \
+            "$TODAY"
+          do
+
+            DIR="$RAW_ROOT/$DATE"
+
+            echo
+            echo "=========================================="
+            echo "$DATE"
+            echo "=========================================="
+
+            echo
+            echo "Directory:"
+            echo "$DIR"
+
+
+            if [ ! -d "$DIR" ]; then
+
+              echo
+              echo "⚠️ Directory does not exist"
+
+              continue
+
+            fi
+
+
+            echo
+            echo "Files:"
+
+            find "$DIR" \
+              -maxdepth 1 \
+              -type f \
+              -name "*.md" \
+              | sort
+
+
+            COUNT=$(find "$DIR" \
+              -maxdepth 1 \
+              -type f \
+              -name "*.md" \
+              | wc -l)
+
+            echo
+            echo "Count:"
+            echo "$COUNT"
+
+          done
+
+
+      # ==========================================================
+      # 9. 显示 Git 修改
+      # ==========================================================
+
+      - name: Show Git Changes
+        run: |
+          set -e
+
+          echo "=========================================="
+          echo "GIT CHANGES"
+          echo "=========================================="
+
+          git status --short
+
+          echo
+          echo "Changed files:"
+
+          git diff --name-only
+
+
+      # ==========================================================
+      # 10. 提交
+      # ==========================================================
+
+      - name: Commit Raw News
+        run: |
+          set -e
+
+          echo "=========================================="
+          echo "COMMIT"
+          echo "=========================================="
+
+          git config user.name \
+            "748686 Knowledge Bot"
+
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+
+          git add \
+            "01_自生长知识系统/Raw News"
+
+
+          if git diff --cached --quiet; then
+
+            echo
+            echo "⚠️ No changes to commit"
+
+          else
+
+            echo
+            echo "Changes detected."
+
+            git commit \
+              -m "test: fill missing Horizon Raw News $TODAY"
+
+            git push
+
+            echo
+            echo "✅ Changes pushed"
+
+          fi
+
+
+      # ==========================================================
+      # 11. 完成
+      # ==========================================================
+
+      - name: Complete
+        run: |
+          echo
+          echo "=========================================="
+          echo "HORIZON GAP-FILL TEST COMPLETE"
+          echo "=========================================="
+
+          echo
+          echo "Checked dates:"
+          echo "$DAY_BEFORE"
+          echo "$YESTERDAY"
+          echo "$TODAY"
+
+          echo
+          echo "Logic:"
+          echo "Local exists → SKIP"
+          echo "Local missing → PULL FROM HORIZON"
+          echo "Maximum range → 3 days"
+
+          echo
+          echo "Source:"
+          echo "748686/Horizon / gh-pages / _posts"
+
+          echo
+          echo "Destination:"
+          echo "748686obsidian / 01_自生长知识系统 / Raw News"
+
+          echo
+          echo "=========================================="
+          echo "✅ TEST COMPLETE"
+          echo "=========================================="
