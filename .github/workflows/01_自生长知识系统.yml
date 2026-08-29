@@ -4,9 +4,16 @@ on:
   workflow_dispatch:
 
   schedule:
-    # GitHub Actions 使用 UTC
-    # UTC 00:00 = 北京时间 08:00
-    - cron: "0 0 * * *"
+    # ==========================================================
+    # GitHub Actions cron 使用 UTC
+    #
+    # 北京时间每天 07:00
+    # = UTC 前一天 23:00
+    #
+    # 注意：
+    # 系统内部日期统一使用 Asia/Shanghai
+    # ==========================================================
+    - cron: "0 23 * * *"
 
 permissions:
   contents: write
@@ -29,12 +36,32 @@ jobs:
           fetch-depth: 0
 
       # ==========================================================
-      # 2. Define Beijing system date
-      #
-      # 整个自生长知识系统统一使用北京时间。
+      # 2. Setup Python
       # ==========================================================
 
-      - name: Set Beijing system date
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # ==========================================================
+      # 3. Install uv
+      # ==========================================================
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      # ==========================================================
+      # 4. Set Beijing Time
+      #
+      # 整个系统只在这里确定 TODAY。
+      #
+      # 后面所有步骤都使用这个 TODAY。
+      #
+      # 不再使用 date -u。
+      # ==========================================================
+
+      - name: Set Beijing Time
         run: |
           set -e
 
@@ -42,137 +69,58 @@ jobs:
 
           TODAY=$(date +%Y-%m-%d)
 
+          echo "TZ=Asia/Shanghai" >> "$GITHUB_ENV"
           echo "TODAY=$TODAY" >> "$GITHUB_ENV"
 
           echo "=========================================="
-          echo "SYSTEM DATE"
+          echo "SYSTEM TIME"
           echo "=========================================="
 
-          echo "Timezone: Asia/Shanghai"
-          echo "Today: $TODAY"
+          echo "Timezone:"
+          echo "Asia/Shanghai"
 
-      # ==========================================================
-      # 3. Checkout Horizon gh-pages FIRST
-      #
-      # 先检查 Horizon 今天是否已经生成文章。
-      #
-      # 如果已经存在：
-      #   → 不运行 Horizon
-      #   → 直接进入后续流程
-      #
-      # 如果不存在：
-      #   → 后面才启动 Horizon
-      # ==========================================================
+          echo
+          echo "Current Beijing time:"
+          date '+%Y-%m-%d %H:%M:%S'
 
-      - name: Checkout Horizon gh-pages for pre-check
-        uses: actions/checkout@v4
-        with:
-          repository: 748686/Horizon
-          ref: gh-pages
-          path: horizon-pages
-          fetch-depth: 1
-
-      # ==========================================================
-      # 4. Check whether today's Horizon posts already exist
-      # ==========================================================
-
-      - name: Check today's Horizon posts
-        id: horizon_precheck
-        run: |
-          set -e
-
-          POSTS_DIR="horizon-pages/_posts"
-
-          echo "=========================================="
-          echo "CHECK TODAY'S HORIZON POSTS"
-          echo "=========================================="
-
-          echo "Today:"
+          echo
+          echo "System date:"
           echo "$TODAY"
 
-          echo
-          echo "Posts directory:"
-          echo "$POSTS_DIR"
-
-          if [ ! -d "$POSTS_DIR" ]; then
-            echo
-            echo "⚠️ Horizon _posts directory not found"
-            echo "HORIZON_NEEDED=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          echo
-          echo "Searching for:"
-          echo "${TODAY}-*.md"
-
-          TODAY_COUNT=$(find "$POSTS_DIR" \
-            -type f \
-            -name "${TODAY}-*.md" \
-            | wc -l)
-
-          echo
-          echo "Today's Horizon post count:"
-          echo "$TODAY_COUNT"
-
-          echo
-          echo "Today's posts:"
-
-          find "$POSTS_DIR" \
-            -type f \
-            -name "${TODAY}-*.md" \
-            | sort
-
-          if [ "$TODAY_COUNT" -gt 0 ]; then
-
-            echo
-            echo "✅ Today's Horizon posts already exist"
-            echo "HORIZON_NEEDED=false" >> "$GITHUB_OUTPUT"
-
-          else
-
-            echo
-            echo "⚠️ Today's Horizon posts do not exist"
-            echo "HORIZON_NEEDED=true" >> "$GITHUB_OUTPUT"
-
-          fi
-
       # ==========================================================
-      # 5. Checkout Horizon main ONLY if needed
+      # 5. Checkout Horizon main
+      #
+      # IMPORTANT:
+      #
+      # 完全使用 748686/Horizon 自己的系统。
+      #
+      # 不使用：
+      #
+      # 01_自生长知识系统/00_System/horizon_config.json
+      #
+      # 不使用：
+      #
+      # horizon_runtime_config.json
+      #
+      # 不重新组装 Horizon 配置。
+      #
+      # Horizon 自己使用：
+      #
+      # Horizon/data/config.github.json
       # ==========================================================
 
       - name: Checkout Horizon main
-        if: steps.horizon_precheck.outputs.HORIZON_NEEDED == 'true'
         uses: actions/checkout@v4
         with:
           repository: 748686/Horizon
           ref: main
           path: horizon
-          fetch-depth: 1
 
       # ==========================================================
-      # 6. Setup Python
-      # ==========================================================
-
-      - name: Setup Python
-        if: steps.horizon_precheck.outputs.HORIZON_NEEDED == 'true'
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      # ==========================================================
-      # 7. Install uv
-      # ==========================================================
-
-      - name: Install uv
-        if: steps.horizon_precheck.outputs.HORIZON_NEEDED == 'true'
-        uses: astral-sh/setup-uv@v6
-
-      # ==========================================================
-      # 8. Install Horizon
+      # 6. Install Horizon
       # ==========================================================
 
       - name: Install Horizon
-        if: steps.horizon_precheck.outputs.HORIZON_NEEDED == 'true'
         working-directory: horizon
         run: |
           set -e
@@ -184,14 +132,23 @@ jobs:
           uv sync
 
           echo
+          echo "Horizon config:"
+          echo "data/config.github.json"
+
+          if [ ! -f "data/config.github.json" ]; then
+            echo "❌ Horizon data/config.github.json not found"
+            exit 1
+          fi
+
+          echo
           echo "✅ Horizon installed"
+          echo "✅ Native Horizon config found"
 
       # ==========================================================
-      # 9. Check Agnes API configuration
+      # 7. Check Agnes API
       # ==========================================================
 
       - name: Check Agnes API configuration
-        if: steps.horizon_precheck.outputs.HORIZON_NEEDED == 'true'
         env:
           AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
         run: |
@@ -217,25 +174,124 @@ jobs:
           echo "agnes-2.5-flash"
 
       # ==========================================================
+      # 8. Checkout Horizon gh-pages
+      #
+      # 第一次检查。
+      #
+      # 如果今天已经有 Horizon 输出：
+      #
+      # 不运行 Horizon。
+      #
+      # 如果今天没有：
+      #
+      # 才运行 Horizon。
+      # ==========================================================
+
+      - name: Checkout Horizon gh-pages - initial
+        uses: actions/checkout@v4
+        with:
+          repository: 748686/Horizon
+          ref: gh-pages
+          path: horizon-pages-initial
+
+      # ==========================================================
+      # 9. Check today's Horizon output
+      #
+      # 不锁死文件名。
+      #
+      # 只检查：
+      #
+      # $TODAY*.md
+      #
+      # 所以：
+      #
+      # 2026-08-29-summary.md
+      # 2026-08-29-summary-en.md
+      # 2026-08-29-summary-zh.md
+      # 2026-08-29-xxx.md
+      #
+      # 都可以。
+      #
+      # 只要今天存在一个或多个 MD：
+      # 就认为 Horizon 今天已经产生结果。
+      # ==========================================================
+
+      - name: Check today's Horizon output
+        id: horizon_initial_check
+        run: |
+          set -e
+
+          POSTS_DIR="horizon-pages-initial/_posts"
+
+          echo "=========================================="
+          echo "CHECK TODAY'S HORIZON OUTPUT"
+          echo "=========================================="
+
+          echo "Timezone: Asia/Shanghai"
+          echo "Today: $TODAY"
+
+          echo
+          echo "Checking:"
+          echo "$POSTS_DIR"
+
+          if [ ! -d "$POSTS_DIR" ]; then
+
+            echo
+            echo "❌ Horizon _posts directory not found"
+
+            echo "HORIZON_TODAY_READY=false" >> "$GITHUB_ENV"
+
+            exit 0
+
+          fi
+
+          echo
+          echo "Today's files:"
+
+          find "$POSTS_DIR" \
+            -maxdepth 1 \
+            -type f \
+            -name "$TODAY*.md" \
+            | sort
+
+          COUNT=$(find "$POSTS_DIR" \
+            -maxdepth 1 \
+            -type f \
+            -name "$TODAY*.md" \
+            | wc -l)
+
+          echo
+          echo "Today's Horizon file count:"
+          echo "$COUNT"
+
+          if [ "$COUNT" -gt 0 ]; then
+
+            echo
+            echo "✅ Today's Horizon output already exists"
+            echo "⏭️ Horizon will NOT run"
+
+            echo "HORIZON_TODAY_READY=true" >> "$GITHUB_ENV"
+
+          else
+
+            echo
+            echo "❌ Today's Horizon output does not exist"
+            echo "▶️ Horizon will run"
+
+            echo "HORIZON_TODAY_READY=false" >> "$GITHUB_ENV"
+
+          fi
+
+      # ==========================================================
       # 10. Run Horizon
       #
-      # IMPORTANT:
+      # 只有今天没有文件的时候才运行。
       #
-      # 完全使用 Horizon 自己的配置：
-      #
-      # horizon/data/config.github.json
-      #
-      # 不使用：
-      #
-      # 01_自生长知识系统/00_System/horizon_config.json
-      #
-      # 也不使用：
-      #
-      # horizon_runtime_config.json
+      # 完全按照 Horizon 自己的配置运行。
       # ==========================================================
 
       - name: Run Horizon
-        if: steps.horizon_precheck.outputs.HORIZON_NEEDED == 'true'
+        if: env.HORIZON_TODAY_READY != 'true'
         working-directory: horizon
         env:
           AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
@@ -249,97 +305,6 @@ jobs:
           echo "RUN HORIZON"
           echo "=========================================="
 
-          echo "Repository:"
-          echo "748686/Horizon"
-
-          echo
-          echo "Config:"
-          echo "data/config.github.json"
-
-          echo
-          echo "API:"
-          echo "https://api.agnes-ai.cn/v1"
-
-          echo
-          echo "Model:"
-          echo "agnes-2.5-flash"
-
-          echo
-          echo "Hours:"
-          echo "24"
-
-          echo
-          echo "Running Horizon..."
-
-          uv run horizon \
-            --hours 24 \
-            --config data/config.github.json
-
-          echo
-          echo "=========================================="
-          echo "HORIZON COMPLETED"
-          echo "=========================================="
-
-      # ==========================================================
-      # 11. If Horizon was run, remove old gh-pages checkout
-      #
-      # 然后重新拉取最新 gh-pages。
-      # ==========================================================
-
-      - name: Prepare latest Horizon gh-pages checkout
-        if: steps.horizon_precheck.outputs.HORIZON_NEEDED == 'true'
-        run: |
-          set -e
-
-          echo "=========================================="
-          echo "PREPARE LATEST HORIZON GH-PAGES"
-          echo "=========================================="
-
-          rm -rf horizon-pages
-
-          echo "Old Horizon gh-pages checkout removed"
-
-      # ==========================================================
-      # 12. Checkout latest Horizon gh-pages AFTER Horizon
-      # ==========================================================
-
-      - name: Checkout latest Horizon gh-pages
-        if: steps.horizon_precheck.outputs.HORIZON_NEEDED == 'true'
-        uses: actions/checkout@v4
-        with:
-          repository: 748686/Horizon
-          ref: gh-pages
-          path: horizon-pages
-          fetch-depth: 1
-
-      # ==========================================================
-      # 13. Final verification
-      #
-      # 无论：
-      #
-      # A. 今天原本就有文章
-      #
-      # B. 刚刚运行 Horizon 后产生文章
-      #
-      # 都必须在这里再次确认。
-      #
-      # 如果没有：
-      #   → 整个系统停止
-      #
-      # 如果有：
-      #   → 继续 Raw News
-      # ==========================================================
-
-      - name: Verify today's Horizon posts
-        run: |
-          set -e
-
-          POSTS_DIR="horizon-pages/_posts"
-
-          echo "=========================================="
-          echo "FINAL VERIFY TODAY'S HORIZON POSTS"
-          echo "=========================================="
-
           echo "Timezone:"
           echo "Asia/Shanghai"
 
@@ -348,53 +313,258 @@ jobs:
           echo "$TODAY"
 
           echo
-          echo "Expected:"
-          echo "${TODAY}-*.md"
+          echo "Horizon repository:"
+          echo "748686/Horizon"
 
-          if [ ! -d "$POSTS_DIR" ]; then
+          echo
+          echo "Horizon native config:"
+          echo "data/config.github.json"
+
+          echo
+          echo "Hours:"
+          echo "24"
+
+          echo
+          echo "Starting Horizon..."
+
+          uv run horizon \
+            --hours 24 \
+            --config data/config.github.json
+
+          echo
+          echo "=========================================="
+          echo "HORIZON PROCESS FINISHED"
+          echo "=========================================="
+
+          echo "Horizon process completed."
+          echo "Now the system will wait for today's gh-pages output."
+
+      # ==========================================================
+      # 11. Wait for today's gh-pages output
+      #
+      # 重要：
+      #
+      # Horizon 程序结束
+      # 不等于
+      # gh-pages 已经立即更新。
+      #
+      # 所以：
+      #
+      # 每 30 秒检查一次
+      # 最多 5 分钟
+      #
+      # 一旦看到 TODAY*.md：
+      # 立即继续。
+      #
+      # 5 分钟后仍然没有：
+      # 整个 Job 失败并停止。
+      # ==========================================================
+
+      - name: Wait for today's Horizon output
+        if: env.HORIZON_TODAY_READY != 'true'
+        run: |
+          set -e
+
+          echo "=========================================="
+          echo "WAIT FOR HORIZON GH-PAGES"
+          echo "=========================================="
+
+          echo "Today:"
+          echo "$TODAY"
+
+          echo
+          echo "Maximum wait:"
+          echo "5 minutes"
+
+          echo
+          echo "Check interval:"
+          echo "30 seconds"
+
+          FOUND=false
+
+          for i in {1..10}; do
+
             echo
-            echo "❌ Horizon _posts directory not found"
+            echo "------------------------------------------"
+            echo "CHECK $i / 10"
+            echo "------------------------------------------"
+
+            rm -rf horizon-pages-check
+
+            git clone \
+              --quiet \
+              --depth 1 \
+              --branch gh-pages \
+              "https://github.com/748686/Horizon.git" \
+              horizon-pages-check
+
+            POSTS_DIR="horizon-pages-check/_posts"
+
+            if [ ! -d "$POSTS_DIR" ]; then
+
+              echo "_posts directory not found"
+
+            else
+
+              COUNT=$(find "$POSTS_DIR" \
+                -maxdepth 1 \
+                -type f \
+                -name "$TODAY*.md" \
+                | wc -l)
+
+              echo "Today's files:"
+              echo "$COUNT"
+
+              if [ "$COUNT" -gt 0 ]; then
+
+                echo
+                echo "✅ TODAY'S HORIZON FILES FOUND"
+
+                echo
+                find "$POSTS_DIR" \
+                  -maxdepth 1 \
+                  -type f \
+                  -name "$TODAY*.md" \
+                  | sort
+
+                FOUND=true
+
+                break
+
+              fi
+
+            fi
+
+            if [ "$i" -lt 10 ]; then
+
+              echo
+              echo "No today's output yet."
+              echo "Waiting 30 seconds..."
+
+              sleep 30
+
+            fi
+
+          done
+
+          if [ "$FOUND" != "true" ]; then
+
+            echo
+            echo "=========================================="
+            echo "❌ HORIZON OUTPUT NOT FOUND"
+            echo "=========================================="
+
+            echo
+            echo "Horizon process finished,"
+            echo "but today's .md files did not appear"
+            echo "in Horizon gh-pages/_posts within 5 minutes."
+
+            echo
+            echo "System stops here."
+            echo "Atomic / Enrichment / Knowledge Pipeline"
+            echo "will NOT run."
+
             exit 1
+
           fi
 
-          TODAY_COUNT=$(find "$POSTS_DIR" \
+          echo
+          echo "✅ Horizon gh-pages is ready"
+
+      # ==========================================================
+      # 12. Final checkout Horizon gh-pages
+      #
+      # 重新获取最新 gh-pages。
+      # ==========================================================
+
+      - name: Checkout Horizon gh-pages - final
+        run: |
+          set -e
+
+          echo "=========================================="
+          echo "GET FINAL HORIZON GH-PAGES"
+          echo "=========================================="
+
+          rm -rf horizon-pages
+
+          git clone \
+            --quiet \
+            --depth 1 \
+            --branch gh-pages \
+            "https://github.com/748686/Horizon.git" \
+            horizon-pages
+
+          echo "✅ Latest Horizon gh-pages downloaded"
+
+      # ==========================================================
+      # 13. Final verify today's files
+      #
+      # 在真正复制之前最后确认一次。
+      # ==========================================================
+
+      - name: Verify today's Horizon files
+        run: |
+          set -e
+
+          POSTS_DIR="horizon-pages/_posts"
+
+          echo "=========================================="
+          echo "FINAL HORIZON OUTPUT CHECK"
+          echo "=========================================="
+
+          echo "Today:"
+          echo "$TODAY"
+
+          if [ ! -d "$POSTS_DIR" ]; then
+
+            echo "❌ Horizon _posts directory missing"
+            exit 1
+
+          fi
+
+          echo
+          echo "Today's Horizon files:"
+
+          find "$POSTS_DIR" \
+            -maxdepth 1 \
             -type f \
-            -name "${TODAY}-*.md" \
+            -name "$TODAY*.md" \
+            | sort
+
+          COUNT=$(find "$POSTS_DIR" \
+            -maxdepth 1 \
+            -type f \
+            -name "$TODAY*.md" \
             | wc -l)
 
           echo
-          echo "Today's Horizon post count:"
-          echo "$TODAY_COUNT"
+          echo "Today's file count:"
+          echo "$COUNT"
 
-          echo
-          echo "Today's Horizon posts:"
+          if [ "$COUNT" -eq 0 ]; then
 
-          find "$POSTS_DIR" \
-            -type f \
-            -name "${TODAY}-*.md" \
-            | sort
-
-          if [ "$TODAY_COUNT" -eq 0 ]; then
             echo
-            echo "❌ Horizon did not generate today's posts"
-            echo "System stopped before Raw News."
+            echo "❌ Today's Horizon files disappeared"
+            echo "System stops here."
+
             exit 1
+
           fi
 
           echo
-          echo "✅ Today's Horizon posts confirmed"
+          echo "✅ Today's Horizon output confirmed"
 
       # ==========================================================
-      # 14. Copy TODAY'S Horizon posts → Raw News
+      # 14. Copy ONLY today's Horizon files
+      #
+      # 绝不复制整个 _posts。
       #
       # 只复制：
       #
-      # ${TODAY}-*.md
-      #
-      # 不复制历史文章。
+      # $TODAY*.md
       # ==========================================================
 
-      - name: Copy today's Horizon posts to Raw News
+      - name: Copy today's Horizon files to Raw News
         run: |
           set -e
 
@@ -405,13 +575,9 @@ jobs:
           mkdir -p "$RAW_DIR"
 
           echo "=========================================="
-          echo "COPY TODAY'S HORIZON POSTS → RAW NEWS"
+          echo "COPY TODAY'S HORIZON FILES"
           echo "=========================================="
 
-          echo "Today:"
-          echo "$TODAY"
-
-          echo
           echo "Source:"
           echo "$POSTS_DIR"
 
@@ -419,13 +585,38 @@ jobs:
           echo "Destination:"
           echo "$RAW_DIR"
 
-          echo
-          echo "Copying today's posts..."
+          COUNT=0
 
-          find "$POSTS_DIR" \
-            -type f \
-            -name "${TODAY}-*.md" \
-            -exec cp {} "$RAW_DIR/" \;
+          while IFS= read -r file; do
+
+            filename=$(basename "$file")
+
+            echo
+            echo "Copying:"
+            echo "$filename"
+
+            cp "$file" "$RAW_DIR/$filename"
+
+            COUNT=$((COUNT + 1))
+
+          done < <(
+            find "$POSTS_DIR" \
+              -maxdepth 1 \
+              -type f \
+              -name "$TODAY*.md" \
+              | sort
+          )
+
+          echo
+          echo "Copied files:"
+          echo "$COUNT"
+
+          if [ "$COUNT" -eq 0 ]; then
+
+            echo "❌ Nothing copied"
+            exit 1
+
+          fi
 
           echo
           echo "Raw News result:"
@@ -436,24 +627,8 @@ jobs:
             -name "*.md" \
             | sort
 
-          RAW_COUNT=$(find "$RAW_DIR" \
-            -maxdepth 1 \
-            -type f \
-            -name "*.md" \
-            | wc -l)
-
           echo
-          echo "Raw News files:"
-          echo "$RAW_COUNT"
-
-          if [ "$RAW_COUNT" -eq 0 ]; then
-            echo
-            echo "❌ Raw News is empty"
-            exit 1
-          fi
-
-          echo
-          echo "✅ Raw News created successfully"
+          echo "✅ Today's Horizon files imported"
 
       # ==========================================================
       # 15. Build Atomic News
@@ -508,6 +683,14 @@ jobs:
 
               language="zh"
 
+            else
+
+              if [[ "$filename" == *"-en.md" ]]; then
+                language="en"
+              elif [[ "$filename" == *"-zh.md" ]]; then
+                language="zh"
+              fi
+
             fi
 
             if [ "$language" = "en" ]; then
@@ -532,12 +715,6 @@ jobs:
           echo "Processed:"
           echo "$FOUND"
 
-          if [ "$FOUND" -eq 0 ]; then
-            echo
-            echo "❌ No Raw News files found"
-            exit 1
-          fi
-
           echo
           echo "Chinese Atomic:"
 
@@ -553,9 +730,6 @@ jobs:
             -type f \
             -name "*.md" \
             | sort
-
-          echo
-          echo "✅ Atomic News completed"
 
       # ==========================================================
       # 16. Source Enrichment V3
@@ -583,7 +757,6 @@ jobs:
           echo "=========================================="
 
           ZH="01_自生长知识系统/Raw News/$TODAY-Atomic/zh"
-
           EN="01_自生长知识系统/Raw News/$TODAY-Atomic/en"
 
           OUTPUT="01_自生长知识系统/Raw News/$TODAY-Enriched"
@@ -601,14 +774,6 @@ jobs:
           echo
           echo "Output:"
           echo "$OUTPUT"
-
-          echo
-          echo "API:"
-          echo "https://api.agnes-ai.cn/v1"
-
-          echo
-          echo "Model:"
-          echo "agnes-2.5-flash"
 
           echo
           echo "Running..."
@@ -727,6 +892,7 @@ jobs:
           echo "Checked:"
           echo "$TOTAL"
 
+          echo
           echo "Failed:"
           echo "$FAILED"
 
@@ -741,11 +907,9 @@ jobs:
       # 20. Report Source Status
       # ==========================================================
 
-      - name: Report source status
+      - name: Report Source Status
         run: |
           set -e
-
-          DIR="01_自生长知识系统/Raw News/$TODAY-Enriched"
 
           echo "=========================================="
           echo "SOURCE STATUS"
@@ -801,7 +965,7 @@ jobs:
           PY
 
       # ==========================================================
-      # 21. Run Knowledge Pipeline V2
+      # 21. Knowledge Pipeline V2
       # ==========================================================
 
       - name: Run Knowledge Pipeline V2
@@ -817,17 +981,11 @@ jobs:
           echo "KNOWLEDGE PIPELINE V2"
           echo "=========================================="
 
-          echo "API:"
-          echo "https://api.agnes-ai.cn/v1"
-
-          echo
-          echo "Model:"
-          echo "agnes-2.5-flash"
-
           echo
           echo "Skills:"
 
-          find "01_自生长知识系统/Skills" \
+          find \
+            "01_自生长知识系统/Skills" \
             -type f \
             -name "*.md" \
             | sort
@@ -842,7 +1000,7 @@ jobs:
           echo "✅ Knowledge Pipeline V2 completed"
 
       # ==========================================================
-      # 22. Run Weekly Report V2
+      # 22. Weekly Report V2
       # ==========================================================
 
       - name: Run Weekly Report V2
@@ -865,10 +1023,10 @@ jobs:
           echo "✅ Weekly Report V2 completed"
 
       # ==========================================================
-      # 23. Show final system result
+      # 23. Show final result
       # ==========================================================
 
-      - name: Show final result
+      - name: Show Final System Result
         run: |
           set -e
 
@@ -877,7 +1035,7 @@ jobs:
           echo "=========================================="
 
           echo
-          echo "TIMEZONE:"
+          echo "Timezone:"
           echo "Asia/Shanghai"
 
           echo
@@ -885,7 +1043,18 @@ jobs:
           echo "$TODAY"
 
           echo
-          echo "Raw News:"
+          echo "=========================================="
+          echo "RAW NEWS"
+          echo "=========================================="
+
+          find \
+            "01_自生长知识系统/Raw News/$TODAY" \
+            -type f \
+            -name "*.md" \
+            | sort
+
+          echo
+          echo "Raw count:"
 
           find \
             "01_自生长知识系统/Raw News/$TODAY" \
@@ -894,7 +1063,18 @@ jobs:
             | wc -l
 
           echo
-          echo "Atomic News:"
+          echo "=========================================="
+          echo "ATOMIC NEWS"
+          echo "=========================================="
+
+          find \
+            "01_自生长知识系统/Raw News/$TODAY-Atomic" \
+            -type f \
+            -name "*.md" \
+            | sort
+
+          echo
+          echo "Atomic count:"
 
           find \
             "01_自生长知识系统/Raw News/$TODAY-Atomic" \
@@ -903,7 +1083,18 @@ jobs:
             | wc -l
 
           echo
-          echo "Enriched News:"
+          echo "=========================================="
+          echo "ENRICHED NEWS"
+          echo "=========================================="
+
+          find \
+            "01_自生长知识系统/Raw News/$TODAY-Enriched" \
+            -type f \
+            -name "*.md" \
+            | sort
+
+          echo
+          echo "Enriched count:"
 
           find \
             "01_自生长知识系统/Raw News/$TODAY-Enriched" \
@@ -912,7 +1103,9 @@ jobs:
             | wc -l
 
           echo
-          echo "Daily Reports:"
+          echo "=========================================="
+          echo "DAILY REPORTS"
+          echo "=========================================="
 
           find \
             "01_自生长知识系统/05_日报" \
@@ -922,7 +1115,9 @@ jobs:
             | tail -10
 
           echo
-          echo "Knowledge:"
+          echo "=========================================="
+          echo "KNOWLEDGE"
+          echo "=========================================="
 
           find \
             "01_自生长知识系统/08_知识库" \
@@ -932,7 +1127,9 @@ jobs:
             | tail -10
 
           echo
-          echo "Topics:"
+          echo "=========================================="
+          echo "TOPICS"
+          echo "=========================================="
 
           find \
             "01_自生长知识系统/07_专题报告" \
@@ -942,7 +1139,9 @@ jobs:
             | tail -10
 
           echo
-          echo "Weekly:"
+          echo "=========================================="
+          echo "WEEKLY"
+          echo "=========================================="
 
           find \
             "01_自生长知识系统/06_周报" \
@@ -974,6 +1173,7 @@ jobs:
 
           if git diff --cached --quiet; then
 
+            echo
             echo "No changes to commit"
 
           else
@@ -983,23 +1183,28 @@ jobs:
 
             git push
 
+            echo
             echo "✅ Changes pushed to GitHub"
 
           fi
 
       # ==========================================================
-      # 25. Complete job
+      # 25. Complete
+      #
+      # 只有真正走到这里，才允许说 SYSTEM COMPLETE。
       # ==========================================================
 
-      - name: Complete job
+      - name: Complete Job
         run: |
+          set -e
+
           echo
           echo "=========================================="
           echo "748686 自生长知识系统"
           echo "=========================================="
 
           echo
-          echo "TIMEZONE:"
+          echo "Timezone:"
           echo "Asia/Shanghai"
 
           echo
@@ -1007,20 +1212,12 @@ jobs:
           echo "$TODAY"
 
           echo
-          echo "SCHEDULE:"
-          echo "08:00 Beijing Time"
-
-          echo
           echo "Horizon:"
-          echo "✅ verified"
-
-          echo
-          echo "Today's Horizon Posts:"
-          echo "✅ verified"
+          echo "✅ today's output confirmed"
 
           echo
           echo "Raw News:"
-          echo "✅ completed"
+          echo "✅ today's files imported"
 
           echo
           echo "Atomic News:"
@@ -1031,8 +1228,8 @@ jobs:
           echo "✅ completed"
 
           echo
-          echo "27 Skills:"
-          echo "✅ Knowledge Pipeline V2 completed"
+          echo "Knowledge Pipeline V2:"
+          echo "✅ completed"
 
           echo
           echo "Knowledge Cards:"
