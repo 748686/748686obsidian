@@ -19,24 +19,36 @@ Enriched News
    ↓
 skill_routes.json
    ↓
-动态调用 27 Skills
+动态调用 Skills
    ↓
 知识分析
    ↓
 日报 / 知识卡片 / 专题候选 / 追踪事项
 
-核心原则：
+============================================================
+核心原则
+============================================================
 
-1. Enriched 优先于 Horizon Summary
-2. source_status=fetched 时优先使用真实原文
-3. pending_search / fetch_failed 不得伪装成原文
-4. 不再固定只使用 5 个 Skills
-5. 根据 skill_routes.json 动态选择 Skills
-6. 不要求每条新闻调用全部 27 Skills
-7. 自动提取人物、公司、产品、技术、行业、概念
-8. 自动生成长期知识卡片
-9. 自动生成专题候选
-10. 自动生成后续追踪事项
+1. Horizon 完全由 Horizon 自己的配置管理。
+2. 本程序不读取 Horizon Config。
+3. 本程序不负责启动 Horizon。
+4. 本程序只处理已经进入本系统的 Enriched News。
+5. AI 使用 AGNES.ai。
+6. AGNES API Key 从环境变量 AGNES_API_KEY 读取。
+7. AGNES 模型固定为 agnes-2.5-flash。
+8. AGNES Base URL 固定为 https://api.agnes-ai.cn/v1。
+9. 不人为设置 max_tokens。
+10. 日期统一使用北京时间 Asia/Shanghai。
+11. Enriched 优先于 Horizon Summary。
+12. source_status=fetched 时可以使用真实抓取内容。
+13. pending_search / fetch_failed 不得伪装成原文。
+14. Skills 根据 skill_routes.json 动态选择。
+15. 不要求每条新闻调用全部 Skills。
+16. 自动提取长期知识实体。
+17. 自动生成专题候选。
+18. 自动生成后续追踪事项。
+19. 任意关键 AI 步骤失败，程序立即失败。
+20. 不允许半成品被标记为成功。
 """
 
 from __future__ import annotations
@@ -44,13 +56,17 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
+
 from pathlib import Path
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from urllib.request import Request, urlopen
+from urllib.error import HTTPError, URLError
 
 
 # ============================================================
-# 路径
+# 基础路径
 # ============================================================
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -67,18 +83,49 @@ KNOWLEDGE = ROOT / "08_知识库"
 
 LOGS = SYSTEM / "运行日志"
 
+# 注意：
+# system_config.json 不再用于 AI 配置。
+# 这里只保留它作为普通系统参数来源，例如 max_items_for_ai。
 CONFIG_FILE = SYSTEM / "system_config.json"
+
 ROUTES_FILE = SYSTEM / "skill_routes.json"
 
 
 # ============================================================
-# 时间
+# AGNES AI
 # ============================================================
 
-def now():
-    return datetime.now(
-        timezone(timedelta(hours=8))
-    )
+AGNES_BASE_URL = "https://api.agnes-ai.cn/v1"
+AGNES_MODEL = "agnes-2.5-flash"
+
+AGNES_API_KEY_ENV = "AGNES_API_KEY"
+
+DEFAULT_TEMPERATURE = 0.3
+
+AI_TIMEOUT = 180
+
+
+# ============================================================
+# 北京时间
+# ============================================================
+
+BEIJING_TZ = ZoneInfo("Asia/Shanghai")
+
+
+def now() -> datetime:
+    """
+    获取当前北京时间。
+    """
+
+    return datetime.now(BEIJING_TZ)
+
+
+def today_str() -> str:
+    """
+    获取当前北京时间日期。
+    """
+
+    return now().strftime("%Y-%m-%d")
 
 
 # ============================================================
@@ -90,7 +137,16 @@ def read_json(path: Path, default=None):
     if default is None:
         default = {}
 
+    if not path.exists():
+
+        print(
+            f"⚠️ JSON文件不存在：{path}"
+        )
+
+        return default
+
     try:
+
         return json.loads(
             path.read_text(
                 encoding="utf-8"
@@ -100,7 +156,7 @@ def read_json(path: Path, default=None):
     except Exception as exc:
 
         print(
-            f"⚠️ JSON读取失败: {path}"
+            f"⚠️ JSON读取失败：{path}"
         )
 
         print(exc)
@@ -161,6 +217,7 @@ def parse_front_matter(content: str):
     for line in raw.splitlines():
 
         if ":" not in line:
+
             continue
 
         key, value = line.split(
@@ -190,34 +247,47 @@ def parse_front_matter(content: str):
 def call_ai(
     prompt: str,
     system_prompt: str | None = None,
-    temperature: float = 0.2,
+    temperature: float = DEFAULT_TEMPERATURE,
 ):
+    """
+    调用 AGNES.ai。
+
+    注意：
+
+    本函数不读取：
+
+        AI_API_KEY
+        AI_BASE_URL
+        AI_MODEL
+
+    也不读取：
+
+        system_config.json
+
+    AGNES 配置固定为：
+
+        API KEY:
+            AGNES_API_KEY
+
+        Base URL:
+            https://api.agnes-ai.cn/v1
+
+        Model:
+            agnes-2.5-flash
+
+    不设置 max_tokens。
+    """
 
     api_key = os.getenv(
-        "AI_API_KEY",
+        AGNES_API_KEY_ENV,
         ""
-    )
-
-    base_url = os.getenv(
-        "AI_BASE_URL",
-        "https://api.openai.com/v1"
-    ).rstrip("/")
-
-    model = os.getenv(
-        "AI_MODEL",
-        ""
-    )
+    ).strip()
 
     if not api_key:
 
         raise RuntimeError(
-            "缺少 AI_API_KEY"
-        )
-
-    if not model:
-
-        raise RuntimeError(
-            "缺少 AI_MODEL"
+            "❌ 缺少 AGNES_API_KEY。"
+            "请在 GitHub Actions Secrets 中配置 AGNES_API_KEY。"
         )
 
     if not system_prompt:
@@ -230,49 +300,137 @@ def call_ai(
             "输出标准Markdown。"
         )
 
+    payload_data = {
+        "model": AGNES_MODEL,
+
+        "messages": [
+            {
+                "role": "system",
+                "content": system_prompt,
+            },
+            {
+                "role": "user",
+                "content": prompt,
+            },
+        ],
+
+        "temperature": temperature,
+    }
+
     payload = json.dumps(
-        {
-            "model": model,
-            "messages": [
-                {
-                    "role": "system",
-                    "content": system_prompt,
-                },
-                {
-                    "role": "user",
-                    "content": prompt,
-                },
-            ],
-            "temperature": temperature,
-        },
+        payload_data,
         ensure_ascii=False,
     ).encode("utf-8")
 
     request = Request(
-        base_url + "/chat/completions",
+        AGNES_BASE_URL + "/chat/completions",
+
         data=payload,
+
         headers={
             "Authorization":
                 f"Bearer {api_key}",
+
             "Content-Type":
                 "application/json",
+
+            "Accept":
+                "application/json",
+
+            "User-Agent":
+                "748686-Knowledge-Pipeline/2.0",
         },
+
+        method="POST",
     )
 
-    with urlopen(
-        request,
-        timeout=180,
-    ) as response:
+    print()
+    print(
+        "🤖 Calling AGNES.ai"
+    )
 
-        data = json.loads(
-            response.read().decode(
-                "utf-8"
-            )
-        )
+    print(
+        f"   Model: {AGNES_MODEL}"
+    )
+
+    print(
+        f"   Base URL: {AGNES_BASE_URL}"
+    )
 
     try:
 
-        return data[
+        with urlopen(
+            request,
+            timeout=AI_TIMEOUT,
+        ) as response:
+
+            raw_response = (
+                response
+                .read()
+                .decode("utf-8")
+            )
+
+    except HTTPError as exc:
+
+        error_body = ""
+
+        try:
+
+            error_body = (
+                exc.read()
+                .decode(
+                    "utf-8",
+                    errors="replace"
+                )
+            )
+
+        except Exception:
+            pass
+
+        raise RuntimeError(
+            "❌ AGNES.ai HTTP错误\n"
+            f"HTTP Status: {exc.code}\n"
+            f"URL: {AGNES_BASE_URL}/chat/completions\n"
+            f"Response: {error_body[:3000]}"
+        ) from exc
+
+    except URLError as exc:
+
+        raise RuntimeError(
+            "❌ AGNES.ai 网络连接失败\n"
+            f"URL: {AGNES_BASE_URL}/chat/completions\n"
+            f"Reason: {exc.reason}"
+        ) from exc
+
+    except TimeoutError as exc:
+
+        raise RuntimeError(
+            "❌ AGNES.ai 请求超时"
+        ) from exc
+
+    except Exception as exc:
+
+        raise RuntimeError(
+            "❌ AGNES.ai 请求失败\n"
+            f"{type(exc).__name__}: {exc}"
+        ) from exc
+
+    try:
+
+        data = json.loads(
+            raw_response
+        )
+
+    except Exception as exc:
+
+        raise RuntimeError(
+            "❌ AGNES.ai 返回的不是合法JSON\n"
+            f"Response: {raw_response[:3000]}"
+        ) from exc
+
+    try:
+
+        result = data[
             "choices"
         ][0][
             "message"
@@ -280,15 +438,23 @@ def call_ai(
             "content"
         ]
 
-    except Exception:
+    except Exception as exc:
 
         raise RuntimeError(
-            "AI返回格式异常："
+            "❌ AGNES.ai 返回格式异常\n"
             + json.dumps(
                 data,
                 ensure_ascii=False
-            )[:2000]
+            )[:5000]
+        ) from exc
+
+    if not result or not str(result).strip():
+
+        raise RuntimeError(
+            "❌ AGNES.ai 返回空内容"
         )
+
+    return str(result).strip()
 
 
 # ============================================================
@@ -305,7 +471,9 @@ def load_skills():
             f"Skills目录不存在：{SKILLS}"
         )
 
-    for path in SKILLS.rglob("*.md"):
+    for path in sorted(
+        SKILLS.rglob("*.md")
+    ):
 
         try:
 
@@ -479,7 +647,10 @@ def classify_news(
 
 可选类别：
 
-{json.dumps(categories, ensure_ascii=False)}
+{json.dumps(
+    categories,
+    ensure_ascii=False
+)}
 
 新闻标题：
 {title}
@@ -503,15 +674,19 @@ def classify_news(
 1. category必须来自给出的类别。
 2. confidence范围0到1。
 3. 不得创造新的类别。
+4. 不要输出JSON之外的内容。
 """
 
     result = call_ai(
         prompt,
+
         system_prompt=(
             "你是748686知识系统的新闻分类器。"
             "只依据输入判断。"
             "必须返回合法JSON。"
+            "不要输出JSON之外的解释。"
         ),
+
         temperature=0,
     )
 
@@ -528,14 +703,20 @@ def classify_news(
 
         if category not in categories:
 
-            category = "新闻"
+            category = (
+                "新闻"
+                if "新闻" in categories
+                else categories[0]
+            )
 
         return {
             "category": category,
+
             "confidence": data.get(
                 "confidence",
                 0
             ),
+
             "reason": data.get(
                 "reason",
                 ""
@@ -545,11 +726,27 @@ def classify_news(
     except Exception:
 
         print(
-            "⚠️ 分类JSON解析失败，默认使用新闻"
+            "⚠️ 分类JSON解析失败"
+        )
+
+        print(
+            "AI原始返回："
+        )
+
+        print(
+            result[:2000]
+        )
+
+        # 分类结果无法解析时，
+        # 不直接让整条新闻消失。
+        fallback_category = (
+            "新闻"
+            if "新闻" in categories
+            else categories[0]
         )
 
         return {
-            "category": "新闻",
+            "category": fallback_category,
             "confidence": 0,
             "reason": "AI分类结果解析失败",
         }
@@ -653,10 +850,12 @@ def analyze_with_skills(
 必须严格遵守：
 
 1. 不得把 Horizon 摘要写成原文。
-2. source_status不是fetched时，不得声称已经阅读完整原文。
+2. source_status 不是 fetched 时，不得声称已经阅读完整原文。
 3. 不得编造人物、公司、数字、事件。
 4. 不确定的信息必须明确标记。
-5. 如果资料不足，直接说明。
+5. 如果资料不足，直接说明资料不足。
+6. 所有结论必须能够在输入资料中找到依据。
+7. 不要因为使用了 Skill 就自行增加输入资料中不存在的事实。
 
 请输出以下结构：
 
@@ -704,13 +903,16 @@ def analyze_with_skills(
 
     return call_ai(
         prompt,
+
         system_prompt=(
             "你是748686自生长知识系统的高级知识工程师。"
             "必须严格依据资料。"
             "绝不把摘要冒充原文。"
+            "不得编造事实。"
             "必须输出结构化Markdown。"
         ),
-        temperature=0.2,
+
+        temperature=0.3,
     )
 
 
@@ -755,6 +957,8 @@ def generate_knowledge_cards(
 不要把普通新闻事件全部做成知识卡片。
 
 只保留具有长期价值的实体。
+
+不要编造不存在的实体。
 
 输出：
 
@@ -803,13 +1007,15 @@ def generate_knowledge_cards(
 
     return call_ai(
         prompt,
+
         system_prompt=(
             "你是长期知识库构建专家。"
             "只提取真正具有长期价值的知识。"
             "不要编造实体。"
             "输出中文Markdown。"
         ),
-        temperature=0.2,
+
+        temperature=0.3,
     )
 
 
@@ -821,6 +1027,10 @@ def generate_topics(
     date,
     analyses,
 ):
+
+    if not analyses:
+
+        return ""
 
     joined = "\n\n".join(
         analyses
@@ -843,6 +1053,9 @@ def generate_topics(
 4. 给出研究问题。
 5. 给出为什么值得研究。
 6. 给出需要继续寻找的数据或资料。
+7. 不得编造事实。
+8. 如果今天资料不足以形成3个高质量专题，可以少于3个。
+9. 不要为了凑数量而创造不存在的主题。
 
 输出：
 
@@ -865,20 +1078,19 @@ def generate_topics(
 ### 可能涉及行业
 
 ### 可能涉及技术
-
----
-
-至少生成3个，最多10个。
 """
 
     return call_ai(
         prompt,
+
         system_prompt=(
             "你是战略研究员。"
             "从新闻之间寻找长期主题。"
             "不得编造事实。"
+            "资料不足时明确说明。"
         ),
-        temperature=0.2,
+
+        temperature=0.3,
     )
 
 
@@ -890,6 +1102,10 @@ def generate_watchlist(
     date,
     analyses,
 ):
+
+    if not analyses:
+
+        return ""
 
     joined = "\n\n".join(
         analyses
@@ -919,15 +1135,19 @@ def generate_watchlist(
 - 只选择真正可能继续发展的事件。
 - 不要编造未来事件。
 - “下一步需要关注”写成观察指标。
+- 如果没有足够证据，不要强行生成。
 """
 
     return call_ai(
         prompt,
+
         system_prompt=(
             "你是新闻趋势追踪分析师。"
             "只根据已有资料判断。"
+            "不得编造未来事件。"
         ),
-        temperature=0.2,
+
+        temperature=0.3,
     )
 
 
@@ -942,14 +1162,8 @@ def save_entity_knowledge(
 
     target = (
         KNOWLEDGE
-        / datetime.strptime(
-            date,
-            "%Y-%m-%d"
-        ).strftime("%Y")
-        / datetime.strptime(
-            date,
-            "%Y-%m-%d"
-        ).strftime("%m")
+        / date[:4]
+        / date[5:7]
     )
 
     target.mkdir(
@@ -967,6 +1181,7 @@ def save_entity_knowledge(
 date: {date}
 type: knowledge_cards
 status: generated
+timezone: Asia/Shanghai
 ---
 
 {knowledge}
@@ -988,14 +1203,8 @@ def save_topics(
 
     target = (
         TOPICS
-        / datetime.strptime(
-            date,
-            "%Y-%m-%d"
-        ).strftime("%Y")
-        / datetime.strptime(
-            date,
-            "%Y-%m-%d"
-        ).strftime("%m")
+        / date[:4]
+        / date[5:7]
     )
 
     target.mkdir(
@@ -1013,6 +1222,7 @@ def save_topics(
 date: {date}
 type: topic_candidates
 status: generated
+timezone: Asia/Shanghai
 ---
 
 {topics}
@@ -1037,14 +1247,8 @@ def save_daily_report(
 
     target = (
         REPORTS
-        / datetime.strptime(
-            date,
-            "%Y-%m-%d"
-        ).strftime("%Y")
-        / datetime.strptime(
-            date,
-            "%Y-%m-%d"
-        ).strftime("%m")
+        / date[:4]
+        / date[5:7]
     )
 
     target.mkdir(
@@ -1069,17 +1273,23 @@ def save_daily_report(
         )
     )
 
-    sections.append(
-        knowledge
-    )
+    if knowledge:
 
-    sections.append(
-        topics
-    )
+        sections.append(
+            knowledge
+        )
 
-    sections.append(
-        watchlist
-    )
+    if topics:
+
+        sections.append(
+            topics
+        )
+
+    if watchlist:
+
+        sections.append(
+            watchlist
+        )
 
     content = "\n\n".join(
         sections
@@ -1117,11 +1327,23 @@ def main():
         f"Date: {date}"
     )
 
+    print(
+        f"Timezone: {current.tzinfo}"
+    )
+
+    print(
+        "AI Provider: AGNES.ai"
+    )
+
+    print(
+        f"AI Model: {AGNES_MODEL}"
+    )
+
     print()
 
-    # --------------------------------------------------------
-    # 创建目录
-    # --------------------------------------------------------
+    # ========================================================
+    # 创建输出目录
+    # ========================================================
 
     for directory in [
         REPORTS,
@@ -1136,16 +1358,27 @@ def main():
             exist_ok=True
         )
 
-    # --------------------------------------------------------
-    # 加载配置
-    # --------------------------------------------------------
+    # ========================================================
+    # 加载普通系统参数
+    #
+    # 注意：
+    # system_config.json 不负责 AI。
+    # ========================================================
 
     config = read_json(
         CONFIG_FILE,
         {}
     )
 
+    # ========================================================
+    # 加载 Routes
+    # ========================================================
+
     routes = load_routes()
+
+    # ========================================================
+    # 加载 Skills
+    # ========================================================
 
     skills = load_skills()
 
@@ -1163,9 +1396,28 @@ def main():
             "⚠️ 警告：当前Skills数量少于27"
         )
 
-    # --------------------------------------------------------
-    # 获取 Enriched
-    # --------------------------------------------------------
+    # ========================================================
+    # 检查 AGNES API Key
+    #
+    # 在真正开始处理新闻之前检查。
+    # ========================================================
+
+    if not os.getenv(
+        AGNES_API_KEY_ENV,
+        ""
+    ).strip():
+
+        raise RuntimeError(
+            "❌ 未检测到 AGNES_API_KEY。"
+        )
+
+    print(
+        "✅ AGNES_API_KEY detected"
+    )
+
+    # ========================================================
+    # 获取当天 Enriched
+    # ========================================================
 
     files = get_enriched_files(
         date
@@ -1180,6 +1432,10 @@ def main():
         raise RuntimeError(
             "当天没有Enriched新闻"
         )
+
+    # ========================================================
+    # 加载新闻
+    # ========================================================
 
     news_items = []
 
@@ -1197,6 +1453,12 @@ def main():
                     item
                 )
 
+            else:
+
+                print(
+                    f"⚠️ 跳过无标题文件：{path}"
+                )
+
         except Exception as exc:
 
             print(
@@ -1209,18 +1471,37 @@ def main():
         f"Valid news: {len(news_items)}"
     )
 
-    # --------------------------------------------------------
-    # 限制 AI 新闻数量
-    # --------------------------------------------------------
+    if not news_items:
 
-    max_items = int(
-        config.get(
-            "max_items_for_ai",
-            30
+        raise RuntimeError(
+            "没有有效新闻"
         )
-    )
 
-    # Horizon score优先
+    # ========================================================
+    # 限制 AI 新闻数量
+    # ========================================================
+
+    try:
+
+        max_items = int(
+            config.get(
+                "max_items_for_ai",
+                30
+            )
+        )
+
+    except Exception:
+
+        max_items = 30
+
+    if max_items <= 0:
+
+        max_items = 30
+
+    # ========================================================
+    # Horizon score 优先
+    # ========================================================
+
     def score(item):
 
         try:
@@ -1249,13 +1530,19 @@ def main():
         f"AI items: {len(news_items)}"
     )
 
-    # --------------------------------------------------------
+    # ========================================================
     # 分类 + Skills分析
-    # --------------------------------------------------------
+    # ========================================================
 
     categories = list(
         routes.keys()
     )
+
+    if not categories:
+
+        raise RuntimeError(
+            "skill_routes.json没有任何类别"
+        )
 
     analyses = []
 
@@ -1302,7 +1589,7 @@ def main():
         )
 
         # ----------------------------------------------------
-        # 路由 Skills
+        # 动态 Skills
         # ----------------------------------------------------
 
         selected_skills = route_skills(
@@ -1327,10 +1614,11 @@ def main():
                 "⚠️ No Skills routed"
             )
 
+            # 不把这条新闻伪装成已经分析成功。
             continue
 
         # ----------------------------------------------------
-        # 分析
+        # AI 深度分析
         # ----------------------------------------------------
 
         analysis = analyze_with_skills(
@@ -1338,6 +1626,12 @@ def main():
             category,
             selected_skills
         )
+
+        if not analysis.strip():
+
+            raise RuntimeError(
+                f"新闻分析返回空内容：{title}"
+            )
 
         # ----------------------------------------------------
         # 保存来源信息
@@ -1348,9 +1642,13 @@ def main():
 
 # {title}
 
+> 日期：{date}
+>
 > 分类：{category}
 >
 > 来源：{metadata.get("source", "Unknown")}
+>
+> 原文链接：{metadata.get("source_url", "")}
 >
 > 原文状态：{metadata.get("source_status", "")}
 >
@@ -1369,15 +1667,28 @@ def main():
             0
         ) + 1
 
+    # ========================================================
+    # 验证分析结果
+    # ========================================================
+
+    print()
+    print(
+        "=" * 70
+    )
+
+    print(
+        f"Successful analyses: {len(analyses)}"
+    )
+
     if not analyses:
 
         raise RuntimeError(
-            "没有生成任何新闻分析"
+            "❌ 没有生成任何新闻分析，停止流程。"
         )
 
-    # --------------------------------------------------------
+    # ========================================================
     # 知识卡片
-    # --------------------------------------------------------
+    # ========================================================
 
     print()
     print(
@@ -1393,14 +1704,24 @@ def main():
         analyses
     )
 
+    if not knowledge.strip():
+
+        raise RuntimeError(
+            "❌ 知识卡片生成失败：返回为空"
+        )
+
     knowledge_path = save_entity_knowledge(
         date,
         knowledge
     )
 
-    # --------------------------------------------------------
-    # 专题
-    # --------------------------------------------------------
+    print(
+        f"✅ Knowledge Cards: {knowledge_path}"
+    )
+
+    # ========================================================
+    # 专题候选
+    # ========================================================
 
     print(
         "Generating topic candidates..."
@@ -1411,14 +1732,24 @@ def main():
         analyses
     )
 
+    if not topics.strip():
+
+        raise RuntimeError(
+            "❌ 专题候选生成失败：返回为空"
+        )
+
     topic_path = save_topics(
         date,
         topics
     )
 
-    # --------------------------------------------------------
-    # 追踪
-    # --------------------------------------------------------
+    print(
+        f"✅ Topics: {topic_path}"
+    )
+
+    # ========================================================
+    # 后续追踪
+    # ========================================================
 
     print(
         "Generating watchlist..."
@@ -1429,9 +1760,15 @@ def main():
         analyses
     )
 
-    # --------------------------------------------------------
+    if not watchlist.strip():
+
+        raise RuntimeError(
+            "❌ 后续追踪生成失败：返回为空"
+        )
+
+    # ========================================================
     # 日报
-    # --------------------------------------------------------
+    # ========================================================
 
     report_path = save_daily_report(
         date,
@@ -1441,9 +1778,19 @@ def main():
         watchlist
     )
 
-    # --------------------------------------------------------
+    if not report_path.exists():
+
+        raise RuntimeError(
+            "❌ 日报文件没有成功写入"
+        )
+
+    print(
+        f"✅ Daily Report: {report_path}"
+    )
+
+    # ========================================================
     # 日志
-    # --------------------------------------------------------
+    # ========================================================
 
     log_path = (
         LOGS
@@ -1453,11 +1800,14 @@ def main():
     log = f"""# {date} Knowledge Pipeline V2
 
 - 时间：{current.isoformat()}
+- 时区：Asia/Shanghai
 - Enriched 新闻：{len(files)}
 - AI处理新闻：{len(news_items)}
 - 实际分析新闻：{len(analyses)}
 - Skills数量：{len(skills)}
 - 路由类别：{len(routes)}
+- AI Provider：AGNES.ai
+- AI Model：{AGNES_MODEL}
 
 ## 分类统计
 
@@ -1477,6 +1827,11 @@ def main():
 - 日报：{report_path}
 - 知识卡片：{knowledge_path}
 - 专题候选：{topic_path}
+
+## 状态
+
+SUCCESS
+
 """
 
     log_path.write_text(
@@ -1484,8 +1839,14 @@ def main():
         encoding="utf-8"
     )
 
+    # ========================================================
+    # 最终完成
+    # ========================================================
+
     print()
-    print("=" * 70)
+    print(
+        "=" * 70
+    )
 
     print(
         "✅ KNOWLEDGE PIPELINE V2 COMPLETE"
@@ -1517,6 +1878,46 @@ def main():
     )
 
 
+# ============================================================
+# 程序入口
+# ============================================================
+
 if __name__ == "__main__":
 
-    main()
+    try:
+
+        main()
+
+    except KeyboardInterrupt:
+
+        print()
+        print(
+            "❌ 用户中断程序"
+        )
+
+        sys.exit(130)
+
+    except Exception as exc:
+
+        print()
+        print(
+            "=" * 70
+        )
+
+        print(
+            "❌ KNOWLEDGE PIPELINE V2 FAILED"
+        )
+
+        print("=" * 70)
+
+        print(
+            f"{type(exc).__name__}: {exc}"
+        )
+
+        print()
+
+        # 非0退出码非常重要：
+        # GitHub Actions 会因此判断本次运行失败，
+        # 不会把半成品误报成成功。
+
+        sys.exit(1)
