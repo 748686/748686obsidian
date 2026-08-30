@@ -189,10 +189,6 @@ jobs:
 
             RAW_DIR="$RAW_ROOT/$DATE"
 
-            # ----------------------------------------------------
-            # 第一层：先保证文件夹存在
-            # ----------------------------------------------------
-
             if [ ! -d "$RAW_DIR" ]; then
               echo "📁 Raw folder missing"
               echo "▶️ Creating: $RAW_DIR"
@@ -209,20 +205,10 @@ jobs:
 
             echo "Local Raw files: $COUNT"
 
-            # ----------------------------------------------------
-            # 已经有 Horizon 日报
-            # ----------------------------------------------------
-
             if [ "$COUNT" -ge 2 ]; then
-
               echo "✅ Raw News folder and files exist"
               continue
-
             fi
-
-            # ----------------------------------------------------
-            # 从 Horizon gh-pages 补回
-            # ----------------------------------------------------
 
             echo "⚠️ Raw News incomplete"
             echo "Searching Horizon..."
@@ -306,6 +292,8 @@ jobs:
 
       # ==========================================================
       # 11. Run Horizon
+      #
+      # ★ 这一段保持原样
       # ==========================================================
 
       - name: Run Horizon
@@ -393,12 +381,6 @@ jobs:
 
       # ==========================================================
       # 13. Complete three-day Raw News
-      #
-      # 最终确认：
-      # 三个日期的 Raw 文件夹
-      # 三个日期都有至少两份 Horizon MD
-      #
-      # 才能进入下一阶段。
       # ==========================================================
 
       - name: Validate three-day Raw News
@@ -450,57 +432,7 @@ jobs:
 
 
       # ==========================================================
-      # 14. ★ IMMEDIATE SYNC #1
-      #
-      # 日报分解 / Horizon 完成
-      #         ↓
-      # Raw News 已确认
-      #         ↓
-      # 立即写回 748686obsidian
-      #
-      # 这一层完成后才进入 Atomic。
-      # ==========================================================
-
-      - name: Sync Raw News immediately
-        run: |
-          set -e
-
-          echo "============================================================"
-          echo "IMMEDIATE RAW NEWS SYNC"
-          echo "============================================================"
-
-          git config user.name \
-            "748686 Knowledge Bot"
-
-          git config user.email \
-            "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add \
-            "01_自生长知识系统/Raw News"
-
-          if git diff --cached --quiet; then
-
-            echo "ℹ️ No new Raw News changes to commit"
-
-          else
-
-            git commit \
-              -m "data: sync Raw News $TODAY"
-
-            git push
-
-            echo "✅ Raw News immediately pushed to 748686obsidian"
-
-          fi
-
-          echo
-          echo "=========================================="
-          echo "RAW NEWS IS NOW SAFELY STORED"
-          echo "=========================================="
-
-
-      # ==========================================================
-      # 15. Atomic News
+      # 14. Atomic News
       # ==========================================================
 
       - name: Build three-day Atomic News
@@ -529,10 +461,6 @@ jobs:
             ATOMIC_DIR="$RAW_ROOT/${DATE}-Atomic"
             ZH_DIR="$ATOMIC_DIR/zh"
             EN_DIR="$ATOMIC_DIR/en"
-
-            # ----------------------------------------------------
-            # 如果已经存在完整 Atomic，直接跳过
-            # ----------------------------------------------------
 
             if [ -d "$ZH_DIR" ] && [ -d "$EN_DIR" ]; then
 
@@ -564,10 +492,6 @@ jobs:
             python "$SCRIPT" \
               --raw-root "$RAW_ROOT" \
               --date "$DATE"
-
-            # ----------------------------------------------------
-            # 最终检查
-            # ----------------------------------------------------
 
             if [ ! -d "$ZH_DIR" ]; then
               echo "❌ Atomic ZH folder was not generated"
@@ -611,7 +535,7 @@ jobs:
 
 
       # ==========================================================
-      # 16. Final three-day Atomic validation
+      # 15. Final three-day Atomic validation
       # ==========================================================
 
       - name: Validate three-day Atomic News
@@ -681,13 +605,69 @@ jobs:
 
 
       # ==========================================================
-      # 17. Source Enrichment
+      # 16. ★ Atomic 立即 Push + Pull
+      #
+      # 三天 Atomic 全部完成并验证之后
       #
       # Atomic
       #   ↓
-      # source_enrichment.py
+      # git add
       #   ↓
-      # Enriched
+      # git commit
+      #   ↓
+      # git push
+      #   ↓
+      # git pull
+      #
+      # 然后才允许进入 Source Enrichment。
+      # ==========================================================
+
+      - name: Sync Atomic News immediately
+        run: |
+          set -e
+
+          echo "============================================================"
+          echo "IMMEDIATE ATOMIC NEWS SYNC"
+          echo "============================================================"
+
+          git config user.name \
+            "748686 Knowledge Bot"
+
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            "01_自生长知识系统/Raw News"
+
+          if git diff --cached --quiet; then
+
+            echo "ℹ️ No new Atomic News changes to commit"
+
+          else
+
+            git commit \
+              -m "data: sync Atomic News $TODAY"
+
+            echo "▶️ Pushing Atomic News..."
+
+            git push origin HEAD:main
+
+            echo "✅ Atomic News pushed"
+
+          fi
+
+          echo "▶️ Pulling latest repository state..."
+
+          git pull --ff-only origin main
+
+          echo
+          echo "============================================================"
+          echo "✅ ATOMIC NEWS PUSH + PULL COMPLETE"
+          echo "============================================================"
+
+
+      # ==========================================================
+      # 17. Source Enrichment
       # ==========================================================
 
       - name: Build three-day Enriched News
@@ -727,10 +707,6 @@ jobs:
             ZH="$ATOMIC_ROOT/zh"
             EN="$ATOMIC_ROOT/en"
 
-            # ----------------------------------------------------
-            # 检查 Atomic
-            # ----------------------------------------------------
-
             if [ ! -d "$ZH" ]; then
               echo "❌ Atomic ZH folder missing: $ZH"
               exit 1
@@ -765,10 +741,6 @@ jobs:
               echo "❌ Atomic EN empty"
               exit 1
             fi
-
-            # ----------------------------------------------------
-            # 建立 Enriched 目录
-            # ----------------------------------------------------
 
             if [ ! -d "$OUTPUT" ]; then
               echo "📁 Enriched root missing"
@@ -807,10 +779,6 @@ jobs:
             echo "Existing Enriched ZH: $ENRICHED_ZH"
             echo "Existing Enriched EN: $ENRICHED_EN"
 
-            # ----------------------------------------------------
-            # 已经完成则跳过
-            # ----------------------------------------------------
-
             if [ "$ENRICHED_ZH" -gt 0 ] && \
                [ "$ENRICHED_EN" -gt 0 ]; then
 
@@ -821,19 +789,11 @@ jobs:
 
             fi
 
-            # ----------------------------------------------------
-            # 正式调用 source_enrichment.py
-            # ----------------------------------------------------
-
             echo "▶️ Running source_enrichment.py"
 
             python "$SCRIPT" \
               --raw-root "$RAW_ROOT" \
               --date "$DATE"
-
-            # ----------------------------------------------------
-            # 最终检查
-            # ----------------------------------------------------
 
             ENRICHED_ZH=$(find "$OUTPUT/zh" \
               -maxdepth 1 \
@@ -953,15 +913,21 @@ jobs:
 
 
       # ==========================================================
-      # 19. ★ IMMEDIATE SYNC #2
+      # 19. ★ Enriched 立即 Push + Pull
       #
-      # Source Enrichment 完成
-      #         ↓
-      # Enriched 已确认
-      #         ↓
-      # 立即写回 748686obsidian
+      # 三天 Enriched 全部完成并验证之后
       #
-      # 这一层完成后才进入 Knowledge Pipeline。
+      # Enriched
+      #   ↓
+      # git add
+      #   ↓
+      # git commit
+      #   ↓
+      # git push
+      #   ↓
+      # git pull
+      #
+      # 然后才允许进入 Knowledge Pipeline。
       # ==========================================================
 
       - name: Sync Enriched News immediately
@@ -990,22 +956,26 @@ jobs:
             git commit \
               -m "data: sync Enriched News $TODAY"
 
-            git push
+            echo "▶️ Pushing Enriched News..."
 
-            echo "✅ Enriched News immediately pushed to 748686obsidian"
+            git push origin HEAD:main
+
+            echo "✅ Enriched News pushed"
 
           fi
 
+          echo "▶️ Pulling latest repository state..."
+
+          git pull --ff-only origin main
+
           echo
-          echo "=========================================="
-          echo "ENRICHED NEWS IS NOW SAFELY STORED"
-          echo "=========================================="
+          echo "============================================================"
+          echo "✅ ENRICHED NEWS PUSH + PULL COMPLETE"
+          echo "============================================================"
 
 
       # ==========================================================
       # 20. Knowledge Pipeline
-      #
-      # ★ 前面三层全部确认以后才能执行
       # ==========================================================
 
       - name: Run Knowledge Pipeline - three days
@@ -1123,7 +1093,6 @@ jobs:
       # ==========================================================
       # 23. Final Commit
       #
-      # 前面两个阶段已经分别实时提交，
       # 这里负责 Knowledge / Weekly 等后续产物。
       # ==========================================================
 
@@ -1149,7 +1118,7 @@ jobs:
             git commit \
               -m "chore: three-day knowledge system $TODAY"
 
-            git push
+            git push origin HEAD:main
 
             echo "✅ Changes pushed"
 
@@ -1191,14 +1160,19 @@ jobs:
 
           echo "Raw News:"
           echo "✅ three-day checked"
-          echo "✅ immediately pushed"
 
           echo "Atomic News:"
           echo "✅ three-day checked"
+          echo "✅ immediately pushed"
+          echo "✅ immediately pulled"
 
           echo "Source Enrichment:"
           echo "✅ three-day checked"
+
+          echo "Enriched News:"
+          echo "✅ three-day checked"
           echo "✅ immediately pushed"
+          echo "✅ immediately pulled"
 
           echo "Knowledge Pipeline:"
           echo "✅ processed day-by-day"
