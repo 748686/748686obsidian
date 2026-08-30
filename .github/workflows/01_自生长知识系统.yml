@@ -7,11 +7,10 @@ on:
     # ==========================================================
     # GitHub Actions cron 使用 UTC
     #
-    # 北京时间每天 07:00
-    # = UTC 前一天 23:00
+    # 每天 UTC 23:00
+    # = 北京时间第二天 07:00
     #
-    # 注意：
-    # 系统内部日期统一使用 Asia/Shanghai
+    # 整个系统统一使用 UTC
     # ==========================================================
     - cron: "0 23 * * *"
 
@@ -52,24 +51,28 @@ jobs:
         uses: astral-sh/setup-uv@v6
 
       # ==========================================================
-      # 4. Set Beijing Time
+      # 4. Set System Time
       #
-      # 整个系统只在这里确定 TODAY。
+      # IMPORTANT:
       #
-      # 后面所有步骤都使用这个 TODAY。
+      # GitHub Actions Runner 默认使用 UTC。
       #
-      # 不再使用 date -u。
+      # 整个系统统一使用 UTC。
+      #
+      # 不再设置：
+      #
+      # TZ=Asia/Shanghai
+      #
+      # TODAY 只在这里生成一次。
+      # 后面所有步骤统一使用这个 TODAY。
       # ==========================================================
 
-      - name: Set Beijing Time
+      - name: Set UTC Time
         run: |
           set -e
 
-          export TZ=Asia/Shanghai
+          TODAY=$(date -u +%Y-%m-%d)
 
-          TODAY=$(date +%Y-%m-%d)
-
-          echo "TZ=Asia/Shanghai" >> "$GITHUB_ENV"
           echo "TODAY=$TODAY" >> "$GITHUB_ENV"
 
           echo "=========================================="
@@ -77,11 +80,11 @@ jobs:
           echo "=========================================="
 
           echo "Timezone:"
-          echo "Asia/Shanghai"
+          echo "UTC"
 
           echo
-          echo "Current Beijing time:"
-          date '+%Y-%m-%d %H:%M:%S'
+          echo "Current UTC time:"
+          date -u '+%Y-%m-%d %H:%M:%S'
 
           echo
           echo "System date:"
@@ -89,8 +92,6 @@ jobs:
 
       # ==========================================================
       # 5. Checkout Horizon main
-      #
-      # IMPORTANT:
       #
       # 完全使用 748686/Horizon 自己的系统。
       #
@@ -174,17 +175,21 @@ jobs:
           echo "agnes-2.5-flash"
 
       # ==========================================================
-      # 8. Checkout Horizon gh-pages
+      # 8. Checkout Horizon gh-pages - initial
       #
       # 第一次检查。
       #
-      # 如果今天已经有 Horizon 输出：
+      # 如果 TODAY*.md 已经存在：
       #
       # 不运行 Horizon。
       #
-      # 如果今天没有：
+      # 如果不存在：
       #
       # 才运行 Horizon。
+      #
+      # 注意：
+      #
+      # TODAY 现在统一使用 UTC。
       # ==========================================================
 
       - name: Checkout Horizon gh-pages - initial
@@ -196,24 +201,6 @@ jobs:
 
       # ==========================================================
       # 9. Check today's Horizon output
-      #
-      # 不锁死文件名。
-      #
-      # 只检查：
-      #
-      # $TODAY*.md
-      #
-      # 所以：
-      #
-      # 2026-08-29-summary.md
-      # 2026-08-29-summary-en.md
-      # 2026-08-29-summary-zh.md
-      # 2026-08-29-xxx.md
-      #
-      # 都可以。
-      #
-      # 只要今天存在一个或多个 MD：
-      # 就认为 Horizon 今天已经产生结果。
       # ==========================================================
 
       - name: Check today's Horizon output
@@ -227,7 +214,7 @@ jobs:
           echo "CHECK TODAY'S HORIZON OUTPUT"
           echo "=========================================="
 
-          echo "Timezone: Asia/Shanghai"
+          echo "Timezone: UTC"
           echo "Today: $TODAY"
 
           echo
@@ -287,7 +274,11 @@ jobs:
       #
       # 只有今天没有文件的时候才运行。
       #
-      # 完全按照 Horizon 自己的配置运行。
+      # Horizon 使用自己的：
+      #
+      # data/config.github.json
+      #
+      # 系统时间统一为 UTC。
       # ==========================================================
 
       - name: Run Horizon
@@ -306,11 +297,15 @@ jobs:
           echo "=========================================="
 
           echo "Timezone:"
-          echo "Asia/Shanghai"
+          echo "UTC"
 
           echo
           echo "Today:"
           echo "$TODAY"
+
+          echo
+          echo "Current UTC time:"
+          date -u '+%Y-%m-%d %H:%M:%S'
 
           echo
           echo "Horizon repository:"
@@ -342,22 +337,14 @@ jobs:
       # ==========================================================
       # 11. Wait for today's gh-pages output
       #
-      # 重要：
-      #
       # Horizon 程序结束
       # 不等于
       # gh-pages 已经立即更新。
       #
-      # 所以：
-      #
       # 每 30 秒检查一次
       # 最多 5 分钟
       #
-      # 一旦看到 TODAY*.md：
-      # 立即继续。
-      #
-      # 5 分钟后仍然没有：
-      # 整个 Job 失败并停止。
+      # TODAY 使用 UTC。
       # ==========================================================
 
       - name: Wait for today's Horizon output
@@ -369,6 +356,10 @@ jobs:
           echo "WAIT FOR HORIZON GH-PAGES"
           echo "=========================================="
 
+          echo "Timezone:"
+          echo "UTC"
+
+          echo
           echo "Today:"
           echo "$TODAY"
 
@@ -498,8 +489,6 @@ jobs:
 
       # ==========================================================
       # 13. Final verify today's files
-      #
-      # 在真正复制之前最后确认一次。
       # ==========================================================
 
       - name: Verify today's Horizon files
@@ -512,8 +501,8 @@ jobs:
           echo "FINAL HORIZON OUTPUT CHECK"
           echo "=========================================="
 
-          echo "Today:"
-          echo "$TODAY"
+          echo "Timezone: UTC"
+          echo "Today: $TODAY"
 
           if [ ! -d "$POSTS_DIR" ]; then
 
@@ -557,11 +546,11 @@ jobs:
       # ==========================================================
       # 14. Copy ONLY today's Horizon files
       #
-      # 绝不复制整个 _posts。
-      #
       # 只复制：
       #
       # $TODAY*.md
+      #
+      # TODAY = UTC
       # ==========================================================
 
       - name: Copy today's Horizon files to Raw News
@@ -578,6 +567,14 @@ jobs:
           echo "COPY TODAY'S HORIZON FILES"
           echo "=========================================="
 
+          echo "Timezone:"
+          echo "UTC"
+
+          echo
+          echo "Today:"
+          echo "$TODAY"
+
+          echo
           echo "Source:"
           echo "$POSTS_DIR"
 
@@ -1036,7 +1033,7 @@ jobs:
 
           echo
           echo "Timezone:"
-          echo "Asia/Shanghai"
+          echo "UTC"
 
           echo
           echo "TODAY:"
@@ -1190,8 +1187,6 @@ jobs:
 
       # ==========================================================
       # 25. Complete
-      #
-      # 只有真正走到这里，才允许说 SYSTEM COMPLETE。
       # ==========================================================
 
       - name: Complete Job
@@ -1205,7 +1200,7 @@ jobs:
 
           echo
           echo "Timezone:"
-          echo "Asia/Shanghai"
+          echo "UTC"
 
           echo
           echo "TODAY:"
