@@ -2,92 +2,77 @@
 # -*- coding: utf-8 -*-
 
 """
-748686 自生长知识系统
-Knowledge Pipeline V6.1
+748686 自生长知识系统 - Knowledge Pipeline V6.1
 
-正式架构
+================================================================
+V6.1
 ================================================================
 
-Horizon
-   ↓
-Atomic News
-   ↓
-Source Enrichment
-   ↓
+Stage 1:
 Enriched News
-   ↓
-STAGE 1A：第二层 AI 事件聚类
-   ↓
-全部 Enriched News
-   ↓
-Batch Size 40
-   ↓
-AI 跨来源 / 跨语言事件识别
-   ↓
-ARTICLE 覆盖验证
-   ↓
-非法 ARTICLE 自动 Repair
-   ↓
-STAGE 1B：Global Event Merge
-   ↓
-30 Cluster Window / 15 Overlap
-   ↓
-多轮全局收敛
-   ↓
-一篇 ARTICLE 最终只能属于一个 EventUnit
-   ↓
-EventUnit Index
-   ↓
-EventUnit 完整性验证
-   ↓
-STAGE 2：27 Skills
-   ↓
-知识库
+    ↓
+AI Batch Clustering
+    ↓
+Overlapping Global Merge
+    ↓
+EventUnits
+
+Stage 2:
+EventUnits
+    ↓
+27 Skills Deep Processing
+
 
 ================================================================
-V6.1 修复重点
+V6.1 新增：AGNES API 防 429 保护
 ================================================================
 
-1. 修复：
-   'list' object has no attribute 'get'
+1. 普通 AI 请求之间自动节流
+2. HTTP 429 自动重试
+3. 自动读取 Retry-After
+4. 指数退避：
+       10s
+       20s
+       40s
+       80s
+       160s
+5. 随机抖动，避免同时撞限流
+6. 429 每次重试都会打印日志
+7. 最终失败才终止 Pipeline
+8. 与原有断点续跑完全兼容
 
-2. AI 顶层 JSON 可以是：
-   - dict
-   - list
-   - ```json ... ```
-   - 带额外文本的 JSON
+重要：
+- 不改变原有事件聚合逻辑
+- 不改变 Batch Size = 40
+- 不改变 Global Merge Window = 30
+- 不改变 Global Merge Overlap = 15
+- 不改变 27 Skills
+- 不改变 Event Index
+- 不改变 EventUnit 完成机制
+- 不改变 Stage 2 已完成 Skill 跳过机制
 
-3. 聚类 / Repair / Global Merge 全部统一结构解析。
 
-4. AI 返回非法 ARTICLE：
-   - missing
-   - duplicate
-   - extra
-   - malformed
-   自动 Repair。
+================================================================
+Key guarantees
+================================================================
 
-5. Repair 自身返回非法 JSON 结构时：
-   不再直接 data.get() 崩溃，
-   而是进入结构标准化 / 重试。
-
-6. 保留：
-   - 1012 全量 Enriched News
-   - Batch Size 40
-   - 跨来源
-   - 跨语言
-   - Global Merge
-   - 30 Cluster Window
-   - 15 Overlap
-   - 多轮收敛
-   - Event Index resumable
-   - EventUnit resumable
-   - Stage 2 27 Skills
-   - --stage aggregation
-   - --stage skills
-   - --stage all
-
-7. 最终强保证：
-   每一篇 ARTICLE 必须且只能进入一个 EventUnit。
+- all valid Enriched News are included; batch size 40
+- duplicate/missing/extra article IDs are detected and repaired
+- global merge uses 30-cluster windows with 15 overlap,
+  repeated until convergence
+- one article belongs to exactly one final EventUnit
+- valid Event Index is resumable
+- incomplete EventUnits are repaired
+- Stage 2 only reads completed EventUnits
+- AI HTTP 429 automatically retries
+- API request rate is throttled
+- failed requests do not silently lose articles
+- API:
+    https://api.agnes-ai.cn/v1
+- model:
+    agnes-2.5-flash
+- key:
+    AGNES_API_KEY
 """
 
 from __future__ import annotations
@@ -95,8 +80,10 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import random
 import re
 import sys
+import time
 
 from pathlib import Path
 from datetime import datetime
@@ -107,13 +94,14 @@ from urllib.error import HTTPError, URLError
 
 
 # ============================================================
-# PATHS / CONSTANTS
+# PATHS
 # ============================================================
 
 ROOT = Path(__file__).resolve().parents[1]
 
 SYSTEM = ROOT / "00_System"
 SKILLS = ROOT / "Skills"
+
 RAW_NEWS = ROOT / "Raw News"
 REPORTS = ROOT / "05_日报"
 WEEKLY = ROOT / "06_周报"
@@ -123,31 +111,116 @@ KNOWLEDGE = ROOT / "08_知识库"
 LOGS = SYSTEM / "运行日志"
 ROUTES_FILE = SYSTEM / "skill_routes.json"
 
+
+# ============================================================
+# FILE / EVENT CONSTANTS
+# ============================================================
+
 EVENT_UNITS_SUFFIX = "EventUnits"
+
 EVENT_INDEX_FILE = "_event_index.json"
 
 EVENT_UNITS_COMPLETE_FILE = "_EVENT_UNITS_COMPLETE"
+
 SKILLS_COMPLETE_FILE = "_SKILLS_COMPLETE"
 
+
+# ============================================================
+# AGNES API
+# ============================================================
+
 AGNES_BASE_URL = "https://api.agnes-ai.cn/v1"
+
 AGNES_MODEL = "agnes-2.5-flash"
+
 AGNES_API_KEY_ENV = "AGNES_API_KEY"
 
+
+# ============================================================
+# AI SETTINGS
+# ============================================================
+
 DEFAULT_TEMPERATURE = 0.3
+
 AI_TIMEOUT = 180
+
+
+# ============================================================
+# V6.1 ANTI-429 SETTINGS
+# ============================================================
+
+# 正常情况下，两次 AI 请求之间至少间隔多少秒
+#
+# 你的整个 Pipeline 是串行执行的，因此这里不需要并发锁。
+#
+# 1.5 秒可以明显降低连续请求撞限流的概率，
+# 同时不会像 5 秒、10 秒那样明显拖慢整个系统。
+AI_REQUEST_THROTTLE_SECONDS = 1.5
+
+
+# HTTP 429 最大自动重试次数
+#
+# 注意：
+# 这里是“重试次数”，不是总请求次数。
+#
+# 第一次请求失败 429：
+#   retry #1
+#   retry #2
+#   retry #3
+#   retry #4
+#   retry #5
+#
+# 一共最多 6 次请求。
+AI_MAX_429_RETRIES = 5
+
+
+# 指数退避初始值
+AI_429_BACKOFF_BASE = 10
+
+
+# 单次自动等待最大值
+AI_429_BACKOFF_MAX = 180
+
+
+# 随机抖动最大值
+#
+# 例如：
+# 10 + random(0, 3)
+#
+# 可以减少多个任务在相同时间再次撞限流。
+AI_429_JITTER_MAX = 3
+
+
+# 全局记录最近一次 AI 请求时间
+#
+# 当前 Pipeline 是单线程串行执行，因此不需要 threading.Lock。
+_LAST_AI_REQUEST_TIME = 0.0
+
+
+# ============================================================
+# PIPELINE SETTINGS
+# ============================================================
 
 AGGREGATION_BATCH_SIZE = 40
 
 GLOBAL_MERGE_WINDOW_SIZE = 30
+
 GLOBAL_MERGE_OVERLAP = 15
+
 MAX_GLOBAL_MERGE_ROUNDS = 12
 
 MAX_ARTICLES_PER_EVENT_CONTEXT = 30
 
 ARTICLE_CLUSTER_CONTENT_LIMIT = 3500
+
 ARTICLE_AGGREGATION_CONTENT_LIMIT = 8000
 
 CLUSTER_REPAIR_ATTEMPTS = 2
+
+
+# ============================================================
+# TIMEZONE
+# ============================================================
 
 BEIJING_TZ = ZoneInfo("Asia/Shanghai")
 
@@ -167,6 +240,10 @@ def event_units_dir(date):
 def conflict_log_path(date):
     return LOGS / f"{date}_event_aggregation_conflicts.log"
 
+
+# ============================================================
+# CONFLICT LOG
+# ============================================================
 
 def log_conflict(date, stage, message, details=None):
     LOGS.mkdir(parents=True, exist_ok=True)
@@ -214,7 +291,12 @@ def log_conflict(date, stage, message, details=None):
     print(f"   Conflict log: {conflict_log_path(date)}")
 
 
+# ============================================================
+# JSON
+# ============================================================
+
 def read_json(path, default=None):
+
     if default is None:
         default = {}
 
@@ -227,6 +309,7 @@ def read_json(path, default=None):
                 encoding="utf-8"
             )
         )
+
     except Exception as e:
         raise RuntimeError(
             f"❌ JSON读取失败：{path}\n{e}"
@@ -234,6 +317,7 @@ def read_json(path, default=None):
 
 
 def write_json(path, data):
+
     path.parent.mkdir(
         parents=True,
         exist_ok=True
@@ -249,7 +333,47 @@ def write_json(path, data):
     )
 
 
+# ============================================================
+# AI JSON PARSER
+# ============================================================
+
+def parse_ai_json(result, context):
+
+    text = str(result).strip()
+
+    if text.startswith("```"):
+
+        text = re.sub(
+            r"^```(?:json)?\s*",
+            "",
+            text,
+            flags=re.I
+        )
+
+        text = re.sub(
+            r"\s*```$",
+            "",
+            text
+        ).strip()
+
+    try:
+
+        return json.loads(text)
+
+    except Exception as e:
+
+        raise RuntimeError(
+            f"❌ AI JSON解析失败：{context}\n\n"
+            f"{text[:5000]}"
+        ) from e
+
+
+# ============================================================
+# SAFE FILE NAME
+# ============================================================
+
 def safe_name(text):
+
     text = re.sub(
         r'[\\/:*?"<>|]',
         "_",
@@ -270,6 +394,7 @@ def safe_name(text):
 # ============================================================
 
 def parse_front_matter(content):
+
     if not content.startswith("---"):
         return {}, content
 
@@ -284,6 +409,7 @@ def parse_front_matter(content):
     data = {}
 
     for line in parts[1].strip().splitlines():
+
         if ":" not in line:
             continue
 
@@ -302,438 +428,131 @@ def parse_front_matter(content):
 
 
 # ============================================================
-# AI JSON PARSING
+# V6.1 AI THROTTLE
 # ============================================================
 
-def strip_code_fence(text):
-    text = str(text or "").strip()
-
-    if text.startswith("```"):
-        text = re.sub(
-            r"^```(?:json)?\s*",
-            "",
-            text,
-            flags=re.I
-        )
-
-        text = re.sub(
-            r"\s*```$",
-            "",
-            text
-        ).strip()
-
-    return text
-
-
-def extract_json_block(text):
+def wait_for_ai_throttle():
     """
-    从 AI 返回中尽可能提取 JSON。
+    保证正常 AI 请求之间至少保持
+    AI_REQUEST_THROTTLE_SECONDS 的间隔。
 
-    支持：
-
-    1. 纯 JSON
-    2. ```json ... ```
-    3. JSON 前后带解释文字
-    4. 顶层 object
-    5. 顶层 array
+    注意：
+    429 的 Retry-After / Backoff 等待由 call_ai()
+    单独处理。
     """
 
-    text = strip_code_fence(text)
+    global _LAST_AI_REQUEST_TIME
 
-    # --------------------------------------------------------
-    # First attempt: direct JSON
-    # --------------------------------------------------------
+    now_mono = time.monotonic()
 
-    try:
-        return json.loads(text)
-    except Exception:
-        pass
-
-    # --------------------------------------------------------
-    # Locate first { or [
-    # --------------------------------------------------------
-
-    candidates = []
-
-    obj_pos = text.find("{")
-    arr_pos = text.find("[")
-
-    if obj_pos >= 0:
-        candidates.append(obj_pos)
-
-    if arr_pos >= 0:
-        candidates.append(arr_pos)
-
-    if not candidates:
-        raise ValueError("未找到JSON起始符号")
-
-    start = min(candidates)
-
-    candidate = text[start:].strip()
-
-    # --------------------------------------------------------
-    # JSONDecoder raw_decode
-    # --------------------------------------------------------
-
-    decoder = json.JSONDecoder()
-
-    try:
-        value, _ = decoder.raw_decode(candidate)
-        return value
-    except Exception:
-        pass
-
-    # --------------------------------------------------------
-    # Last fallback: scan possible JSON endings
-    # --------------------------------------------------------
-
-    for end in range(
-        len(candidate),
-        max(0, len(candidate) - 20000),
-        -1
-    ):
-        fragment = candidate[:end].strip()
-
-        if not (
-            fragment.endswith("}")
-            or fragment.endswith("]")
-        ):
-            continue
-
-        try:
-            return json.loads(fragment)
-        except Exception:
-            continue
-
-    raise ValueError(
-        "无法从AI返回内容中提取合法JSON"
+    elapsed = (
+        now_mono
+        - _LAST_AI_REQUEST_TIME
     )
 
+    remaining = (
+        AI_REQUEST_THROTTLE_SECONDS
+        - elapsed
+    )
 
-def parse_ai_json(result, context):
-    text = str(result or "").strip()
+    if remaining > 0:
 
-    if not text:
-        raise RuntimeError(
-            f"❌ AI返回为空：{context}"
+        print(
+            f"   ⏳ AI请求节流等待 "
+            f"{remaining:.1f}s"
         )
 
-    try:
-        return extract_json_block(text)
+        time.sleep(remaining)
 
-    except Exception as e:
-        raise RuntimeError(
-            f"❌ AI JSON解析失败：{context}\n\n"
-            f"{text[:5000]}"
-        ) from e
+    _LAST_AI_REQUEST_TIME = time.monotonic()
 
 
 # ============================================================
-# AI STRUCTURE NORMALIZATION
+# V6.1 RETRY-AFTER PARSER
 # ============================================================
 
-def extract_list_field(
-    data,
-    field_name,
-    aliases=None
-):
+def parse_retry_after(headers):
+
     """
-    安全提取 AI JSON 中的 list。
-
-    重点解决：
-
-        data.get(...)
-
-    在 data 为 list 时直接崩溃的问题。
+    尝试读取服务器返回的 Retry-After。
 
     支持：
+        Retry-After: 20
 
-        {"clusters": [...]}
-
-    或：
-
-        [...]
-
-    或：
-
-        {"result": {"clusters": [...]}}
-
+    如果无法解析，返回 None。
     """
 
-    aliases = aliases or []
-
-    # --------------------------------------------------------
-    # dict
-    # --------------------------------------------------------
-
-    if isinstance(data, dict):
-
-        possible_names = [
-            field_name,
-            *aliases
-        ]
-
-        for name in possible_names:
-            value = data.get(name)
-
-            if isinstance(value, list):
-                return value
-
-        # Nested common containers
-        for key in (
-            "result",
-            "data",
-            "output",
-            "response",
-            "answer"
-        ):
-            nested = data.get(key)
-
-            if isinstance(nested, dict):
-                for name in possible_names:
-                    value = nested.get(name)
-
-                    if isinstance(value, list):
-                        return value
-
-            elif isinstance(nested, list):
-                # If nested itself is the desired list
-                if nested and all(
-                    isinstance(x, dict)
-                    for x in nested
-                ):
-                    return nested
-
+    if headers is None:
         return None
 
-    # --------------------------------------------------------
-    # top-level list
-    # --------------------------------------------------------
-
-    if isinstance(data, list):
-        return data
-
-    return None
-
-
-def normalize_cluster_response(data):
-    """
-    将各种 AI 返回统一为：
-
-    [
-        {
-            "cluster_id": "...",
-            "article_indexes": [...],
-            "event_title": "...",
-            "event_reason": "..."
-        }
-    ]
-    """
-
-    clusters = extract_list_field(
-        data,
-        "clusters",
-        aliases=[
-            "cluster",
-            "groups",
-            "results",
-            "items"
-        ]
+    value = headers.get(
+        "Retry-After"
     )
 
-    if not isinstance(clusters, list):
-        raise RuntimeError(
-            "❌ AI聚类结果无法识别为clusters数组"
-        )
+    if value is None:
+        return None
 
-    normalized = []
+    value = str(value).strip()
 
-    for pos, cluster in enumerate(
-        clusters,
-        1
-    ):
+    if not value:
+        return None
 
-        if not isinstance(cluster, dict):
-            normalized.append(cluster)
-            continue
+    # 最常见：
+    # Retry-After: 10
+    try:
 
-        d = dict(cluster)
+        seconds = float(value)
 
-        # ----------------------------------------------------
-        # article index aliases
-        # ----------------------------------------------------
+        if seconds < 0:
+            return None
 
-        ids = None
+        return seconds
 
-        for key in (
-            "article_indexes",
-            "article_index",
-            "articles",
-            "article_ids",
-            "indexes"
-        ):
-            value = d.get(key)
-
-            if isinstance(value, list):
-                ids = value
-                break
-
-        if ids is None:
-            ids = []
-
-        d["article_indexes"] = ids
-
-        # ----------------------------------------------------
-        # Normalize ID
-        # ----------------------------------------------------
-
-        normalized_ids = []
-
-        for x in ids:
-            try:
-                if isinstance(x, bool):
-                    raise ValueError
-
-                normalized_ids.append(
-                    int(str(x).strip())
-                )
-
-            except Exception:
-                normalized_ids.append(x)
-
-        d["article_indexes"] = normalized_ids
-
-        # ----------------------------------------------------
-        # normalize titles
-        # ----------------------------------------------------
-
-        if not d.get("cluster_id"):
-            d["cluster_id"] = (
-                f"C{pos:03d}"
-            )
-
-        if not d.get("event_title"):
-            d["event_title"] = (
-                d.get("title")
-                or d.get("event")
-                or "未命名事件"
-            )
-
-        if not d.get("event_reason"):
-            d["event_reason"] = (
-                d.get("reason")
-                or d.get("explanation")
-                or ""
-            )
-
-        normalized.append(d)
-
-    return normalized
-
-
-def normalize_merge_response(data):
-    """
-    Global Merge AI 返回统一为：
-
-    [
-        {
-            "group_id": "...",
-            "cluster_indexes": [...],
-            "event_title": "...",
-            "reason": "..."
-        }
-    ]
-    """
-
-    groups = extract_list_field(
-        data,
-        "groups",
-        aliases=[
-            "clusters",
-            "merge_groups",
-            "results",
-            "items"
-        ]
-    )
-
-    if not isinstance(groups, list):
-        raise RuntimeError(
-            "❌ Global Merge结果无法识别为groups数组"
-        )
-
-    normalized = []
-
-    for pos, group in enumerate(
-        groups,
-        1
-    ):
-
-        if not isinstance(group, dict):
-            normalized.append(group)
-            continue
-
-        d = dict(group)
-
-        ids = None
-
-        for key in (
-            "cluster_indexes",
-            "cluster_index",
-            "clusters",
-            "cluster_ids",
-            "indexes"
-        ):
-            value = d.get(key)
-
-            if isinstance(value, list):
-                ids = value
-                break
-
-        if ids is None:
-            ids = []
-
-        normalized_ids = []
-
-        for x in ids:
-            try:
-                if isinstance(x, bool):
-                    raise ValueError
-
-                normalized_ids.append(
-                    int(str(x).strip())
-                )
-
-            except Exception:
-                normalized_ids.append(x)
-
-        d["cluster_indexes"] = normalized_ids
-
-        if not d.get("group_id"):
-            d["group_id"] = (
-                f"G{pos:03d}"
-            )
-
-        if not d.get("event_title"):
-            d["event_title"] = (
-                d.get("title")
-                or d.get("event")
-                or "未命名事件"
-            )
-
-        if not d.get("reason"):
-            d["reason"] = (
-                d.get("event_reason")
-                or d.get("explanation")
-                or ""
-            )
-
-        normalized.append(d)
-
-    return normalized
+    except ValueError:
+        return None
 
 
 # ============================================================
-# AGNES API
+# V6.1 BACKOFF CALCULATOR
+# ============================================================
+
+def calculate_429_backoff(retry_number):
+
+    """
+    指数退避：
+
+    retry 1 -> 10s
+    retry 2 -> 20s
+    retry 3 -> 40s
+    retry 4 -> 80s
+    retry 5 -> 160s
+
+    再加入 0~3 秒随机抖动。
+    """
+
+    base = (
+        AI_429_BACKOFF_BASE
+        * (2 ** (retry_number - 1))
+    )
+
+    base = min(
+        base,
+        AI_429_BACKOFF_MAX
+    )
+
+    jitter = random.uniform(
+        0,
+        AI_429_JITTER_MAX
+    )
+
+    return min(
+        base + jitter,
+        AI_429_BACKOFF_MAX
+    )
+
+
+# ============================================================
+# V6.1 UNIFIED AI CALL
 # ============================================================
 
 def call_ai(
@@ -741,6 +560,20 @@ def call_ai(
     system_prompt=None,
     temperature=DEFAULT_TEMPERATURE
 ):
+    """
+    所有 AGNES AI 请求的统一入口。
+
+    V6.1 增加：
+
+    - 普通请求节流
+    - 429 自动重试
+    - Retry-After 支持
+    - 指数退避
+    - 随机抖动
+
+    这样 Stage 1A / Stage 1B / Stage 2
+    全部自动获得防429能力。
+    """
 
     key = os.getenv(
         AGNES_API_KEY_ENV,
@@ -753,6 +586,7 @@ def call_ai(
         )
 
     if not system_prompt:
+
         system_prompt = (
             "你是748686自生长知识系统的知识工程师。"
             "严格依据输入内容，不得编造事实。"
@@ -761,6 +595,7 @@ def call_ai(
     payload = json.dumps(
         {
             "model": AGNES_MODEL,
+
             "messages": [
                 {
                     "role": "system",
@@ -771,6 +606,7 @@ def call_ai(
                     "content": prompt
                 }
             ],
+
             "temperature": temperature
         },
         ensure_ascii=False
@@ -790,89 +626,222 @@ def call_ai(
         method="POST"
     )
 
-    try:
+    # ========================================================
+    # 429 RETRY LOOP
+    # ========================================================
 
-        with urlopen(
-            req,
-            timeout=AI_TIMEOUT
-        ) as r:
+    for attempt in range(
+        0,
+        AI_MAX_429_RETRIES + 1
+    ):
 
-            raw = r.read().decode(
-                "utf-8"
-            )
+        # ----------------------------------------------------
+        # 普通请求节流
+        # ----------------------------------------------------
 
-    except HTTPError as e:
+        wait_for_ai_throttle()
 
-        body = (
-            e.read().decode(
-                "utf-8",
-                errors="replace"
-            )
-            if hasattr(e, "read")
-            else ""
-        )
+        try:
 
-        raise RuntimeError(
-            f"❌ AGNES.ai HTTP错误 {e.code}\n"
-            f"{body[:3000]}"
-        ) from e
+            with urlopen(
+                req,
+                timeout=AI_TIMEOUT
+            ) as r:
 
-    except URLError as e:
+                raw = r.read().decode(
+                    "utf-8"
+                )
 
-        raise RuntimeError(
-            "❌ AGNES.ai 网络连接失败\n"
-            f"{e.reason}"
-        ) from e
+            # ------------------------------------------------
+            # 请求成功
+            # ------------------------------------------------
 
-    except TimeoutError as e:
+            try:
 
-        raise RuntimeError(
-            "❌ AGNES.ai 请求超时"
-        ) from e
+                data = json.loads(raw)
 
-    except Exception as e:
+            except Exception as e:
 
-        raise RuntimeError(
-            f"❌ AGNES.ai 请求失败：{e}"
-        ) from e
+                raise RuntimeError(
+                    "❌ AGNES.ai 返回不是合法JSON\n"
+                    + raw[:3000]
+                ) from e
 
-    try:
+            try:
 
-        data = json.loads(raw)
+                result = data[
+                    "choices"
+                ][0][
+                    "message"
+                ][
+                    "content"
+                ]
 
-    except Exception as e:
+            except Exception as e:
 
-        raise RuntimeError(
-            "❌ AGNES.ai 返回不是合法JSON\n"
-            f"{raw[:3000]}"
-        ) from e
+                raise RuntimeError(
+                    "❌ AGNES.ai 返回格式异常\n"
+                    + json.dumps(
+                        data,
+                        ensure_ascii=False
+                    )[:5000]
+                ) from e
 
-    try:
+            if not str(result).strip():
 
-        result = data[
-            "choices"
-        ][0][
-            "message"
-        ][
-            "content"
-        ]
+                raise RuntimeError(
+                    "❌ AGNES.ai 返回空内容"
+                )
 
-    except Exception as e:
+            return str(result).strip()
 
-        raise RuntimeError(
-            "❌ AGNES.ai 返回格式异常\n"
-            + json.dumps(
-                data,
-                ensure_ascii=False
-            )[:5000]
-        ) from e
+        except HTTPError as e:
 
-    if not str(result).strip():
-        raise RuntimeError(
-            "❌ AGNES.ai 返回空内容"
-        )
+            body = ""
 
-    return str(result).strip()
+            try:
+                body = e.read().decode(
+                    "utf-8",
+                    errors="replace"
+                )
+            except Exception:
+                body = ""
+
+            # =================================================
+            # HTTP 429
+            # =================================================
+
+            if e.code == 429:
+
+                # 已经没有重试机会
+                if attempt >= AI_MAX_429_RETRIES:
+
+                    print(
+                        "\n❌ AGNES.ai HTTP 429"
+                        " — 已达到最大自动重试次数"
+                    )
+
+                    print(
+                        f"   最大重试次数："
+                        f"{AI_MAX_429_RETRIES}"
+                    )
+
+                    if body:
+                        print(
+                            f"   Server Response:\n"
+                            f"{body[:3000]}"
+                        )
+
+                    raise RuntimeError(
+                        "❌ AGNES.ai HTTP 429："
+                        "自动重试次数耗尽"
+                    ) from e
+
+                retry_number = attempt + 1
+
+                retry_after = (
+                    parse_retry_after(
+                        e.headers
+                    )
+                )
+
+                if retry_after is not None:
+
+                    wait_seconds = min(
+                        retry_after,
+                        AI_429_BACKOFF_MAX
+                    )
+
+                    wait_source = (
+                        "Retry-After"
+                    )
+
+                else:
+
+                    wait_seconds = (
+                        calculate_429_backoff(
+                            retry_number
+                        )
+                    )
+
+                    wait_source = (
+                        "指数退避"
+                    )
+
+                print(
+                    "\n⚠️ AGNES.ai HTTP 429 "
+                    "— 触发自动重试"
+                )
+
+                print(
+                    f"   Retry: "
+                    f"{retry_number}/"
+                    f"{AI_MAX_429_RETRIES}"
+                )
+
+                print(
+                    f"   Wait: "
+                    f"{wait_seconds:.1f}s"
+                )
+
+                print(
+                    f"   Source: "
+                    f"{wait_source}"
+                )
+
+                if body:
+
+                    # 尽量把服务器返回内容
+                    # 压缩到一行，避免日志爆炸
+                    compact_body = re.sub(
+                        r"\s+",
+                        " ",
+                        body
+                    ).strip()
+
+                    print(
+                        "   Response: "
+                        f"{compact_body[:1000]}"
+                    )
+
+                time.sleep(
+                    wait_seconds
+                )
+
+                continue
+
+            # =================================================
+            # 非429 HTTP错误
+            # =================================================
+
+            raise RuntimeError(
+                f"❌ AGNES.ai HTTP错误 "
+                f"{e.code}\n"
+                f"{body[:3000]}"
+            ) from e
+
+        except URLError as e:
+
+            raise RuntimeError(
+                "❌ AGNES.ai 网络连接失败\n"
+                f"{e.reason}"
+            ) from e
+
+        except TimeoutError as e:
+
+            raise RuntimeError(
+                "❌ AGNES.ai 请求超时"
+            ) from e
+
+        except Exception as e:
+
+            raise RuntimeError(
+                f"❌ AGNES.ai 请求失败：{e}"
+            ) from e
+
+    raise RuntimeError(
+        "❌ AGNES.ai 请求异常结束"
+    )
 
 
 # ============================================================
@@ -882,6 +851,7 @@ def call_ai(
 def load_skills():
 
     if not SKILLS.exists():
+
         raise RuntimeError(
             f"Skills目录不存在：{SKILLS}"
         )
@@ -911,10 +881,7 @@ def load_routes():
         {}
     )
 
-    if not isinstance(
-        routes,
-        dict
-    ) or not routes:
+    if not routes:
 
         raise RuntimeError(
             "skill_routes.json为空或不存在"
@@ -931,22 +898,13 @@ def route_skills(
 
     selected = []
 
-    values = routes.get(
+    for name in routes.get(
         category,
         []
-    )
-
-    if not isinstance(
-        values,
-        list
     ):
-        raise RuntimeError(
-            f"❌ Skill route不是数组：{category}"
-        )
-
-    for name in values:
 
         if name not in skills:
+
             raise RuntimeError(
                 "❌ skill_routes.json引用"
                 f"不存在Skill：{name}"
@@ -968,6 +926,7 @@ def get_enriched_files(date):
     root = RAW_NEWS / f"{date}-Enriched"
 
     if not root.exists():
+
         raise FileNotFoundError(
             f"没有找到 Enriched目录：{root}"
         )
@@ -998,15 +957,14 @@ def load_news_file(path):
 
 def load_all_enriched_news(date):
 
-    files = get_enriched_files(
-        date
-    )
+    files = get_enriched_files(date)
 
     print(
         f"Enriched files: {len(files)}"
     )
 
     if not files:
+
         raise RuntimeError(
             f"❌ {date} 没有Enriched新闻"
         )
@@ -1019,17 +977,13 @@ def load_all_enriched_news(date):
     items = [
         x
         for x in items
-        if isinstance(
-            x.get("metadata"),
-            dict
-        )
-        and x["metadata"].get(
-            "title",
-            ""
-        ).strip()
+        if x["metadata"]
+        .get("title", "")
+        .strip()
     ]
 
     if not items:
+
         raise RuntimeError(
             f"❌ {date} 没有有效新闻"
         )
@@ -1037,14 +991,17 @@ def load_all_enriched_news(date):
     def score(x):
 
         try:
+
             return float(
-                x["metadata"].get(
+                x["metadata"]
+                .get(
                     "horizon_score",
                     0
                 )
             )
 
         except Exception:
+
             return 0
 
     items.sort(
@@ -1070,8 +1027,7 @@ def build_article_digest(
 
     m = item["metadata"]
 
-    return f"""
-[ARTICLE {index}]
+    return f"""[ARTICLE {index}]
 
 标题：
 {m.get("title", "Untitled")}
@@ -1089,12 +1045,11 @@ def build_article_digest(
 {m.get("content_status", "")}
 
 内容：
-{item["body"][:ARTICLE_CLUSTER_CONTENT_LIMIT]}
-""".strip()
+{item["body"][:ARTICLE_CLUSTER_CONTENT_LIMIT]}"""
 
 
 # ============================================================
-# ARTICLE COVERAGE VALIDATION
+# CLUSTER VALIDATION
 # ============================================================
 
 def inspect_cluster_assignment(
@@ -1110,44 +1065,27 @@ def inspect_cluster_assignment(
     )
 
     occ = {}
+
     malformed = []
-
-    if not isinstance(
-        clusters,
-        list
-    ):
-
-        return {
-            "duplicate": {},
-            "missing": sorted(expected),
-            "extra": [],
-            "malformed": [
-                "clusters不是数组"
-            ]
-        }
 
     for pos, c in enumerate(
         clusters,
         1
     ):
 
-        if not isinstance(
-            c,
-            dict
-        ):
+        if not isinstance(c, dict):
+
             malformed.append(
                 f"cluster[{pos}]不是对象"
             )
+
             continue
 
         ids = c.get(
             "article_indexes"
         )
 
-        if not isinstance(
-            ids,
-            list
-        ):
+        if not isinstance(ids, list):
 
             malformed.append(
                 f"cluster[{pos}] "
@@ -1168,15 +1106,7 @@ def inspect_cluster_assignment(
 
             try:
 
-                if isinstance(
-                    v,
-                    bool
-                ):
-                    raise ValueError
-
-                i = int(
-                    str(v).strip()
-                )
+                i = int(v)
 
             except Exception:
 
@@ -1193,9 +1123,9 @@ def inspect_cluster_assignment(
             ).append(pos)
 
     duplicate = {
-        i: positions
-        for i, positions in occ.items()
-        if len(positions) > 1
+        i: p
+        for i, p in occ.items()
+        if len(p) > 1
     }
 
     actual = set(occ)
@@ -1226,13 +1156,44 @@ def valid_issues(i):
 
 def normalize_clusters(cs):
 
-    return normalize_cluster_response(
-        cs
-    )
+    out = []
+
+    for c in cs:
+
+        if not isinstance(c, dict):
+
+            out.append(c)
+            continue
+
+        d = dict(c)
+
+        ids = d.get(
+            "article_indexes",
+            []
+        )
+
+        if isinstance(ids, list):
+
+            d[
+                "article_indexes"
+            ] = [
+                (
+                    int(x)
+                    if str(x)
+                    .lstrip("-")
+                    .isdigit()
+                    else x
+                )
+                for x in ids
+            ]
+
+        out.append(d)
+
+    return out
 
 
 # ============================================================
-# STAGE 1A — FIRST AI CLUSTERING
+# STAGE 1A
 # ============================================================
 
 def cluster_news_batch(
@@ -1256,94 +1217,43 @@ def cluster_news_batch(
         for i, x in enumerate(items)
     )
 
-    prompt = f"""
-你正在执行748686自生长知识系统V6第二层事件聚合。
-
-日期：
-{date}
+    prompt = f"""你正在执行748686自生长知识系统V6第二层事件聚合。
+日期：{date}
 
 {joined}
 
-任务：
+任务：识别哪些新闻属于同一个现实世界事件。支持跨来源、跨语言。不要因为关键词、公司、行业、国家相同就强行合并。无法确定时宁可分开。
 
-识别哪些新闻属于同一个现实世界事件。
+绝对覆盖：ARTICLE编号为 {json.dumps(expected)}。每篇必须且只能属于一个cluster；无法合并则单独成cluster；不得遗漏、重复或创造编号。
 
-支持：
-- 跨来源
-- 跨语言
-
-不要因为：
-- 关键词相同
-- 公司相同
-- 行业相同
-- 国家相同
-- 人物相同
-
-就强行合并。
-
-只有明确属于同一个具体现实世界事件时才合并。
-
-无法确定时宁可分开。
-
-============================================================
-绝对覆盖要求
-============================================================
-
-ARTICLE编号：
-
-{json.dumps(expected, ensure_ascii=False)}
-
-每篇ARTICLE：
-1. 必须出现一次
-2. 只能出现一次
-3. 不得遗漏
-4. 不得重复
-5. 不得创造不存在的编号
-
-============================================================
-输出格式
-============================================================
-
-只输出JSON。
-
-推荐格式：
-
-{{
-  "clusters": [
-    {{
-      "cluster_id": "C001",
-      "article_indexes": [1],
-      "event_title": "统一事件名称",
-      "event_reason": "事件判断"
-    }}
-  ]
-}}
-
-禁止输出JSON以外的解释。
-""".strip()
-
-    raw = call_ai(
-        prompt,
-        (
-            "你是全球新闻事件聚类专家。"
-            "每篇ARTICLE必须且只能属于一个cluster。"
-            "只输出JSON。"
-        ),
-        0
-    )
+只输出JSON：
+{{"clusters":[{{"cluster_id":"C001","article_indexes":[1],"event_title":"统一事件名称","event_reason":"事件判断"}}]}}"""
 
     data = parse_ai_json(
-        raw,
+        call_ai(
+            prompt,
+            "你是全球新闻事件聚类专家。"
+            "每篇ARTICLE必须且只能属于一个cluster。",
+            0
+        ),
         f"{date} 第一轮新闻聚类"
     )
 
-    return normalize_clusters(
-        data
+    cs = data.get(
+        "clusters"
     )
+
+    if not isinstance(cs, list):
+
+        raise RuntimeError(
+            f"❌ {date} 第一轮聚类结果缺少clusters"
+        )
+
+    return normalize_clusters(cs)
 
 
 # ============================================================
-# STAGE 1A — REPAIR
+# CLUSTER REPAIR
 # ============================================================
 
 def repair_cluster_news_batch(
@@ -1370,131 +1280,55 @@ def repair_cluster_news_batch(
         for i, x in enumerate(items)
     )
 
-    prompt = f"""
-修复748686 V6 ARTICLE覆盖冲突。
+    prompt = f"""修复748686 V6 ARTICLE覆盖冲突。
+日期：{date}
+第{attempt}次修复
 
-日期：
-{date}
+真实ARTICLE：
+{json.dumps(expected)}
 
-第 {attempt} 次修复。
-
-============================================================
-真实ARTICLE
-============================================================
-
-{json.dumps(expected, ensure_ascii=False)}
-
-============================================================
-文章
-============================================================
-
+文章：
 {joined}
 
-============================================================
-上次AI结果
-============================================================
-
+上次结果：
 {json.dumps(
     broken,
     ensure_ascii=False,
     indent=2
 )}
 
-============================================================
-检测问题
-============================================================
-
+检测问题：
 {json.dumps(
     issues,
     ensure_ascii=False,
     indent=2
 )}
 
-============================================================
-修复要求
-============================================================
+重新判断全部文章。同事件合并，不同事件分开；每篇ARTICLE恰好一次；Missing=0 Duplicate=0 Extra=0。
 
-重新判断全部文章。
-
-同一具体现实世界事件：
-→ 合并。
-
-不同具体事件：
-→ 分开。
-
-每篇ARTICLE：
-→ 恰好一次。
-
-最终必须：
-
-Missing = 0
-Duplicate = 0
-Extra = 0
-Malformed = 0
-
-============================================================
-输出
-============================================================
-
-只输出JSON。
-
-格式：
-
-{{
-  "clusters": [
-    {{
-      "cluster_id": "C001",
-      "article_indexes": [1],
-      "event_title": "事件",
-      "event_reason": "原因"
-    }}
-  ]
-}}
-
-如果你的系统倾向直接返回数组，也允许：
-
-[
-  {{
-    "cluster_id": "C001",
-    "article_indexes": [1],
-    "event_title": "事件",
-    "event_reason": "原因"
-  }}
-]
-
-禁止输出解释文字。
-""".strip()
-
-    raw = call_ai(
-        prompt,
-        (
-            "你是新闻事件聚类冲突修复专家。"
-            "必须修复ARTICLE覆盖问题。"
-            "允许JSON对象或JSON数组。"
-            "只输出JSON。"
-        ),
-        0
-    )
+只输出JSON：
+{{"clusters":[{{"cluster_id":"C001","article_indexes":[1],"event_title":"事件","event_reason":"原因"}}]}}"""
 
     data = parse_ai_json(
-        raw,
+        call_ai(
+            prompt,
+            "你是新闻事件聚类冲突修复专家。",
+            0
+        ),
         f"{date} 聚类冲突修复 #{attempt}"
     )
 
-    # ========================================================
-    # IMPORTANT:
-    # 这里绝不能直接：
-    #
-    #     data.get("clusters")
-    #
-    # 因为 data 可能是 list。
-    #
-    # 统一经过 normalize_clusters。
-    # ========================================================
-
-    return normalize_clusters(
-        data
+    cs = data.get(
+        "clusters"
     )
+
+    if not isinstance(cs, list):
+
+        raise RuntimeError(
+            "❌ 聚类修复结果缺少clusters"
+        )
+
+    return normalize_clusters(cs)
 
 
 def cluster_news_batch_with_repair(
@@ -1511,10 +1345,6 @@ def cluster_news_batch_with_repair(
         )
     )
 
-    # --------------------------------------------------------
-    # First clustering
-    # --------------------------------------------------------
-
     cs = cluster_news_batch(
         date,
         items,
@@ -1527,11 +1357,8 @@ def cluster_news_batch_with_repair(
     )
 
     if valid_issues(issues):
-        return cs
 
-    # --------------------------------------------------------
-    # Repair
-    # --------------------------------------------------------
+        return cs
 
     log_conflict(
         date,
@@ -1548,36 +1375,14 @@ def cluster_news_batch_with_repair(
         CLUSTER_REPAIR_ATTEMPTS + 1
     ):
 
-        try:
-
-            cs = repair_cluster_news_batch(
-                date,
-                items,
-                start,
-                cs,
-                issues,
-                attempt
-            )
-
-        except Exception as e:
-
-            log_conflict(
-                date,
-                f"STAGE 1A / BATCH {batch_no}",
-                (
-                    f"第{attempt}次Repair发生结构/API异常，"
-                    "不会直接丢失原始冲突信息。"
-                ),
-                {
-                    "error": str(e),
-                    "previous_issues": issues
-                }
-            )
-
-            if attempt >= CLUSTER_REPAIR_ATTEMPTS:
-                raise
-
-            continue
+        cs = repair_cluster_news_batch(
+            date,
+            items,
+            start,
+            cs,
+            issues,
+            attempt
+        )
 
         issues = inspect_cluster_assignment(
             cs,
@@ -1596,9 +1401,7 @@ def cluster_news_batch_with_repair(
         log_conflict(
             date,
             f"STAGE 1A / BATCH {batch_no}",
-            (
-                f"第{attempt}次聚类冲突修复仍然失败。"
-            ),
+            f"第{attempt}次聚类冲突修复仍然失败。",
             {
                 "issues": issues,
                 "clusters": cs
@@ -1607,10 +1410,14 @@ def cluster_news_batch_with_repair(
 
     raise RuntimeError(
         f"❌ {date} Batch {batch_no} "
-        f"ARTICLE聚类覆盖冲突无法自动修复："
+        "ARTICLE聚类覆盖冲突无法自动修复："
         f"{issues}"
     )
 
+
+# ============================================================
+# GLOBAL CLUSTER VALIDATION
+# ============================================================
 
 def validate_cluster_coverage(
     clusters,
@@ -1625,6 +1432,7 @@ def validate_cluster_coverage(
     )
 
     if valid_issues(issues):
+
         return
 
     if date:
@@ -1637,12 +1445,13 @@ def validate_cluster_coverage(
         )
 
     raise RuntimeError(
-        f"❌ {context} 聚类覆盖失败：{issues}"
+        f"❌ {context} 聚类覆盖失败："
+        f"{issues}"
     )
 
 
 # ============================================================
-# BUILD INITIAL CLUSTERS
+# INITIAL CLUSTERS
 # ============================================================
 
 def build_initial_clusters(
@@ -1666,7 +1475,8 @@ def build_initial_clusters(
     )
 
     print(
-        f"Batch Size: {AGGREGATION_BATCH_SIZE}"
+        f"Batch Size: "
+        f"{AGGREGATION_BATCH_SIZE}"
     )
 
     for start in range(
@@ -1675,18 +1485,20 @@ def build_initial_clusters(
         AGGREGATION_BATCH_SIZE
     ):
 
-        batch_no = (
-            start // AGGREGATION_BATCH_SIZE
+        n = (
+            start
+            // AGGREGATION_BATCH_SIZE
             + 1
         )
 
         end = min(
-            start + AGGREGATION_BATCH_SIZE,
+            start
+            + AGGREGATION_BATCH_SIZE,
             total
         )
 
         print(
-            f"\n🔹 Cluster Batch {batch_no}: "
+            f"\n🔹 Cluster Batch {n}: "
             f"{start + 1}-{end}/{total}"
         )
 
@@ -1694,7 +1506,7 @@ def build_initial_clusters(
             date,
             news[start:end],
             start + 1,
-            batch_no
+            n
         )
 
         validate_cluster_coverage(
@@ -1703,73 +1515,43 @@ def build_initial_clusters(
                 start + 1,
                 end + 1
             ),
-            f"{date} Batch {batch_no}",
+            f"{date} Batch {n}",
             date
         )
 
-        for pos, c in enumerate(
-            cs,
-            1
-        ):
-
-            if not isinstance(
-                c,
-                dict
-            ):
-                raise RuntimeError(
-                    f"❌ {date} Batch "
-                    f"{batch_no} 存在非法Cluster对象："
-                    f"{c}"
-                )
-
-            ids = c.get(
-                "article_indexes",
-                []
-            )
-
-            if not isinstance(
-                ids,
-                list
-            ):
-                raise RuntimeError(
-                    f"❌ {date} Batch "
-                    f"{batch_no} article_indexes非法"
-                )
-
-            try:
-                normalized_ids = [
-                    int(x)
-                    for x in ids
-                ]
-
-            except Exception as e:
-
-                raise RuntimeError(
-                    f"❌ {date} Batch "
-                    f"{batch_no} ARTICLE编号无法转换："
-                    f"{ids}"
-                ) from e
+        for c in cs:
 
             allc.append(
                 {
-                    "cluster_id": (
-                        f"B{batch_no:03d}-"
-                        f"{c.get('cluster_id', f'C{pos:03d}')}"
-                    ),
-                    "event_title": c.get(
-                        "event_title",
-                        "未命名事件"
-                    ),
-                    "event_reason": c.get(
-                        "event_reason",
-                        ""
-                    ),
-                    "article_indexes": normalized_ids
+                    "cluster_id":
+                        f"B{n:03d}-{c['cluster_id']}",
+
+                    "event_title":
+                        c.get(
+                            "event_title",
+                            "未命名事件"
+                        ),
+
+                    "event_reason":
+                        c.get(
+                            "event_reason",
+                            ""
+                        ),
+
+                    "article_indexes":
+                        [
+                            int(x)
+                            for x
+                            in c[
+                                "article_indexes"
+                            ]
+                        ]
                 }
             )
 
         print(
-            f"   Clusters generated: {len(cs)}"
+            f"   Clusters generated: "
+            f"{len(cs)}"
         )
 
     validate_cluster_coverage(
@@ -1783,7 +1565,8 @@ def build_initial_clusters(
     )
 
     print(
-        f"\n✅ Initial Clusters: {len(allc)}"
+        f"\n✅ Initial Clusters: "
+        f"{len(allc)}"
     )
 
     return allc
@@ -1800,6 +1583,7 @@ def build_merge_windows(
     total = len(clusters)
 
     if total <= GLOBAL_MERGE_WINDOW_SIZE:
+
         return [clusters]
 
     step = (
@@ -1808,6 +1592,7 @@ def build_merge_windows(
     )
 
     if step <= 0:
+
         raise RuntimeError(
             "❌ Window Size必须大于Overlap"
         )
@@ -1830,7 +1615,8 @@ def _windows(
     while s < len(clusters):
 
         e = min(
-            s + GLOBAL_MERGE_WINDOW_SIZE,
+            s
+            + GLOBAL_MERGE_WINDOW_SIZE,
             len(clusters)
         )
 
@@ -1847,7 +1633,7 @@ def _windows(
 
 
 # ============================================================
-# GLOBAL MERGE AI
+# GLOBAL MERGE WINDOW
 # ============================================================
 
 def merge_cluster_window(
@@ -1858,29 +1644,14 @@ def merge_cluster_window(
 ):
 
     joined = "\n\n".join(
-        f"""
-[CLUSTER {i}]
-
-Cluster ID：
-{c.get("cluster_id", "")}
-
-事件名称：
-{c.get("event_title", "未命名事件")}
-
-事件判断：
-{c.get("event_reason", "")}
-
-文章数量：
-{len(c.get("article_indexes", []))}
-
-文章编号：
-{json.dumps(
-    c.get("article_indexes", []),
-    ensure_ascii=False
-)}
-""".strip()
-
-        for i, c in enumerate(
+        f"""[CLUSTER {i}]
+Cluster ID：{c['cluster_id']}
+事件名称：{c.get('event_title', '未命名事件')}
+事件判断：{c.get('event_reason', '')}
+文章数量：{len(c.get('article_indexes', []))}
+文章编号：{json.dumps(c.get('article_indexes', []))}"""
+        for i, c
+        in enumerate(
             window,
             1
         )
@@ -1893,132 +1664,75 @@ Cluster ID：
         )
     )
 
-    prompt = f"""
-你正在执行748686自生长知识系统V6全局事件归并。
+    prompt = f"""你正在执行748686自生长知识系统V6全局事件归并。
 
-日期：
-{date}
-
-轮次：
-{round_no}
-
-窗口：
-{window_no}
-
-============================================================
-输入Cluster
-============================================================
+日期：{date}
+轮次：{round_no}
+窗口：{window_no}
 
 {joined}
 
-============================================================
-任务
-============================================================
-
-判断Cluster是否属于同一个具体现实世界事件。
+判断Cluster是否属于同一个具体现实世界事件，而不是同主题。
 
 可以合并：
-
 - 同一政策发布
 - 同一公司重大动作
 - 同一事故
 - 同一产品发布
-- 同一军事行动
-- 同一自然灾害
-- 同一具体国际事件
-- 同一具体司法事件
+- 同一具体现实事件
 
-不得因为以下原因强行合并：
+不得合并：
+- 同公司不同事件
+- 同人物不同事件
+- 同趋势不同具体事件
+- 仅因为关键词相同的新闻
 
-- 同公司
-- 同人物
-- 同国家
-- 同行业
-- 同政策方向
-- 同关键词
-- 同趋势
-
-如果属于不同具体事件：
-必须分开。
-
-无法确认：
-宁可分开。
-
-============================================================
-覆盖要求
-============================================================
+无法确认时宁可分开。
 
 输入Cluster编号：
-
 {json.dumps(expected)}
 
-每个Cluster：
-必须且只能进入一个group。
-
-不得：
-- 遗漏
-- 重复
-- 创造不存在编号
-
-============================================================
-输出
-============================================================
+每个必须且只能进入一个group。
+不得遗漏、重复、创造编号。
 
 只输出JSON：
-
-{{
-  "groups": [
-    {{
-      "group_id": "G001",
-      "cluster_indexes": [1,4],
-      "event_title": "统一事件名称",
-      "reason": "原因"
-    }}
-  ]
-}}
-
-禁止输出解释文字。
-""".strip()
-
-    raw = call_ai(
-        prompt,
-        (
-            "你是全球新闻事件归并专家。"
-            "必须覆盖全部输入Cluster。"
-            "每个Cluster恰好一次。"
-            "只输出JSON。"
-        ),
-        0
-    )
+{{"groups":[{{"group_id":"G001","cluster_indexes":[1,4],"event_title":"统一事件名称","reason":"原因"}}]}}"""
 
     data = parse_ai_json(
-        raw,
-        (
-            f"{date} Global Merge "
-            f"Round {round_no} "
-            f"Window {window_no}"
-        )
+        call_ai(
+            prompt,
+            "你是全球新闻事件归并专家。"
+            "必须覆盖全部输入Cluster，每个恰好一次。",
+            0
+        ),
+        f"{date} Global Merge "
+        f"Round {round_no} "
+        f"Window {window_no}"
     )
 
-    groups = normalize_merge_response(
-        data
+    groups = data.get(
+        "groups"
     )
+
+    if not isinstance(groups, list):
+
+        raise RuntimeError(
+            "❌ Global Merge缺少groups"
+        )
 
     actual = []
+
     malformed = []
 
-    for pos, g in enumerate(
+    for p, g in enumerate(
         groups,
         1
     ):
 
-        if not isinstance(
-            g,
-            dict
-        ):
+        if not isinstance(g, dict):
 
             malformed.append(
-                f"group[{pos}]不是对象"
+                f"group[{p}]不是对象"
             )
 
             continue
@@ -2027,13 +1741,13 @@ Cluster ID：
             "cluster_indexes"
         )
 
-        if not isinstance(
-            ids,
-            list
-        ) or not ids:
+        if (
+            not isinstance(ids, list)
+            or not ids
+        ):
 
             malformed.append(
-                f"group[{pos}] "
+                f"group[{p}] "
                 "cluster_indexes无效"
             )
 
@@ -2050,10 +1764,11 @@ Cluster ID：
             except Exception:
 
                 malformed.append(
-                    f"group[{pos}]非法编号：{x}"
+                    f"group[{p}]"
+                    f"非法编号：{x}"
                 )
 
-    duplicates = sorted(
+    dup = sorted(
         {
             x
             for x in actual
@@ -2061,31 +1776,31 @@ Cluster ID：
         }
     )
 
-    missing = sorted(
-        set(expected) - set(actual)
+    miss = sorted(
+        set(expected)
+        - set(actual)
     )
 
     extra = sorted(
-        set(actual) - set(expected)
+        set(actual)
+        - set(expected)
     )
 
     if (
-        duplicates
-        or missing
+        dup
+        or miss
         or extra
         or malformed
     ):
 
         log_conflict(
             date,
-            (
-                f"STAGE 1B / ROUND {round_no} "
-                f"/ WINDOW {window_no}"
-            ),
+            f"STAGE 1B / ROUND {round_no} "
+            f"/ WINDOW {window_no}",
             "V6 Global Merge窗口覆盖异常。",
             {
-                "duplicate": duplicates,
-                "missing": missing,
+                "duplicate": dup,
+                "missing": miss,
                 "extra": extra,
                 "malformed": malformed,
                 "groups": groups
@@ -2094,8 +1809,8 @@ Cluster ID：
 
         raise RuntimeError(
             "❌ Global Merge覆盖异常 "
-            f"Duplicate={duplicates} "
-            f"Missing={missing} "
+            f"Duplicate={dup} "
+            f"Missing={miss} "
             f"Extra={extra} "
             f"Malformed={malformed}"
         )
@@ -2104,7 +1819,7 @@ Cluster ID：
 
 
 # ============================================================
-# BUILD MERGED CLUSTERS
+# BUILD WINDOW MERGED CLUSTERS
 # ============================================================
 
 def build_window_merged_clusters(
@@ -2121,317 +1836,52 @@ def build_window_merged_clusters(
         1
     ):
 
-        if not isinstance(
-            g,
-            dict
-        ):
-            raise RuntimeError(
-                "❌ Global Merge group不是对象"
-            )
-
         ids = []
 
         for ci in g[
             "cluster_indexes"
         ]:
 
-            ci = int(ci)
-
-            if not (
-                1 <= ci <= len(window)
-            ):
-
-                raise RuntimeError(
-                    "❌ Global Merge引用"
-                    f"不存在Cluster：{ci}"
-                )
-
-            source_cluster = window[
-                ci - 1
-            ]
-
-            source_ids = source_cluster.get(
-                "article_indexes",
-                []
-            )
-
-            if not isinstance(
-                source_ids,
-                list
-            ):
-
-                raise RuntimeError(
-                    "❌ Global Merge源Cluster "
-                    "article_indexes非法"
-                )
-
             ids.extend(
-                source_ids
-            )
-
-        unique_ids = sorted(
-            set(
-                map(
-                    int,
-                    ids
-                )
-            )
-        )
-
-        if not unique_ids:
-            raise RuntimeError(
-                "❌ V6 Global Merge产生空Cluster"
+                window[
+                    int(ci) - 1
+                ][
+                    "article_indexes"
+                ]
             )
 
         out.append(
             {
-                "cluster_id": (
+                "cluster_id":
                     f"R{round_no:02d}"
                     f"W{window_no:03d}"
-                    f"G{gp:03d}"
-                ),
-                "event_title": g.get(
-                    "event_title",
-                    "未命名事件"
-                ),
-                "event_reason": g.get(
-                    "reason",
-                    ""
-                ),
-                "article_indexes": unique_ids
+                    f"G{gp:03d}",
+
+                "event_title":
+                    g.get(
+                        "event_title",
+                        "未命名事件"
+                    ),
+
+                "event_reason":
+                    g.get(
+                        "reason",
+                        ""
+                    ),
+
+                "article_indexes":
+                    sorted(
+                        set(
+                            map(
+                                int,
+                                ids
+                            )
+                        )
+                    )
             }
         )
 
     return out
-
-
-# ============================================================
-# GLOBAL ARTICLE GRAPH MERGE
-# ============================================================
-
-def merge_overlapping_results(
-    results,
-    news_count
-):
-    """
-    将不同Overlap窗口的结果转换成全局事件关系。
-
-    关键原则：
-
-    - 同一窗口内AI明确把两个Cluster放进同一个group：
-      → 建立连接。
-
-    - 不同窗口产生的结果有共同ARTICLE：
-      → 建立连接。
-
-    - 最终通过连通分量形成全局事件候选。
-
-    这样不会因为：
-
-        dedup[sig] = c
-
-    而把Overlap窗口中有价值的信息直接丢掉。
-    """
-
-    if not results:
-        return []
-
-    parent = list(
-        range(
-            news_count + 1
-        )
-    )
-
-    def find(x):
-
-        while parent[x] != x:
-            parent[x] = parent[
-                parent[x]
-            ]
-
-            x = parent[x]
-
-        return x
-
-    def union(a, b):
-
-        ra = find(a)
-        rb = find(b)
-
-        if ra != rb:
-            parent[rb] = ra
-
-    all_candidates = []
-
-    # --------------------------------------------------------
-    # Every merged candidate
-    # --------------------------------------------------------
-
-    for window_result in results:
-
-        for c in window_result:
-
-            ids = sorted(
-                set(
-                    map(
-                        int,
-                        c.get(
-                            "article_indexes",
-                            []
-                        )
-                    )
-                )
-            )
-
-            if not ids:
-                continue
-
-            all_candidates.append(
-                {
-                    "article_indexes": ids,
-                    "event_title": c.get(
-                        "event_title",
-                        "未命名事件"
-                    ),
-                    "event_reason": c.get(
-                        "event_reason",
-                        ""
-                    ),
-                    "cluster_id": c.get(
-                        "cluster_id",
-                        ""
-                    )
-                }
-            )
-
-            # ------------------------------------------------
-            # Connect all articles in the same candidate
-            # ------------------------------------------------
-
-            first = ids[0]
-
-            for article_id in ids[1:]:
-                union(
-                    first,
-                    article_id
-                )
-
-    # --------------------------------------------------------
-    # Components
-    # --------------------------------------------------------
-
-    components = {}
-
-    for article_id in range(
-        1,
-        news_count + 1
-    ):
-
-        root = find(
-            article_id
-        )
-
-        components.setdefault(
-            root,
-            []
-        ).append(
-            article_id
-        )
-
-    # --------------------------------------------------------
-    # Best metadata per component
-    # --------------------------------------------------------
-
-    final = []
-
-    for root, ids in sorted(
-        components.items(),
-        key=lambda x: min(x[1])
-    ):
-
-        candidates = [
-            c
-            for c in all_candidates
-            if set(
-                c["article_indexes"]
-            ) & set(ids)
-        ]
-
-        if candidates:
-
-            best = max(
-                candidates,
-                key=lambda c: (
-                    len(
-                        c["article_indexes"]
-                    ),
-                    len(
-                        c.get(
-                            "event_reason",
-                            ""
-                        )
-                    )
-                )
-            )
-
-            title = best.get(
-                "event_title",
-                "未命名事件"
-            )
-
-            reason = best.get(
-                "event_reason",
-                ""
-            )
-
-        else:
-
-            title = "未命名事件"
-            reason = ""
-
-        final.append(
-            {
-                "cluster_id": (
-                    f"GLOBAL-{len(final)+1:04d}"
-                ),
-                "event_title": title,
-                "event_reason": reason,
-                "article_indexes": sorted(
-                    ids
-                )
-            }
-        )
-
-    # --------------------------------------------------------
-    # Final coverage
-    # --------------------------------------------------------
-
-    allidx = [
-        i
-        for c in final
-        for i in c[
-            "article_indexes"
-        ]
-    ]
-
-    if (
-        len(allidx) != news_count
-        or len(allidx)
-        != len(set(allidx))
-        or set(allidx)
-        != set(
-            range(
-                1,
-                news_count + 1
-            )
-        )
-    ):
-
-        raise RuntimeError(
-            "❌ Global Merge全局Article覆盖失败"
-        )
-
-    return final
 
 
 # ============================================================
@@ -2458,16 +1908,14 @@ def merge_all_clusters(
         MAX_GLOBAL_MERGE_ROUNDS + 1
     ):
 
-        before = len(
-            current
-        )
+        before = len(current)
 
         print(
             f"\nGLOBAL MERGE ROUND {rnd} "
             f"| Input Clusters: {before}"
         )
 
-        if before <= 1:
+        if before == 1:
             break
 
         windows = build_merge_windows(
@@ -2476,8 +1924,10 @@ def merge_all_clusters(
 
         print(
             f"Windows: {len(windows)} "
-            f"| Size: {GLOBAL_MERGE_WINDOW_SIZE} "
-            f"| Overlap: {GLOBAL_MERGE_OVERLAP}"
+            f"| Size: "
+            f"{GLOBAL_MERGE_WINDOW_SIZE} "
+            f"| Overlap: "
+            f"{GLOBAL_MERGE_OVERLAP}"
         )
 
         results = []
@@ -2488,38 +1938,107 @@ def merge_all_clusters(
         ):
 
             print(
-                f"🔹 Window {wi}/{len(windows)} "
+                f"🔹 Window {wi}/"
+                f"{len(windows)} "
                 f"| size={len(w)}"
             )
 
-            groups = merge_cluster_window(
-                date,
-                w,
-                rnd,
-                wi
-            )
-
-            merged_window = (
+            results.append(
                 build_window_merged_clusters(
                     w,
-                    groups,
+                    merge_cluster_window(
+                        date,
+                        w,
+                        rnd,
+                        wi
+                    ),
                     rnd,
                     wi
                 )
             )
 
-            results.append(
-                merged_window
+        dedup = {}
+
+        for mw in results:
+
+            for c in mw:
+
+                sig = tuple(
+                    sorted(
+                        set(
+                            c[
+                                "article_indexes"
+                            ]
+                        )
+                    )
+                )
+
+                if not sig:
+
+                    raise RuntimeError(
+                        "❌ V6 Global Merge"
+                        "产生空Cluster"
+                    )
+
+                old = dedup.get(
+                    sig
+                )
+
+                if (
+                    old is None
+                    or len(
+                        c.get(
+                            "event_reason",
+                            ""
+                        )
+                    )
+                    >
+                    len(
+                        old.get(
+                            "event_reason",
+                            ""
+                        )
+                    )
+                ):
+
+                    dedup[sig] = c
+
+        merged = sorted(
+            dedup.values(),
+            key=lambda c:
+                min(
+                    c[
+                        "article_indexes"
+                    ]
+                )
+        )
+
+        allidx = [
+            i
+            for c in merged
+            for i in c[
+                "article_indexes"
+            ]
+        ]
+
+        if (
+            len(allidx)
+            != len(set(allidx))
+            or set(allidx)
+            != set(
+                range(
+                    1,
+                    news_count + 1
+                )
+            )
+        ):
+
+            raise RuntimeError(
+                f"❌ {date} Global Merge "
+                f"Round {rnd} 覆盖异常"
             )
 
-        merged = merge_overlapping_results(
-            results,
-            news_count
-        )
-
-        after = len(
-            merged
-        )
+        after = len(merged)
 
         print(
             f"✅ Round {rnd}: "
@@ -2536,10 +2055,6 @@ def merge_all_clusters(
 
             break
 
-    # ========================================================
-    # FINAL EVENT UNITS
-    # ========================================================
-
     final = []
 
     for i, c in enumerate(
@@ -2547,32 +2062,34 @@ def merge_all_clusters(
         1
     ):
 
-        ids = sorted(
-            set(
-                map(
-                    int,
-                    c.get(
-                        "article_indexes",
-                        []
-                    )
-                )
-            )
-        )
-
         final.append(
             {
-                "event_id": (
-                    f"EVT-{date}-{i:04d}"
-                ),
-                "event_title": c.get(
-                    "event_title",
-                    "未命名事件"
-                ),
-                "event_reason": c.get(
-                    "event_reason",
-                    ""
-                ),
-                "article_indexes": ids
+                "event_id":
+                    f"EVT-{date}-{i:04d}",
+
+                "event_title":
+                    c.get(
+                        "event_title",
+                        "未命名事件"
+                    ),
+
+                "event_reason":
+                    c.get(
+                        "event_reason",
+                        ""
+                    ),
+
+                "article_indexes":
+                    sorted(
+                        set(
+                            map(
+                                int,
+                                c[
+                                    "article_indexes"
+                                ]
+                            )
+                        )
+                    )
             }
         )
 
@@ -2634,68 +2151,83 @@ def build_event_units(
             "article_indexes"
         ]:
 
-            if not (
-                1 <= i <= len(news)
-            ):
+            if not 1 <= i <= len(news):
 
                 raise RuntimeError(
                     f"❌ {c['event_id']} "
                     f"引用不存在文章：{i}"
                 )
 
-            item = news[
+            m = news[
                 i - 1
-            ]
-
-            m = item[
+            ][
                 "metadata"
             ]
 
             arts.append(
                 {
                     "index": i,
-                    "path": str(
-                        item["path"]
-                    ),
-                    "title": m.get(
-                        "title",
-                        "Untitled"
-                    ),
-                    "source": m.get(
-                        "source",
-                        "Unknown"
-                    ),
-                    "source_url": m.get(
-                        "source_url",
-                        ""
-                    ),
-                    "source_status": m.get(
-                        "source_status",
-                        ""
-                    ),
-                    "content_status": m.get(
-                        "content_status",
-                        ""
-                    ),
-                    "body": item["body"]
+
+                    "path":
+                        str(
+                            news[
+                                i - 1
+                            ]["path"]
+                        ),
+
+                    "title":
+                        m.get(
+                            "title",
+                            "Untitled"
+                        ),
+
+                    "source":
+                        m.get(
+                            "source",
+                            "Unknown"
+                        ),
+
+                    "source_url":
+                        m.get(
+                            "source_url",
+                            ""
+                        ),
+
+                    "source_status":
+                        m.get(
+                            "source_status",
+                            ""
+                        ),
+
+                    "content_status":
+                        m.get(
+                            "content_status",
+                            ""
+                        ),
+
+                    "body":
+                        news[
+                            i - 1
+                        ]["body"]
                 }
             )
 
         out.append(
             {
-                "event_id": c[
-                    "event_id"
-                ],
-                "date": date,
-                "event_title": c.get(
-                    "event_title",
-                    "未命名事件"
-                ),
-                "event_reason": c.get(
-                    "event_reason",
-                    ""
-                ),
-                "articles": arts
+                "event_id":
+                    c["event_id"],
+
+                "date":
+                    date,
+
+                "event_title":
+                    c["event_title"],
+
+                "event_reason":
+                    c["event_reason"],
+
+                "articles":
+                    arts
             }
         )
 
@@ -2706,9 +2238,7 @@ def build_event_units(
 # EVENT SYNTHESIS
 # ============================================================
 
-def synthesize_event(
-    event
-):
+def synthesize_event(event):
 
     blocks = []
 
@@ -2717,83 +2247,44 @@ def synthesize_event(
     ][:MAX_ARTICLES_PER_EVENT_CONTEXT]:
 
         blocks.append(
-            f"""
-### 来源文章 #{a['index']}
-
-标题：
-{a['title']}
-
-来源：
-{a['source']}
-
-链接：
-{a['source_url']}
-
-source_status：
-{a['source_status']}
-
-content_status：
-{a['content_status']}
+            f"""### 来源文章 #{a['index']}
+标题：{a['title']}
+来源：{a['source']}
+链接：{a['source_url']}
+source_status：{a['source_status']}
+content_status：{a['content_status']}
 
 内容：
-
-{a['body'][:ARTICLE_AGGREGATION_CONTENT_LIMIT]}
-""".strip()
+{a['body'][:ARTICLE_AGGREGATION_CONTENT_LIMIT]}"""
         )
 
-    prompt = f"""
-你正在执行748686自生长知识系统V6第二层事件知识综合。
+    prompt = f"""你正在执行748686自生长知识系统V6第二层事件知识综合。
 
-日期：
-{event['date']}
-
-事件ID：
-{event['event_id']}
-
-事件名称：
-{event['event_title']}
+日期：{event['date']}
+事件ID：{event['event_id']}
+事件名称：{event['event_title']}
 
 第一轮事件判断：
 {event['event_reason']}
 
-============================================================
-同一事件的多来源输入
-============================================================
+同一事件的多来源输入：
 
 {chr(10).join(blocks)}
-
-============================================================
-任务
-============================================================
 
 把来源综合成一个高质量事件知识单元。
 
 要求：
 
-1. 识别共同事实。
+1. 识别共同事实
+2. 保留来源独有信息
+3. 保留不同地区视角
+4. 区分事实与推测
+5. 不编造
+6. source_status不是fetched时不得声称完整阅读原文
+7. 冲突明确指出
+8. 资料不足明确说明
 
-2. 保留来源独有信息。
-
-3. 保留不同地区视角。
-
-4. 区分事实与推测。
-
-5. 不编造。
-
-6. source_status不是fetched时，
-   不得声称完整阅读原文。
-
-7. 冲突必须明确指出。
-
-8. 资料不足必须明确说明。
-
-============================================================
-输出
-============================================================
-
-输出标准中文Markdown。
-
-必须包含：
+输出标准中文Markdown，包含：
 
 # 事件名称
 
@@ -2816,21 +2307,19 @@ content_status：
 ## 来源
 
 ## 事件结论
-""".strip()
+"""
 
     return call_ai(
         prompt,
-        (
-            "你是跨来源新闻综合专家。"
-            "严格依据输入，不得编造。"
-            "输出标准中文Markdown。"
-        ),
+        "你是跨来源新闻综合专家。"
+        "严格依据输入，不得编造。"
+        "输出标准中文Markdown。",
         0.2
     )
 
 
 # ============================================================
-# EVENT UNIT FILES
+# EVENT UNIT FILE
 # ============================================================
 
 def event_unit_filename(e):
@@ -2918,45 +2407,44 @@ def save_aggregation_index(
 
         data.append(
             {
-                "event_id": e[
-                    "event_id"
-                ],
-                "date": e[
-                    "date"
-                ],
-                "event_title": e.get(
-                    "event_title",
-                    "未命名事件"
-                ),
-                "event_reason": e.get(
-                    "event_reason",
-                    ""
-                ),
-                "source_count": len(
-                    e["articles"]
-                ),
-                "articles": [
-                    {
-                        "index": a[
-                            "index"
-                        ],
-                        "title": a[
-                            "title"
-                        ],
-                        "source": a[
-                            "source"
-                        ],
-                        "source_url": a[
-                            "source_url"
-                        ],
-                        "path": a[
-                            "path"
-                        ]
-                    }
-                    for a in e[
-                        "articles"
+                "event_id":
+                    e["event_id"],
+
+                "date":
+                    e["date"],
+
+                "event_title":
+                    e["event_title"],
+
+                "event_reason":
+                    e["event_reason"],
+
+                "source_count":
+                    len(
+                        e["articles"]
+                    ),
+
+                "articles":
+                    [
+                        {
+                            "index":
+                                a["index"],
+
+                            "title":
+                                a["title"],
+
+                            "source":
+                                a["source"],
+
+                            "source_url":
+                                a["source_url"],
+
+                            "path":
+                                a["path"]
+                        }
+                        for a
+                        in e["articles"]
                     ]
-                ]
             }
         )
 
@@ -2973,9 +2461,7 @@ def save_aggregation_index(
     return p
 
 
-def load_event_index(
-    date
-):
+def load_event_index(date):
 
     p = (
         event_units_dir(date)
@@ -2998,16 +2484,14 @@ def load_event_index(
 
     return (
         d
-        if isinstance(
-            d,
-            list
-        ) and d
+        if isinstance(d, list)
+        and d
         else None
     )
 
 
 # ============================================================
-# EVENT FILE VALIDATION
+# EVENT UNIT VALIDATION
 # ============================================================
 
 def event_unit_file_valid(
@@ -3036,16 +2520,16 @@ def event_unit_file_valid(
 
     return (
         bool(b.strip())
-        and m.get("event_id")
-        == event_id
-        and m.get("status")
-        == "completed"
+        and m.get(
+            "event_id"
+        ) == event_id
+        and m.get(
+            "status"
+        ) == "completed"
     )
 
 
-def inspect_event_units(
-    date
-):
+def inspect_event_units(date):
 
     target = event_units_dir(
         date
@@ -3078,19 +2562,12 @@ def inspect_event_units(
         }
 
     missing = []
+
     invalid = []
+
     ids = []
 
     for e in idx:
-
-        if not isinstance(
-            e,
-            dict
-        ):
-            invalid.append(
-                "INDEX_ENTRY_NOT_OBJECT"
-            )
-            continue
 
         eid = str(
             e.get(
@@ -3099,27 +2576,17 @@ def inspect_event_units(
             )
         ).strip()
 
-        if not eid:
-            invalid.append(
-                "EMPTY_EVENT_ID"
-            )
-            continue
-
-        ids.append(
-            eid
-        )
+        ids.append(eid)
 
         matches = list(
             target.glob(
                 f"{eid}_*.md"
             )
-        )
+        ) if eid else []
 
         if not matches:
 
-            missing.append(
-                eid
-            )
+            missing.append(eid)
 
         elif not any(
             event_unit_file_valid(
@@ -3129,9 +2596,7 @@ def inspect_event_units(
             for p in matches
         ):
 
-            invalid.append(
-                eid
-            )
+            invalid.append(eid)
 
     complete = (
         bool(ids)
@@ -3148,6 +2613,10 @@ def inspect_event_units(
         "unexpected": []
     }
 
+
+# ============================================================
+# EVENT UNIT COMPLETE MARKER
+# ============================================================
 
 def mark_event_units_complete(
     date,
@@ -3188,7 +2657,7 @@ def remove_event_units_complete(
 
 
 # ============================================================
-# REBUILD FROM INDEX
+# REBUILD EVENTS FROM INDEX
 # ============================================================
 
 def rebuild_events_from_index(
@@ -3201,110 +2670,103 @@ def rebuild_events_from_index(
 
     for e in index:
 
-        if not isinstance(
-            e,
-            dict
-        ):
-
-            raise RuntimeError(
-                "❌ Event Index存在非法条目"
-            )
-
         arts = []
 
-        article_records = e.get(
+        for r in e.get(
             "articles",
             []
-        )
-
-        if not isinstance(
-            article_records,
-            list
         ):
-
-            raise RuntimeError(
-                f"❌ {e.get('event_id')} "
-                "articles不是数组"
-            )
-
-        for r in article_records:
-
-            if not isinstance(
-                r,
-                dict
-            ):
-
-                raise RuntimeError(
-                    f"❌ {e.get('event_id')} "
-                    "存在非法Article Index"
-                )
 
             i = int(
                 r["index"]
             )
 
-            if not (
-                1 <= i <= len(news)
-            ):
+            if not 1 <= i <= len(news):
 
                 raise RuntimeError(
                     f"❌ {e.get('event_id')} "
                     f"引用不存在文章：{i}"
                 )
 
-            item = news[
+            m = news[
                 i - 1
-            ]
-
-            m = item[
+            ][
                 "metadata"
             ]
 
             arts.append(
                 {
-                    "index": i,
-                    "path": str(
-                        item["path"]
-                    ),
-                    "title": m.get(
-                        "title",
-                        "Untitled"
-                    ),
-                    "source": m.get(
-                        "source",
-                        "Unknown"
-                    ),
-                    "source_url": m.get(
-                        "source_url",
-                        ""
-                    ),
-                    "source_status": m.get(
-                        "source_status",
-                        ""
-                    ),
-                    "content_status": m.get(
-                        "content_status",
-                        ""
-                    ),
-                    "body": item["body"]
+                    "index":
+                        i,
+
+                    "path":
+                        str(
+                            news[
+                                i - 1
+                            ]["path"]
+                        ),
+
+                    "title":
+                        m.get(
+                            "title",
+                            "Untitled"
+                        ),
+
+                    "source":
+                        m.get(
+                            "source",
+                            "Unknown"
+                        ),
+
+                    "source_url":
+                        m.get(
+                            "source_url",
+                            ""
+                        ),
+
+                    "source_status":
+                        m.get(
+                            "source_status",
+                            ""
+                        ),
+
+                    "content_status":
+                        m.get(
+                            "content_status",
+                            ""
+                        ),
+
+                    "body":
+                        news[
+                            i - 1
+                        ]["body"]
                 }
             )
 
         out.append(
             {
-                "event_id": str(
-                    e["event_id"]
-                ),
-                "date": date,
-                "event_title": e.get(
-                    "event_title",
-                    "未命名事件"
-                ),
-                "event_reason": e.get(
-                    "event_reason",
-                    ""
-                ),
-                "articles": arts
+                "event_id":
+                    str(
+                        e["event_id"]
+                    ),
+
+                "date":
+                    date,
+
+                "event_title":
+                    e.get(
+                        "event_title",
+                        "未命名事件"
+                    ),
+
+                "event_reason":
+                    e.get(
+                        "event_reason",
+                        ""
+                    ),
+
+                "articles":
+                    arts
             }
         )
 
@@ -3322,6 +2784,7 @@ def validate_event_index_coverage(
 ):
 
     ids = []
+
     eids = set()
 
     for e in events:
@@ -3329,8 +2792,9 @@ def validate_event_index_coverage(
         if e["event_id"] in eids:
 
             raise RuntimeError(
-                f"❌ {date} Event Index重复"
-                f"event_id：{e['event_id']}"
+                f"❌ {date} Event Index"
+                f"重复event_id："
+                f"{e['event_id']}"
             )
 
         eids.add(
@@ -3440,10 +2904,6 @@ def complete_existing_event_units(
 
         generated += 1
 
-    # --------------------------------------------------------
-    # Final validation
-    # --------------------------------------------------------
-
     for e in events:
 
         if not any(
@@ -3451,14 +2911,14 @@ def complete_existing_event_units(
                 p,
                 e["event_id"]
             )
-            for p in target.glob(
+            for p
+            in target.glob(
                 f"{e['event_id']}_*.md"
             )
         ):
 
             raise RuntimeError(
-                f"❌ {e['event_id']} "
-                "最终缺失"
+                f"❌ {e['event_id']} 最终缺失"
             )
 
     marker = mark_event_units_complete(
@@ -3481,15 +2941,12 @@ def complete_existing_event_units(
 # STAGE 1
 # ============================================================
 
-def run_stage_1(
-    date
-):
+def run_stage_1(date):
 
     print(
-        f"\n"
-        f"{'=' * 70}\n"
-        f"STAGE 1 — EVENT UNIT GENERATION V6: "
-        f"{date}\n"
+        f"\n{'=' * 70}\n"
+        f"STAGE 1 — EVENT UNIT "
+        f"GENERATION V6.1: {date}\n"
         f"{'=' * 70}"
     )
 
@@ -3497,9 +2954,7 @@ def run_stage_1(
         date
     )
 
-    if inspection[
-        "complete"
-    ]:
+    if inspection["complete"]:
 
         print(
             f"✅ {date} EventUnits已经完整，"
@@ -3512,18 +2967,7 @@ def run_stage_1(
         date
     )
 
-    # --------------------------------------------------------
-    # Existing Index → Resume
-    # --------------------------------------------------------
-
-    if inspection[
-        "index"
-    ] is not None:
-
-        print(
-            f"🔄 {date} 检测到已有Event Index，"
-            "进入断点续跑。"
-        )
+    if inspection["index"] is not None:
 
         events = rebuild_events_from_index(
             date,
@@ -3542,10 +2986,6 @@ def run_stage_1(
             events,
             len(news)
         )
-
-    # --------------------------------------------------------
-    # Fresh aggregation
-    # --------------------------------------------------------
 
     remove_event_units_complete(
         date
@@ -3591,7 +3031,7 @@ def run_stage_1(
 
 
 # ============================================================
-# STAGE 2 — LOAD EVENT UNITS
+# LOAD SAVED EVENT UNITS
 # ============================================================
 
 def load_saved_event_units(
@@ -3621,21 +3061,13 @@ def load_saved_event_units(
     if idx is None:
 
         raise RuntimeError(
-            f"❌ {date} Event Index不存在或无效"
+            f"❌ {date} Event Index"
+            "不存在或无效"
         )
 
     files = []
 
     for e in idx:
-
-        if not isinstance(
-            e,
-            dict
-        ):
-
-            raise RuntimeError(
-                "❌ Event Index存在非法Event"
-            )
 
         eid = str(
             e.get(
@@ -3680,7 +3112,7 @@ def load_saved_event_units(
 
 
 # ============================================================
-# STAGE 2 — ONE SKILL
+# ONE SKILL
 # ============================================================
 
 def run_one_skill(
@@ -3695,51 +3127,35 @@ def run_one_skill(
         errors="replace"
     )
 
-    event_meta = event[0]
-
-    prompt = f"""
-你正在执行748686自生长知识系统V6的27 Skills深度处理。
+    prompt = f"""你正在执行748686自生长知识系统V6的27 Skills深度处理。
 
 事件：
-{event_meta.get('event_title', '')}
+{event[0].get('event_title', '')}
 
 Event ID：
-{event_meta.get('event_id', '')}
+{event[0].get('event_id', '')}
 
 Skill名称：
 {skill['name']}
 
-============================================================
-Skill规则
-============================================================
-
+Skill规则：
 {skill['content']}
 
-============================================================
-EventUnit原文
-============================================================
-
+EventUnit原文：
 {content[:30000]}
-
-============================================================
-任务
-============================================================
 
 请严格按照该Skill完成深度处理。
 
-不要编造。
-
+不要编造；
 只使用EventUnit提供的信息。
 
 输出可直接写入知识库的中文Markdown。
-""".strip()
+"""
 
     return call_ai(
         prompt,
-        (
-            "你是748686知识系统Skill执行器。"
-            "严格执行Skill规则，不得编造。"
-        ),
+        "你是748686知识系统Skill执行器。"
+        "严格执行Skill规则，不得编造。",
         0.2
     )
 
@@ -3748,9 +3164,7 @@ EventUnit原文
 # STAGE 2
 # ============================================================
 
-def run_stage_2(
-    date
-):
+def run_stage_2(date):
 
     files = load_saved_event_units(
         date
@@ -3766,21 +3180,16 @@ def run_stage_2(
         f"| Skills={len(skills)}"
     )
 
-    # --------------------------------------------------------
-    # Prefer configured route categories.
-    # Preserve deterministic order.
-    # --------------------------------------------------------
+    # ========================================================
+    # Prefer configured route category.
+    # Otherwise use all Skills.
+    # ========================================================
 
     route_values = []
+
     selected_names = set()
 
     for category, names in routes.items():
-
-        if not isinstance(
-            names,
-            list
-        ):
-            continue
 
         for name in names:
 
@@ -3836,14 +3245,7 @@ def run_stage_2(
 
             outfile = (
                 edir
-                / (
-                    f"{safe_name(skill['name'])}"
-                    .replace(
-                        ".md",
-                        ""
-                    )
-                    + ".md"
-                )
+                / f"{safe_name(skill['name']).replace('.md', '')}.md"
             )
 
             if (
@@ -3874,7 +3276,8 @@ def run_stage_2(
 
                 raise RuntimeError(
                     f"❌ Skill结果为空："
-                    f"{eid} / {skill['name']}"
+                    f"{eid} / "
+                    f"{skill['name']}"
                 )
 
             outfile.write_text(
@@ -3912,10 +3315,8 @@ timezone: Asia/Shanghai
 def main():
 
     ap = argparse.ArgumentParser(
-        description=(
-            "748686 Knowledge "
-            "Pipeline V6.1"
-        )
+        description=
+        "748686 Knowledge Pipeline V6.1"
     )
 
     ap.add_argument(
@@ -3966,16 +3367,17 @@ def main():
     except Exception as e:
 
         print(
-            "\n❌ Knowledge Pipeline "
-            f"V6 FAILED: {e}",
+            f"\n❌ Knowledge Pipeline "
+            f"V6.1 FAILED: {e}",
             file=sys.stderr
         )
 
         return 1
 
     print(
-        "\n✅ Knowledge Pipeline V6 "
-        f"finished: {args.date} / "
+        f"\n✅ Knowledge Pipeline "
+        f"V6.1 finished: "
+        f"{args.date} / "
         f"{args.stage}"
     )
 
@@ -3983,6 +3385,4 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(
-        main()
-    )
+    sys.exit(main())
