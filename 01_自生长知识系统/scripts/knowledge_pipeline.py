@@ -3,10 +3,11 @@
 
 """
 748686 自生长知识系统
-Knowledge Pipeline V5
+Knowledge Pipeline V6
 
+================================================================
 正式架构
-============================================================
+================================================================
 
 Horizon
    ↓
@@ -22,7 +23,9 @@ STAGE 1：第二层 AI 事件聚合
    ↓
 AI 第一轮批量事件聚类
    ↓
-跨批次事件合并
+重叠窗口全局事件归并
+   ↓
+全局事件收敛
    ↓
 Final Event Units
    ↓
@@ -33,13 +36,54 @@ Raw News/YYYY-MM-DD-EventUnits/
    ├── EVT-xxxx_事件名称.md
    └── _EVENT_UNITS_COMPLETE
 
-   ↓ Git commit + push（由外层 Workflow 负责）
+   ↓ Git commit + push（外层 Workflow）
    ↓ git pull
    ↓
 STAGE 2：27 Skills 深度处理
 
+
+================================================================
+V6 核心改进
+================================================================
+
+V5存在的核心问题：
+
+    Cluster Batch 1
+    Cluster Batch 2
+    Cluster Batch 3
+         ↓
+    同一事件如果落在不同Batch，
+    在该轮AI中可能永远无法相遇。
+
+V6改为：
+
+    Stage 1A
+         ↓
+    初始Clusters
+         ↓
+    Stage 1B
+         ↓
+    重叠窗口全局归并
+         ↓
+    Window Size = 30
+    Overlap = 15
+         ↓
+    同一事件即使跨原始Batch，
+    也能够在相邻窗口中相遇。
+         ↓
+    每轮结束后重新构建Cluster
+         ↓
+    下一轮继续归并
+         ↓
+    直到Cluster数量不再下降
+    或达到安全最大轮次。
+         ↓
+    最终全局Event Units
+
+
+================================================================
 核心规则
-============================================================
+================================================================
 
 1. Horizon完全由Horizon管理。
 2. 本程序不读取Horizon Config。
@@ -61,18 +105,22 @@ STAGE 2：27 Skills 深度处理
 18. 不同事件不得强行合并。
 19. 一篇文章最终只能属于一个EventUnit。
 20. AI返回重复ARTICLE ID时，不静默吞掉。
-21. 发现重复ARTICLE ID时记录清晰冲突日志，并自动要求AI重新修复本批聚类。
-22. 修复后仍不满足“一篇文章一个归属”则立即失败。
+21. 发现重复ARTICLE ID时记录冲突日志，并自动要求AI重新修复。
+22. 修复后仍失败立即退出。
 23. EventUnits目录存在则优先断点检查。
-24. 有效Event Index存在时，不重新执行事件聚类，只补缺失EventUnit。
+24. 有效Event Index存在时，不重新执行事件聚类。
 25. Index无效时重新建立完整Event Index。
-26. 只有所有EventUnit实际文件都存在并通过验证，才生成_EVENT_UNITS_COMPLETE。
-27. Stage 1完成后立即退出，不进入Stage 2。
+26. 所有EventUnit实际文件存在且有效后才生成完成标记。
+27. Stage 1完成后立即退出。
 28. Stage 2只读取已经保存的EventUnits。
 29. Stage 2不重新读取原始Enriched News。
-30. 三天由外层Workflow分别调用，日期彼此独立。
+30. 三天由外层Workflow分别调用。
 31. Source Enrichment不在本程序内处理。
 32. Git commit/push/pull不在本程序内处理。
+33. V6跨批次事件归并采用重叠窗口。
+34. 每一轮归并后检查文章集合是否发生变化。
+35. 绝不因为程序方便而自动抢文章归属。
+36. 最终Event Index必须100%覆盖全部Enriched News。
 """
 
 
@@ -140,22 +188,34 @@ AI_TIMEOUT = 180
 
 
 # ============================================================
-# 聚合参数
+# Stage 1 参数
 # ============================================================
 
+# 第一层：新闻 → 初始Cluster
 AGGREGATION_BATCH_SIZE = 40
 
-CLUSTER_MERGE_BATCH_SIZE = 30
+# 第二层：Cluster → 全局事件
+GLOBAL_MERGE_WINDOW_SIZE = 30
+
+# V6关键：
+# 相邻窗口之间重叠15个Cluster。
+GLOBAL_MERGE_OVERLAP = 15
+
+# 最大全局归并轮次，防止异常情况下无限循环。
+MAX_GLOBAL_MERGE_ROUNDS = 12
+
+# 单次Event最多给AI多少文章上下文。
+MAX_ARTICLES_PER_EVENT_CONTEXT = 30
 
 ARTICLE_CLUSTER_CONTENT_LIMIT = 3500
 
 ARTICLE_AGGREGATION_CONTENT_LIMIT = 8000
 
-MAX_ARTICLES_PER_EVENT_CONTEXT = 30
 
-# AI聚类冲突自动修复次数。
-# 第一次正常聚类失败后，会再次把本批输入和冲突信息交给AI修复。
-# 修复仍失败，则整个批次失败，绝不生成错误EventUnit。
+# ============================================================
+# AI聚类冲突自动修复
+# ============================================================
+
 CLUSTER_REPAIR_ATTEMPTS = 2
 
 
@@ -185,10 +245,9 @@ def log_conflict(
     details=None,
 ):
     """
-    写入清晰的事件聚类冲突日志。
+    写入事件聚类冲突日志。
 
-    注意：
-    这里不会把API Key写入日志。
+    不记录API Key。
     """
 
     LOGS.mkdir(
@@ -208,55 +267,98 @@ def log_conflict(
     ]
 
     if details is not None:
+
         try:
-            if isinstance(details, str):
+
+            if isinstance(
+                details,
+                str
+            ):
+
                 detail_text = details
+
             else:
+
                 detail_text = json.dumps(
                     details,
                     ensure_ascii=False,
                     indent=2
                 )
+
         except Exception:
+
             detail_text = str(details)
 
-        lines.append("DETAILS:")
-        lines.append(detail_text)
+        lines.append(
+            "DETAILS:"
+        )
 
-    lines.append("=" * 80)
+        lines.append(
+            detail_text
+        )
+
+    lines.append(
+        "=" * 80
+    )
+
     lines.append("")
 
     with path.open(
         "a",
         encoding="utf-8"
     ) as f:
-        f.write("\n".join(lines))
+
+        f.write(
+            "\n".join(lines)
+        )
 
     print()
-    print("⚠️ EVENT AGGREGATION CONFLICT")
-    print(f"   Stage : {stage}")
-    print(f"   Message: {message}")
+    print(
+        "⚠️ EVENT AGGREGATION CONFLICT"
+    )
+
+    print(
+        f"   Stage  : {stage}"
+    )
+
+    print(
+        f"   Message: {message}"
+    )
 
     if details is not None:
-        print("   Details:")
-        print(str(details)[:5000])
 
-    print(f"   Conflict log: {path}")
+        print(
+            "   Details:"
+        )
+
+        print(
+            str(details)[:5000]
+        )
+
+    print(
+        f"   Conflict log: {path}"
+    )
 
 
 # ============================================================
 # JSON
 # ============================================================
 
-def read_json(path: Path, default=None):
+def read_json(
+    path: Path,
+    default=None
+):
 
     if default is None:
+
         default = {}
 
     if not path.exists():
+
         return default
 
     try:
+
         return json.loads(
             path.read_text(
                 encoding="utf-8"
@@ -270,7 +372,10 @@ def read_json(path: Path, default=None):
         ) from exc
 
 
-def write_json(path: Path, data):
+def write_json(
+    path: Path,
+    data
+):
 
     path.parent.mkdir(
         parents=True,
@@ -278,11 +383,13 @@ def write_json(path: Path, data):
     )
 
     path.write_text(
+
         json.dumps(
             data,
             ensure_ascii=False,
             indent=2
         ),
+
         encoding="utf-8"
     )
 
@@ -296,9 +403,13 @@ def parse_ai_json(
     context: str
 ):
 
-    text = str(result).strip()
+    text = str(
+        result
+    ).strip()
 
-    if text.startswith("```"):
+    if text.startswith(
+        "```"
+    ):
 
         text = re.sub(
             r"^```(?:json)?\s*",
@@ -317,7 +428,9 @@ def parse_ai_json(
 
     try:
 
-        return json.loads(text)
+        return json.loads(
+            text
+        )
 
     except Exception as exc:
 
@@ -331,9 +444,13 @@ def parse_ai_json(
 # 文件名
 # ============================================================
 
-def safe_name(text: str):
+def safe_name(
+    text: str
+):
 
-    text = str(text or "")
+    text = str(
+        text or ""
+    )
 
     text = re.sub(
         r'[\\/:*?"<>|]',
@@ -349,7 +466,10 @@ def safe_name(text: str):
 
     text = text.strip()
 
-    return text[:120] or "未命名"
+    return (
+        text[:120]
+        or "未命名"
+    )
 
 
 # ============================================================
@@ -360,7 +480,9 @@ def parse_front_matter(
     content: str
 ):
 
-    if not content.startswith("---"):
+    if not content.startswith(
+        "---"
+    ):
 
         return {}, content
 
@@ -436,29 +558,39 @@ def call_ai(
 
     payload_data = {
 
-        "model": AGNES_MODEL,
+        "model":
+            AGNES_MODEL,
 
         "messages": [
 
             {
-                "role": "system",
-                "content": system_prompt,
+                "role":
+                    "system",
+
+                "content":
+                    system_prompt,
             },
 
             {
-                "role": "user",
-                "content": prompt,
+                "role":
+                    "user",
+
+                "content":
+                    prompt,
             },
 
         ],
 
-        "temperature": temperature,
+        "temperature":
+            temperature,
     }
 
     payload = json.dumps(
         payload_data,
         ensure_ascii=False
-    ).encode("utf-8")
+    ).encode(
+        "utf-8"
+    )
 
     request = Request(
 
@@ -479,17 +611,21 @@ def call_ai(
                 "application/json",
 
             "User-Agent":
-                "748686-Knowledge-Pipeline/5.0",
+                "748686-Knowledge-Pipeline/6.0",
         },
 
         method="POST",
     )
 
     print()
-    print("🤖 Calling AGNES.ai")
+    print(
+        "🤖 Calling AGNES.ai"
+    )
+
     print(
         f"   Model: {AGNES_MODEL}"
     )
+
     print(
         f"   Base URL: {AGNES_BASE_URL}"
     )
@@ -504,7 +640,9 @@ def call_ai(
             raw_response = (
                 response
                 .read()
-                .decode("utf-8")
+                .decode(
+                    "utf-8"
+                )
             )
 
     except HTTPError as exc:
@@ -583,13 +721,17 @@ def call_ai(
             )[:5000]
         ) from exc
 
-    if not result or not str(result).strip():
+    if not result or not str(
+        result
+    ).strip():
 
         raise RuntimeError(
             "❌ AGNES.ai 返回空内容"
         )
 
-    return str(result).strip()
+    return str(
+        result
+    ).strip()
 
 
 # ============================================================
@@ -617,11 +759,14 @@ def load_skills():
 
         skills[path.name] = {
 
-            "name": path.name,
+            "name":
+                path.name,
 
-            "path": str(path),
+            "path":
+                str(path),
 
-            "content": content,
+            "content":
+                content,
         }
 
     return skills
@@ -680,7 +825,9 @@ def route_skills(
 # Enriched
 # ============================================================
 
-def get_enriched_files(date):
+def get_enriched_files(
+    date
+):
 
     root = (
         RAW_NEWS
@@ -698,7 +845,9 @@ def get_enriched_files(date):
     )
 
 
-def load_news_file(path):
+def load_news_file(
+    path
+):
 
     content = path.read_text(
         encoding="utf-8",
@@ -711,17 +860,23 @@ def load_news_file(path):
 
     return {
 
-        "path": path,
+        "path":
+            path,
 
-        "metadata": metadata,
+        "metadata":
+            metadata,
 
-        "body": body,
+        "body":
+            body,
 
-        "content": content,
+        "content":
+            content,
     }
 
 
-def is_news(item):
+def is_news(
+    item
+):
 
     title = item[
         "metadata"
@@ -730,7 +885,9 @@ def is_news(item):
         ""
     ).strip()
 
-    return bool(title)
+    return bool(
+        title
+    )
 
 
 def load_all_enriched_news(
@@ -759,7 +916,9 @@ def load_all_enriched_news(
             path
         )
 
-        if is_news(item):
+        if is_news(
+            item
+        ):
 
             news_items.append(
                 item
@@ -775,13 +934,15 @@ def load_all_enriched_news(
             f"❌ {date} 没有有效新闻"
         )
 
-    # Horizon Score只负责排序，不负责截断
+    # Horizon Score只负责排序，不负责截断。
     def score(item):
 
         try:
 
             return float(
-                item["metadata"].get(
+                item[
+                    "metadata"
+                ].get(
                     "horizon_score",
                     0
                 )
@@ -843,21 +1004,6 @@ def inspect_cluster_assignment(
     clusters,
     expected_indexes,
 ):
-    """
-    返回聚类结果的结构化覆盖问题：
-
-    duplicate:
-        同一ARTICLE出现在多个cluster中。
-
-    missing:
-        输入ARTICLE没有被任何cluster覆盖。
-
-    extra:
-        AI创造了输入之外的ARTICLE编号。
-
-    malformed:
-        cluster/article_indexes结构错误。
-    """
 
     expected = set(
         int(x)
@@ -881,6 +1027,7 @@ def inspect_cluster_assignment(
             malformed.append(
                 f"cluster[{cluster_position}]不是对象"
             )
+
             continue
 
         indexes = cluster.get(
@@ -895,18 +1042,31 @@ def inspect_cluster_assignment(
             malformed.append(
                 f"cluster[{cluster_position}] article_indexes不是数组"
             )
+
+            continue
+
+        if not indexes:
+
+            malformed.append(
+                f"cluster[{cluster_position}]为空Cluster"
+            )
+
             continue
 
         for raw_index in indexes:
 
             try:
+
                 article_index = int(
                     raw_index
                 )
+
             except Exception:
+
                 malformed.append(
                     f"cluster[{cluster_position}]存在无法转换的ARTICLE ID：{raw_index}"
                 )
+
                 continue
 
             occurrences.setdefault(
@@ -917,9 +1077,13 @@ def inspect_cluster_assignment(
             )
 
     duplicate = {
-        article_index: positions
+
+        article_index:
+            positions
+
         for article_index, positions
         in occurrences.items()
+
         if len(positions) > 1
     }
 
@@ -936,22 +1100,42 @@ def inspect_cluster_assignment(
     )
 
     return {
-        "duplicate": duplicate,
-        "missing": missing,
-        "extra": extra,
-        "malformed": malformed,
+
+        "duplicate":
+            duplicate,
+
+        "missing":
+            missing,
+
+        "extra":
+            extra,
+
+        "malformed":
+            malformed,
     }
 
 
 def cluster_assignment_is_valid(
     issues
 ):
+
     return not any(
         [
-            issues["duplicate"],
-            issues["missing"],
-            issues["extra"],
-            issues["malformed"],
+            issues[
+                "duplicate"
+            ],
+
+            issues[
+                "missing"
+            ],
+
+            issues[
+                "extra"
+            ],
+
+            issues[
+                "malformed"
+            ],
         ]
     )
 
@@ -963,17 +1147,6 @@ def cluster_assignment_is_valid(
 def normalize_cluster_indexes(
     clusters
 ):
-    """
-    只做类型转换，不做任何“自动抢归属”。
-
-    这是故意的：
-    如果AI把ARTICLE 153放进两个cluster，
-    我们不能武断地替AI决定它应该属于哪个事件。
-
-    正确做法是：
-    记录冲突 → AI修复 → 再验证。
-
-    """
 
     normalized = []
 
@@ -983,9 +1156,11 @@ def normalize_cluster_indexes(
             cluster,
             dict
         ):
+
             normalized.append(
                 cluster
             )
+
             continue
 
         copied = dict(
@@ -1007,10 +1182,13 @@ def normalize_cluster_indexes(
             for value in indexes:
 
                 try:
+
                     converted.append(
                         int(value)
                     )
+
                 except Exception:
+
                     converted.append(
                         value
                     )
@@ -1083,7 +1261,7 @@ def cluster_news_batch(
     )
 
     prompt = f"""
-你现在正在执行748686自生长知识系统的第二层事件聚合。
+你现在正在执行748686自生长知识系统V6第二层事件聚合。
 
 日期：
 {date}
@@ -1151,18 +1329,6 @@ def cluster_news_batch(
 
 必须且只能属于一个cluster。
 
-例如：
-
-ARTICLE 153不能同时出现在：
-
-cluster C001
-和
-cluster C004
-
-如果ARTICLE 153与ARTICLE 200属于同一事件，
-应该把它们放入同一个cluster，
-而不是让ARTICLE 153重复出现。
-
 如果某ARTICLE无法与任何其他文章合并：
 
 自己成为一个cluster。
@@ -1200,28 +1366,15 @@ cluster C004
 输出前强制自检
 ============================================================
 
-在输出JSON之前，请你自己检查：
+1. ARTICLE总覆盖数必须等于输入ARTICLE数量。
+2. 每个ARTICLE必须只出现一次。
+3. 不得出现重复ARTICLE ID。
+4. 不得出现输入之外的ARTICLE ID。
+5. 不得遗漏ARTICLE。
+6. 每个cluster至少包含一个ARTICLE。
+7. cluster_id必须唯一。
 
-1. ARTICLE总覆盖数是否等于输入ARTICLE数量。
-2. 每个ARTICLE是否只出现一次。
-3. 是否出现重复ARTICLE ID。
-4. 是否出现输入之外的ARTICLE ID。
-5. 是否遗漏ARTICLE。
-6. 每个cluster是否至少包含一个ARTICLE。
-7. cluster_id是否唯一。
-
-如果发现冲突，必须先在内部修正，再输出最终JSON。
-
-要求：
-
-1. article_indexes必须来自输入。
-2. 必须覆盖全部ARTICLE。
-3. 不得重复ARTICLE。
-4. 不得创造ARTICLE。
-5. cluster_id必须唯一。
-6. event_title必须是事件名称，不是标题堆砌。
-7. event_reason简洁。
-8. 只输出JSON。
+只输出JSON。
 """
 
     result = call_ai(
@@ -1230,7 +1383,6 @@ cluster C004
 
         system_prompt=(
             "你是全球新闻事件聚类专家。"
-            "你必须直接分析用户提供的ARTICLE。"
             "每篇ARTICLE必须且只能归属于一个cluster。"
             "绝对禁止重复ARTICLE ID。"
             "绝对禁止遗漏ARTICLE。"
@@ -1276,15 +1428,6 @@ def repair_cluster_news_batch(
     issues,
     attempt,
 ):
-    """
-    当AI第一次聚类出现重复/遗漏/越界时，
-    不直接人工猜测归属。
-
-    重新把本批真实文章 + 错误聚类结果 + 冲突信息
-    交给AI进行修复。
-
-    修复结果仍必须经过严格覆盖检查。
-    """
 
     articles = []
 
@@ -1329,7 +1472,7 @@ def repair_cluster_news_batch(
     )
 
     prompt = f"""
-你正在修复748686自生长知识系统第二层事件聚合中的一个严重覆盖冲突。
+你正在修复748686自生长知识系统V6中的ARTICLE覆盖冲突。
 
 日期：
 {date}
@@ -1344,7 +1487,7 @@ def repair_cluster_news_batch(
 {joined_articles}
 
 ============================================================
-AI上一次错误的聚类结果
+AI上一次错误聚类
 ============================================================
 
 {broken_json}
@@ -1356,12 +1499,12 @@ AI上一次错误的聚类结果
 {issue_json}
 
 ============================================================
-修复任务
+修复要求
 ============================================================
 
-请重新检查全部ARTICLE。
+重新检查全部ARTICLE。
 
-你必须同时满足：
+必须满足：
 
 1. 同一个现实世界事件尽量归入同一个cluster。
 2. 不同现实世界事件不能强行合并。
@@ -1370,12 +1513,12 @@ AI上一次错误的聚类结果
 5. 不允许遗漏任何ARTICLE。
 6. 不允许创造任何ARTICLE编号。
 7. 不允许修改ARTICLE编号。
-8. 如果一个ARTICLE无法与其他文章合并，让它单独成为cluster。
+8. 无法合并的ARTICLE单独成为cluster。
 9. 不确定时宁可分开。
-10. 必须依据文章内容判断，不依据cluster原结果盲目修复。
+10. 必须重新依据文章内容判断。
 
 ============================================================
-本批完整ARTICLE编号
+本批ARTICLE编号
 ============================================================
 
 {json.dumps(
@@ -1384,18 +1527,16 @@ AI上一次错误的聚类结果
 )}
 
 ============================================================
-输出前强制检查
+最终强制检查
 ============================================================
 
-在输出之前逐项检查：
+Missing = 0
+Duplicate = 0
+Extra = 0
 
-- 输入ARTICLE数量 = 输出ARTICLE归属总数
-- 每个ARTICLE出现次数 = 1
-- Missing = 0
-- Duplicate = 0
-- Extra = 0
-
-如果发现任何问题，必须在内部重新修正。
+输入ARTICLE数量
+必须等于
+输出ARTICLE归属总数。
 
 ============================================================
 输出
@@ -1409,7 +1550,7 @@ AI上一次错误的聚类结果
       "cluster_id": "C001",
       "article_indexes": [1, 7, 13],
       "event_title": "统一事件名称",
-      "event_reason": "为什么这些文章属于同一个现实世界事件"
+      "event_reason": "事件判断"
     }}
   ]
 }}
@@ -1421,7 +1562,6 @@ AI上一次错误的聚类结果
 
         system_prompt=(
             "你是新闻事件聚类冲突修复专家。"
-            "你必须修复ARTICLE覆盖冲突。"
             "一篇ARTICLE绝对不能属于多个cluster。"
             "绝对不能遗漏ARTICLE。"
             "绝对不能创造ARTICLE编号。"
@@ -1433,7 +1573,7 @@ AI上一次错误的聚类结果
 
     data = parse_ai_json(
         result,
-        f"{date} 第一轮新闻聚类冲突修复 #{attempt}"
+        f"{date} 聚类冲突修复 #{attempt}"
     )
 
     clusters = data.get(
@@ -1455,7 +1595,7 @@ AI上一次错误的聚类结果
 
 
 # ============================================================
-# 带自动冲突修复的第一轮聚类
+# 带自动修复的第一轮聚类
 # ============================================================
 
 def cluster_news_batch_with_repair(
@@ -1474,35 +1614,47 @@ def cluster_news_batch_with_repair(
     )
 
     clusters = cluster_news_batch(
+
         date,
+
         batch_items,
+
         batch_start_index
     )
 
     issues = inspect_cluster_assignment(
+
         clusters,
+
         expected_indexes
     )
 
     if cluster_assignment_is_valid(
         issues
     ):
+
         return clusters
 
-    # --------------------------------------------------------
-    # 第一次发现冲突：
-    # 必须记录完整日志。
-    # --------------------------------------------------------
-
     log_conflict(
+
         date,
+
         f"STAGE 1A / BATCH {batch_number}",
-        "AI第一次聚类返回了非法ARTICLE归属，启动自动修复。",
+
+        "AI第一次聚类返回非法ARTICLE归属，启动自动修复。",
+
         {
-            "batch_number": batch_number,
-            "expected_indexes": expected_indexes,
-            "issues": issues,
-            "broken_clusters": clusters,
+            "batch_number":
+                batch_number,
+
+            "expected_indexes":
+                expected_indexes,
+
+            "issues":
+                issues,
+
+            "broken_clusters":
+                clusters,
         }
     )
 
@@ -1551,43 +1703,37 @@ def cluster_news_batch_with_repair(
                 "   ✅ Cluster conflict repaired successfully."
             )
 
-            log_conflict(
-                date,
-                f"STAGE 1A / BATCH {batch_number}",
-                "AI聚类冲突已成功修复。",
-                {
-                    "repair_attempt": attempt,
-                    "final_cluster_count":
-                        len(repaired_clusters),
-                }
-            )
-
             return repaired_clusters
 
         log_conflict(
+
             date,
+
             f"STAGE 1A / BATCH {batch_number}",
+
             f"第{attempt}次聚类冲突修复仍然失败。",
+
             {
-                "repair_attempt": attempt,
-                "issues": repaired_issues,
-                "clusters": repaired_clusters,
+                "repair_attempt":
+                    attempt,
+
+                "issues":
+                    repaired_issues,
+
+                "clusters":
+                    repaired_clusters,
             }
         )
 
-    # --------------------------------------------------------
-    # 修复次数用尽：
-    # 绝不继续生成EventUnits。
-    # --------------------------------------------------------
-
     raise RuntimeError(
+
         f"❌ {date} Batch {batch_number} "
         f"ARTICLE聚类覆盖冲突无法自动修复。\n"
         f"Duplicate={repaired_issues['duplicate']}\n"
         f"Missing={repaired_issues['missing']}\n"
         f"Extra={repaired_issues['extra']}\n"
         f"Malformed={repaired_issues['malformed']}\n"
-        f"详细冲突日志：{conflict_log_path(date)}"
+        f"详细日志：{conflict_log_path(date)}"
     )
 
 
@@ -1603,309 +1749,48 @@ def validate_cluster_coverage(
 ):
 
     issues = inspect_cluster_assignment(
+
         clusters,
+
         expected_indexes
     )
 
     if cluster_assignment_is_valid(
         issues
     ):
+
         return
 
     if date:
 
         log_conflict(
+
             date,
+
             context,
+
             "聚类覆盖验证失败。",
+
             {
                 "expected_indexes":
                     list(expected_indexes),
+
                 "issues":
                     issues,
+
                 "clusters":
                     clusters,
             }
         )
 
     raise RuntimeError(
+
         f"❌ {context} 聚类覆盖失败\n"
         f"Duplicate={issues['duplicate']}\n"
         f"Missing={issues['missing']}\n"
         f"Extra={issues['extra']}\n"
         f"Malformed={issues['malformed']}"
     )
-
-
-# ============================================================
-# 跨批次Cluster合并
-# ============================================================
-
-def merge_cluster_batch(
-    date,
-    clusters,
-    merge_round,
-    batch_index,
-):
-
-    descriptors = []
-
-    for index, cluster in enumerate(
-        clusters,
-        start=1
-    ):
-
-        descriptors.append(
-            f"""
-[CLUSTER {index}]
-
-cluster_id：
-{cluster["cluster_id"]}
-
-事件名称：
-{cluster["event_title"]}
-
-事件判断：
-{cluster["event_reason"]}
-
-包含文章：
-{json.dumps(
-    cluster.get(
-        "article_indexes",
-        []
-    ),
-    ensure_ascii=False
-)}
-"""
-        )
-
-    joined = "\n\n".join(
-        descriptors
-    )
-
-    if not joined.strip():
-
-        raise RuntimeError(
-            f"❌ {date} 跨批次Cluster输入为空"
-        )
-
-    prompt = f"""
-你正在执行748686自生长知识系统的跨批次事件合并。
-
-日期：
-{date}
-
-第 {merge_round} 轮
-第 {batch_index} 批
-
-============================================================
-Cluster输入
-============================================================
-
-{joined}
-
-============================================================
-任务
-============================================================
-
-判断哪些Cluster实际上属于同一个现实世界事件。
-
-原则：
-
-1. 同事件 → 合并。
-2. 同主题不同事件 → 分开。
-3. 同公司不同事件 → 分开。
-4. 同行业不同事件 → 分开。
-5. 不确定 → 不合并。
-6. 宁可少合并，不要错误合并。
-
-============================================================
-覆盖
-============================================================
-
-每个输入CLUSTER必须且只能进入一个group。
-
-不得遗漏。
-
-不得重复。
-
-不得创造不存在的CLUSTER编号。
-
-如果两个Cluster属于同一事件：
-可以放入同一个group。
-
-如果不属于同一事件：
-各自成为独立group。
-
-============================================================
-输出前强制检查
-============================================================
-
-输入Cluster编号为：
-
-{json.dumps(
-    list(range(1, len(clusters) + 1)),
-    ensure_ascii=False
-)}
-
-检查：
-
-1. 每个Cluster编号恰好出现一次。
-2. 不得重复Cluster。
-3. 不得遗漏Cluster。
-4. 不得创造Cluster编号。
-
-============================================================
-输出
-============================================================
-
-只输出合法JSON：
-
-{{
-  "groups": [
-    {{
-      "group_id": "G001",
-      "cluster_indexes": [1, 4, 8],
-      "event_title": "统一事件名称",
-      "reason": "为什么这些Cluster属于同一事件"
-    }},
-    {{
-      "group_id": "G002",
-      "cluster_indexes": [2],
-      "event_title": "独立事件",
-      "reason": "为什么独立"
-    }}
-  ]
-}}
-"""
-
-    result = call_ai(
-
-        prompt,
-
-        system_prompt=(
-            "你是跨来源新闻事件归并专家。"
-            "必须覆盖所有输入Cluster。"
-            "每个Cluster必须且只能属于一个group。"
-            "必须返回合法JSON。"
-        ),
-
-        temperature=0,
-    )
-
-    data = parse_ai_json(
-        result,
-        f"{date} 第{merge_round}轮跨批次聚合"
-    )
-
-    groups = data.get(
-        "groups"
-    )
-
-    if not isinstance(
-        groups,
-        list
-    ):
-
-        raise RuntimeError(
-            f"❌ {date} 跨批次合并缺少groups"
-        )
-
-    expected = set(
-        range(
-            1,
-            len(clusters) + 1
-        )
-    )
-
-    actual = []
-
-    for group in groups:
-
-        indexes = group.get(
-            "cluster_indexes",
-            []
-        )
-
-        if not isinstance(
-            indexes,
-            list
-        ):
-
-            raise RuntimeError(
-                f"❌ {date} 跨批次合并存在非法cluster_indexes"
-            )
-
-        actual.extend(
-            indexes
-        )
-
-    duplicate = [
-        x
-        for x in set(actual)
-        if actual.count(x) > 1
-    ]
-
-    if duplicate:
-
-        log_conflict(
-            date,
-            f"STAGE 1B / ROUND {merge_round} / BATCH {batch_index}",
-            "AI跨批次合并返回重复Cluster。",
-            {
-                "duplicate_cluster_indexes":
-                    duplicate,
-                "expected":
-                    sorted(expected),
-                "actual":
-                    actual,
-                "groups":
-                    groups,
-            }
-        )
-
-        raise RuntimeError(
-            f"❌ {date} 跨批次合并存在重复Cluster："
-            f"{duplicate}"
-        )
-
-    actual_set = set(actual)
-
-    missing = sorted(
-        expected - actual_set
-    )
-
-    extra = sorted(
-        actual_set - expected
-    )
-
-    if missing or extra:
-
-        log_conflict(
-            date,
-            f"STAGE 1B / ROUND {merge_round} / BATCH {batch_index}",
-            "AI跨批次合并覆盖异常。",
-            {
-                "missing":
-                    missing,
-                "extra":
-                    extra,
-                "expected":
-                    sorted(expected),
-                "actual":
-                    actual,
-                "groups":
-                    groups,
-            }
-        )
-
-        raise RuntimeError(
-            f"❌ {date} 跨批次覆盖异常\n"
-            f"Missing={missing}\n"
-            f"Extra={extra}"
-        )
-
-    return groups
 
 
 # ============================================================
@@ -1924,9 +1809,17 @@ def build_initial_clusters(
     )
 
     print()
-    print("=" * 70)
-    print("STAGE 1A — AI EVENT CLUSTERING")
-    print("=" * 70)
+    print(
+        "=" * 70
+    )
+
+    print(
+        "STAGE 1A — AI EVENT CLUSTERING"
+    )
+
+    print(
+        "=" * 70
+    )
 
     print(
         f"Input Enriched News: {total}"
@@ -1974,10 +1867,6 @@ def build_initial_clusters(
             batch_number
         )
 
-        # ----------------------------------------------------
-        # 修复后的最终强制检查
-        # ----------------------------------------------------
-
         validate_cluster_coverage(
 
             clusters,
@@ -1997,10 +1886,13 @@ def build_initial_clusters(
         for cluster in clusters:
 
             article_indexes = [
+
                 int(x)
+
                 for x in cluster[
                     "article_indexes"
                 ]
+
             ]
 
             all_clusters.append({
@@ -2029,10 +1921,6 @@ def build_initial_clusters(
             f"   Clusters generated: "
             f"{len(clusters)}"
         )
-
-    # --------------------------------------------------------
-    # 整个Stage 1A再次做一次总覆盖检查
-    # --------------------------------------------------------
 
     validate_cluster_coverage(
 
@@ -2065,316 +1953,1062 @@ def build_initial_clusters(
 
 
 # ============================================================
-# Stage 1B
+# V6 Cluster窗口
+# ============================================================
+
+def build_merge_windows(
+    clusters
+):
+
+    total = len(
+        clusters
+    )
+
+    if total <= GLOBAL_MERGE_WINDOW_SIZE:
+
+        return [
+            clusters
+        ]
+
+    step = (
+        GLOBAL_MERGE_WINDOW_SIZE
+        - GLOBAL_MERGE_OVERLAP
+    )
+
+    if step <= 0:
+
+        raise RuntimeError(
+            "❌ GLOBAL_MERGE_WINDOW_SIZE必须大于GLOBAL_MERGE_OVERLAP"
+        )
+
+    windows = []
+
+    start = 0
+
+    while start < total:
+
+        end = min(
+            start
+            + GLOBAL_MERGE_WINDOW_SIZE,
+            total
+        )
+
+        window = clusters[
+            start:end
+        ]
+
+        windows.append(
+            window
+        )
+
+        if end >= total:
+
+            break
+
+        start += step
+
+    return windows
+
+
+# ============================================================
+# Cluster描述
+# ============================================================
+
+def build_cluster_descriptor(
+    cluster,
+    local_index
+):
+
+    return f"""
+[CLUSTER {local_index}]
+
+Cluster ID：
+{cluster["cluster_id"]}
+
+事件名称：
+{cluster.get("event_title", "未命名事件")}
+
+事件判断：
+{cluster.get("event_reason", "")}
+
+文章数量：
+{len(cluster.get("article_indexes", []))}
+
+文章编号：
+{json.dumps(
+    cluster.get(
+        "article_indexes",
+        []
+    ),
+    ensure_ascii=False
+)}
+"""
+
+
+# ============================================================
+# V6窗口AI归并
+# ============================================================
+
+def merge_cluster_window(
+    date,
+    window,
+    merge_round,
+    window_index,
+):
+
+    descriptors = []
+
+    for index, cluster in enumerate(
+        window,
+        start=1
+    ):
+
+        descriptors.append(
+            build_cluster_descriptor(
+                cluster,
+                index
+            )
+        )
+
+    joined = "\n\n".join(
+        descriptors
+    )
+
+    if not joined.strip():
+
+        raise RuntimeError(
+            f"❌ {date} Global Merge输入为空"
+        )
+
+    expected_indexes = list(
+        range(
+            1,
+            len(window) + 1
+        )
+    )
+
+    prompt = f"""
+你正在执行748686自生长知识系统V6的全局事件归并。
+
+日期：
+{date}
+
+全局归并轮次：
+{merge_round}
+
+当前窗口：
+{window_index}
+
+============================================================
+重要说明
+============================================================
+
+这些Cluster来自前面的新闻事件聚类。
+
+现在不是判断“主题是否相似”。
+
+而是判断：
+
+这些Cluster是否描述同一个现实世界事件。
+
+必须区分：
+
+同事件
+
+和
+
+同主题。
+
+============================================================
+Cluster输入
+============================================================
+
+{joined}
+
+============================================================
+合并原则
+============================================================
+
+可以合并：
+
+- 同一个具体现实世界事件
+- 同一次政策发布
+- 同一次公司重大动作
+- 同一次产品发布
+- 同一次事故
+- 同一次会议中的同一具体事件
+- 同一个具体市场事件
+- 同一个人物具体事件
+- 不同国家/语言媒体对同一事件的报道
+
+不得合并：
+
+- 同一公司不同事件
+- 同一人物不同事件
+- 同一行业不同事件
+- 同一政策领域不同政策
+- 同一产品不同版本事件
+- 同一个长期趋势中的不同具体事件
+- 仅仅因为关键词相同而相关的事件
+
+如果无法确认：
+
+宁可分开。
+
+============================================================
+绝对覆盖要求
+============================================================
+
+输入Cluster编号：
+
+{json.dumps(
+    expected_indexes,
+    ensure_ascii=False
+)}
+
+每个输入Cluster必须：
+
+且只能：
+
+进入一个group。
+
+不得遗漏。
+
+不得重复。
+
+不得创造不存在的Cluster编号。
+
+============================================================
+输出
+============================================================
+
+只输出合法JSON：
+
+{{
+  "groups": [
+    {{
+      "group_id": "G001",
+      "cluster_indexes": [1, 4, 8],
+      "event_title": "统一事件名称",
+      "reason": "为什么这些Cluster属于同一个现实世界事件"
+    }},
+    {{
+      "group_id": "G002",
+      "cluster_indexes": [2],
+      "event_title": "独立事件",
+      "reason": "为什么独立"
+    }}
+  ]
+}}
+
+============================================================
+输出前必须自检
+============================================================
+
+1. 输入Cluster数量 = 输出Cluster归属总数。
+2. 每个Cluster出现恰好一次。
+3. Duplicate = 0。
+4. Missing = 0。
+5. Extra = 0。
+6. 每个group至少一个Cluster。
+7. group_id唯一。
+
+只输出JSON。
+"""
+
+    result = call_ai(
+
+        prompt,
+
+        system_prompt=(
+            "你是全球新闻事件归并专家。"
+            "当前任务是判断Cluster是否属于同一个现实世界事件。"
+            "必须覆盖全部输入Cluster。"
+            "每个Cluster必须且只能进入一个group。"
+            "不得强行合并。"
+            "必须返回合法JSON。"
+        ),
+
+        temperature=0,
+    )
+
+    data = parse_ai_json(
+        result,
+        (
+            f"{date} "
+            f"Global Merge Round {merge_round} "
+            f"Window {window_index}"
+        )
+    )
+
+    groups = data.get(
+        "groups"
+    )
+
+    if not isinstance(
+        groups,
+        list
+    ):
+
+        raise RuntimeError(
+            f"❌ {date} Global Merge缺少groups"
+        )
+
+    actual = []
+
+    malformed = []
+
+    for group_position, group in enumerate(
+        groups,
+        start=1
+    ):
+
+        if not isinstance(
+            group,
+            dict
+        ):
+
+            malformed.append(
+                f"group[{group_position}]不是对象"
+            )
+
+            continue
+
+        indexes = group.get(
+            "cluster_indexes"
+        )
+
+        if not isinstance(
+            indexes,
+            list
+        ):
+
+            malformed.append(
+                f"group[{group_position}] cluster_indexes不是数组"
+            )
+
+            continue
+
+        if not indexes:
+
+            malformed.append(
+                f"group[{group_position}]为空"
+            )
+
+            continue
+
+        for value in indexes:
+
+            try:
+
+                actual.append(
+                    int(value)
+                )
+
+            except Exception:
+
+                malformed.append(
+                    f"group[{group_position}]非法Cluster编号：{value}"
+                )
+
+    duplicate = sorted(
+        {
+            x
+            for x in actual
+            if actual.count(x) > 1
+        }
+    )
+
+    expected = set(
+        expected_indexes
+    )
+
+    actual_set = set(
+        actual
+    )
+
+    missing = sorted(
+        expected
+        - actual_set
+    )
+
+    extra = sorted(
+        actual_set
+        - expected
+    )
+
+    if (
+        duplicate
+        or
+        missing
+        or
+        extra
+        or
+        malformed
+    ):
+
+        log_conflict(
+
+            date,
+
+            (
+                f"STAGE 1B / ROUND {merge_round} "
+                f"/ WINDOW {window_index}"
+            ),
+
+            "V6 Global Merge窗口覆盖异常。",
+
+            {
+                "duplicate":
+                    duplicate,
+
+                "missing":
+                    missing,
+
+                "extra":
+                    extra,
+
+                "malformed":
+                    malformed,
+
+                "groups":
+                    groups,
+            }
+        )
+
+        raise RuntimeError(
+
+            f"❌ {date} Global Merge覆盖异常\n"
+            f"Duplicate={duplicate}\n"
+            f"Missing={missing}\n"
+            f"Extra={extra}\n"
+            f"Malformed={malformed}"
+        )
+
+    return groups
+
+
+# ============================================================
+# 根据窗口结果生成局部归并Cluster
+# ============================================================
+
+def build_window_merged_clusters(
+    window,
+    groups,
+    merge_round,
+    window_index,
+):
+
+    result = []
+
+    for group_position, group in enumerate(
+        groups,
+        start=1
+    ):
+
+        article_indexes = []
+
+        titles = []
+
+        reasons = []
+
+        for cluster_index in group[
+            "cluster_indexes"
+        ]:
+
+            source_cluster = window[
+                int(cluster_index) - 1
+            ]
+
+            article_indexes.extend(
+                source_cluster[
+                    "article_indexes"
+                ]
+            )
+
+            titles.append(
+                source_cluster.get(
+                    "event_title",
+                    ""
+                )
+            )
+
+            reasons.append(
+                source_cluster.get(
+                    "event_reason",
+                    ""
+                )
+            )
+
+        result.append({
+
+            "cluster_id":
+                (
+                    f"R{merge_round:02d}"
+                    f"W{window_index:03d}"
+                    f"G{group_position:03d}"
+                ),
+
+            "event_title":
+                group.get(
+                    "event_title",
+                    "未命名事件"
+                ),
+
+            "event_reason":
+                group.get(
+                    "reason",
+                    ""
+                ),
+
+            "article_indexes":
+                sorted(
+                    set(
+                        article_indexes
+                    )
+                ),
+        })
+
+    return result
+
+
+# ============================================================
+# Cluster唯一性辅助
+# ============================================================
+
+def article_signature(
+    cluster
+):
+
+    return tuple(
+        sorted(
+            set(
+                int(x)
+                for x in cluster.get(
+                    "article_indexes",
+                    []
+                )
+            )
+        )
+    )
+
+
+def cluster_signature(
+    cluster
+):
+
+    return article_signature(
+        cluster
+    )
+
+
+# ============================================================
+# V6重叠窗口全局归并
 # ============================================================
 
 def merge_all_clusters(
     date,
     clusters,
+    news_count,
 ):
 
     current = clusters
 
-    merge_round = 1
-
     print()
-    print("=" * 70)
-    print("STAGE 1B — CROSS-BATCH MERGING")
-    print("=" * 70)
+    print(
+        "=" * 70
+    )
+
+    print(
+        "STAGE 1B — V6 GLOBAL EVENT MERGING"
+    )
+
+    print(
+        "=" * 70
+    )
 
     print(
         f"Initial Clusters: {len(current)}"
     )
 
-    while len(current) > CLUSTER_MERGE_BATCH_SIZE:
+    print(
+        f"Window Size: {GLOBAL_MERGE_WINDOW_SIZE}"
+    )
+
+    print(
+        f"Window Overlap: {GLOBAL_MERGE_OVERLAP}"
+    )
+
+    print(
+        f"Max Rounds: {MAX_GLOBAL_MERGE_ROUNDS}"
+    )
+
+    # --------------------------------------------------------
+    # 如果初始Cluster已经很少，
+    # 仍然进行一次全局判断。
+    # --------------------------------------------------------
+
+    for merge_round in range(
+        1,
+        MAX_GLOBAL_MERGE_ROUNDS + 1
+    ):
 
         print()
         print(
-            f"🔄 Merge Round {merge_round}"
+            "=" * 70
         )
 
-        next_level = []
+        print(
+            f"GLOBAL MERGE ROUND {merge_round}"
+        )
 
-        batch_number = 0
+        print(
+            "=" * 70
+        )
 
-        for start in range(
-            0,
-            len(current),
-            CLUSTER_MERGE_BATCH_SIZE
-        ):
+        before_count = len(
+            current
+        )
 
-            batch_number += 1
+        print(
+            f"Input Clusters: {before_count}"
+        )
 
-            batch = current[
-                start:
-                start
-                + CLUSTER_MERGE_BATCH_SIZE
-            ]
+        # ----------------------------------------------------
+        # 如果只有一个Cluster，不需要AI合并。
+        # ----------------------------------------------------
+
+        if before_count == 1:
 
             print(
-                f"   Merge Batch "
-                f"{batch_number}: "
-                f"{start + 1}-"
-                f"{start + len(batch)}"
+                "   Only one cluster remains."
             )
 
-            groups = merge_cluster_batch(
+            break
+
+        windows = build_merge_windows(
+            current
+        )
+
+        print(
+            f"Windows: {len(windows)}"
+        )
+
+        print(
+            f"Overlap: {GLOBAL_MERGE_OVERLAP}"
+        )
+
+        # ----------------------------------------------------
+        # V6核心：
+        #
+        # 每个窗口独立AI判断。
+        #
+        # 由于窗口重叠：
+        #
+        # Window 1:
+        #   C1 ... C30
+        #
+        # Window 2:
+        #   C16 ... C45
+        #
+        # Window 3:
+        #   C31 ... C60
+        #
+        # 同一个事件即使跨原始边界，
+        # 也有机会在Overlap窗口中相遇。
+        # ----------------------------------------------------
+
+        window_results = []
+
+        for window_index, window in enumerate(
+            windows,
+            start=1
+        ):
+
+            start_cluster = (
+                1
+                + (
+                    window_index - 1
+                )
+                * (
+                    GLOBAL_MERGE_WINDOW_SIZE
+                    - GLOBAL_MERGE_OVERLAP
+                )
+            )
+
+            end_cluster = (
+                start_cluster
+                + len(window)
+                - 1
+            )
+
+            print()
+            print(
+                f"🔹 Window {window_index}/"
+                f"{len(windows)}"
+                f" | clusters "
+                f"{start_cluster}-"
+                f"{end_cluster}"
+                f" | size={len(window)}"
+            )
+
+            groups = merge_cluster_window(
 
                 date,
 
-                batch,
+                window,
 
                 merge_round,
 
-                batch_number
+                window_index
             )
 
-            for group in groups:
+            merged = build_window_merged_clusters(
 
-                article_indexes = []
+                window,
 
-                for cluster_index in group[
-                    "cluster_indexes"
-                ]:
+                groups,
 
-                    source_cluster = batch[
-                        cluster_index - 1
+                merge_round,
+
+                window_index
+            )
+
+            print(
+                f"   Input : {len(window)}"
+            )
+
+            print(
+                f"   Output: {len(merged)}"
+            )
+
+            window_results.append(
+                merged
+            )
+
+        # ----------------------------------------------------
+        # 将重叠窗口结果重新统一。
+        #
+        # 同一Cluster可能在两个窗口中出现，
+        # 因此不能简单append。
+        #
+        # 这里使用“文章集合签名”进行确定性去重。
+        # 如果两个窗口产生完全相同文章集合，
+        # 认为是同一个中间Cluster。
+        # ----------------------------------------------------
+
+        dedup = {}
+
+        for merged_window in window_results:
+
+            for cluster in merged_window:
+
+                signature = cluster_signature(
+                    cluster
+                )
+
+                if not signature:
+
+                    raise RuntimeError(
+                        f"❌ {date} "
+                        "V6 Global Merge产生空Cluster"
+                    )
+
+                if signature not in dedup:
+
+                    dedup[
+                        signature
+                    ] = cluster
+
+                else:
+
+                    # ------------------------------------------------
+                    # 相同文章集合来自多个重叠窗口。
+                    #
+                    # 保留更完整的标题/判断。
+                    # 不重新调用AI。
+                    # ------------------------------------------------
+
+                    existing = dedup[
+                        signature
                     ]
 
-                    article_indexes.extend(
-                        source_cluster[
-                            "article_indexes"
-                        ]
-                    )
-
-                next_level.append({
-
-                    "cluster_id":
-                        f"R{merge_round:02d}-"
-                        f"G{len(next_level) + 1:04d}",
-
-                    "event_title":
-                        group.get(
-                            "event_title",
-                            "未命名事件"
-                        ),
-
-                    "event_reason":
-                        group.get(
-                            "reason",
-                            ""
-                        ),
-
-                    "article_indexes":
-                        sorted(
-                            set(
-                                article_indexes
+                    if (
+                        len(
+                            cluster.get(
+                                "event_reason",
+                                ""
                             )
-                        ),
-                })
+                        )
+                        >
+                        len(
+                            existing.get(
+                                "event_reason",
+                                ""
+                            )
+                        )
+                    ):
+
+                        dedup[
+                            signature
+                        ] = cluster
+
+        merged_unique = list(
+            dedup.values()
+        )
 
         # ----------------------------------------------------
-        # 每一轮完成后，检查文章是否仍然一篇只属于一个Cluster
+        # 注意：
+        #
+        # 仅仅去重还不够。
+        #
+        # 如果：
+        #
+        # Window 1:
+        #   [ARTICLE 1,2]
+        #
+        # Window 2:
+        #   [ARTICLE 2,3]
+        #
+        # 那么它们不是同一签名。
+        #
+        # 需要继续下一轮，
+        # 让这些跨窗口事件再次相遇。
         # ----------------------------------------------------
 
-        previous_indexes = []
-
-        for cluster in current:
-
-            previous_indexes.extend(
-                cluster.get(
-                    "article_indexes",
-                    []
+        merged_unique.sort(
+            key=lambda x: (
+                min(
+                    x[
+                        "article_indexes"
+                    ]
                 )
+                if x[
+                    "article_indexes"
+                ]
+                else 999999
             )
+        )
 
-        next_indexes = []
+        # ----------------------------------------------------
+        # 全局覆盖检查
+        # ----------------------------------------------------
 
-        for cluster in next_level:
+        global_indexes = []
 
-            next_indexes.extend(
-                cluster.get(
-                    "article_indexes",
-                    []
-                )
+        for cluster in merged_unique:
+
+            global_indexes.extend(
+                cluster[
+                    "article_indexes"
+                ]
             )
 
         if (
-            len(previous_indexes)
-            != len(set(previous_indexes))
-        ):
-
-            raise RuntimeError(
-                f"❌ {date} Merge Round "
-                f"{merge_round} 输入Cluster本身存在重复文章"
+            len(global_indexes)
+            != len(
+                set(global_indexes)
             )
-
-        if (
-            len(next_indexes)
-            != len(set(next_indexes))
         ):
+
+            duplicates = sorted(
+                {
+                    x
+                    for x in global_indexes
+                    if global_indexes.count(x) > 1
+                }
+            )
 
             log_conflict(
+
                 date,
+
                 f"STAGE 1B / ROUND {merge_round}",
-                "跨批次合并后发现同一ARTICLE进入多个Cluster。",
+
+                "V6重叠窗口合并后发现ARTICLE重复归属。",
+
                 {
-                    "duplicate_articles": sorted(
-                        {
-                            x
-                            for x in next_indexes
-                            if next_indexes.count(x) > 1
-                        }
-                    )
+                    "duplicates":
+                        duplicates
                 }
             )
 
             raise RuntimeError(
-                f"❌ {date} Merge Round "
-                f"{merge_round} 产生重复文章归属"
+
+                f"❌ {date} "
+                f"Global Merge Round {merge_round} "
+                f"出现重复ARTICLE："
+                f"{duplicates}"
             )
 
-        if set(previous_indexes) != set(
-            next_indexes
-        ):
+        actual = set(
+            global_indexes
+        )
 
-            missing = sorted(
-                set(previous_indexes)
-                - set(next_indexes)
+        expected = set(
+            range(
+                1,
+                news_count + 1
             )
+        )
 
-            extra = sorted(
-                set(next_indexes)
-                - set(previous_indexes)
-            )
+        missing = sorted(
+            expected
+            - actual
+        )
+
+        extra = sorted(
+            actual
+            - expected
+        )
+
+        if missing or extra:
 
             log_conflict(
+
                 date,
+
                 f"STAGE 1B / ROUND {merge_round}",
-                "跨批次合并后文章覆盖发生变化。",
+
+                "V6重叠窗口合并后文章覆盖发生变化。",
+
                 {
                     "missing":
                         missing,
+
                     "extra":
                         extra,
                 }
             )
 
             raise RuntimeError(
-                f"❌ {date} Merge Round "
-                f"{merge_round} 文章覆盖异常\n"
+
+                f"❌ {date} "
+                f"Global Merge Round {merge_round} "
+                f"覆盖异常\n"
                 f"Missing={missing}\n"
                 f"Extra={extra}"
             )
 
-        print(
-            f"   Result after round "
-            f"{merge_round}: "
-            f"{len(next_level)}"
+        after_count = len(
+            merged_unique
         )
-
-        current = next_level
-
-        merge_round += 1
-
-    if len(current) > 1:
 
         print()
         print(
-            "🔄 Final Global Merge"
+            f"✅ Round {merge_round} result: "
+            f"{after_count} clusters"
         )
 
-        groups = merge_cluster_batch(
-
-            date,
-
-            current,
-
-            merge_round,
-
-            1
+        print(
+            f"   Before: {before_count}"
         )
 
-        final_clusters = []
+        print(
+            f"   After : {after_count}"
+        )
 
-        for group_index, group in enumerate(
-            groups,
-            start=1
-        ):
+        # ----------------------------------------------------
+        # 收敛判断
+        #
+        # 如果数量完全没有变化，
+        # 说明这一轮没有进一步合并。
+        #
+        # 继续一轮没有意义，
+        # 因为输入Cluster结构已经稳定。
+        # ----------------------------------------------------
 
-            article_indexes = []
+        if after_count >= before_count:
 
-            for cluster_index in group[
-                "cluster_indexes"
-            ]:
+            print()
+            print(
+                "🟢 GLOBAL MERGE CONVERGED"
+            )
 
-                article_indexes.extend(
-                    current[
-                        cluster_index - 1
-                    ][
-                        "article_indexes"
-                    ]
-                )
+            print(
+                "   本轮没有继续减少Event Cluster。"
+            )
 
-            final_clusters.append({
+            current = merged_unique
 
-                "event_id":
-                    f"EVT-{date}-"
-                    f"{group_index:04d}",
+            break
 
-                "event_title":
-                    group.get(
-                        "event_title",
-                        "未命名事件"
-                    ),
-
-                "event_reason":
-                    group.get(
-                        "reason",
-                        ""
-                    ),
-
-                "article_indexes":
-                    sorted(
-                        set(
-                            article_indexes
-                        )
-                    ),
-            })
+        current = merged_unique
 
     else:
 
-        final_clusters = [
+        # ----------------------------------------------------
+        # 达到最大轮次。
+        #
+        # 不是静默失败。
+        # 记录日志并使用当前已经验证覆盖完整的结果。
+        # ----------------------------------------------------
+
+        log_conflict(
+
+            date,
+
+            "STAGE 1B",
+
+            (
+                f"达到最大全局归并轮次 "
+                f"{MAX_GLOBAL_MERGE_ROUNDS}。"
+            ),
 
             {
-
-                "event_id":
-                    f"EVT-{date}-0001",
-
-                "event_title":
-                    current[0][
-                        "event_title"
-                    ],
-
-                "event_reason":
-                    current[0][
-                        "event_reason"
-                    ],
-
-                "article_indexes":
-                    sorted(
-                        set(
-                            current[0][
-                                "article_indexes"
-                            ]
-                        )
-                    ),
+                "final_cluster_count":
+                    len(current)
             }
+        )
 
-        ]
+        print()
+        print(
+            f"⚠️ 已达到最大Global Merge轮次："
+            f"{MAX_GLOBAL_MERGE_ROUNDS}"
+        )
+
+    # ========================================================
+    # 最终事件编号
+    # ========================================================
+
+    final_clusters = []
+
+    for index, cluster in enumerate(
+        current,
+        start=1
+    ):
+
+        final_clusters.append({
+
+            "event_id":
+                f"EVT-{date}-"
+                f"{index:04d}",
+
+            "event_title":
+                cluster.get(
+                    "event_title",
+                    "未命名事件"
+                ),
+
+            "event_reason":
+                cluster.get(
+                    "event_reason",
+                    ""
+                ),
+
+            "article_indexes":
+                sorted(
+                    set(
+                        int(x)
+                        for x in cluster[
+                            "article_indexes"
+                        ]
+                    )
+                ),
+        })
 
     # --------------------------------------------------------
-    # 最终Event Cluster生成后再次做全量唯一性检查
+    # 最终100%覆盖
     # --------------------------------------------------------
 
     final_indexes = []
@@ -2382,14 +3016,27 @@ def merge_all_clusters(
     for event in final_clusters:
 
         final_indexes.extend(
-            event.get(
-                "article_indexes",
-                []
-            )
+            event[
+                "article_indexes"
+            ]
         )
 
-    if len(final_indexes) != len(
-        set(final_indexes)
+    expected = set(
+        range(
+            1,
+            news_count + 1
+        )
+    )
+
+    actual = set(
+        final_indexes
+    )
+
+    if (
+        len(final_indexes)
+        != len(
+            set(final_indexes)
+        )
     ):
 
         duplicates = sorted(
@@ -2401,24 +3048,78 @@ def merge_all_clusters(
         )
 
         log_conflict(
+
             date,
+
             "STAGE 1B / FINAL",
-            "最终Event Units出现重复ARTICLE归属。",
+
+            "最终Event Units存在重复ARTICLE。",
+
             {
-                "duplicate_articles":
+                "duplicates":
                     duplicates
             }
         )
 
         raise RuntimeError(
-            f"❌ {date} 最终Event Units存在重复文章："
+
+            f"❌ {date} 最终Event Units存在重复ARTICLE："
             f"{duplicates}"
+        )
+
+    if expected != actual:
+
+        missing = sorted(
+            expected
+            - actual
+        )
+
+        extra = sorted(
+            actual
+            - expected
+        )
+
+        log_conflict(
+
+            date,
+
+            "STAGE 1B / FINAL",
+
+            "最终Event Units没有100%覆盖全部新闻。",
+
+            {
+                "missing":
+                    missing,
+
+                "extra":
+                    extra,
+            }
+        )
+
+        raise RuntimeError(
+
+            f"❌ {date} 最终Event Units覆盖失败\n"
+            f"Missing={missing}\n"
+            f"Extra={extra}"
         )
 
     print()
     print(
+        "=" * 70
+    )
+
+    print(
         f"✅ FINAL EVENT UNITS: "
         f"{len(final_clusters)}"
+    )
+
+    print(
+        f"✅ ARTICLE COVERAGE: "
+        f"{len(final_indexes)}/{news_count}"
+    )
+
+    print(
+        "=" * 70
     )
 
     return final_clusters
@@ -2450,6 +3151,7 @@ def build_event_units(
             ):
 
                 raise RuntimeError(
+
                     f"❌ Event "
                     f"{cluster['event_id']} "
                     f"引用不存在文章：{index}"
@@ -2465,11 +3167,13 @@ def build_event_units(
 
             articles.append({
 
-                "index": index,
+                "index":
+                    index,
 
-                "path": str(
-                    item["path"]
-                ),
+                "path":
+                    str(
+                        item["path"]
+                    ),
 
                 "title":
                     metadata.get(
@@ -2514,10 +3218,14 @@ def build_event_units(
                 date,
 
             "event_title":
-                cluster["event_title"],
+                cluster[
+                    "event_title"
+                ],
 
             "event_reason":
-                cluster["event_reason"],
+                cluster[
+                    "event_reason"
+                ],
 
             "articles":
                 articles,
@@ -2585,7 +3293,7 @@ content_status：
         )
 
     prompt = f"""
-你现在执行748686自生长知识系统的第二层事件知识综合。
+你现在执行748686自生长知识系统V6第二层事件知识综合。
 
 日期：
 {event["date"]}
@@ -2600,7 +3308,7 @@ content_status：
 {event["event_reason"]}
 
 ============================================================
-同一事件的多来源原始输入
+同一事件的多来源输入
 ============================================================
 
 {joined}
@@ -2797,38 +3505,60 @@ def save_aggregation_index(
         serializable.append({
 
             "event_id":
-                event["event_id"],
+                event[
+                    "event_id"
+                ],
 
             "date":
-                event["date"],
+                event[
+                    "date"
+                ],
 
             "event_title":
-                event["event_title"],
+                event[
+                    "event_title"
+                ],
 
             "event_reason":
-                event["event_reason"],
+                event[
+                    "event_reason"
+                ],
 
             "source_count":
-                len(event["articles"]),
+                len(
+                    event[
+                        "articles"
+                    ]
+                ),
 
             "articles": [
 
                 {
 
                     "index":
-                        article["index"],
+                        article[
+                            "index"
+                        ],
 
                     "title":
-                        article["title"],
+                        article[
+                            "title"
+                        ],
 
                     "source":
-                        article["source"],
+                        article[
+                            "source"
+                        ],
 
                     "source_url":
-                        article["source_url"],
+                        article[
+                            "source_url"
+                        ],
 
                     "path":
-                        article["path"],
+                        article[
+                            "path"
+                        ],
 
                 }
 
@@ -2964,11 +3694,17 @@ def inspect_event_units(
     )
 
     print()
-    print("=" * 70)
+    print(
+        "=" * 70
+    )
+
     print(
         f"EVENT UNITS PREFLIGHT: {date}"
     )
-    print("=" * 70)
+
+    print(
+        "=" * 70
+    )
 
     if not target.exists():
 
@@ -2982,15 +3718,20 @@ def inspect_event_units(
 
         return {
 
-            "exists": False,
+            "exists":
+                False,
 
-            "complete": False,
+            "complete":
+                False,
 
-            "index": None,
+            "index":
+                None,
 
-            "missing": [],
+            "missing":
+                [],
 
-            "invalid": [],
+            "invalid":
+                [],
 
         }
 
@@ -3014,15 +3755,20 @@ def inspect_event_units(
 
         return {
 
-            "exists": True,
+            "exists":
+                True,
 
-            "complete": False,
+            "complete":
+                False,
 
-            "index": None,
+            "index":
+                None,
 
-            "missing": [],
+            "missing":
+                [],
 
-            "invalid": [],
+            "invalid":
+                [],
 
         }
 
@@ -3068,10 +3814,12 @@ def inspect_event_units(
             continue
 
         valid = any(
+
             event_unit_file_valid(
                 path,
                 event_id
             )
+
             for path in matching
         )
 
@@ -3080,10 +3828,6 @@ def inspect_event_units(
             invalid.append(
                 event_id
             )
-
-    # --------------------------------------------------------
-    # 检查是否有重复Event文件
-    # --------------------------------------------------------
 
     existing_event_files = sorted(
         target.glob(
@@ -3096,7 +3840,7 @@ def inspect_event_units(
     for path in existing_event_files:
 
         match = re.match(
-            r"^(EVT-[^_]+)",
+            r"^(EVT-\d{4}-\d{2}-\d{2}-\d+)",
             path.stem
         )
 
@@ -3129,8 +3873,10 @@ def inspect_event_units(
 
     complete = (
         len(missing) == 0
-        and len(invalid) == 0
-        and len(expected_ids) > 0
+        and
+        len(invalid) == 0
+        and
+        len(expected_ids) > 0
     )
 
     print()
@@ -3168,17 +3914,23 @@ def inspect_event_units(
 
     return {
 
-        "exists": True,
+        "exists":
+            True,
 
-        "complete": complete,
+        "complete":
+            complete,
 
-        "index": index,
+        "index":
+            index,
 
-        "missing": missing,
+        "missing":
+            missing,
 
-        "invalid": invalid,
+        "invalid":
+            invalid,
 
-        "unexpected": unexpected,
+        "unexpected":
+            unexpected,
 
     }
 
@@ -3220,7 +3972,7 @@ timezone: Asia/Shanghai
 
 
 # ============================================================
-# 删除错误的完成标记
+# 删除错误完成标记
 # ============================================================
 
 def remove_event_units_complete(
@@ -3265,7 +4017,7 @@ def rebuild_events_from_index(
         if not event_id:
 
             raise RuntimeError(
-                f"❌ Event Index存在空event_id"
+                "❌ Event Index存在空event_id"
             )
 
         articles = []
@@ -3411,7 +4163,9 @@ def validate_event_index_coverage(
         )
 
         all_indexes.extend(
+
             article["index"]
+
             for article in event[
                 "articles"
             ]
@@ -3430,10 +4184,20 @@ def validate_event_index_coverage(
 
     if expected != actual:
 
+        missing = sorted(
+            expected
+            - actual
+        )
+
+        extra = sorted(
+            actual
+            - expected
+        )
+
         raise RuntimeError(
             f"❌ {date} Event Index覆盖率失败\n"
-            f"Missing={sorted(expected - actual)}\n"
-            f"Extra={sorted(actual - expected)}"
+            f"Missing={missing}\n"
+            f"Extra={extra}"
         )
 
     if len(all_indexes) != len(
@@ -3449,9 +4213,13 @@ def validate_event_index_coverage(
         )
 
         log_conflict(
+
             date,
+
             "EVENT INDEX",
+
             "Event Index存在重复新闻归属。",
+
             {
                 "duplicates":
                     duplicates
@@ -3459,6 +4227,7 @@ def validate_event_index_coverage(
         )
 
         raise RuntimeError(
+
             f"❌ {date} Event Index存在重复新闻归属："
             f"{duplicates}"
         )
@@ -3484,9 +4253,17 @@ def complete_existing_event_units(
     )
 
     print()
-    print("=" * 70)
-    print("EVENT UNIT RESUME / REPAIR")
-    print("=" * 70)
+    print(
+        "=" * 70
+    )
+
+    print(
+        "EVENT UNIT RESUME / REPAIR"
+    )
+
+    print(
+        "=" * 70
+    )
 
     completed = 0
 
@@ -3593,10 +4370,6 @@ def complete_existing_event_units(
             f"{completed}/{len(events)}"
         )
 
-    # --------------------------------------------------------
-    # 再次实际检查磁盘
-    # --------------------------------------------------------
-
     missing_after = []
 
     for event in events:
@@ -3612,10 +4385,12 @@ def complete_existing_event_units(
         )
 
         valid = any(
+
             event_unit_file_valid(
                 path,
                 event_id
             )
+
             for path in matches
         )
 
@@ -3631,10 +4406,6 @@ def complete_existing_event_units(
             f"❌ {date} EventUnits补齐后仍缺失："
             f"{missing_after}"
         )
-
-    # --------------------------------------------------------
-    # 完成标记
-    # --------------------------------------------------------
 
     marker = mark_event_units_complete(
 
@@ -3655,23 +4426,28 @@ def complete_existing_event_units(
     )
 
     print(
-        f"Existing skipped : {completed - generated}"
+        f"Existing skipped : "
+        f"{completed - generated}"
     )
 
     print(
-        f"Newly generated  : {generated}"
+        f"Newly generated  : "
+        f"{generated}"
     )
 
     print(
-        f"Total EventUnits  : {len(events)}"
+        f"Total EventUnits  : "
+        f"{len(events)}"
     )
 
     print(
-        f"Directory         : {target}"
+        f"Directory         : "
+        f"{target}"
     )
 
     print(
-        f"Marker            : {marker}"
+        f"Marker            : "
+        f"{marker}"
     )
 
     return True
@@ -3686,11 +4462,17 @@ def run_stage_1(
 ):
 
     print()
-    print("=" * 70)
     print(
-        f"STAGE 1 — EVENT UNIT GENERATION: {date}"
+        "=" * 70
     )
-    print("=" * 70)
+
+    print(
+        f"STAGE 1 — EVENT UNIT GENERATION V6: {date}"
+    )
+
+    print(
+        "=" * 70
+    )
 
     # --------------------------------------------------------
     # 第一关：先检查EventUnits
@@ -3701,11 +4483,13 @@ def run_stage_1(
     )
 
     # --------------------------------------------------------
-    # 如果已经完整：
-    # 直接结束，不重新调用AI
+    # 已完整：
+    # 不重新调用AI
     # --------------------------------------------------------
 
-    if inspection["complete"]:
+    if inspection[
+        "complete"
+    ]:
 
         print()
         print(
@@ -3723,7 +4507,7 @@ def run_stage_1(
         return False
 
     # --------------------------------------------------------
-    # 只有需要检查/生成时，才读取Enriched
+    # 只有需要生成/检查时才读取Enriched
     # --------------------------------------------------------
 
     news_items = load_all_enriched_news(
@@ -3742,12 +4526,13 @@ def run_stage_1(
     # 情况A：
     # 已经有有效Index
     #
-    # → 不重新聚类
-    # → 根据Index恢复Event
-    # → 只补缺失EventUnit
+    # 不重新聚类。
+    # 直接补EventUnit。
     # ========================================================
 
-    if inspection["index"] is not None:
+    if inspection[
+        "index"
+    ] is not None:
 
         print()
         print(
@@ -3766,7 +4551,9 @@ def run_stage_1(
 
             date,
 
-            inspection["index"],
+            inspection[
+                "index"
+            ],
 
             news_items
         )
@@ -3793,7 +4580,7 @@ def run_stage_1(
     # 情况B：
     # 没有有效Index
     #
-    # → 完整执行AI事件聚类
+    # 完整执行V6 Stage 1。
     # ========================================================
 
     print()
@@ -3802,7 +4589,7 @@ def run_stage_1(
     )
 
     print(
-        "➡️ 执行完整Stage 1聚合。"
+        "➡️ 执行完整V6 Stage 1聚合。"
     )
 
     remove_event_units_complete(
@@ -3810,7 +4597,7 @@ def run_stage_1(
     )
 
     # --------------------------------------------------------
-    # 第一轮
+    # Stage 1A
     # --------------------------------------------------------
 
     initial_clusters = build_initial_clusters(
@@ -3821,18 +4608,20 @@ def run_stage_1(
     )
 
     # --------------------------------------------------------
-    # 第二轮
+    # Stage 1B
     # --------------------------------------------------------
 
     final_clusters = merge_all_clusters(
 
         date,
 
-        initial_clusters
+        initial_clusters,
+
+        len(news_items)
     )
 
     # --------------------------------------------------------
-    # Event Units
+    # Stage 1C
     # --------------------------------------------------------
 
     events = build_event_units(
@@ -3875,8 +4664,7 @@ def run_stage_1(
     )
 
     # --------------------------------------------------------
-    # EventUnits：
-    # 新建后逐个生成
+    # EventUnits逐个生成
     # --------------------------------------------------------
 
     complete_existing_event_units(
@@ -3960,1296 +4748,4 @@ def load_saved_event_units(
         title = ""
 
         heading_match = re.search(
-            r"(?m)^#\s+(.+)$",
-            body
-        )
-
-        if heading_match:
-
-            title = (
-                heading_match
-                .group(1)
-                .strip()
-            )
-
-        try:
-
-            source_count = int(
-                metadata.get(
-                    "source_count",
-                    "0"
-                )
-            )
-
-        except Exception:
-
-            source_count = 0
-
-        events.append({
-
-            "event_id":
-                event_id,
-
-            "date":
-                date,
-
-            "event_title":
-                title or event_id,
-
-            "aggregated_content":
-                body,
-
-            "aggregated_path":
-                path,
-
-            "source_count":
-                source_count,
-        })
-
-    return events
-
-
-# ============================================================
-# 分类
-# ============================================================
-
-def classify_event(
-    event,
-    categories,
-):
-
-    prompt = f"""
-请判断下面这个已经完成第二层AI多来源事件聚合的Event Unit，
-最适合进入哪个知识分析类别。
-
-可选类别：
-
-{json.dumps(
-    categories,
-    ensure_ascii=False
-)}
-
-事件：
-
-{event["event_title"]}
-
-聚合内容：
-
-{event["aggregated_content"][:30000]}
-
-只输出合法JSON：
-
-{{
-  "category": "类别名称",
-  "confidence": 0.0,
-  "reason": "一句话原因"
-}}
-
-要求：
-
-1. category必须来自给出的类别。
-2. confidence范围0到1。
-3. 不得创造类别。
-4. 只输出JSON。
-"""
-
-    result = call_ai(
-
-        prompt,
-
-        system_prompt=(
-            "你是748686知识系统的事件分类器。"
-            "输入已经是Event Unit。"
-            "必须返回合法JSON。"
-        ),
-
-        temperature=0,
-    )
-
-    data = parse_ai_json(
-        result,
-        f"{event['event_id']} 分类"
-    )
-
-    category = data.get(
-        "category"
-    )
-
-    if category not in categories:
-
-        raise RuntimeError(
-            f"❌ {event['event_id']} "
-            f"AI返回不存在类别：{category}"
-        )
-
-    return {
-
-        "category":
-            category,
-
-        "confidence":
-            data.get(
-                "confidence",
-                0
-            ),
-
-        "reason":
-            data.get(
-                "reason",
-                ""
-            ),
-    }
-
-
-# ============================================================
-# 27 Skills
-# ============================================================
-
-def analyze_event_with_skills(
-    event,
-    category,
-    selected_skills,
-):
-
-    skill_text = []
-
-    for skill in selected_skills:
-
-        skill_text.append(
-            f"""
-## SKILL: {skill["name"]}
-
-{skill["content"][:12000]}
-"""
-        )
-
-    joined_skills = "\n\n".join(
-        skill_text
-    )
-
-    prompt = f"""
-# 聚合事件深度知识分析
-
-事件ID：
-{event["event_id"]}
-
-日期：
-{event["date"]}
-
-事件名称：
-{event["event_title"]}
-
-知识类别：
-{category}
-
-============================================================
-第二层AI已经完成的Event Unit
-============================================================
-
-{event["aggregated_content"][:50000]}
-
-============================================================
-本次动态选择的Skills
-============================================================
-
-{joined_skills[:50000]}
-
-============================================================
-分析要求
-============================================================
-
-现在开始最终知识分析。
-
-非常重要：
-
-1. 输入已经经过跨来源、跨语言事件聚合。
-2. 不要重新把来源当成独立新闻。
-3. 不要重新制造重复事件。
-4. 不得编造事实。
-5. source_status不是fetched时，不得声称完整阅读原文。
-6. 不确定信息必须明确标记。
-7. 所有结论必须有输入依据。
-8. 资料不足必须明确说明。
-9. 重点分析这个事件本身意味着什么。
-
-============================================================
-输出
-============================================================
-
-# 事件分析
-
-## 1. 核心事实
-
-## 2. 事件背景
-
-## 3. 为什么重要
-
-## 4. 多来源综合判断
-
-## 5. 影响
-
-### 短期影响
-
-### 中期影响
-
-### 长期影响
-
-## 6. 趋势判断
-
-## 7. 机会
-
-## 8. 风险
-
-## 9. 关键实体
-
-| 类型 | 名称 | 说明 |
-|---|---|---|
-| 人物 | | |
-| 公司 | | |
-| 产品 | | |
-| 技术 | | |
-| 行业 | | |
-| 概念 | | |
-
-## 10. 值得长期保存的知识
-
-## 11. 后续追踪
-
-## 12. 可生成专题
-"""
-
-    return call_ai(
-
-        prompt,
-
-        system_prompt=(
-            "你是748686自生长知识系统的高级知识工程师。"
-            "输入已经是第二层AI完成的Event Unit。"
-            "现在进行27 Skills深度分析。"
-            "不得编造事实。"
-            "输出结构化中文Markdown。"
-        ),
-
-        temperature=0.3,
-    )
-
-
-# ============================================================
-# 知识卡片
-# ============================================================
-
-def generate_knowledge_cards(
-    date,
-    analyses,
-):
-
-    if not analyses:
-
-        raise RuntimeError(
-            f"❌ {date} 没有分析结果"
-        )
-
-    joined = "\n\n".join(
-        analyses
-    )
-
-    prompt = f"""
-日期：{date}
-
-下面是已经完成事件聚合和Skills深度分析的知识单元：
-
-{joined[:60000]}
-
-请提取真正值得进入长期知识库的知识实体。
-
-重点：
-
-- 人物
-- 公司
-- 产品
-- 技术
-- 行业
-- 概念
-- 方法
-- 战略
-- 长期趋势
-
-不要把普通新闻全部做成知识卡片。
-
-输出：
-
-# 今日知识卡片
-
-## 人物
-
-### 名称
-
-- 身份：
-- 核心信息：
-- 与今日事件关系：
-- 长期价值：
-
-## 公司
-
-### 名称
-
-- 公司：
-- 核心业务：
-- 今日事件：
-- 长期价值：
-
-## 技术
-
-### 名称
-
-- 定义：
-- 当前进展：
-- 应用：
-- 长期价值：
-
-## 行业
-
-### 名称
-
-- 当前变化：
-- 驱动因素：
-- 风险：
-- 长期趋势：
-
-## 概念
-
-### 名称
-
-- 定义：
-- 关键特征：
-- 实际案例：
-- 长期意义：
-"""
-
-    return call_ai(
-
-        prompt,
-
-        system_prompt=(
-            "你是长期知识库构建专家。"
-            "只提取真正具有长期价值的知识。"
-            "不得编造。"
-            "输出中文Markdown。"
-        ),
-
-        temperature=0.3,
-    )
-
-
-# ============================================================
-# 专题
-# ============================================================
-
-def generate_topics(
-    date,
-    analyses,
-):
-
-    joined = "\n\n".join(
-        analyses
-    )
-
-    prompt = f"""
-日期：{date}
-
-以下是今天完成的事件级知识分析：
-
-{joined[:60000]}
-
-寻找值得进一步研究的专题。
-
-要求：
-
-1. 不简单重复新闻标题。
-2. 必须存在跨事件共同主题。
-3. 优先选择未来仍具有研究价值的主题。
-4. 给出研究问题。
-5. 给出为什么值得研究。
-6. 给出需要继续寻找的数据或资料。
-7. 不得编造。
-8. 资料不足时少生成。
-"""
-
-    return call_ai(
-
-        prompt,
-
-        system_prompt=(
-            "你是战略研究员。"
-            "从多个事件之间寻找长期主题。"
-            "不得编造。"
-        ),
-
-        temperature=0.3,
-    )
-
-
-# ============================================================
-# Watchlist
-# ============================================================
-
-def generate_watchlist(
-    date,
-    analyses,
-):
-
-    joined = "\n\n".join(
-        analyses
-    )
-
-    prompt = f"""
-日期：{date}
-
-下面是今天的事件级知识分析：
-
-{joined[:50000]}
-
-请生成未来值得继续追踪的项目。
-
-输出：
-
-# 后续追踪
-
-| 优先级 | 追踪事项 | 原因 | 下一步需要关注 |
-|---|---|---|---|
-| 高 | | | |
-| 中 | | | |
-| 低 | | | |
-
-要求：
-
-- 只选择真正可能继续发展的事件。
-- 不编造未来事件。
-- 下一步需要关注写成观察指标。
-- 没有足够证据时不要强行生成。
-"""
-
-    return call_ai(
-
-        prompt,
-
-        system_prompt=(
-            "你是新闻趋势追踪分析师。"
-            "只根据已有事件资料判断。"
-            "不得编造。"
-        ),
-
-        temperature=0.3,
-    )
-
-
-# ============================================================
-# 保存知识卡片
-# ============================================================
-
-def save_entity_knowledge(
-    date,
-    knowledge,
-):
-
-    target = (
-        KNOWLEDGE
-        / date[:4]
-        / date[5:7]
-    )
-
-    target.mkdir(
-        parents=True,
-        exist_ok=True
-    )
-
-    path = (
-        target
-        / f"{date}_知识卡片.md"
-    )
-
-    path.write_text(
-
-        f"""---
-date: {date}
-type: knowledge_cards
-status: generated
-timezone: Asia/Shanghai
----
-
-{knowledge}
-""",
-
-        encoding="utf-8"
-    )
-
-    return path
-
-
-# ============================================================
-# 保存专题
-# ============================================================
-
-def save_topics(
-    date,
-    topics,
-):
-
-    target = (
-        TOPICS
-        / date[:4]
-        / date[5:7]
-    )
-
-    target.mkdir(
-        parents=True,
-        exist_ok=True
-    )
-
-    path = (
-        target
-        / f"{date}_专题候选.md"
-    )
-
-    path.write_text(
-
-        f"""---
-date: {date}
-type: topic_candidates
-status: generated
-timezone: Asia/Shanghai
----
-
-{topics}
-""",
-
-        encoding="utf-8"
-    )
-
-    return path
-
-
-# ============================================================
-# 日报
-# ============================================================
-
-def save_daily_report(
-    date,
-    analyses,
-    knowledge,
-    topics,
-    watchlist,
-    event_count,
-):
-
-    target = (
-        REPORTS
-        / date[:4]
-        / date[5:7]
-    )
-
-    target.mkdir(
-        parents=True,
-        exist_ok=True
-    )
-
-    path = (
-        target
-        / f"{date}.md"
-    )
-
-    sections = []
-
-    sections.append(
-        f"# {date} 自生长知识日报"
-    )
-
-    sections.append(
-        f"""
-## 今日知识处理概览
-
-- Event Units：{event_count}
-- Skills深度分析：{len(analyses)}
-- 处理方式：第二层AI事件聚合后进入27 Skills
-- 日期：{date}
-"""
-    )
-
-    sections.append(
-        "\n\n---\n\n".join(
-            analyses
-        )
-    )
-
-    if knowledge:
-
-        sections.append(
-            knowledge
-        )
-
-    if topics:
-
-        sections.append(
-            topics
-        )
-
-    if watchlist:
-
-        sections.append(
-            watchlist
-        )
-
-    path.write_text(
-        "\n\n".join(sections)
-        + "\n",
-        encoding="utf-8"
-    )
-
-    return path
-
-
-# ============================================================
-# Stage 2完成标记
-# ============================================================
-
-def skills_complete(
-    date
-):
-
-    marker = (
-        event_units_dir(date)
-        / SKILLS_COMPLETE_FILE
-    )
-
-    return marker.exists()
-
-
-def mark_skills_complete(
-    date,
-    event_count,
-):
-
-    marker = (
-        event_units_dir(date)
-        / SKILLS_COMPLETE_FILE
-    )
-
-    marker.write_text(
-
-        f"""SKILLS_COMPLETE
-
-date: {date}
-event_units: {event_count}
-completed_at: {now().isoformat()}
-timezone: Asia/Shanghai
-""",
-
-        encoding="utf-8"
-    )
-
-    return marker
-
-
-# ============================================================
-# Stage 2
-# ============================================================
-
-def run_stage_2(
-    date,
-    routes,
-    skills,
-):
-
-    print()
-    print("=" * 70)
-    print(
-        f"STAGE 2 — 27 SKILLS DEEP PROCESSING: {date}"
-    )
-    print("=" * 70)
-
-    if skills_complete(date):
-
-        print(
-            f"✅ {date} 27 Skills已经完成，跳过。"
-        )
-
-        return False
-
-    events = load_saved_event_units(
-        date
-    )
-
-    print(
-        f"Event Units loaded: "
-        f"{len(events)}"
-    )
-
-    categories = list(
-        routes.keys()
-    )
-
-    if not categories:
-
-        raise RuntimeError(
-            "skill_routes.json没有类别"
-        )
-
-    analyses = []
-
-    category_count = {}
-
-    for index, event in enumerate(
-        events,
-        start=1
-    ):
-
-        print()
-        print("=" * 70)
-
-        print(
-            f"[{index}/{len(events)}] "
-            f"{event['event_id']}"
-        )
-
-        print(
-            f"Event: "
-            f"{event['event_title']}"
-        )
-
-        print(
-            f"Sources: "
-            f"{event['source_count']}"
-        )
-
-        classification = classify_event(
-
-            event,
-
-            categories
-        )
-
-        category = classification[
-            "category"
-        ]
-
-        print(
-            f"Category: {category}"
-        )
-
-        selected_skills = route_skills(
-
-            category,
-
-            routes,
-
-            skills
-        )
-
-        if not selected_skills:
-
-            raise RuntimeError(
-                f"❌ {event['event_id']} "
-                f"没有匹配Skills"
-            )
-
-        print(
-            "Skills:"
-        )
-
-        for skill in selected_skills:
-
-            print(
-                f"  - {skill['name']}"
-            )
-
-        analysis = analyze_event_with_skills(
-
-            event,
-
-            category,
-
-            selected_skills
-        )
-
-        if not analysis.strip():
-
-            raise RuntimeError(
-                f"❌ {event['event_id']} "
-                "Skills分析为空"
-            )
-
-        header = f"""
----
-
-# {event['event_title']}
-
-> Event ID：{event['event_id']}
->
-> 日期：{date}
->
-> 分类：{category}
->
-> 聚合来源数：{event['source_count']}
->
-> Event Unit：{event['aggregated_path']}
-
-"""
-
-        analyses.append(
-            header + analysis
-        )
-
-        category_count[
-            category
-        ] = (
-            category_count.get(
-                category,
-                0
-            )
-            + 1
-        )
-
-    if len(analyses) != len(events):
-
-        raise RuntimeError(
-            f"❌ {date} Skills分析数量异常"
-        )
-
-    # ========================================================
-    # 知识卡片
-    # ========================================================
-
-    print()
-    print("=" * 70)
-    print(
-        f"Generating knowledge cards for {date}..."
-    )
-
-    knowledge = generate_knowledge_cards(
-        date,
-        analyses
-    )
-
-    if not knowledge.strip():
-
-        raise RuntimeError(
-            f"❌ {date} 知识卡片为空"
-        )
-
-    knowledge_path = save_entity_knowledge(
-        date,
-        knowledge
-    )
-
-    print(
-        f"✅ Knowledge Cards: "
-        f"{knowledge_path}"
-    )
-
-    # ========================================================
-    # 专题
-    # ========================================================
-
-    print(
-        f"Generating topic candidates for {date}..."
-    )
-
-    topics = generate_topics(
-        date,
-        analyses
-    )
-
-    if not topics.strip():
-
-        raise RuntimeError(
-            f"❌ {date} 专题为空"
-        )
-
-    topic_path = save_topics(
-        date,
-        topics
-    )
-
-    print(
-        f"✅ Topics: {topic_path}"
-    )
-
-    # ========================================================
-    # Watchlist
-    # ========================================================
-
-    print(
-        f"Generating watchlist for {date}..."
-    )
-
-    watchlist = generate_watchlist(
-        date,
-        analyses
-    )
-
-    if not watchlist.strip():
-
-        raise RuntimeError(
-            f"❌ {date} Watchlist为空"
-        )
-
-    # ========================================================
-    # 日报
-    # ========================================================
-
-    report_path = save_daily_report(
-
-        date,
-
-        analyses,
-
-        knowledge,
-
-        topics,
-
-        watchlist,
-
-        len(events)
-    )
-
-    if not report_path.exists():
-
-        raise RuntimeError(
-            f"❌ {date} 日报没有生成"
-        )
-
-    print(
-        f"✅ Daily Report: "
-        f"{report_path}"
-    )
-
-    # ========================================================
-    # 日志
-    # ========================================================
-
-    log_path = (
-        LOGS
-        / f"{date}_knowledge_pipeline.md"
-    )
-
-    log_path.write_text(
-
-        f"""# {date} Knowledge Pipeline V5
-
-- 时间：{now().isoformat()}
-- 时区：Asia/Shanghai
-- Event Units：{len(events)}
-- Skills分析：{len(analyses)}
-- Skills总数：{len(skills)}
-- 路由类别：{len(routes)}
-- AI Provider：AGNES.ai
-- AI Model：{AGNES_MODEL}
-
-## 正式处理架构
-
-Enriched News
-→ AI事件聚类
-→ 跨批次事件合并
-→ Event Units
-→ 多来源综合
-→ 保存EventUnits
-→ Git Push
-→ 本地重新拉取
-→ 27 Skills
-→ 知识卡片
-→ 专题
-→ Watchlist
-→ 日报
-→ 自生长
-
-## 日期隔离
-
-本日期：
-{date}
-
-三天独立处理。
-不会将三天新闻混合。
-
-## Event Units
-
-数量：{len(events)}
-
-目录：
-
-Raw News/{date}-EventUnits/
-
-## 分类统计
-
-{
-chr(10).join(
-    f"- {k}: {v}"
-    for k, v
-    in sorted(
-        category_count.items()
-    )
-)
-}
-
-## 输出
-
-- Event Units：Raw News/{date}-EventUnits/
-- 日报：{report_path}
-- 知识卡片：{knowledge_path}
-- 专题：{topic_path}
-
-## 状态
-
-SUCCESS
-""",
-
-        encoding="utf-8"
-    )
-
-    marker = mark_skills_complete(
-        date,
-        len(events)
-    )
-
-    print(
-        f"✅ Skills Complete Marker: "
-        f"{marker}"
-    )
-
-    print()
-    print("=" * 70)
-    print(
-        f"✅ STAGE 2 COMPLETE: {date}"
-    )
-    print("=" * 70)
-
-    return True
-
-
-# ============================================================
-# 日期格式检查
-# ============================================================
-
-def validate_date(
-    date
-):
-
-    if not re.fullmatch(
-        r"\d{4}-\d{2}-\d{2}",
-        date
-    ):
-
-        raise RuntimeError(
-            f"❌ 日期格式错误：{date}"
-        )
-
-
-# ============================================================
-# 统一入口
-# ============================================================
-
-def main():
-
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument(
-        "--date",
-        required=True
-    )
-
-    parser.add_argument(
-        "--stage",
-        required=True,
-        choices=[
-            "aggregation",
-            "skills"
-        ]
-    )
-
-    args = parser.parse_args()
-
-    date = args.date
-
-    validate_date(
-        date
-    )
-
-    print("=" * 70)
-    print("748686 KNOWLEDGE PIPELINE V5")
-    print("=" * 70)
-
-    print(
-        f"Date: {date}"
-    )
-
-    print(
-        f"Stage: {args.stage}"
-    )
-
-    print(
-        "Timezone: Asia/Shanghai"
-    )
-
-    print(
-        "AI Provider: AGNES.ai"
-    )
-
-    print(
-        f"AI Model: {AGNES_MODEL}"
-    )
-
-    print()
-
-    # --------------------------------------------------------
-    # 基础目录
-    # --------------------------------------------------------
-
-    for directory in [
-
-        REPORTS,
-        WEEKLY,
-        TOPICS,
-        KNOWLEDGE,
-        LOGS,
-
-    ]:
-
-        directory.mkdir(
-            parents=True,
-            exist_ok=True
-        )
-
-    # --------------------------------------------------------
-    # API Key
-    # --------------------------------------------------------
-
-    if not os.getenv(
-        AGNES_API_KEY_ENV,
-        ""
-    ).strip():
-
-        raise RuntimeError(
-            "❌ 未检测到 AGNES_API_KEY"
-        )
-
-    print(
-        "✅ AGNES_API_KEY detected"
-    )
-
-    # ========================================================
-    # Stage 1
-    # ========================================================
-
-    if args.stage == "aggregation":
-
-        run_stage_1(
-            date
-        )
-
-        print()
-        print(
-            "=" * 70
-        )
-
-        print(
-            "STAGE 1 ONLY"
-        )
-
-        print(
-            f"{date} EventUnits检查/生成/补齐已经完成。"
-        )
-
-        print(
-            "现在停止，不进入Stage 2。"
-        )
-
-        print(
-            "外层Workflow确认三天全部完成后："
-        )
-
-        print(
-            "Git commit + push"
-        )
-
-        print(
-            "然后重新pull到本地"
-        )
-
-        print(
-            "再进入Stage 2。"
-        )
-
-        print(
-            "=" * 70
-        )
-
-        return
-
-    # ========================================================
-    # Stage 2
-    # ========================================================
-
-    routes = load_routes()
-
-    skills = load_skills()
-
-    print(
-        f"Loaded Skills: {len(skills)}"
-    )
-
-    print(
-        f"Loaded Routes: {len(routes)}"
-    )
-
-    if len(skills) < 27:
-
-        print(
-            "⚠️ 警告：当前Skills数量少于27"
-        )
-
-    run_stage_2(
-
-        date,
-
-        routes,
-
-        skills
-    )
-
-
-# ============================================================
-# 程序入口
-# ============================================================
-
-if __name__ == "__main__":
-
-    try:
-
-        main()
-
-    except KeyboardInterrupt:
-
-        print()
-        print(
-            "❌ 用户中断程序"
-        )
-
-        sys.exit(130)
-
-    except Exception as exc:
-
-        print()
-        print("=" * 70)
-
-        print(
-            "❌ KNOWLEDGE PIPELINE V5 FAILED"
-        )
-
-        print("=" * 70)
-
-        print(
-            f"{type(exc).__name__}: {exc}"
-        )
-
-        print()
-
-        sys.exit(1)
+            r
