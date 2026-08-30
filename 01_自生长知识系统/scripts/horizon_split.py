@@ -3,7 +3,7 @@
 
 """
 748686 自生长知识系统
-Horizon Bilingual Digest Splitter V9
+Horizon Bilingual Digest Splitter V10
 
 ============================================================
 核心目标
@@ -19,11 +19,11 @@ Horizon 每天生成：
 
     Horizon 中文日报
             ↓
-    拆解成 Atomic News
+        Atomic News
 
     Horizon 英文日报
             ↓
-    拆解成 Atomic News
+        Atomic News
 
 
 ============================================================
@@ -73,39 +73,26 @@ Horizon 每天生成：
 
 
 ============================================================
-V9 修复的问题
+V10 修复
 ============================================================
 
 修复：
 
-1. Atomic 文件夹不存在
-   → 创建
+1. Markdown 标题形式的 Horizon 分区标题：
+       # Horizon 摘要
+       # Horizon Summary
 
-2. Atomic 文件夹存在
-   → 绝不直接判定完成
+2. 防止 Horizon 分区标题进入 Atomic 正文。
 
-3. Atomic 文件夹里面只有 1 个或几个 MD
-   → 与 Horizon 实际新闻数量比较
+3. 修复文件路径误插入 process_date() 的问题。
 
-4. Horizon 原始日报被复制到 Atomic
-   → 不能作为有效 Atomic
+4. 保留严格 Atomic 完整性验证。
 
-5. Atomic 数量不足
-   → 自动补建
+5. 保留前天 / 昨天 / 今天逐日处理。
 
-6. Atomic 数量超过理论数量
-   → 判定异常
+6. Atomic 不完整时自动补建 / 重建。
 
-7. Atomic 文件名不对应
-   → 判定异常
-
-8. 生成完成后
-   → 再次严格验证
-
-9. 前天 / 昨天 / 今天
-   → 逐日处理
-
-============================================================
+7. 生成后再次严格验证。
 """
 
 from __future__ import annotations
@@ -377,6 +364,25 @@ def is_score_line(line: str):
 
 def is_section_heading(line: str):
 
+    # --------------------------------------------------------
+    # 先去掉 Markdown heading 标记
+    #
+    # 例如：
+    #   # Horizon 摘要
+    #   ## Horizon 摘要
+    #   ### Horizon Summary
+    #
+    # 都统一识别。
+    # --------------------------------------------------------
+
+    normalized = clean_text(line)
+
+    normalized = re.sub(
+        r"^#{1,6}\s*",
+        "",
+        normalized,
+    ).strip()
+
     patterns = [
         r"^科技新闻$",
         r"^财经新闻$",
@@ -387,6 +393,7 @@ def is_section_heading(line: str):
         r"^核心资讯$",
         r"^Horizon$",
         r"^Horizon 摘要$",
+        r"^Horizon Summary$",
         r"^AI Creator Radar$",
         r"^AI创作者雷达$",
         r"^参考链接$",
@@ -396,7 +403,7 @@ def is_section_heading(line: str):
     return any(
         re.search(
             pattern,
-            line,
+            normalized,
             re.I,
         )
         for pattern in patterns
@@ -416,6 +423,15 @@ def extract_ranked_items(content: str):
         line = clean_text(raw)
 
         if not line:
+            continue
+
+        # ----------------------------------------------------
+        # Markdown 分区标题
+        #
+        # 必须在普通 body 处理之前过滤。
+        # ----------------------------------------------------
+
+        if is_section_heading(line):
             continue
 
         match = is_rank_line(line)
@@ -461,6 +477,13 @@ def extract_ranked_items(content: str):
 
             continue
 
+        # ----------------------------------------------------
+        # 兼容：
+        #
+        # [01版] 标题
+        # 01版 - 标题
+        # ----------------------------------------------------
+
         match = re.match(
             r"^[\[［]?\s*(\d{1,2})\s*版\s*[-—–:：]?\s*(.+?)[\]］]?\s*$",
             line,
@@ -501,9 +524,6 @@ def extract_ranked_items(content: str):
                     remaining
                 )
 
-            continue
-
-        if is_section_heading(line):
             continue
 
         if current:
@@ -569,6 +589,15 @@ def normalize_items(items):
                 continue
 
             if line == title:
+                continue
+
+            # ------------------------------------------------
+            # 再做一次保险过滤
+            #
+            # 防止特殊格式的 Horizon 标题进入 Atomic。
+            # ------------------------------------------------
+
+            if is_section_heading(line):
                 continue
 
             body.append(line)
@@ -909,11 +938,22 @@ def valid_atomic_file(
     if content.count("---") < 2:
         return False
 
-    if "# Horizon 摘要" in content:
-        return False
-
-    if "# Horizon Summary" in content:
-        return False
+    # --------------------------------------------------------
+    # 注意：
+    #
+    # Atomic 自己本身就应该包含：
+    #
+    #   ## Horizon 摘要
+    #   ## Horizon Summary
+    #
+    # 因此这里不能再用：
+    #
+    #   if "# Horizon 摘要" in content
+    #
+    # 来判断。
+    #
+    # 原来的判断会把我们自己生成的 Atomic 判定成无效。
+    # --------------------------------------------------------
 
     return True
 
@@ -1235,9 +1275,11 @@ def process_date(
 
     print()
     print("#" * 80)
+
     print(
         f"HORIZON ATOMIC PROCESSING: {date}"
     )
+
     print("#" * 80)
 
     raw_dir = (
@@ -1717,7 +1759,7 @@ def main():
 
     print(
         "748686 HORIZON BILINGUAL "
-        "DIGEST SPLITTER V9"
+        "DIGEST SPLITTER V10"
     )
 
     print("=" * 80)
@@ -1758,6 +1800,16 @@ def main():
     # ========================================================
 
     for date in dates:
+
+        # ----------------------------------------------------
+        # 注意：
+        #
+        # 这里必须只有：
+        #
+        #     process_date(raw_root, date)
+        #
+        # 不允许把 horizon_split.py 的文件路径放进来。
+        # ----------------------------------------------------
 
         result = process_date(
             raw_root,
