@@ -280,8 +280,6 @@ jobs:
 
       # ==========================================================
       # 11. Run Horizon
-      #
-      # ★ 保持原样
       # ==========================================================
 
       - name: Run Horizon
@@ -593,21 +591,7 @@ jobs:
 
 
       # ==========================================================
-      # 16. ★ Atomic 立即 Push + Pull
-      #
-      # 三天 Atomic 全部完成并验证之后
-      #
-      # Atomic
-      #   ↓
-      # git add
-      #   ↓
-      # git commit
-      #   ↓
-      # git push
-      #   ↓
-      # git pull
-      #
-      # 然后才允许进入 Source Enrichment。
+      # 16. Atomic immediately Push + Pull
       # ==========================================================
 
       - name: Sync Atomic News immediately
@@ -730,27 +714,8 @@ jobs:
               exit 1
             fi
 
-            if [ ! -d "$OUTPUT" ]; then
-              echo "📁 Enriched root missing"
-              echo "▶️ Creating $OUTPUT"
-              mkdir -p "$OUTPUT"
-            else
-              echo "📁 Enriched root exists"
-            fi
-
-            if [ ! -d "$OUTPUT/zh" ]; then
-              echo "📁 Enriched ZH missing"
-              mkdir -p "$OUTPUT/zh"
-            else
-              echo "📁 Enriched ZH exists"
-            fi
-
-            if [ ! -d "$OUTPUT/en" ]; then
-              echo "📁 Enriched EN missing"
-              mkdir -p "$OUTPUT/en"
-            else
-              echo "📁 Enriched EN exists"
-            fi
+            mkdir -p "$OUTPUT/zh"
+            mkdir -p "$OUTPUT/en"
 
             ENRICHED_ZH=$(find "$OUTPUT/zh" \
               -maxdepth 1 \
@@ -891,31 +856,9 @@ jobs:
           echo "✅ THREE-DAY DATA CHAIN COMPLETE"
           echo "============================================================"
 
-          echo
-          echo "Raw       : ✅ 3 days"
-          echo "Atomic    : ✅ 3 days"
-          echo "Enriched  : ✅ 3 days"
-
-          echo
-          echo "▶️ Knowledge Pipeline is now allowed to start."
-
 
       # ==========================================================
-      # 19. ★ Enriched 立即 Push + Pull
-      #
-      # 三天 Enriched 全部完成并验证之后
-      #
-      # Enriched
-      #   ↓
-      # git add
-      #   ↓
-      # git commit
-      #   ↓
-      # git push
-      #   ↓
-      # git pull
-      #
-      # 然后才允许进入 Knowledge Pipeline。
+      # 19. Enriched immediately Push + Pull
       # ==========================================================
 
       - name: Sync Enriched News immediately
@@ -963,10 +906,20 @@ jobs:
 
 
       # ==========================================================
-      # 20. Knowledge Pipeline
+      # 20. KNOWLEDGE PIPELINE - STAGE 1
+      #
+      # ★★★ 先三天全部 Aggregation ★★★
+      #
+      # 前天 → aggregation
+      # 昨天 → aggregation
+      # 今天 → aggregation
+      #
+      # 注意：
+      # 此阶段只负责生成 EventUnits。
+      # 不允许进入 Skills。
       # ==========================================================
 
-      - name: Run Knowledge Pipeline - three days
+      - name: Knowledge Pipeline - three-day Aggregation
         env:
           AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
           AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
@@ -974,6 +927,19 @@ jobs:
           AI_MODEL: agnes-2.5-flash
         run: |
           set -e
+
+          SCRIPT="01_自生长知识系统/scripts/knowledge_pipeline.py"
+
+          if [ ! -f "$SCRIPT" ]; then
+            echo "❌ knowledge_pipeline.py not found"
+            exit 1
+          fi
+
+          echo
+          echo "============================================================"
+          echo "KNOWLEDGE PIPELINE STAGE 1"
+          echo "THREE-DAY AGGREGATION"
+          echo "============================================================"
 
           for DATE in \
             "$DAY_BEFORE" \
@@ -983,20 +949,265 @@ jobs:
 
             echo
             echo "============================================================"
-            echo "KNOWLEDGE PIPELINE: $DATE"
+            echo "AGGREGATION: $DATE"
             echo "============================================================"
 
             python \
-              "01_自生长知识系统/scripts/knowledge_pipeline.py" \
-              --date "$DATE"
+              "$SCRIPT" \
+              --date "$DATE" \
+              --stage aggregation
 
-            echo "✅ Knowledge Pipeline finished: $DATE"
+            echo "✅ Aggregation finished: $DATE"
 
           done
 
+          echo
+          echo "============================================================"
+          echo "✅ THREE-DAY AGGREGATION FINISHED"
+          echo "============================================================"
+
 
       # ==========================================================
-      # 21. Weekly Report
+      # 21. ★★★ EventUnits 三日完整性验证 ★★★
+      #
+      # Aggregation 全部完成之后，
+      # 必须确认三天 EventUnits 已经完整落入本地仓库。
+      #
+      # EventUnits:
+      #
+      # Raw News/
+      #   YYYY-MM-DD-EventUnits/
+      #       ├── _event_index.json
+      #       ├── EVT-*.md
+      #       └── _EVENT_UNITS_COMPLETE
+      #
+      # 任何一天不完整：
+      #     立即失败
+      #
+      # 三天全部完整：
+      #     才允许进入 Skills。
+      # ==========================================================
+
+      - name: Validate three-day EventUnits
+        run: |
+          set -e
+
+          RAW_ROOT="01_自生长知识系统/Raw News"
+
+          echo
+          echo "============================================================"
+          echo "FINAL THREE-DAY EVENTUNITS VALIDATION"
+          echo "============================================================"
+
+          for DATE in \
+            "$DAY_BEFORE" \
+            "$YESTERDAY" \
+            "$TODAY"
+          do
+
+            EVENT_ROOT="$RAW_ROOT/${DATE}-EventUnits"
+
+            echo
+            echo "============================================================"
+            echo "EVENTUNITS: $DATE"
+            echo "============================================================"
+
+            if [ ! -d "$EVENT_ROOT" ]; then
+              echo "❌ EventUnits directory missing:"
+              echo "$EVENT_ROOT"
+              exit 1
+            fi
+
+            echo "📁 EventUnits directory exists"
+
+            if [ ! -f "$EVENT_ROOT/_event_index.json" ]; then
+              echo "❌ _event_index.json missing"
+              exit 1
+            fi
+
+            echo "✅ _event_index.json exists"
+
+            EVENT_COUNT=$(find "$EVENT_ROOT" \
+              -maxdepth 1 \
+              -type f \
+              -name "EVT-*.md" \
+              | wc -l)
+
+            echo "EventUnits: $EVENT_COUNT"
+
+            if [ "$EVENT_COUNT" -eq 0 ]; then
+              echo "❌ No EVT-*.md EventUnits found"
+              exit 1
+            fi
+
+            if [ ! -f "$EVENT_ROOT/_EVENT_UNITS_COMPLETE" ]; then
+              echo "❌ _EVENT_UNITS_COMPLETE marker missing"
+              exit 1
+            fi
+
+            echo "✅ _EVENT_UNITS_COMPLETE exists"
+            echo "✅ $DATE EventUnits complete"
+
+          done
+
+          echo
+          echo "============================================================"
+          echo "✅ THREE-DAY EVENTUNITS COMPLETE"
+          echo "============================================================"
+
+          echo
+          echo "All three days have:"
+          echo "✅ EventUnits directory"
+          echo "✅ _event_index.json"
+          echo "✅ EVT-*.md"
+          echo "✅ _EVENT_UNITS_COMPLETE"
+
+          echo
+          echo "▶️ Three-day EventUnits are now safely stored locally."
+          echo "▶️ Knowledge Pipeline Stage 2 is now allowed."
+
+
+      # ==========================================================
+      # 22. ★★★ EventUnits 立即 Push + Pull ★★★
+      #
+      # 只有三天 EventUnits 全部完成验证之后，
+      # 才进行 Git 同步。
+      #
+      # EventUnits
+      #      ↓
+      # git add
+      #      ↓
+      # git commit
+      #      ↓
+      # git push
+      #      ↓
+      # git pull
+      #      ↓
+      # Skills
+      # ==========================================================
+
+      - name: Sync EventUnits immediately
+        run: |
+          set -e
+
+          echo "============================================================"
+          echo "IMMEDIATE EVENTUNITS SYNC"
+          echo "============================================================"
+
+          git config user.name \
+            "748686 Knowledge Bot"
+
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            "01_自生长知识系统/Raw News"
+
+          if git diff --cached --quiet; then
+
+            echo "ℹ️ No new EventUnits changes to commit"
+
+          else
+
+            git commit \
+              -m "data: sync EventUnits $TODAY"
+
+            echo "▶️ Pushing EventUnits..."
+
+            git push origin HEAD:main
+
+            echo "✅ EventUnits pushed"
+
+          fi
+
+          echo "▶️ Pulling latest repository state..."
+
+          git pull --ff-only origin main
+
+          echo
+          echo "============================================================"
+          echo "✅ EVENTUNITS PUSH + PULL COMPLETE"
+          echo "============================================================"
+
+
+      # ==========================================================
+      # 23. KNOWLEDGE PIPELINE - STAGE 2
+      #
+      # ★★★ 只有三天 Aggregation + EventUnits 落库完成后 ★★★
+      #
+      # 前天 → skills
+      # 昨天 → skills
+      # 今天 → skills
+      #
+      # Skills 只读取已经落库的 EventUnits。
+      # ==========================================================
+
+      - name: Knowledge Pipeline - three-day Skills
+        env:
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_BASE_URL: https://api.agnes-ai.cn/v1
+          AI_MODEL: agnes-2.5-flash
+        run: |
+          set -e
+
+          SCRIPT="01_自生长知识系统/scripts/knowledge_pipeline.py"
+
+          if [ ! -f "$SCRIPT" ]; then
+            echo "❌ knowledge_pipeline.py not found"
+            exit 1
+          fi
+
+          echo
+          echo "============================================================"
+          echo "KNOWLEDGE PIPELINE STAGE 2"
+          echo "THREE-DAY SKILLS"
+          echo "============================================================"
+
+          for DATE in \
+            "$DAY_BEFORE" \
+            "$YESTERDAY" \
+            "$TODAY"
+          do
+
+            echo
+            echo "============================================================"
+            echo "SKILLS: $DATE"
+            echo "============================================================"
+
+            EVENT_ROOT="01_自生长知识系统/Raw News/${DATE}-EventUnits"
+
+            if [ ! -d "$EVENT_ROOT" ]; then
+              echo "❌ EventUnits missing before Skills:"
+              echo "$EVENT_ROOT"
+              exit 1
+            fi
+
+            if [ ! -f "$EVENT_ROOT/_EVENT_UNITS_COMPLETE" ]; then
+              echo "❌ EventUnits incomplete before Skills:"
+              echo "$EVENT_ROOT"
+              exit 1
+            fi
+
+            python \
+              "$SCRIPT" \
+              --date "$DATE" \
+              --stage skills
+
+            echo "✅ Skills finished: $DATE"
+
+          done
+
+          echo
+          echo "============================================================"
+          echo "✅ THREE-DAY SKILLS FINISHED"
+          echo "============================================================"
+
+
+      # ==========================================================
+      # 24. Weekly Report
+      #
+      # ★ Skills 三天全部完成之后才允许执行
       # ==========================================================
 
       - name: Run Weekly Report V2
@@ -1008,6 +1219,10 @@ jobs:
         run: |
           set -e
 
+          echo "============================================================"
+          echo "WEEKLY REPORT"
+          echo "============================================================"
+
           python \
             "01_自生长知识系统/scripts/weekly_report.py"
 
@@ -1015,7 +1230,7 @@ jobs:
 
 
       # ==========================================================
-      # 22. Final result
+      # 25. Final result
       # ==========================================================
 
       - name: Show three-day final result
@@ -1064,6 +1279,14 @@ jobs:
               | sort
 
             echo
+            echo "EVENTUNITS:"
+            find \
+              "01_自生长知识系统/Raw News/${DATE}-EventUnits" \
+              -maxdepth 1 \
+              -type f \
+              | sort
+
+            echo
             echo "DAILY REPORT:"
 
             REPORT="01_自生长知识系统/05_日报/${DATE:0:4}/${DATE:5:2}/${DATE}.md"
@@ -1079,9 +1302,9 @@ jobs:
 
 
       # ==========================================================
-      # 23. Final Commit
+      # 26. Final Commit
       #
-      # 这里负责 Knowledge / Weekly 等后续产物。
+      # 负责 Skills / Knowledge / Weekly 等后续产物
       # ==========================================================
 
       - name: Commit Knowledge System
@@ -1114,7 +1337,7 @@ jobs:
 
 
       # ==========================================================
-      # 24. Complete
+      # 27. Complete
       # ==========================================================
 
       - name: Complete Job
@@ -1163,7 +1386,11 @@ jobs:
           echo "✅ immediately pulled"
 
           echo "Knowledge Pipeline:"
-          echo "✅ processed day-by-day"
+          echo "✅ three-day aggregation"
+          echo "✅ three-day EventUnits validated"
+          echo "✅ EventUnits immediately pushed"
+          echo "✅ EventUnits immediately pulled"
+          echo "✅ three-day skills"
 
           echo "Weekly Report:"
           echo "✅ completed"
