@@ -25,6 +25,7 @@ skill_routes.json
    ↓
 日报 / 知识卡片 / 专题候选 / 追踪事项
 
+
 ============================================================
 核心原则
 ============================================================
@@ -50,6 +51,11 @@ skill_routes.json
 19. 任意关键 AI 步骤失败，程序立即失败。
 20. 不允许半成品被标记为成功。
 21. 不限制当天新闻处理数量，所有有效 Enriched News 全部处理。
+22. 每次运行检查前天、昨天、今天三个日期。
+23. 三个日期必须分别独立处理，不合并成一个批次。
+24. 某日期已经 SUCCESS，则跳过该日期。
+25. 某日期没有 SUCCESS，则只处理该日期。
+26. 处理顺序固定为：前天 → 昨天 → 今天。
 """
 
 from __future__ import annotations
@@ -60,7 +66,7 @@ import re
 import sys
 
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
@@ -248,15 +254,7 @@ def call_ai(
     """
     调用 AGNES.ai。
 
-    本函数不读取：
-
-        AI_API_KEY
-        AI_BASE_URL
-        AI_MODEL
-
-    也不读取：
-
-        system_config.json
+    不读取 system_config.json。
 
     AGNES 配置固定为：
 
@@ -547,7 +545,7 @@ def route_skills(
 
 
 # ============================================================
-# 获取当天 Enriched
+# 获取指定日期 Enriched
 # ============================================================
 
 def get_enriched_files(date: str):
@@ -1144,6 +1142,44 @@ def generate_watchlist(
 
 
 # ============================================================
+# 判断指定日期是否已经完整处理
+# ============================================================
+
+def is_date_completed(date: str):
+
+    log_path = (
+        LOGS
+        / f"{date}_knowledge_pipeline.md"
+    )
+
+    if not log_path.exists():
+
+        return False
+
+    try:
+
+        content = log_path.read_text(
+            encoding="utf-8",
+            errors="replace"
+        )
+
+    except Exception:
+
+        return False
+
+    # 必须明确存在 SUCCESS
+    # 才认为这一天已经完整处理。
+    if re.search(
+        r"(?m)^SUCCESS\s*$",
+        content
+    ):
+
+        return True
+
+    return False
+
+
+# ============================================================
 # 写入知识卡片
 # ============================================================
 
@@ -1296,112 +1332,72 @@ def save_daily_report(
 
 
 # ============================================================
-# 主流程
+# 处理单独一天
 # ============================================================
 
-def main():
+def process_date(
+    date,
+    routes,
+    skills,
+):
+    """
+    独立处理某一天。
 
-    current = now()
+    注意：
 
-    date = current.strftime(
-        "%Y-%m-%d"
-    )
+    每个日期都是一个完全独立的处理单元。
 
-    print("=" * 70)
+    不会把多个日期的新闻合并。
 
-    print(
-        "748686 KNOWLEDGE PIPELINE V2"
-    )
+    返回：
 
-    print("=" * 70)
-
-    print(
-        f"Date: {date}"
-    )
-
-    print(
-        f"Timezone: {current.tzinfo}"
-    )
-
-    print(
-        "AI Provider: AGNES.ai"
-    )
-
-    print(
-        f"AI Model: {AGNES_MODEL}"
-    )
+        True  = 本次实际完成处理
+        False = 本次跳过
+    """
 
     print()
+    print("=" * 70)
+    print(f"📅 CHECK DATE: {date}")
+    print("=" * 70)
 
-    # ========================================================
-    # 创建输出目录
-    # ========================================================
+    # --------------------------------------------------------
+    # 已经完成 → 跳过
+    # --------------------------------------------------------
 
-    for directory in [
-        REPORTS,
-        WEEKLY,
-        TOPICS,
-        KNOWLEDGE,
-        LOGS,
-    ]:
-
-        directory.mkdir(
-            parents=True,
-            exist_ok=True
-        )
-
-    # ========================================================
-    # 加载 Routes
-    # ========================================================
-
-    routes = load_routes()
-
-    # ========================================================
-    # 加载 Skills
-    # ========================================================
-
-    skills = load_skills()
-
-    print(
-        f"Loaded Skills: {len(skills)}"
-    )
-
-    print(
-        f"Loaded Routes: {len(routes)}"
-    )
-
-    if len(skills) < 27:
+    if is_date_completed(date):
 
         print(
-            "⚠️ 警告：当前Skills数量少于27"
+            f"✅ {date} 已经完整处理，跳过。"
         )
 
-    # ========================================================
-    # 检查 AGNES API Key
-    #
-    # 在真正开始处理新闻之前检查。
-    # ========================================================
-
-    if not os.getenv(
-        AGNES_API_KEY_ENV,
-        ""
-    ).strip():
-
-        raise RuntimeError(
-            "❌ 未检测到 AGNES_API_KEY。"
-        )
+        return False
 
     print(
-        "✅ AGNES_API_KEY detected"
+        f"🟡 {date} 尚未完成，需要处理。"
     )
 
-    # ========================================================
+    # --------------------------------------------------------
     # 获取当天 Enriched
-    # ========================================================
+    # --------------------------------------------------------
 
-    files = get_enriched_files(
-        date
-    )
+    try:
+
+        files = get_enriched_files(
+            date
+        )
+
+    except FileNotFoundError as exc:
+
+        print(
+            f"⚠️ {date} 暂无 Enriched："
+            f"{exc}"
+        )
+
+        print(
+            f"⏭️ 跳过 {date}，继续检查下一天。"
+        )
+
+        return False
 
     print(
         f"Enriched files: {len(files)}"
@@ -1409,13 +1405,19 @@ def main():
 
     if not files:
 
-        raise RuntimeError(
-            "当天没有Enriched新闻"
+        print(
+            f"⚠️ {date} 没有 Enriched 新闻。"
         )
 
-    # ========================================================
+        print(
+            f"⏭️ 跳过 {date}，继续检查下一天。"
+        )
+
+        return False
+
+    # --------------------------------------------------------
     # 加载新闻
-    # ========================================================
+    # --------------------------------------------------------
 
     news_items = []
 
@@ -1454,19 +1456,15 @@ def main():
     if not news_items:
 
         raise RuntimeError(
-            "没有有效新闻"
+            f"{date} 没有有效新闻"
         )
 
-    # ========================================================
-    # 不限制新闻数量
+    # --------------------------------------------------------
+    # Horizon score
     #
-    # 当天所有有效 Enriched News 全部进入 AI 处理。
-    # Horizon score 只用于排序，不再用于截断。
-    # ========================================================
-
-    # ========================================================
-    # Horizon score 优先
-    # ========================================================
+    # 只负责排序。
+    # 不负责限制新闻数量。
+    # --------------------------------------------------------
 
     def score(item):
 
@@ -1488,13 +1486,21 @@ def main():
         reverse=True
     )
 
+    # --------------------------------------------------------
+    # 所有有效新闻全部进入 AI
+    # --------------------------------------------------------
+
     print(
         f"AI items: {len(news_items)}"
     )
 
-    # ========================================================
+    print(
+        "News processing limit: NONE"
+    )
+
+    # --------------------------------------------------------
     # 分类 + Skills分析
-    # ========================================================
+    # --------------------------------------------------------
 
     categories = list(
         routes.keys()
@@ -1576,7 +1582,8 @@ def main():
                 "⚠️ No Skills routed"
             )
 
-            # 不把这条新闻伪装成已经分析成功。
+            # 保持原逻辑：
+            # 不把没有Skill路由的新闻伪装成分析成功。
             continue
 
         # ----------------------------------------------------
@@ -1629,9 +1636,9 @@ def main():
             0
         ) + 1
 
-    # ========================================================
+    # --------------------------------------------------------
     # 验证分析结果
-    # ========================================================
+    # --------------------------------------------------------
 
     print()
     print(
@@ -1645,12 +1652,12 @@ def main():
     if not analyses:
 
         raise RuntimeError(
-            "❌ 没有生成任何新闻分析，停止流程。"
+            f"❌ {date} 没有生成任何新闻分析，停止该日期流程。"
         )
 
-    # ========================================================
+    # --------------------------------------------------------
     # 知识卡片
-    # ========================================================
+    # --------------------------------------------------------
 
     print()
     print(
@@ -1658,7 +1665,7 @@ def main():
     )
 
     print(
-        "Generating knowledge cards..."
+        f"Generating knowledge cards for {date}..."
     )
 
     knowledge = generate_knowledge_cards(
@@ -1669,7 +1676,7 @@ def main():
     if not knowledge.strip():
 
         raise RuntimeError(
-            "❌ 知识卡片生成失败：返回为空"
+            f"❌ {date} 知识卡片生成失败：返回为空"
         )
 
     knowledge_path = save_entity_knowledge(
@@ -1681,12 +1688,12 @@ def main():
         f"✅ Knowledge Cards: {knowledge_path}"
     )
 
-    # ========================================================
+    # --------------------------------------------------------
     # 专题候选
-    # ========================================================
+    # --------------------------------------------------------
 
     print(
-        "Generating topic candidates..."
+        f"Generating topic candidates for {date}..."
     )
 
     topics = generate_topics(
@@ -1697,7 +1704,7 @@ def main():
     if not topics.strip():
 
         raise RuntimeError(
-            "❌ 专题候选生成失败：返回为空"
+            f"❌ {date} 专题候选生成失败：返回为空"
         )
 
     topic_path = save_topics(
@@ -1709,12 +1716,12 @@ def main():
         f"✅ Topics: {topic_path}"
     )
 
-    # ========================================================
+    # --------------------------------------------------------
     # 后续追踪
-    # ========================================================
+    # --------------------------------------------------------
 
     print(
-        "Generating watchlist..."
+        f"Generating watchlist for {date}..."
     )
 
     watchlist = generate_watchlist(
@@ -1725,12 +1732,12 @@ def main():
     if not watchlist.strip():
 
         raise RuntimeError(
-            "❌ 后续追踪生成失败：返回为空"
+            f"❌ {date} 后续追踪生成失败：返回为空"
         )
 
-    # ========================================================
+    # --------------------------------------------------------
     # 日报
-    # ========================================================
+    # --------------------------------------------------------
 
     report_path = save_daily_report(
         date,
@@ -1743,21 +1750,23 @@ def main():
     if not report_path.exists():
 
         raise RuntimeError(
-            "❌ 日报文件没有成功写入"
+            f"❌ {date} 日报文件没有成功写入"
         )
 
     print(
         f"✅ Daily Report: {report_path}"
     )
 
-    # ========================================================
+    # --------------------------------------------------------
     # 日志
-    # ========================================================
+    # --------------------------------------------------------
 
     log_path = (
         LOGS
         / f"{date}_knowledge_pipeline.md"
     )
+
+    current = now()
 
     log = f"""# {date} Knowledge Pipeline V2
 
@@ -1776,6 +1785,8 @@ def main():
 - 当日有效 Enriched News：全部处理
 - 新闻数量上限：无
 - Horizon Score：仅用于处理顺序，不用于截断
+- 多日处理方式：逐日独立处理
+- 当前日期单元：{date}
 
 ## 分类统计
 
@@ -1807,9 +1818,13 @@ SUCCESS
         encoding="utf-8"
     )
 
-    # ========================================================
+    print(
+        f"✅ Log: {log_path}"
+    )
+
+    # --------------------------------------------------------
     # 最终完成
-    # ========================================================
+    # --------------------------------------------------------
 
     print()
     print(
@@ -1817,7 +1832,7 @@ SUCCESS
     )
 
     print(
-        "✅ KNOWLEDGE PIPELINE V2 COMPLETE"
+        f"✅ {date} KNOWLEDGE PIPELINE COMPLETE"
     )
 
     print("=" * 70)
@@ -1838,12 +1853,333 @@ SUCCESS
         f"Log          : {log_path}"
     )
 
+    return True
+
+
+# ============================================================
+# 主流程
+# ============================================================
+
+def main():
+
+    current = now()
+
+    today = current.date()
+
+    # ========================================================
+    # 三天窗口
+    #
+    # 固定为：
+    #
+    # 前天
+    # 昨天
+    # 今天
+    #
+    # 并且严格按照：
+    #
+    # 前天 → 昨天 → 今天
+    #
+    # 每一天都是独立处理单元。
+    # ========================================================
+
+    target_dates = [
+        (today - timedelta(days=2)).strftime("%Y-%m-%d"),
+        (today - timedelta(days=1)).strftime("%Y-%m-%d"),
+        today.strftime("%Y-%m-%d"),
+    ]
+
+    print("=" * 70)
+
+    print(
+        "748686 KNOWLEDGE PIPELINE V2"
+    )
+
+    print("=" * 70)
+
+    print(
+        f"Current Date: {today.strftime('%Y-%m-%d')}"
+    )
+
+    print(
+        f"Timezone: {current.tzinfo}"
+    )
+
+    print(
+        "AI Provider: AGNES.ai"
+    )
+
+    print(
+        f"AI Model: {AGNES_MODEL}"
+    )
+
     print()
 
     print(
-        "DAILY_REPORT="
-        + str(report_path)
+        "Three-Day Processing Window:"
     )
+
+    for index, date in enumerate(
+        target_dates,
+        start=1
+    ):
+
+        label = {
+            1: "前天",
+            2: "昨天",
+            3: "今天",
+        }[index]
+
+        print(
+            f"  {label}: {date}"
+        )
+
+    print()
+
+    print(
+        "Processing Mode:"
+    )
+
+    print(
+        "  每一天独立处理"
+    )
+
+    print(
+        "  不合并三天新闻"
+    )
+
+    print(
+        "  已 SUCCESS → 跳过"
+    )
+
+    print(
+        "  未 SUCCESS → 完整处理"
+    )
+
+    print(
+        "  顺序：前天 → 昨天 → 今天"
+    )
+
+    print()
+
+    # ========================================================
+    # 创建输出目录
+    # ========================================================
+
+    for directory in [
+        REPORTS,
+        WEEKLY,
+        TOPICS,
+        KNOWLEDGE,
+        LOGS,
+    ]:
+
+        directory.mkdir(
+            parents=True,
+            exist_ok=True
+        )
+
+    # ========================================================
+    # 加载 Routes
+    # ========================================================
+
+    routes = load_routes()
+
+    # ========================================================
+    # 加载 Skills
+    # ========================================================
+
+    skills = load_skills()
+
+    print(
+        f"Loaded Skills: {len(skills)}"
+    )
+
+    print(
+        f"Loaded Routes: {len(routes)}"
+    )
+
+    if len(skills) < 27:
+
+        print(
+            "⚠️ 警告：当前Skills数量少于27"
+        )
+
+    # ========================================================
+    # 检查 AGNES API Key
+    #
+    # 在真正开始处理新闻之前检查。
+    # ========================================================
+
+    if not os.getenv(
+        AGNES_API_KEY_ENV,
+        ""
+    ).strip():
+
+        raise RuntimeError(
+            "❌ 未检测到 AGNES_API_KEY。"
+        )
+
+    print(
+        "✅ AGNES_API_KEY detected"
+    )
+
+    # ========================================================
+    # 逐日处理
+    #
+    # 非常重要：
+    #
+    # 不是三天合并。
+    #
+    # 而是：
+    #
+    # 28号 → 完整处理 / 跳过
+    # 29号 → 完整处理 / 跳过
+    # 30号 → 完整处理 / 跳过
+    # ========================================================
+
+    processed_dates = []
+    skipped_dates = []
+
+    for date in target_dates:
+
+        try:
+
+            result = process_date(
+                date,
+                routes,
+                skills
+            )
+
+            if result:
+
+                processed_dates.append(
+                    date
+                )
+
+            else:
+
+                skipped_dates.append(
+                    date
+                )
+
+        except Exception as exc:
+
+            print()
+            print(
+                "=" * 70
+            )
+
+            print(
+                f"❌ {date} PROCESSING FAILED"
+            )
+
+            print("=" * 70)
+
+            print(
+                f"{type(exc).__name__}: {exc}"
+            )
+
+            print()
+
+            # 任意一个需要处理的日期失败，
+            # 整个GitHub Actions运行失败。
+            #
+            # 不允许继续伪装成成功。
+
+            raise
+
+    # ========================================================
+    # 三天检查完成
+    # ========================================================
+
+    print()
+    print(
+        "=" * 70
+    )
+
+    print(
+        "THREE-DAY KNOWLEDGE PIPELINE CHECK COMPLETE"
+    )
+
+    print("=" * 70)
+
+    print()
+
+    print(
+        "实际处理日期："
+    )
+
+    if processed_dates:
+
+        for date in processed_dates:
+
+            print(
+                f"  ✅ {date}"
+            )
+
+    else:
+
+        print(
+            "  无"
+        )
+
+    print()
+
+    print(
+        "已经完成、跳过日期："
+    )
+
+    if skipped_dates:
+
+        for date in skipped_dates:
+
+            print(
+                f"  ⏭️ {date}"
+            )
+
+    else:
+
+        print(
+            "  无"
+        )
+
+    print()
+
+    print(
+        "处理规则："
+    )
+
+    print(
+        "  前天 → 检查"
+    )
+
+    print(
+        "  昨天 → 检查"
+    )
+
+    print(
+        "  今天 → 检查"
+    )
+
+    print(
+        "  已完成 → 跳过"
+    )
+
+    print(
+        "  未完成 → 补处理"
+    )
+
+    print(
+        "  三天不合并"
+    )
+
+    print()
+
+    print(
+        "✅ KNOWLEDGE PIPELINE V2 COMPLETE"
+    )
+
+    print("=" * 70)
 
 
 # ============================================================
@@ -1876,7 +2212,7 @@ if __name__ == "__main__":
             "❌ KNOWLEDGE PIPELINE V2 FAILED"
         )
 
-        print("=" * 70 )
+        print("=" * 70)
 
         print(
             f"{type(exc).__name__}: {exc}"
