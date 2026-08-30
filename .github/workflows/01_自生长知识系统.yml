@@ -452,29 +452,8 @@ jobs:
           echo
           echo "✅ THREE-DAY RAW NEWS COMPLETE"
 
-
       # ==========================================================
       # 14. Atomic News
-      #
-      # ★ 这里正式调用 horizon_split.py
-      #
-      # 绝对不再复制 Raw → Atomic
-      #
-      # 正确流程：
-      #
-      # Raw 中文日报
-      #      ↓
-      # horizon_split.py
-      #      ↓
-      # Atomic/zh
-      #
-      # Raw 英文日报
-      #      ↓
-      # horizon_split.py
-      #      ↓
-      # Atomic/en
-      #
-      # 三天逐日检查。
       # ==========================================================
 
       - name: Build three-day Atomic News
@@ -500,212 +479,55 @@ jobs:
             echo "ATOMIC NEWS: $DATE"
             echo "============================================================"
 
-            RAW_DIR="$RAW_ROOT/$DATE"
             ATOMIC_DIR="$RAW_ROOT/${DATE}-Atomic"
-
             ZH_DIR="$ATOMIC_DIR/zh"
             EN_DIR="$ATOMIC_DIR/en"
 
             # ----------------------------------------------------
-            # 第一件事：建立整个 Atomic 层级
+            # 如果已经存在完整 Atomic，直接跳过
             # ----------------------------------------------------
 
-            if [ ! -d "$ATOMIC_DIR" ]; then
-              echo "📁 Atomic root missing"
-              echo "▶️ Creating $ATOMIC_DIR"
-              mkdir -p "$ATOMIC_DIR"
-            else
-              echo "📁 Atomic root exists"
-            fi
+            if [ -d "$ZH_DIR" ] && [ -d "$EN_DIR" ]; then
 
-            if [ ! -d "$ZH_DIR" ]; then
-              echo "📁 Atomic zh missing"
-              mkdir -p "$ZH_DIR"
-            else
-              echo "📁 Atomic zh exists"
-            fi
+              ZH_COUNT=$(find "$ZH_DIR" \
+                -maxdepth 1 \
+                -type f \
+                -name "*.md" \
+                | wc -l)
 
-            if [ ! -d "$EN_DIR" ]; then
-              echo "📁 Atomic en missing"
-              mkdir -p "$EN_DIR"
-            else
-              echo "📁 Atomic en exists"
-            fi
+              EN_COUNT=$(find "$EN_DIR" \
+                -maxdepth 1 \
+                -type f \
+                -name "*.md" \
+                | wc -l)
 
-            # ----------------------------------------------------
-            # 检查是否已经完成
-            # ----------------------------------------------------
+              echo "Existing Atomic ZH: $ZH_COUNT"
+              echo "Existing Atomic EN: $EN_COUNT"
 
-            ZH_COUNT=$(find "$ZH_DIR" \
-              -maxdepth 1 \
-              -type f \
-              -name "*.md" \
-              | wc -l)
-
-            EN_COUNT=$(find "$EN_DIR" \
-              -maxdepth 1 \
-              -type f \
-              -name "*.md" \
-              | wc -l)
-
-            echo "Existing Atomic ZH: $ZH_COUNT"
-            echo "Existing Atomic EN: $EN_COUNT"
-
-            if [ "$ZH_COUNT" -gt 0 ] && [ "$EN_COUNT" -gt 0 ]; then
-
-              echo "✅ Atomic folders already contain data"
-              echo "⏭️ Skip Atomic generation for $DATE"
-
-              continue
+              if [ "$ZH_COUNT" -gt 0 ] && [ "$EN_COUNT" -gt 0 ]; then
+                echo "✅ Atomic already complete: $DATE"
+                echo "⏭️ Skip"
+                continue
+              fi
 
             fi
 
             # ----------------------------------------------------
-            # 找到 Horizon 中文 / 英文日报
+            # 直接调用当前版本 horizon_split.py
             #
-            # 优先文件名判断。
-            # 如果 Horizon 文件名没有 zh/en，
-            # 用内容语言自动判断。
+            # 当前脚本接口：
+            #   --raw-root
+            #   --date
             # ----------------------------------------------------
 
-            echo
-            echo "Searching bilingual Horizon digest..."
-
-            python - "$RAW_DIR" "$DATE" <<'PY'
-          import sys
-          import re
-          from pathlib import Path
-
-          raw_dir = Path(sys.argv[1])
-          date = sys.argv[2]
-
-          files = sorted(raw_dir.glob("*.md"))
-
-          if len(files) < 2:
-              raise SystemExit(
-                  f"❌ Need at least 2 Horizon MD files for {date}, found {len(files)}"
-              )
-
-          zh = None
-          en = None
-
-          # 先根据文件名判断
-          for f in files:
-              name = f.name.lower()
-
-              if (
-                  "-zh" in name
-                  or "_zh" in name
-                  or ".zh." in name
-                  or "chinese" in name
-                  or "中文" in name
-              ):
-                  zh = f
-
-              if (
-                  "-en" in name
-                  or "_en" in name
-                  or ".en." in name
-                  or "english" in name
-                  or "英文" in name
-              ):
-                  en = f
-
-          # 文件名无法判断时，用内容判断
-          if zh is None or en is None:
-
-              candidates = []
-
-              for f in files:
-                  text = f.read_text(
-                      encoding="utf-8",
-                      errors="replace"
-                  )
-
-                  chinese = len(
-                      re.findall(
-                          r"[\u4e00-\u9fff]",
-                          text
-                      )
-                  )
-
-                  english = len(
-                      re.findall(
-                          r"[A-Za-z]",
-                          text
-                      )
-                  )
-
-                  candidates.append(
-                      (f, chinese, english)
-                  )
-
-              candidates.sort(
-                  key=lambda x: x[1] - x[2],
-                  reverse=True
-              )
-
-              if zh is None:
-                  zh = candidates[0][0]
-
-              if en is None:
-                  remaining = [
-                      x for x in candidates
-                      if x[0] != zh
-                  ]
-
-                  if remaining:
-                      remaining.sort(
-                          key=lambda x: x[2] - x[1],
-                          reverse=True
-                      )
-                      en = remaining[0][0]
-
-          if zh is None or en is None:
-              raise SystemExit(
-                  "❌ Cannot identify Chinese and English Horizon files"
-              )
-
-          print(f"ZH_FILE={zh}")
-          print(f"EN_FILE={en}")
-
-          with open(
-              "zh_input.txt",
-              "w",
-              encoding="utf-8"
-          ) as out:
-              out.write(str(zh))
-
-          with open(
-              "en_input.txt",
-              "w",
-              encoding="utf-8"
-          ) as out:
-              out.write(str(en))
-          PY
-
-            ZH_INPUT=$(cat zh_input.txt)
-            EN_INPUT=$(cat en_input.txt)
-
-            echo "Chinese digest:"
-            echo "$ZH_INPUT"
-
-            echo
-            echo "English digest:"
-            echo "$EN_INPUT"
-
-            # ----------------------------------------------------
-            # 正式调用 Horizon Splitter
-            # ----------------------------------------------------
+            echo "▶️ Running horizon_split.py"
 
             python "$SCRIPT" \
-              --zh "$ZH_INPUT" \
-              --en "$EN_INPUT" \
-              --output "$ATOMIC_DIR" \
+              --raw-root "$RAW_ROOT" \
               --date "$DATE"
 
             # ----------------------------------------------------
-            # 完成后重新检查文件夹
+            # 最终检查
             # ----------------------------------------------------
 
             if [ ! -d "$ZH_DIR" ]; then
@@ -747,8 +569,6 @@ jobs:
             echo "✅ Atomic News complete: $DATE"
 
           done
-
-
       # ==========================================================
       # 15. Final three-day Atomic validation
       #
