@@ -49,6 +49,7 @@ skill_routes.json
 18. 自动生成后续追踪事项。
 19. 任意关键 AI 步骤失败，程序立即失败。
 20. 不允许半成品被标记为成功。
+21. 不限制当天新闻处理数量，所有有效 Enriched News 全部处理。
 """
 
 from __future__ import annotations
@@ -82,11 +83,6 @@ TOPICS = ROOT / "07_专题报告"
 KNOWLEDGE = ROOT / "08_知识库"
 
 LOGS = SYSTEM / "运行日志"
-
-# 注意：
-# system_config.json 不再用于 AI 配置。
-# 这里只保留它作为普通系统参数来源，例如 max_items_for_ai。
-CONFIG_FILE = SYSTEM / "system_config.json"
 
 ROUTES_FILE = SYSTEM / "skill_routes.json"
 
@@ -251,8 +247,6 @@ def call_ai(
 ):
     """
     调用 AGNES.ai。
-
-    注意：
 
     本函数不读取：
 
@@ -737,8 +731,6 @@ def classify_news(
             result[:2000]
         )
 
-        # 分类结果无法解析时，
-        # 不直接让整条新闻消失。
         fallback_category = (
             "新闻"
             if "新闻" in categories
@@ -1359,18 +1351,6 @@ def main():
         )
 
     # ========================================================
-    # 加载普通系统参数
-    #
-    # 注意：
-    # system_config.json 不负责 AI。
-    # ========================================================
-
-    config = read_json(
-        CONFIG_FILE,
-        {}
-    )
-
-    # ========================================================
     # 加载 Routes
     # ========================================================
 
@@ -1478,25 +1458,11 @@ def main():
         )
 
     # ========================================================
-    # 限制 AI 新闻数量
+    # 不限制新闻数量
+    #
+    # 当天所有有效 Enriched News 全部进入 AI 处理。
+    # Horizon score 只用于排序，不再用于截断。
     # ========================================================
-
-    try:
-
-        max_items = int(
-            config.get(
-                "max_items_for_ai",
-                30
-            )
-        )
-
-    except Exception:
-
-        max_items = 30
-
-    if max_items <= 0:
-
-        max_items = 30
 
     # ========================================================
     # Horizon score 优先
@@ -1521,10 +1487,6 @@ def main():
         key=score,
         reverse=True
     )
-
-    news_items = news_items[
-        :max_items
-    ]
 
     print(
         f"AI items: {len(news_items)}"
@@ -1809,6 +1771,12 @@ def main():
 - AI Provider：AGNES.ai
 - AI Model：{AGNES_MODEL}
 
+## 新闻处理模式
+
+- 当日有效 Enriched News：全部处理
+- 新闻数量上限：无
+- Horizon Score：仅用于处理顺序，不用于截断
+
 ## 分类统计
 
 """
@@ -1908,7 +1876,7 @@ if __name__ == "__main__":
             "❌ KNOWLEDGE PIPELINE V2 FAILED"
         )
 
-        print("=" * 70)
+        print("=" * 70 )
 
         print(
             f"{type(exc).__name__}: {exc}"
