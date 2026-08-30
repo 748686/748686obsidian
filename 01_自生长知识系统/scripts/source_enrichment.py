@@ -3,7 +3,7 @@
 
 """
 748686 自生长知识系统
-Source Enrichment V6
+Source Enrichment V7
 
 ============================================================
 核心逻辑
@@ -29,10 +29,10 @@ Source Enrichment V6
 
 
 ============================================================
-V6 核心改进
+V7 核心改进
 ============================================================
 
-在 V5 基础上增加：
+在 V6 基础上增加：
 
     1. 检查 Enriched 文件夹是否存在
     2. 不存在 → 自动创建
@@ -45,6 +45,19 @@ V6 核心改进
     9. Enriched 多出来的文件不自动删除
    10. 最终检查 Atomic 与 Enriched 文件是否一一对应
 
+   ★ V7 新增：
+
+   11. 一个日期全部处理完成并最终验证通过后，
+       立即 Git commit + push 回私有仓库
+
+   12. 不等待三天全部完成
+
+   13. 前天完成 → 立即保存
+       昨天完成 → 立即保存
+       今天完成 → 立即保存
+
+   14. Git push 失败 → Workflow 失败
+       防止成果只存在 GitHub Actions 临时 Runner
 
 ============================================================
 重要原则
@@ -63,7 +76,9 @@ V6 核心改进
 11. Horizon 摘要永远不能冒充原文
 12. 原来的文章生成格式保持不变
 13. 默认检查前天、昨天、今天
-14. 三天全部完成后才成功
+14. 一个日期完整验证后立即持久化到私有仓库
+15. 当前日期保存成功后才进入下一个日期
+16. 三天全部完成后才最终成功
 """
 
 from __future__ import annotations
@@ -73,6 +88,7 @@ import html
 import json
 import os
 import re
+import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import quote_plus, urlparse
@@ -84,8 +100,9 @@ import requests
 # 配置
 # ============================================================
 
+# 你之前确认的 Agnes API 地址
 AGNES_BASE_URL = (
-    "https://apihub.agnes-ai.com/v1"
+    "https://api.agnes-ai.cn/v1"
 )
 
 AGNES_MODEL = (
@@ -94,7 +111,7 @@ AGNES_MODEL = (
 
 USER_AGENT = (
     "Mozilla/5.0 "
-    "(compatible; 748686-Knowledge-Bot/6.0; "
+    "(compatible; 748686-Knowledge-Bot/7.0; "
     "+https://github.com/748686/748686obsidian)"
 )
 
@@ -107,6 +124,31 @@ AGNES_TIMEOUT = 30
 MAX_ARTICLE_LENGTH = 50000
 
 MIN_MATCH_SCORE = 0.72
+
+
+# ============================================================
+# Git 持久化配置
+# ============================================================
+
+GIT_REMOTE = os.environ.get(
+    "GIT_REMOTE",
+    "origin",
+)
+
+GIT_BRANCH = os.environ.get(
+    "GIT_BRANCH",
+    "",
+)
+
+AUTO_GIT_PUSH = os.environ.get(
+    "AUTO_GIT_PUSH",
+    "true",
+).lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 
 
 # ============================================================
@@ -234,6 +276,259 @@ def tokenize(
     )
 
     return set(words)
+
+
+# ============================================================
+# Git 持久化
+# ============================================================
+
+def run_git(
+    *args,
+):
+    """
+    执行 git 命令。
+
+    stdout / stderr 都输出到日志。
+    Git 失败时直接抛出 RuntimeError。
+    """
+
+    command = [
+        "git",
+        *args,
+    ]
+
+    print()
+    print(
+        "GIT:",
+        " ".join(command),
+    )
+
+    result = subprocess.run(
+        command,
+        capture_output=True,
+        text=True,
+    )
+
+    if result.stdout.strip():
+
+        print(
+            result.stdout.strip()
+        )
+
+    if result.returncode != 0:
+
+        if result.stderr.strip():
+
+            print(
+                result.stderr.strip()
+            )
+
+        raise RuntimeError(
+            "Git command failed: "
+            + " ".join(command)
+        )
+
+    return result.stdout.strip()
+
+
+def persist_enriched_date(
+    raw_root: Path,
+    date: str,
+):
+    """
+    当前日期全部处理并最终验证成功后：
+
+        Enriched
+            ↓
+        git add
+            ↓
+        git commit
+            ↓
+        git push
+            ↓
+        私有仓库
+
+    注意：
+
+    1. 只提交当前日期的 Enriched
+    2. 不提交 Atomic
+    3. 不删除 Extra Enriched
+    4. 不等待其它日期
+    5. 当前日期验证失败时不会进入这里
+    6. push 失败直接让 Workflow 失败
+    """
+
+    if not AUTO_GIT_PUSH:
+
+        print()
+        print(
+            "⚠️ AUTO_GIT_PUSH=false"
+        )
+
+        print(
+            "⚠️ Git persistence skipped."
+        )
+
+        return
+
+    enriched_path = (
+        raw_root
+        / f"{date}-Enriched"
+    )
+
+    if not enriched_path.exists():
+
+        raise RuntimeError(
+            f"Cannot persist missing "
+            f"Enriched directory: "
+            f"{enriched_path}"
+        )
+
+    print()
+    print("=" * 80)
+
+    print(
+        f"GIT PERSISTENCE: {date}"
+    )
+
+    print("=" * 80)
+
+    # --------------------------------------------------------
+    # 确认当前目录是 Git 仓库
+    # --------------------------------------------------------
+
+    repo_root = run_git(
+        "rev-parse",
+        "--show-toplevel",
+    )
+
+    print()
+    print(
+        f"Git repository: {repo_root}"
+    )
+
+    # --------------------------------------------------------
+    # 确定当前分支
+    # --------------------------------------------------------
+
+    branch = GIT_BRANCH
+
+    if not branch:
+
+        branch = run_git(
+            "branch",
+            "--show-current",
+        )
+
+    if not branch:
+
+        branch = "main"
+
+    print(
+        f"Git branch: {branch}"
+    )
+
+    print(
+        f"Git remote: {GIT_REMOTE}"
+    )
+
+    # --------------------------------------------------------
+    # 只提交当前日期 Enriched
+    # --------------------------------------------------------
+
+    git_path = str(
+        enriched_path
+    )
+
+    print()
+    print(
+        "Staging current date:"
+    )
+
+    print(
+        f"  {git_path}"
+    )
+
+    run_git(
+        "add",
+        "--",
+        git_path,
+    )
+
+    # --------------------------------------------------------
+    # 检查是否真的产生变化
+    # --------------------------------------------------------
+
+    status = run_git(
+        "status",
+        "--porcelain",
+        "--",
+        git_path,
+    )
+
+    if not status:
+
+        print()
+        print(
+            f"✓ {date} Enriched "
+            f"has no uncommitted changes."
+        )
+
+        print(
+            "✓ Nothing to commit."
+        )
+
+        return
+
+    # --------------------------------------------------------
+    # Commit
+    # --------------------------------------------------------
+
+    commit_message = (
+        f"Knowledge Pipeline: "
+        f"Source Enrichment {date}"
+    )
+
+    print()
+    print(
+        "Committing:"
+    )
+
+    print(
+        f"  {commit_message}"
+    )
+
+    run_git(
+        "commit",
+        "-m",
+        commit_message,
+    )
+
+    # --------------------------------------------------------
+    # Push
+    # --------------------------------------------------------
+
+    print()
+    print(
+        f"Pushing {date} to "
+        f"{GIT_REMOTE}/{branch}"
+    )
+
+    run_git(
+        "push",
+        GIT_REMOTE,
+        f"HEAD:{branch}",
+    )
+
+    print()
+    print("=" * 80)
+
+    print(
+        f"✅ {date} ENRICHED "
+        f"PERSISTED TO PRIVATE REPOSITORY"
+    )
+
+    print("=" * 80)
 
 
 # ============================================================
@@ -1296,7 +1591,6 @@ def valid_atomic_file(
 
 
 # ============================================================
-# V6 新增
 # Enriched 目录结构检查
 # ============================================================
 
@@ -1314,7 +1608,7 @@ def ensure_enriched_directories(
     if not enriched_root.exists():
 
         print(
-            f"🆕 Enriched root missing:"
+            "🆕 Enriched root missing:"
         )
 
         print(
@@ -1329,7 +1623,7 @@ def ensure_enriched_directories(
     else:
 
         print(
-            f"✓ Enriched root exists:"
+            "✓ Enriched root exists:"
         )
 
         print(
@@ -1339,7 +1633,7 @@ def ensure_enriched_directories(
     if not enriched_zh.exists():
 
         print(
-            f"🆕 ZH directory missing:"
+            "🆕 ZH directory missing:"
         )
 
         print(
@@ -1354,13 +1648,13 @@ def ensure_enriched_directories(
     else:
 
         print(
-            f"✓ ZH directory exists"
+            "✓ ZH directory exists"
         )
 
     if not enriched_en.exists():
 
         print(
-            f"🆕 EN directory missing:"
+            "🆕 EN directory missing:"
         )
 
         print(
@@ -1375,12 +1669,11 @@ def ensure_enriched_directories(
     else:
 
         print(
-            f"✓ EN directory exists"
+            "✓ EN directory exists"
         )
 
 
 # ============================================================
-# V6 新增
 # Atomic / Enriched 文件集合检查
 # ============================================================
 
@@ -1802,19 +2095,31 @@ def process_file(
             "found"
         ):
 
-            index = int(
-                agnes_result.get(
-                    "candidate_index",
-                    0,
-                )
-            )
+            try:
 
-            confidence = float(
-                agnes_result.get(
-                    "confidence",
-                    0,
+                index = int(
+                    agnes_result.get(
+                        "candidate_index",
+                        0,
+                    )
                 )
-            )
+
+            except Exception:
+
+                index = 0
+
+            try:
+
+                confidence = float(
+                    agnes_result.get(
+                        "confidence",
+                        0,
+                    )
+                )
+
+            except Exception:
+
+                confidence = 0.0
 
             if (
                 1
@@ -1921,7 +2226,6 @@ def process_language(
 ):
 
     # ========================================================
-    # V6
     # 输出目录不存在 → 创建
     # ========================================================
 
@@ -1929,8 +2233,8 @@ def process_language(
 
         print()
         print(
-            f"🆕 Enriched language directory "
-            f"missing."
+            "🆕 Enriched language "
+            "directory missing."
         )
 
         print(
@@ -1946,8 +2250,8 @@ def process_language(
 
         print()
         print(
-            f"✓ Enriched language directory "
-            f"exists: {output_dir}"
+            "✓ Enriched language "
+            f"directory exists: {output_dir}"
         )
 
     # ========================================================
@@ -1984,7 +2288,6 @@ def process_language(
         )
 
     # ========================================================
-    # V6
     # 先进行数量排查
     # ========================================================
 
@@ -2648,6 +2951,10 @@ def process_date(
         f"{en_final['complete']}"
     )
 
+    # ========================================================
+    # 严格失败判断
+    # ========================================================
+
     if not zh_final["complete"]:
 
         raise RuntimeError(
@@ -2665,6 +2972,10 @@ def process_date(
             f"Enriched={en_final['enriched_valid']} "
             f"Missing={len(en_final['missing'])}"
         )
+
+    # ========================================================
+    # 当前日期已经完全成功
+    # ========================================================
 
     print()
     print(
@@ -2750,10 +3061,28 @@ def main():
 
     print(
         "748686 HORIZON "
-        "SOURCE ENRICHMENT V6"
+        "SOURCE ENRICHMENT V7"
     )
 
     print("=" * 80)
+
+    print()
+    print(
+        "Git persistence:",
+        AUTO_GIT_PUSH,
+    )
+
+    print(
+        "Git remote:",
+        GIT_REMOTE,
+    )
+
+    if GIT_BRANCH:
+
+        print(
+            "Git branch:",
+            GIT_BRANCH,
+        )
 
     if args.date:
 
@@ -2761,6 +3090,7 @@ def main():
             args.date
         ]
 
+        print()
         print(
             "MODE: SINGLE DATE"
         )
@@ -2769,6 +3099,7 @@ def main():
 
         dates = calculate_three_dates()
 
+        print()
         print(
             "MODE: THREE DAYS"
         )
@@ -2787,15 +3118,51 @@ def main():
     results = []
 
     # ========================================================
-    # 严格 前天 → 昨天 → 今天
+    # 严格：
+    #
+    # 前天
+    #   ↓
+    # 完整处理
+    #   ↓
+    # 最终验证
+    #   ↓
+    # ★ 立即 Git Push
+    #   ↓
+    #
+    # 昨天
+    #   ↓
+    # 完整处理
+    #   ↓
+    # 最终验证
+    #   ↓
+    # ★ 立即 Git Push
+    #   ↓
+    #
+    # 今天
+    #   ↓
+    # 完整处理
+    #   ↓
+    # 最终验证
+    #   ↓
+    # ★ 立即 Git Push
+    #
     # ========================================================
 
     for date in dates:
+
+        # ----------------------------------------------------
+        # 处理当前日期
+        # ----------------------------------------------------
 
         result = process_date(
             raw_root,
             date,
         )
+
+        # ----------------------------------------------------
+        # process_date()
+        # 已经完成最终严格验证
+        # ----------------------------------------------------
 
         results.append(
             result
@@ -2804,6 +3171,36 @@ def main():
         print()
         print(
             f"✅ DAY COMPLETE: {date}"
+        )
+
+        # ----------------------------------------------------
+        # ★★★ 核心改动 ★★★
+        #
+        # 当前日期一旦完成：
+        #
+        # Enriched
+        #     ↓
+        # Git add
+        #     ↓
+        # Git commit
+        #     ↓
+        # Git push
+        #
+        # 立即保存到私有仓库。
+        #
+        # 不等待下一个日期。
+        # ----------------------------------------------------
+
+        persist_enriched_date(
+            raw_root,
+            date,
+        )
+
+        print()
+        print(
+            f"☁️ {date} "
+            "has been synced to "
+            "the private repository."
         )
 
     # ========================================================
@@ -2857,6 +3254,18 @@ def main():
         "ENRICHMENT COMPLETE"
     )
 
+    print()
+    print(
+        "☁️ All completed dates have "
+        "already been persisted to "
+        "the private repository."
+    )
+
+
+# ============================================================
+# Entry
+# ============================================================
 
 if __name__ == "__main__":
+
     main()
