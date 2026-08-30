@@ -3,7 +3,7 @@
 
 """
 748686 自生长知识系统
-Source Enrichment V5
+Source Enrichment V6
 
 ============================================================
 核心逻辑
@@ -27,33 +27,24 @@ Source Enrichment V5
         ├── zh/
         └── en/
 
+
 ============================================================
-V5 核心改进
+V6 核心改进
 ============================================================
 
-旧版本的问题：
+在 V5 基础上增加：
 
-    Enriched 文件夹存在
-    ↓
-    里面有几个 MD
-    ↓
-    可能被误认为已经完成
+    1. 检查 Enriched 文件夹是否存在
+    2. 不存在 → 自动创建
+    3. Atomic 是唯一上游标准
+    4. 获取 Atomic 实际有效文章数量
+    5. 获取 Enriched 实际文件数量
+    6. 数量不一致 → 找出缺失文件
+    7. 只重新生成缺失 / 无效文件
+    8. 已经有效的 Enriched 不重复处理
+    9. Enriched 多出来的文件不自动删除
+   10. 最终检查 Atomic 与 Enriched 文件是否一一对应
 
-V5 改为：
-
-    Atomic 是上游真实标准
-            ↓
-    获取 Atomic 实际文件集合
-            ↓
-    Enriched 必须一一对应
-            ↓
-    文件名必须一致
-            ↓
-    数量必须一致
-            ↓
-    文件内容必须有效
-            ↓
-    才允许跳过
 
 ============================================================
 重要原则
@@ -61,14 +52,18 @@ V5 改为：
 
 1. Atomic 是唯一上游标准
 2. Horizon 原始日报不能冒充 Atomic
-3. Enriched 不以“文件夹里有 MD”判断完成
+3. Enriched 不以“文件夹存在”判断完成
 4. Enriched 必须与 Atomic 一一对应
-5. 已经有效的 Enriched 跳过
-6. 缺失 / 异常 / 错误文件重新获取
-7. Atomic 永远不修改
-8. Horizon 摘要永远不能冒充原文
-9. 默认检查前天、昨天、今天
-10. 三天全部完成后才成功
+5. 文件夹不存在 → 创建
+6. 文件夹存在但文件少 → 补齐
+7. 已经有效的 Enriched → 跳过
+8. 缺失 / 异常文件 → 重新获取
+9. Enriched 多出来的文件 → 不自动删除
+10. Atomic 永远不修改
+11. Horizon 摘要永远不能冒充原文
+12. 原来的文章生成格式保持不变
+13. 默认检查前天、昨天、今天
+14. 三天全部完成后才成功
 """
 
 from __future__ import annotations
@@ -80,10 +75,7 @@ import os
 import re
 from datetime import datetime, timedelta
 from pathlib import Path
-from urllib.parse import (
-    quote_plus,
-    urlparse,
-)
+from urllib.parse import quote_plus, urlparse
 
 import requests
 
@@ -102,7 +94,7 @@ AGNES_MODEL = (
 
 USER_AGENT = (
     "Mozilla/5.0 "
-    "(compatible; 748686-Knowledge-Bot/5.0; "
+    "(compatible; 748686-Knowledge-Bot/6.0; "
     "+https://github.com/748686/748686obsidian)"
 )
 
@@ -1304,6 +1296,171 @@ def valid_atomic_file(
 
 
 # ============================================================
+# V6 新增
+# Enriched 目录结构检查
+# ============================================================
+
+def ensure_enriched_directories(
+    enriched_root: Path,
+    enriched_zh: Path,
+    enriched_en: Path,
+):
+
+    print()
+    print(
+        "CHECK ENRICHED DIRECTORY STRUCTURE"
+    )
+
+    if not enriched_root.exists():
+
+        print(
+            f"🆕 Enriched root missing:"
+        )
+
+        print(
+            f"   Creating: {enriched_root}"
+        )
+
+        enriched_root.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+    else:
+
+        print(
+            f"✓ Enriched root exists:"
+        )
+
+        print(
+            f"  {enriched_root}"
+        )
+
+    if not enriched_zh.exists():
+
+        print(
+            f"🆕 ZH directory missing:"
+        )
+
+        print(
+            f"   Creating: {enriched_zh}"
+        )
+
+        enriched_zh.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+    else:
+
+        print(
+            f"✓ ZH directory exists"
+        )
+
+    if not enriched_en.exists():
+
+        print(
+            f"🆕 EN directory missing:"
+        )
+
+        print(
+            f"   Creating: {enriched_en}"
+        )
+
+        enriched_en.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+    else:
+
+        print(
+            f"✓ EN directory exists"
+        )
+
+
+# ============================================================
+# V6 新增
+# Atomic / Enriched 文件集合检查
+# ============================================================
+
+def compare_article_sets(
+    atomic_dir: Path,
+    enriched_dir: Path,
+):
+
+    atomic_files = sorted(
+        atomic_dir.glob("*.md")
+    )
+
+    valid_atomic = [
+        file
+        for file in atomic_files
+        if valid_atomic_file(file)
+    ]
+
+    enriched_files = sorted(
+        enriched_dir.glob("*.md")
+    )
+
+    valid_enriched = [
+        file
+        for file in enriched_files
+        if valid_enriched_file(file)
+    ]
+
+    atomic_names = {
+        file.name
+        for file in valid_atomic
+    }
+
+    enriched_names = {
+        file.name
+        for file in valid_enriched
+    }
+
+    missing = sorted(
+        atomic_names
+        - enriched_names
+    )
+
+    unexpected = sorted(
+        enriched_names
+        - atomic_names
+    )
+
+    return {
+
+        "atomic_total":
+            len(atomic_files),
+
+        "atomic_valid":
+            len(valid_atomic),
+
+        "enriched_total":
+            len(enriched_files),
+
+        "enriched_valid":
+            len(valid_enriched),
+
+        "missing":
+            missing,
+
+        "unexpected":
+            unexpected,
+
+        "complete":
+            (
+                atomic_names
+                == enriched_names
+                and len(valid_atomic)
+                > 0
+            ),
+
+    }
+
+
+# ============================================================
 # Enriched 与 Atomic 一一对应验证
 # ============================================================
 
@@ -1763,14 +1920,39 @@ def process_language(
     output_dir: Path,
 ):
 
-    output_dir.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
+    # ========================================================
+    # V6
+    # 输出目录不存在 → 创建
+    # ========================================================
 
-    # --------------------------------------------------------
+    if not output_dir.exists():
+
+        print()
+        print(
+            f"🆕 Enriched language directory "
+            f"missing."
+        )
+
+        print(
+            f"Creating: {output_dir}"
+        )
+
+        output_dir.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+    else:
+
+        print()
+        print(
+            f"✓ Enriched language directory "
+            f"exists: {output_dir}"
+        )
+
+    # ========================================================
     # Atomic 是唯一输入标准
-    # --------------------------------------------------------
+    # ========================================================
 
     all_atomic = sorted(
         input_dir.glob("*.md")
@@ -1801,6 +1983,132 @@ def process_language(
             f"{input_dir}"
         )
 
+    # ========================================================
+    # V6
+    # 先进行数量排查
+    # ========================================================
+
+    enriched_files = sorted(
+        output_dir.glob("*.md")
+    )
+
+    valid_existing_enriched = [
+        file
+        for file in enriched_files
+        if valid_enriched_file(file)
+    ]
+
+    atomic_names = {
+        file.name
+        for file in atomic_files
+    }
+
+    enriched_names = {
+        file.name
+        for file in valid_existing_enriched
+    }
+
+    missing_names = sorted(
+        atomic_names
+        - enriched_names
+    )
+
+    unexpected_names = sorted(
+        enriched_names
+        - atomic_names
+    )
+
+    print()
+    print(
+        "------------------------------------------------------------"
+    )
+
+    print(
+        "ARTICLE COUNT CHECK"
+    )
+
+    print(
+        "------------------------------------------------------------"
+    )
+
+    print(
+        f"Atomic valid articles    : "
+        f"{len(atomic_files)}"
+    )
+
+    print(
+        f"Enriched valid articles  : "
+        f"{len(valid_existing_enriched)}"
+    )
+
+    print(
+        f"Missing Enriched articles: "
+        f"{len(missing_names)}"
+    )
+
+    print(
+        f"Extra Enriched articles  : "
+        f"{len(unexpected_names)}"
+    )
+
+    if (
+        len(atomic_files)
+        == len(valid_existing_enriched)
+        and not missing_names
+    ):
+
+        print(
+            "✓ Article count matches."
+        )
+
+    else:
+
+        print(
+            "⚠️ Article count does not match."
+        )
+
+    # ========================================================
+    # 显示缺失文件
+    # ========================================================
+
+    if missing_names:
+
+        print()
+        print(
+            "MISSING ENRICHED ARTICLES:"
+        )
+
+        for name in missing_names:
+
+            print(
+                f"  → {name}"
+            )
+
+    # ========================================================
+    # 显示多出来的文件
+    # ========================================================
+
+    if unexpected_names:
+
+        print()
+        print(
+            "EXTRA ENRICHED ARTICLES:"
+        )
+
+        for name in unexpected_names:
+
+            print(
+                f"  ⚠️ {name}"
+            )
+
+        print(
+            "ℹ️ Extra files will NOT be deleted."
+        )
+
+    # ========================================================
+    # 统计
+    # ========================================================
+
     stats = {
 
         "total":
@@ -1818,7 +2126,14 @@ def process_language(
         "rebuilt":
             0,
 
+        "missing":
+            len(missing_names),
+
     }
+
+    # ========================================================
+    # 逐篇处理
+    # ========================================================
 
     for index, file in enumerate(
         atomic_files,
@@ -2023,7 +2338,7 @@ def process_date(
 
     # ========================================================
     # STEP 2
-    # 创建 Enriched 目录
+    # 创建 / 检查 Enriched 文件夹
     # ========================================================
 
     print()
@@ -2031,33 +2346,10 @@ def process_date(
         "STEP 2: CHECK / CREATE ENRICHED DIRECTORIES"
     )
 
-    if enriched_root.exists():
-
-        print(
-            f"ℹ️ Enriched directory exists: "
-            f"{enriched_root}"
-        )
-
-    else:
-
-        print(
-            f"🆕 Creating Enriched directory: "
-            f"{enriched_root}"
-        )
-
-    enriched_root.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
-    enriched_zh.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
-    enriched_en.mkdir(
-        parents=True,
-        exist_ok=True,
+    ensure_enriched_directories(
+        enriched_root,
+        enriched_zh,
+        enriched_en,
     )
 
     # ========================================================
@@ -2192,44 +2484,20 @@ def process_date(
 
             "rebuilt":
                 0,
+
+            "missing":
+                0,
         }
 
     else:
 
         print(
-            "♻️ ZH Enriched incomplete. "
-            "Processing missing/invalid files."
+            "♻️ ZH Enriched incomplete."
         )
 
-        if zh_before["missing"]:
-
-            print(
-                "Missing ZH Enriched:"
-            )
-
-            for name in zh_before[
-                "missing"
-            ][:20]:
-
-                print(
-                    f"  - {name}"
-                )
-
-        if zh_before[
-            "unexpected"
-        ]:
-
-            print(
-                "Unexpected ZH Enriched:"
-            )
-
-            for name in zh_before[
-                "unexpected"
-            ][:20]:
-
-                print(
-                    f"  - {name}"
-                )
+        print(
+            "→ Checking every Atomic article."
+        )
 
         zh_stats = process_language(
             atomic_zh,
@@ -2274,44 +2542,20 @@ def process_date(
 
             "rebuilt":
                 0,
+
+            "missing":
+                0,
         }
 
     else:
 
         print(
-            "♻️ EN Enriched incomplete. "
-            "Processing missing/invalid files."
+            "♻️ EN Enriched incomplete."
         )
 
-        if en_before["missing"]:
-
-            print(
-                "Missing EN Enriched:"
-            )
-
-            for name in en_before[
-                "missing"
-            ][:20]:
-
-                print(
-                    f"  - {name}"
-                )
-
-        if en_before[
-            "unexpected"
-        ]:
-
-            print(
-                "Unexpected EN Enriched:"
-            )
-
-            for name in en_before[
-                "unexpected"
-            ][:20]:
-
-                print(
-                    f"  - {name}"
-                )
+        print(
+            "→ Checking every Atomic article."
+        )
 
         en_stats = process_language(
             atomic_en,
@@ -2360,6 +2604,16 @@ def process_date(
     )
 
     print(
+        f"  Missing        : "
+        f"{len(zh_final['missing'])}"
+    )
+
+    print(
+        f"  Unexpected     : "
+        f"{len(zh_final['unexpected'])}"
+    )
+
+    print(
         f"  Complete       : "
         f"{zh_final['complete']}"
     )
@@ -2380,6 +2634,16 @@ def process_date(
     )
 
     print(
+        f"  Missing        : "
+        f"{len(en_final['missing'])}"
+    )
+
+    print(
+        f"  Unexpected     : "
+        f"{len(en_final['unexpected'])}"
+    )
+
+    print(
         f"  Complete       : "
         f"{en_final['complete']}"
     )
@@ -2389,7 +2653,8 @@ def process_date(
         raise RuntimeError(
             f"{date} ZH Enrichment incomplete: "
             f"Atomic={zh_final['atomic_valid']} "
-            f"Enriched={zh_final['enriched_valid']}"
+            f"Enriched={zh_final['enriched_valid']} "
+            f"Missing={len(zh_final['missing'])}"
         )
 
     if not en_final["complete"]:
@@ -2397,7 +2662,8 @@ def process_date(
         raise RuntimeError(
             f"{date} EN Enrichment incomplete: "
             f"Atomic={en_final['atomic_valid']} "
-            f"Enriched={en_final['enriched_valid']}"
+            f"Enriched={en_final['enriched_valid']} "
+            f"Missing={len(en_final['missing'])}"
         )
 
     print()
@@ -2484,7 +2750,7 @@ def main():
 
     print(
         "748686 HORIZON "
-        "SOURCE ENRICHMENT V5"
+        "SOURCE ENRICHMENT V6"
     )
 
     print("=" * 80)
