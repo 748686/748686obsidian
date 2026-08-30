@@ -641,23 +641,19 @@ jobs:
           echo
           echo "✅ THREE-DAY ATOMIC NEWS COMPLETE"
 
-
       # ==========================================================
       # 16. Source Enrichment
       #
-      # ★ 正式调用 source_enrichment.py
+      # 当前 source_enrichment.py 接口：
+      #
+      #   --raw-root
+      #   --date
       #
       # Atomic
       #   ↓
-      # RSS
-      #   ↓
-      # Agnes
-      #   ↓
-      # Real Source
+      # source_enrichment.py
       #   ↓
       # Enriched
-      #
-      # 每一天独立检查。
       # ==========================================================
 
       - name: Build three-day Enriched News
@@ -673,6 +669,7 @@ jobs:
           python -m pip install requests
 
           SCRIPT="01_自生长知识系统/scripts/source_enrichment.py"
+          RAW_ROOT="01_自生长知识系统/Raw News"
 
           if [ ! -f "$SCRIPT" ]; then
             echo "❌ source_enrichment.py not found"
@@ -690,15 +687,53 @@ jobs:
             echo "SOURCE ENRICHMENT: $DATE"
             echo "============================================================"
 
-            ATOMIC_ROOT="01_自生长知识系统/Raw News/${DATE}-Atomic"
+            ATOMIC_ROOT="$RAW_ROOT/${DATE}-Atomic"
+            OUTPUT="$RAW_ROOT/${DATE}-Enriched"
 
             ZH="$ATOMIC_ROOT/zh"
             EN="$ATOMIC_ROOT/en"
 
-            OUTPUT="01_自生长知识系统/Raw News/${DATE}-Enriched"
+            # ----------------------------------------------------
+            # 检查 Atomic
+            # ----------------------------------------------------
+
+            if [ ! -d "$ZH" ]; then
+              echo "❌ Atomic ZH folder missing: $ZH"
+              exit 1
+            fi
+
+            if [ ! -d "$EN" ]; then
+              echo "❌ Atomic EN folder missing: $EN"
+              exit 1
+            fi
+
+            ATOMIC_ZH=$(find "$ZH" \
+              -maxdepth 1 \
+              -type f \
+              -name "*.md" \
+              | wc -l)
+
+            ATOMIC_EN=$(find "$EN" \
+              -maxdepth 1 \
+              -type f \
+              -name "*.md" \
+              | wc -l)
+
+            echo "Atomic ZH: $ATOMIC_ZH"
+            echo "Atomic EN: $ATOMIC_EN"
+
+            if [ "$ATOMIC_ZH" -eq 0 ]; then
+              echo "❌ Atomic ZH empty"
+              exit 1
+            fi
+
+            if [ "$ATOMIC_EN" -eq 0 ]; then
+              echo "❌ Atomic EN empty"
+              exit 1
+            fi
 
             # ----------------------------------------------------
-            # 第一件事：建立 Enriched 文件夹
+            # 建立 Enriched 目录
             # ----------------------------------------------------
 
             if [ ! -d "$OUTPUT" ]; then
@@ -723,18 +758,6 @@ jobs:
               echo "📁 Enriched EN exists"
             fi
 
-            ATOMIC_ZH=$(find "$ZH" \
-              -maxdepth 1 \
-              -type f \
-              -name "*.md" \
-              | wc -l)
-
-            ATOMIC_EN=$(find "$EN" \
-              -maxdepth 1 \
-              -type f \
-              -name "*.md" \
-              | wc -l)
-
             ENRICHED_ZH=$(find "$OUTPUT/zh" \
               -maxdepth 1 \
               -type f \
@@ -747,13 +770,11 @@ jobs:
               -name "*.md" \
               | wc -l)
 
-            echo "Atomic ZH: $ATOMIC_ZH"
-            echo "Atomic EN: $ATOMIC_EN"
-            echo "Enriched ZH: $ENRICHED_ZH"
-            echo "Enriched EN: $ENRICHED_EN"
+            echo "Existing Enriched ZH: $ENRICHED_ZH"
+            echo "Existing Enriched EN: $ENRICHED_EN"
 
             # ----------------------------------------------------
-            # 如果双语都已经有内容，跳过
+            # 已经完成则跳过
             # ----------------------------------------------------
 
             if [ "$ENRICHED_ZH" -gt 0 ] && \
@@ -767,27 +788,21 @@ jobs:
             fi
 
             # ----------------------------------------------------
-            # Atomic 必须存在
+            # 正式调用当前版本 source_enrichment.py
+            #
+            # 注意：
+            # 不再传 --zh
+            # 不再传 --en
+            # 不再传 --output
+            #
+            # 当前脚本自己根据 raw-root + date
+            # 找到对应 Atomic 并生成 Enriched。
             # ----------------------------------------------------
 
-            if [ "$ATOMIC_ZH" -eq 0 ]; then
-              echo "❌ Atomic ZH missing for $DATE"
-              exit 1
-            fi
-
-            if [ "$ATOMIC_EN" -eq 0 ]; then
-              echo "❌ Atomic EN missing for $DATE"
-              exit 1
-            fi
-
-            # ----------------------------------------------------
-            # 正式调用 Source Enrichment
-            # ----------------------------------------------------
+            echo "▶️ Running source_enrichment.py"
 
             python "$SCRIPT" \
-              --zh "$ZH" \
-              --en "$EN" \
-              --output "$OUTPUT" \
+              --raw-root "$RAW_ROOT" \
               --date "$DATE"
 
             # ----------------------------------------------------
@@ -823,8 +838,6 @@ jobs:
             echo "✅ Enriched complete: $DATE"
 
           done
-
-
       # ==========================================================
       # 17. Final three-day Enriched validation
       #
