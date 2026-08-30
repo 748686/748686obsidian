@@ -3,78 +3,109 @@
 
 """
 748686 自生长知识系统
-Horizon Bilingual Digest Splitter V8
+Horizon Bilingual Digest Splitter V9
 
 ============================================================
-核心逻辑
+核心目标
 ============================================================
 
-每次运行固定检查：
-
-    前天
-    昨天
-    今天
-
-每一天独立处理：
+Horizon 每天生成：
 
     Raw News/YYYY-MM-DD/
-            ↓
+        ├── 中文 Horizon 日报
+        └── 英文 Horizon 日报
+
+本程序负责：
+
     Horizon 中文日报
+            ↓
+    拆解成 Atomic News
+
     Horizon 英文日报
             ↓
-    YYYY-MM-DD-Atomic/
-            ├── zh/
-            └── en/
+    拆解成 Atomic News
+
 
 ============================================================
-V8 核心改进
+最重要的完成判断
 ============================================================
 
-旧版本的问题：
+绝对不能：
 
     Atomic 文件夹存在
-    ↓
-    里面只要存在 MD
-    ↓
-    就可能被误认为已经完成
+        ↓
+    就认为已经完成
 
-例如：
+也不能：
 
-    2026-08-30-Atomic/
-        zh/
-            Horizon-ZH.md
-        en/
-            Horizon-EN.md
+    Atomic 文件夹里存在 MD
+        ↓
+    就认为已经完成
 
-实际上这些只是 Horizon 原始日报，
-根本不是拆解后的 Atomic News。
 
-V8 改为：
+真正的完成条件：
 
-    1. 先确认 Horizon 原始日报存在
-    2. 读取当天 Horizon 日报
-    3. 实际解析出 N 条新闻
-    4. 根据 N 条新闻计算理论 Atomic 文件
-    5. 检查 Atomic 中是否存在对应文件
-    6. 文件数量和文件名都必须对应
-    7. 只有真正对应才跳过
-    8. 否则重新拆解
-    9. 最终再次严格验证
+    1. Horizon 中文日报存在
+    2. Horizon 英文日报存在
+    3. 实际解析中文新闻数量 N
+    4. 实际解析英文新闻数量 N
+    5. 检查 Atomic/zh/ 中真正有效的 Atomic 文件
+    6. 检查 Atomic/en/ 中真正有效的 Atomic 文件
+    7. 数量必须与 Horizon 日报一致
+    8. 文件名必须一一对应
+    9. 最终再次验证
+
+只有全部满足：
+
+    Horizon 新闻数量
+        ==
+    Atomic 有效文件数量
+
+并且：
+
+    Horizon 新闻集合
+        ==
+    Atomic 文件集合
+
+才允许：
+
+    COMPLETE
+
 
 ============================================================
-重要原则
+V9 修复的问题
 ============================================================
 
-1. 不修改 Raw News 原始 Horizon 日报
-2. 不删除 Atomic 中已有文件
-3. Horizon 原始日报不能冒充 Atomic
-4. 不使用“目录里有没有 MD”作为完成依据
-5. 必须根据当天 Horizon 日报重新计算理论结果
-6. Atomic 必须与理论结果一一对应
-7. 已经正确生成的 Atomic 文件跳过
-8. 缺失或异常文件重新生成
-9. 默认检查前天、昨天、今天
-10. 三天全部完成后才成功
+修复：
+
+1. Atomic 文件夹不存在
+   → 创建
+
+2. Atomic 文件夹存在
+   → 绝不直接判定完成
+
+3. Atomic 文件夹里面只有 1 个或几个 MD
+   → 与 Horizon 实际新闻数量比较
+
+4. Horizon 原始日报被复制到 Atomic
+   → 不能作为有效 Atomic
+
+5. Atomic 数量不足
+   → 自动补建
+
+6. Atomic 数量超过理论数量
+   → 判定异常
+
+7. Atomic 文件名不对应
+   → 判定异常
+
+8. 生成完成后
+   → 再次严格验证
+
+9. 前天 / 昨天 / 今天
+   → 逐日处理
+
+============================================================
 """
 
 from __future__ import annotations
@@ -837,7 +868,7 @@ def read_digest_items(
 
 
 # ============================================================
-# Atomic 有效文件判断
+# 判断是否是我们自己生成的 Atomic
 # ============================================================
 
 def valid_atomic_file(
@@ -867,11 +898,21 @@ def valid_atomic_file(
     if not content.startswith("---"):
         return False
 
-    # 必须是我们自己生成的 Atomic 文件
+    # 必须包含 Atomic 自己的结构
     if 'original_source: "Horizon"' not in content:
         return False
 
     if "## AI处理状态" not in content:
+        return False
+
+    # 防止 Horizon 原始日报冒充 Atomic
+    if content.count("---") < 2:
+        return False
+
+    if "# Horizon 摘要" in content:
+        return False
+
+    if "# Horizon Summary" in content:
         return False
 
     return True
@@ -961,12 +1002,16 @@ def validate_atomic_directory(
         != len(expected_set)
     )
 
+    count_match = (
+        len(valid_actual)
+        == len(expected)
+    )
+
     complete = (
         not duplicate_problem
+        and count_match
         and not missing
         and not unexpected
-        and len(valid_actual)
-        == len(expected)
     )
 
     return {
@@ -983,6 +1028,56 @@ def validate_atomic_directory(
         ],
         "expected": expected,
     }
+
+
+# ============================================================
+# 打印验证结果
+# ============================================================
+
+def print_validation(
+    language: str,
+    validation: dict,
+):
+
+    print()
+    print(
+        f"----- {language.upper()} ATOMIC VALIDATION -----"
+    )
+
+    print(
+        f"Horizon expected : "
+        f"{validation['expected_count']}"
+    )
+
+    print(
+        f"Atomic MD total  : "
+        f"{validation['actual_md_count']}"
+    )
+
+    print(
+        f"Atomic valid     : "
+        f"{validation['valid_count']}"
+    )
+
+    print(
+        f"Invalid files    : "
+        f"{validation['invalid_count']}"
+    )
+
+    print(
+        f"Missing files    : "
+        f"{len(validation['missing'])}"
+    )
+
+    print(
+        f"Unexpected files : "
+        f"{len(validation['unexpected'])}"
+    )
+
+    print(
+        f"Complete         : "
+        f"{validation['complete']}"
+    )
 
 
 # ============================================================
@@ -1053,9 +1148,9 @@ def split_one(
             output_dir / filename
         )
 
-        # ----------------------------------------------------
-        # 已存在且是我们真正生成的 Atomic
-        # ----------------------------------------------------
+        # ====================================================
+        # 已经是真正有效的 Atomic
+        # ====================================================
 
         if valid_atomic_file(path):
 
@@ -1068,10 +1163,10 @@ def split_one(
 
             continue
 
-        # ----------------------------------------------------
-        # 不存在 / 错误 / Horizon 原始包
-        # → 重新生成
-        # ----------------------------------------------------
+        # ====================================================
+        # 不存在 / 无效
+        # → 创建或重建
+        # ====================================================
 
         if path.exists():
 
@@ -1164,7 +1259,7 @@ def process_date(
 
     # ========================================================
     # STEP 1
-    # 先确认当天 Horizon 原始日报目录
+    # 检查 Horizon 原始日报
     # ========================================================
 
     print()
@@ -1218,7 +1313,7 @@ def process_date(
 
     # ========================================================
     # STEP 2
-    # 创建 Atomic 目录
+    # Atomic 目录
     # ========================================================
 
     print()
@@ -1236,7 +1331,11 @@ def process_date(
     else:
 
         print(
-            f"🆕 Creating Atomic directory: "
+            f"🆕 Atomic directory does not exist."
+        )
+
+        print(
+            f"🆕 Creating: "
             f"{atomic_dir}"
         )
 
@@ -1269,7 +1368,7 @@ def process_date(
 
     # ========================================================
     # STEP 3
-    # 读取 Horizon 日报，得到真实 N 条
+    # 先解析 Horizon 日报
     # ========================================================
 
     print()
@@ -1297,12 +1396,12 @@ def process_date(
 
     # ========================================================
     # STEP 4
-    # 判断 Atomic 是否真正完整
+    # 无论文件夹是否存在，都必须检查里面
     # ========================================================
 
     print()
     print(
-        "STEP 4: VALIDATE ATOMIC CONTENT"
+        "STEP 4: VALIDATE EXISTING ATOMIC CONTENT"
     )
 
     zh_validation = validate_atomic_directory(
@@ -1315,89 +1414,19 @@ def process_date(
         en_items,
     )
 
-    print()
-    print(
-        "ZH Atomic validation:"
+    print_validation(
+        "zh",
+        zh_validation,
     )
 
-    print(
-        f"  Expected : "
-        f"{zh_validation['expected_count']}"
-    )
-
-    print(
-        f"  Actual MD: "
-        f"{zh_validation['actual_md_count']}"
-    )
-
-    print(
-        f"  Valid    : "
-        f"{zh_validation['valid_count']}"
-    )
-
-    print(
-        f"  Missing  : "
-        f"{len(zh_validation['missing'])}"
-    )
-
-    print(
-        f"  Unexpected valid: "
-        f"{len(zh_validation['unexpected'])}"
-    )
-
-    print(
-        f"  Invalid  : "
-        f"{len(zh_validation['invalid_files'])}"
-    )
-
-    print(
-        "  Complete : "
-        f"{zh_validation['complete']}"
-    )
-
-    print()
-    print(
-        "EN Atomic validation:"
-    )
-
-    print(
-        f"  Expected : "
-        f"{en_validation['expected_count']}"
-    )
-
-    print(
-        f"  Actual MD: "
-        f"{en_validation['actual_md_count']}"
-    )
-
-    print(
-        f"  Valid    : "
-        f"{en_validation['valid_count']}"
-    )
-
-    print(
-        f"  Missing  : "
-        f"{len(en_validation['missing'])}"
-    )
-
-    print(
-        f"  Unexpected valid: "
-        f"{len(en_validation['unexpected'])}"
-    )
-
-    print(
-        f"  Invalid  : "
-        f"{len(en_validation['invalid_files'])}"
-    )
-
-    print(
-        "  Complete : "
-        f"{en_validation['complete']}"
+    print_validation(
+        "en",
+        en_validation,
     )
 
     # ========================================================
     # STEP 5
-    # 只有真正完整才跳过
+    # 不完整 → 拆解
     # ========================================================
 
     print()
@@ -1405,11 +1434,25 @@ def process_date(
         "STEP 5: BUILD / REBUILD ATOMIC"
     )
 
+    # --------------------------------------------------------
+    # 中文
+    # --------------------------------------------------------
+
     if zh_validation["complete"]:
 
+        print()
         print(
-            "⏭️ ZH Atomic is already complete. "
-            "Skipping rebuild."
+            "✅ ZH Atomic already matches "
+            "the Horizon digest exactly."
+        )
+
+        print(
+            f"   {zh_validation['valid_count']} "
+            f"/ {zh_validation['expected_count']}"
+        )
+
+        print(
+            "⏭️ Skip ZH rebuild."
         )
 
         zh_count = (
@@ -1418,39 +1461,34 @@ def process_date(
 
     else:
 
+        print()
         print(
-            "♻️ ZH Atomic is incomplete or invalid."
+            "⚠️ ZH Atomic is NOT complete."
         )
 
-        if zh_validation["missing"]:
+        print(
+            f"   Horizon : "
+            f"{zh_validation['expected_count']}"
+        )
 
-            print(
-                "Missing ZH files:"
-            )
+        print(
+            f"   Valid   : "
+            f"{zh_validation['valid_count']}"
+        )
 
-            for name in zh_validation[
-                "missing"
-            ][:20]:
+        print(
+            f"   Missing : "
+            f"{len(zh_validation['missing'])}"
+        )
 
-                print(
-                    f"  - {name}"
-                )
+        print(
+            f"   Invalid : "
+            f"{len(zh_validation['invalid_files'])}"
+        )
 
-        if zh_validation[
-            "invalid_files"
-        ]:
-
-            print(
-                "Invalid ZH files:"
-            )
-
-            for name in zh_validation[
-                "invalid_files"
-            ][:20]:
-
-                print(
-                    f"  - {name}"
-                )
+        print(
+            "♻️ Starting ZH Atomic split."
+        )
 
         zh_count = split_one(
             zh_input,
@@ -1460,11 +1498,25 @@ def process_date(
             items=zh_items,
         )
 
+    # --------------------------------------------------------
+    # 英文
+    # --------------------------------------------------------
+
     if en_validation["complete"]:
 
+        print()
         print(
-            "⏭️ EN Atomic is already complete. "
-            "Skipping rebuild."
+            "✅ EN Atomic already matches "
+            "the Horizon digest exactly."
+        )
+
+        print(
+            f"   {en_validation['valid_count']} "
+            f"/ {en_validation['expected_count']}"
+        )
+
+        print(
+            "⏭️ Skip EN rebuild."
         )
 
         en_count = (
@@ -1473,39 +1525,34 @@ def process_date(
 
     else:
 
+        print()
         print(
-            "♻️ EN Atomic is incomplete or invalid."
+            "⚠️ EN Atomic is NOT complete."
         )
 
-        if en_validation["missing"]:
+        print(
+            f"   Horizon : "
+            f"{en_validation['expected_count']}"
+        )
 
-            print(
-                "Missing EN files:"
-            )
+        print(
+            f"   Valid   : "
+            f"{en_validation['valid_count']}"
+        )
 
-            for name in en_validation[
-                "missing"
-            ][:20]:
+        print(
+            f"   Missing : "
+            f"{len(en_validation['missing'])}"
+        )
 
-                print(
-                    f"  - {name}"
-                )
+        print(
+            f"   Invalid : "
+            f"{len(en_validation['invalid_files'])}"
+        )
 
-        if en_validation[
-            "invalid_files"
-        ]:
-
-            print(
-                "Invalid EN files:"
-            )
-
-            for name in en_validation[
-                "invalid_files"
-            ][:20]:
-
-                print(
-                    f"  - {name}"
-                )
+        print(
+            "♻️ Starting EN Atomic split."
+        )
 
         en_count = split_one(
             en_input,
@@ -1535,67 +1582,75 @@ def process_date(
         en_items,
     )
 
-    print()
-    print(
-        f"{date} ZH:"
+    print_validation(
+        "zh",
+        zh_final,
     )
 
-    print(
-        f"  Horizon items : "
-        f"{len(zh_items)}"
+    print_validation(
+        "en",
+        en_final,
     )
 
-    print(
-        f"  Atomic valid  : "
-        f"{zh_final['valid_count']}"
-    )
-
-    print(
-        f"  Complete      : "
-        f"{zh_final['complete']}"
-    )
-
-    print()
-    print(
-        f"{date} EN:"
-    )
-
-    print(
-        f"  Horizon items : "
-        f"{len(en_items)}"
-    )
-
-    print(
-        f"  Atomic valid  : "
-        f"{en_final['valid_count']}"
-    )
-
-    print(
-        f"  Complete      : "
-        f"{en_final['complete']}"
-    )
+    # ========================================================
+    # 最终硬门槛
+    # ========================================================
 
     if not zh_final["complete"]:
 
+        print()
+        print(
+            "❌ ZH FINAL VALIDATION FAILED"
+        )
+
         raise RuntimeError(
-            f"{date} ZH Atomic "
-            f"最终验证失败。"
-            f"Expected={len(zh_items)}, "
-            f"Valid={zh_final['valid_count']}"
+            f"{date} ZH Atomic 最终验证失败。"
+            f" Horizon={len(zh_items)}, "
+            f"Valid={zh_final['valid_count']}, "
+            f"Missing={len(zh_final['missing'])}, "
+            f"Unexpected={len(zh_final['unexpected'])}"
         )
 
     if not en_final["complete"]:
 
-        raise RuntimeError(
-            f"{date} EN Atomic "
-            f"最终验证失败。"
-            f"Expected={len(en_items)}, "
-            f"Valid={en_final['valid_count']}"
+        print()
+        print(
+            "❌ EN FINAL VALIDATION FAILED"
         )
+
+        raise RuntimeError(
+            f"{date} EN Atomic 最终验证失败。"
+            f" Horizon={len(en_items)}, "
+            f"Valid={en_final['valid_count']}, "
+            f"Missing={len(en_final['missing'])}, "
+            f"Unexpected={len(en_final['unexpected'])}"
+        )
+
+    # ========================================================
+    # 成功
+    # ========================================================
 
     print()
     print(
+        "=" * 70
+    )
+
+    print(
         f"✅ {date} ATOMIC PROCESSING COMPLETE"
+    )
+
+    print(
+        f"ZH: {zh_final['valid_count']}/"
+        f"{len(zh_items)}"
+    )
+
+    print(
+        f"EN: {en_final['valid_count']}/"
+        f"{len(en_items)}"
+    )
+
+    print(
+        "=" * 70
     )
 
     return {
@@ -1662,7 +1717,7 @@ def main():
 
     print(
         "748686 HORIZON BILINGUAL "
-        "DIGEST SPLITTER V8"
+        "DIGEST SPLITTER V9"
     )
 
     print("=" * 80)
@@ -1699,7 +1754,7 @@ def main():
     results = []
 
     # ========================================================
-    # 严格按照 前天 → 昨天 → 今天
+    # 前天 → 昨天 → 今天
     # ========================================================
 
     for date in dates:
@@ -1719,14 +1774,16 @@ def main():
         )
 
     # ========================================================
-    # 三天最终验证
+    # 三天最终硬验证
     # ========================================================
 
     print()
     print("=" * 80)
+
     print(
         "THREE-DAY ATOMIC FINAL RESULT"
     )
+
     print("=" * 80)
 
     for result in results:
