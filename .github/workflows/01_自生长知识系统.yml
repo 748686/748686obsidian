@@ -48,16 +48,8 @@ jobs:
       # ==========================================================
       # 4. Calculate three processing dates
       #
-      # 永远只处理：
-      #
-      # 前天
-      # 昨天
-      # 今天
-      #
-      # 例如：
-      # 2026-08-28
-      # 2026-08-29
-      # 2026-08-30
+      # 前天 / 昨天 / 今天
+      # 北京时间
       # ==========================================================
 
       - name: Calculate three processing dates
@@ -81,12 +73,11 @@ jobs:
           echo "TODAY      : $TODAY"
 
           echo
-          echo "Timezone:"
-          echo "Asia/Shanghai"
+          echo "Timezone: Asia/Shanghai"
 
 
       # ==========================================================
-      # 5. Checkout Horizon main
+      # 5. Checkout Horizon
       # ==========================================================
 
       - name: Checkout Horizon main
@@ -165,15 +156,19 @@ jobs:
 
 
       # ==========================================================
-      # 9. Check three-day Raw News
+      # 9. Check / Import three-day Raw News
       #
-      # 三天逐日检查。
+      # 这里的判断逻辑：
       #
-      # 已存在：
-      #     跳过
+      # 第一优先级：
+      #     本系统对应日期 Raw News 文件夹存在且有日报
       #
-      # 不存在：
+      # 第二优先级：
       #     从 Horizon gh-pages 补回来
+      #
+      # TODAY 如果 Horizon 没有：
+      #     启动 Horizon
+      #
       # ==========================================================
 
       - name: Check three-day Raw News
@@ -184,10 +179,6 @@ jobs:
 
           mkdir -p "$RAW_ROOT"
 
-          echo "=========================================="
-          echo "CHECK THREE-DAY RAW NEWS"
-          echo "=========================================="
-
           for DATE in \
             "$DAY_BEFORE" \
             "$YESTERDAY" \
@@ -195,23 +186,22 @@ jobs:
           do
 
             echo
-            echo "------------------------------------------"
+            echo "=========================================="
             echo "RAW CHECK: $DATE"
-            echo "------------------------------------------"
+            echo "=========================================="
 
             RAW_DIR="$RAW_ROOT/$DATE"
 
-            if [ -d "$RAW_DIR" ]; then
+            # ----------------------------------------------------
+            # 第一层：先保证文件夹存在
+            # ----------------------------------------------------
 
-              echo "📁 Raw directory exists: $RAW_DIR"
-
-            else
-
-              echo "❌ Raw directory missing"
+            if [ ! -d "$RAW_DIR" ]; then
+              echo "📁 Raw folder missing"
               echo "▶️ Creating: $RAW_DIR"
-
               mkdir -p "$RAW_DIR"
-
+            else
+              echo "📁 Raw folder exists"
             fi
 
             COUNT=$(find "$RAW_DIR" \
@@ -220,22 +210,27 @@ jobs:
               -name "*.md" \
               | wc -l)
 
-            echo "Raw files: $COUNT"
+            echo "Local Raw files: $COUNT"
 
-            if [ "$COUNT" -gt 0 ]; then
+            # ----------------------------------------------------
+            # 已经有 Horizon 日报
+            # ----------------------------------------------------
 
-              echo "✅ Raw News already exists"
-              echo "⏭️ Skip $DATE"
+            if [ "$COUNT" -ge 2 ]; then
 
+              echo "✅ Raw News folder and files exist"
               continue
 
             fi
 
-            echo "❌ Raw News content missing"
-            echo "▶️ Looking in Horizon"
+            # ----------------------------------------------------
+            # 从 Horizon gh-pages 补回
+            # ----------------------------------------------------
 
-            HCOUNT=$(find \
-              "horizon-pages/_posts" \
+            echo "⚠️ Raw News incomplete"
+            echo "Searching Horizon..."
+
+            HCOUNT=$(find "horizon-pages/_posts" \
               -maxdepth 1 \
               -type f \
               -name "$DATE*.md" \
@@ -246,33 +241,27 @@ jobs:
             if [ "$HCOUNT" -gt 0 ]; then
 
               while IFS= read -r file; do
-
                 cp "$file" "$RAW_DIR/"
-
               done < <(
-                find \
-                  "horizon-pages/_posts" \
+                find "horizon-pages/_posts" \
                   -maxdepth 1 \
                   -type f \
                   -name "$DATE*.md" \
                   | sort
               )
 
-              echo "✅ Raw News imported: $DATE"
+              echo "✅ Imported $DATE from Horizon"
 
             else
 
-              if [ "$DATE" = "$TODAY" ]; then
+              echo "⚠️ Horizon has no $DATE output"
 
-                echo "❌ Today's Horizon output missing"
-                echo "▶️ Horizon must run"
-
-              else
-
-                echo "❌ Historical Horizon output missing: $DATE"
-                echo "Cannot fabricate historical data"
-
+              if [ "$DATE" != "$TODAY" ]; then
+                echo "❌ Historical Raw News missing: $DATE"
+                exit 1
               fi
+
+              echo "▶️ Today's Horizon output must be generated"
 
             fi
 
@@ -281,11 +270,9 @@ jobs:
 
       # ==========================================================
       # 10. Determine whether today's Horizon must run
-      #
-      # 只有 TODAY 的 Raw 仍然没有内容时运行 Horizon。
       # ==========================================================
 
-      - name: Check whether today's Horizon must run
+      - name: Check whether Horizon must run
         run: |
           set -e
 
@@ -301,20 +288,20 @@ jobs:
             -name "*.md" \
             | wc -l)
 
-          echo "Today's Raw News: $COUNT"
+          echo "Today's Raw files: $COUNT"
 
-          if [ "$COUNT" -gt 0 ]; then
+          if [ "$COUNT" -ge 2 ]; then
 
             echo "HORIZON_TODAY_READY=true" >> "$GITHUB_ENV"
 
-            echo "✅ Today's Raw News ready"
-            echo "⏭️ Horizon does not need to run"
+            echo "✅ Today's Horizon Raw News exists"
+            echo "⏭️ Horizon will not run"
 
           else
 
             echo "HORIZON_TODAY_READY=false" >> "$GITHUB_ENV"
 
-            echo "❌ Today's Raw News missing"
+            echo "❌ Today's Horizon Raw News incomplete"
             echo "▶️ Horizon must run"
 
           fi
@@ -339,14 +326,12 @@ jobs:
           echo "RUN HORIZON"
           echo "=========================================="
 
-          echo "Date:"
-          echo "$TODAY"
+          echo "Date: $TODAY"
 
           uv run horizon \
             --hours 24 \
             --config data/config.github.json
 
-          echo
           echo "✅ Horizon process finished"
 
 
@@ -360,6 +345,8 @@ jobs:
           set -e
 
           rm -rf horizon-pages
+
+          FOUND=false
 
           for i in {1..10}; do
 
@@ -384,10 +371,11 @@ jobs:
 
             echo "Today's Horizon files: $COUNT"
 
-            if [ "$COUNT" -gt 0 ]; then
+            if [ "$COUNT" -ge 2 ]; then
 
-              echo "✅ Today's Horizon output found"
+              FOUND=true
 
+              echo "✅ Today's bilingual Horizon output found"
               break
 
             fi
@@ -400,33 +388,32 @@ jobs:
 
           done
 
-          COUNT=$(find \
-            "horizon-pages/_posts" \
-            -maxdepth 1 \
-            -type f \
-            -name "$TODAY*.md" \
-            | wc -l)
-
-          if [ "$COUNT" -eq 0 ]; then
-
-            echo "❌ Today's Horizon output not found"
-
+          if [ "$FOUND" != "true" ]; then
+            echo "❌ Today's bilingual Horizon output not found"
             exit 1
-
           fi
 
 
       # ==========================================================
       # 13. Complete three-day Raw News
       #
-      # Horizon 完成后重新检查三天。
+      # 最终确认：
+      #
+      # 三个日期的 Raw 文件夹
+      # 三个日期都有至少两份 Horizon MD
+      #
+      # 才能进入 Atomic。
       # ==========================================================
 
-      - name: Complete three-day Raw News
+      - name: Validate three-day Raw News
         run: |
           set -e
 
           RAW_ROOT="01_自生长知识系统/Raw News"
+
+          echo "=========================================="
+          echo "FINAL THREE-DAY RAW VALIDATION"
+          echo "=========================================="
 
           for DATE in \
             "$DAY_BEFORE" \
@@ -434,20 +421,14 @@ jobs:
             "$TODAY"
           do
 
-            echo
-            echo "=========================================="
-            echo "COMPLETE RAW: $DATE"
-            echo "=========================================="
-
             RAW_DIR="$RAW_ROOT/$DATE"
 
+            echo
+            echo "DATE: $DATE"
+
             if [ ! -d "$RAW_DIR" ]; then
-
-              echo "❌ Raw directory missing"
-              echo "▶️ Creating $RAW_DIR"
-
-              mkdir -p "$RAW_DIR"
-
+              echo "❌ Raw folder does not exist"
+              exit 1
             fi
 
             COUNT=$(find "$RAW_DIR" \
@@ -456,74 +437,57 @@ jobs:
               -name "*.md" \
               | wc -l)
 
-            if [ "$COUNT" -gt 0 ]; then
+            echo "Raw files: $COUNT"
 
-              echo "✅ Raw ready: $DATE ($COUNT files)"
-
-              continue
-
-            fi
-
-            HCOUNT=$(find \
-              "horizon-pages/_posts" \
-              -maxdepth 1 \
-              -type f \
-              -name "$DATE*.md" \
-              | wc -l)
-
-            if [ "$HCOUNT" -gt 0 ]; then
-
-              while IFS= read -r file; do
-                cp "$file" "$RAW_DIR/"
-              done < <(
-                find \
-                  "horizon-pages/_posts" \
-                  -maxdepth 1 \
-                  -type f \
-                  -name "$DATE*.md" \
-                  | sort
-              )
-
-              echo "✅ Raw imported: $DATE"
-
-            else
-
-              echo "❌ Cannot obtain Raw News for $DATE"
-
+            if [ "$COUNT" -lt 2 ]; then
+              echo "❌ Raw News incomplete: $DATE"
               exit 1
-
             fi
+
+            echo "✅ Raw folder exists"
+            echo "✅ Raw bilingual files exist"
 
           done
+
+          echo
+          echo "✅ THREE-DAY RAW NEWS COMPLETE"
 
 
       # ==========================================================
       # 14. Atomic News
       #
-      # ★ 核心修改 ★
+      # ★ 这里正式调用 horizon_split.py
       #
-      # 第一判断：
-      #     日期目录是否存在
+      # 绝对不再复制 Raw → Atomic
       #
-      # 第二判断：
-      #     zh / en 是否存在
+      # 正确流程：
       #
-      # 第三判断：
-      #     对应内容是否存在
+      # Raw 中文日报
+      #      ↓
+      # horizon_split.py
+      #      ↓
+      # Atomic/zh
       #
-      # 不再把“文件数量”作为第一判断。
+      # Raw 英文日报
+      #      ↓
+      # horizon_split.py
+      #      ↓
+      # Atomic/en
+      #
+      # 三天逐日检查。
       # ==========================================================
 
-      - name: Build missing Atomic News
+      - name: Build three-day Atomic News
         run: |
           set -e
 
           RAW_ROOT="01_自生长知识系统/Raw News"
+          SCRIPT="01_自生长知识系统/scripts/horizon_split.py"
 
-          echo
-          echo "============================================================"
-          echo "ATOMIC NEWS - THREE DAY DIRECTORY CHECK"
-          echo "============================================================"
+          if [ ! -f "$SCRIPT" ]; then
+            echo "❌ horizon_split.py not found"
+            exit 1
+          fi
 
           for DATE in \
             "$DAY_BEFORE" \
@@ -532,239 +496,275 @@ jobs:
           do
 
             echo
-            echo "############################################################"
-            echo "ATOMIC DATE: $DATE"
-            echo "############################################################"
+            echo "============================================================"
+            echo "ATOMIC NEWS: $DATE"
+            echo "============================================================"
 
             RAW_DIR="$RAW_ROOT/$DATE"
             ATOMIC_DIR="$RAW_ROOT/${DATE}-Atomic"
+
             ZH_DIR="$ATOMIC_DIR/zh"
             EN_DIR="$ATOMIC_DIR/en"
 
             # ----------------------------------------------------
-            # 1. 判断日期目录
+            # 第一件事：建立整个 Atomic 层级
             # ----------------------------------------------------
 
-            if [ -d "$ATOMIC_DIR" ]; then
-
-              echo "📁 Atomic directory exists"
-
-            else
-
-              echo "❌ Atomic directory missing"
+            if [ ! -d "$ATOMIC_DIR" ]; then
+              echo "📁 Atomic root missing"
               echo "▶️ Creating $ATOMIC_DIR"
-
               mkdir -p "$ATOMIC_DIR"
-
+            else
+              echo "📁 Atomic root exists"
             fi
 
-            # ----------------------------------------------------
-            # 2. 判断 ZH
-            # ----------------------------------------------------
-
-            if [ -d "$ZH_DIR" ]; then
-
-              echo "📁 Atomic ZH directory exists"
-
-            else
-
-              echo "❌ Atomic ZH directory missing"
-              echo "▶️ Creating $ZH_DIR"
-
+            if [ ! -d "$ZH_DIR" ]; then
+              echo "📁 Atomic zh missing"
               mkdir -p "$ZH_DIR"
-
-            fi
-
-            # ----------------------------------------------------
-            # 3. 判断 EN
-            # ----------------------------------------------------
-
-            if [ -d "$EN_DIR" ]; then
-
-              echo "📁 Atomic EN directory exists"
-
             else
+              echo "📁 Atomic zh exists"
+            fi
 
-              echo "❌ Atomic EN directory missing"
-              echo "▶️ Creating $EN_DIR"
-
+            if [ ! -d "$EN_DIR" ]; then
+              echo "📁 Atomic en missing"
               mkdir -p "$EN_DIR"
-
+            else
+              echo "📁 Atomic en exists"
             fi
 
             # ----------------------------------------------------
-            # 4. Raw 必须存在
+            # 检查是否已经完成
             # ----------------------------------------------------
 
-            if [ ! -d "$RAW_DIR" ]; then
-
-              echo "❌ Raw directory missing: $RAW_DIR"
-
-              exit 1
-
-            fi
-
-            RAW_COUNT=$(find "$RAW_DIR" \
+            ZH_COUNT=$(find "$ZH_DIR" \
               -maxdepth 1 \
               -type f \
               -name "*.md" \
               | wc -l)
 
-            if [ "$RAW_COUNT" -eq 0 ]; then
+            EN_COUNT=$(find "$EN_DIR" \
+              -maxdepth 1 \
+              -type f \
+              -name "*.md" \
+              | wc -l)
 
-              echo "❌ No Raw News for $DATE"
+            echo "Existing Atomic ZH: $ZH_COUNT"
+            echo "Existing Atomic EN: $EN_COUNT"
 
-              exit 1
+            if [ "$ZH_COUNT" -gt 0 ] && [ "$EN_COUNT" -gt 0 ]; then
+
+              echo "✅ Atomic folders already contain data"
+              echo "⏭️ Skip Atomic generation for $DATE"
+
+              continue
 
             fi
 
-            echo "Raw files: $RAW_COUNT"
-
             # ----------------------------------------------------
-            # 5. 对应日报分别进入 ZH / EN
+            # 找到 Horizon 中文 / 英文日报
             #
-            # 这里保持当前系统已有的集成处理逻辑。
-            # 不修改 Raw。
+            # 优先文件名判断。
+            # 如果 Horizon 文件名没有 zh/en，
+            # 用内容语言自动判断。
             # ----------------------------------------------------
 
-            while IFS= read -r file; do
+            echo
+            echo "Searching bilingual Horizon digest..."
 
-              filename=$(basename "$file")
+            python - "$RAW_DIR" "$DATE" <<'PY'
+          import sys
+          import re
+          from pathlib import Path
 
-              # 已经存在于 Atomic 中，跳过
+          raw_dir = Path(sys.argv[1])
+          date = sys.argv[2]
 
-              if [ -f "$ZH_DIR/$filename" ] || \
-                 [ -f "$EN_DIR/$filename" ]; then
+          files = sorted(raw_dir.glob("*.md"))
 
-                echo "⏭️ Atomic already exists: $filename"
+          if len(files) < 2:
+              raise SystemExit(
+                  f"❌ Need at least 2 Horizon MD files for {date}, found {len(files)}"
+              )
 
-                continue
+          zh = None
+          en = None
 
-              fi
+          # 先根据文件名判断
+          for f in files:
+              name = f.name.lower()
 
-              language="zh"
+              if (
+                  "-zh" in name
+                  or "_zh" in name
+                  or ".zh." in name
+                  or "chinese" in name
+                  or "中文" in name
+              ):
+                  zh = f
 
-              if grep -qi \
-                -E \
-                'language:[[:space:]]*(en|english)' \
-                "$file"; then
+              if (
+                  "-en" in name
+                  or "_en" in name
+                  or ".en." in name
+                  or "english" in name
+                  or "英文" in name
+              ):
+                  en = f
 
-                language="en"
+          # 文件名无法判断时，用内容判断
+          if zh is None or en is None:
 
-              elif grep -qi \
-                -E \
-                'language:[[:space:]]*zh' \
-                "$file"; then
+              candidates = []
 
-                language="zh"
+              for f in files:
+                  text = f.read_text(
+                      encoding="utf-8",
+                      errors="replace"
+                  )
 
-              elif [[ "$filename" == *"-en.md" ]]; then
+                  chinese = len(
+                      re.findall(
+                          r"[\u4e00-\u9fff]",
+                          text
+                      )
+                  )
 
-                language="en"
+                  english = len(
+                      re.findall(
+                          r"[A-Za-z]",
+                          text
+                      )
+                  )
 
-              elif [[ "$filename" == *"-zh.md" ]]; then
+                  candidates.append(
+                      (f, chinese, english)
+                  )
 
-                language="zh"
+              candidates.sort(
+                  key=lambda x: x[1] - x[2],
+                  reverse=True
+              )
 
-              fi
+              if zh is None:
+                  zh = candidates[0][0]
 
-              if [ "$language" = "en" ]; then
+              if en is None:
+                  remaining = [
+                      x for x in candidates
+                      if x[0] != zh
+                  ]
 
-                cp "$file" "$EN_DIR/$filename"
+                  if remaining:
+                      remaining.sort(
+                          key=lambda x: x[2] - x[1],
+                          reverse=True
+                      )
+                      en = remaining[0][0]
 
-                echo "✅ Atomic EN: $filename"
+          if zh is None or en is None:
+              raise SystemExit(
+                  "❌ Cannot identify Chinese and English Horizon files"
+              )
 
-              else
+          print(f"ZH_FILE={zh}")
+          print(f"EN_FILE={en}")
 
-                cp "$file" "$ZH_DIR/$filename"
+          with open(
+              "zh_input.txt",
+              "w",
+              encoding="utf-8"
+          ) as out:
+              out.write(str(zh))
 
-                echo "✅ Atomic ZH: $filename"
+          with open(
+              "en_input.txt",
+              "w",
+              encoding="utf-8"
+          ) as out:
+              out.write(str(en))
+          PY
 
-              fi
+            ZH_INPUT=$(cat zh_input.txt)
+            EN_INPUT=$(cat en_input.txt)
 
-            done < <(
-              find "$RAW_DIR" \
-                -maxdepth 1 \
-                -type f \
-                -name "*.md" \
-                | sort
-            )
+            echo "Chinese digest:"
+            echo "$ZH_INPUT"
+
+            echo
+            echo "English digest:"
+            echo "$EN_INPUT"
 
             # ----------------------------------------------------
-            # 6. 最终检查目录结构
+            # 正式调用 Horizon Splitter
             # ----------------------------------------------------
 
-            if [ ! -d "$ATOMIC_DIR" ]; then
+            python "$SCRIPT" \
+              --zh "$ZH_INPUT" \
+              --en "$EN_INPUT" \
+              --output "$ATOMIC_DIR" \
+              --date "$DATE"
 
-              echo "❌ Atomic directory missing after generation"
-
-              exit 1
-
-            fi
+            # ----------------------------------------------------
+            # 完成后重新检查文件夹
+            # ----------------------------------------------------
 
             if [ ! -d "$ZH_DIR" ]; then
-
-              echo "❌ Atomic ZH directory missing after generation"
-
+              echo "❌ Atomic ZH folder was not generated"
               exit 1
-
             fi
 
             if [ ! -d "$EN_DIR" ]; then
-
-              echo "❌ Atomic EN directory missing after generation"
-
+              echo "❌ Atomic EN folder was not generated"
               exit 1
-
             fi
 
             ZH_COUNT=$(find "$ZH_DIR" \
+              -maxdepth 1 \
               -type f \
               -name "*.md" \
               | wc -l)
 
             EN_COUNT=$(find "$EN_DIR" \
+              -maxdepth 1 \
               -type f \
               -name "*.md" \
               | wc -l)
 
-            TOTAL=$((ZH_COUNT + EN_COUNT))
-
             echo
-            echo "Atomic ZH: $ZH_COUNT"
-            echo "Atomic EN: $EN_COUNT"
-            echo "Atomic total: $TOTAL"
+            echo "Final Atomic ZH: $ZH_COUNT"
+            echo "Final Atomic EN: $EN_COUNT"
 
-            if [ "$TOTAL" -eq 0 ]; then
-
-              echo "❌ Atomic directory exists but contains no files"
-
+            if [ "$ZH_COUNT" -eq 0 ]; then
+              echo "❌ Atomic ZH generation failed"
               exit 1
-
             fi
 
-            echo "✅ Atomic complete: $DATE"
+            if [ "$EN_COUNT" -eq 0 ]; then
+              echo "❌ Atomic EN generation failed"
+              exit 1
+            fi
+
+            echo "✅ Atomic News complete: $DATE"
 
           done
 
 
       # ==========================================================
-      # 15. Verify THREE Atomic directories
+      # 15. Final three-day Atomic validation
       #
-      # 只有三天 Atomic 全部存在，
-      # 才允许进入 Enriched。
+      # 在进入 Source Enrichment 之前，
+      # 三天全部必须通过。
       # ==========================================================
 
-      - name: Verify three-day Atomic structure
+      - name: Validate three-day Atomic News
         run: |
           set -e
 
           RAW_ROOT="01_自生长知识系统/Raw News"
 
-          echo
-          echo "============================================================"
-          echo "VERIFY THREE-DAY ATOMIC STRUCTURE"
-          echo "============================================================"
+          echo "=========================================="
+          echo "FINAL THREE-DAY ATOMIC VALIDATION"
+          echo "=========================================="
 
           for DATE in \
             "$DAY_BEFORE" \
@@ -780,60 +780,71 @@ jobs:
             echo "DATE: $DATE"
 
             if [ ! -d "$ATOMIC_DIR" ]; then
-              echo "❌ Missing Atomic directory: $ATOMIC_DIR"
+              echo "❌ Atomic root missing"
               exit 1
             fi
 
             if [ ! -d "$ZH_DIR" ]; then
-              echo "❌ Missing Atomic ZH directory: $ZH_DIR"
+              echo "❌ Atomic ZH folder missing"
               exit 1
             fi
 
             if [ ! -d "$EN_DIR" ]; then
-              echo "❌ Missing Atomic EN directory: $EN_DIR"
+              echo "❌ Atomic EN folder missing"
               exit 1
             fi
 
-            COUNT=$(find "$ATOMIC_DIR" \
+            ZH_COUNT=$(find "$ZH_DIR" \
+              -maxdepth 1 \
               -type f \
               -name "*.md" \
               | wc -l)
 
-            if [ "$COUNT" -eq 0 ]; then
-              echo "❌ Atomic directory empty: $DATE"
+            EN_COUNT=$(find "$EN_DIR" \
+              -maxdepth 1 \
+              -type f \
+              -name "*.md" \
+              | wc -l)
+
+            echo "ZH: $ZH_COUNT"
+            echo "EN: $EN_COUNT"
+
+            if [ "$ZH_COUNT" -eq 0 ] || [ "$EN_COUNT" -eq 0 ]; then
+              echo "❌ Atomic bilingual content incomplete"
               exit 1
             fi
 
-            echo "✅ Atomic structure ready: $DATE"
+            echo "✅ $DATE Atomic complete"
 
           done
 
           echo
-          echo "✅ THREE-DAY ATOMIC STRUCTURE COMPLETE"
+          echo "✅ THREE-DAY ATOMIC NEWS COMPLETE"
 
 
       # ==========================================================
-      # 16. Enriched News
+      # 16. Source Enrichment
       #
-      # ★ 核心修改 ★
+      # ★ 正式调用 source_enrichment.py
       #
-      # 第一判断：
-      #     日期目录是否存在
+      # Atomic
+      #   ↓
+      # RSS
+      #   ↓
+      # Agnes
+      #   ↓
+      # Real Source
+      #   ↓
+      # Enriched
       #
-      # 第二判断：
-      #     zh / en 是否存在
-      #
-      # 第三判断：
-      #     内容是否存在
-      #
-      # 缺哪一天就只处理哪一天。
+      # 每一天独立检查。
       # ==========================================================
 
-      - name: Build missing Enriched News
+      - name: Build three-day Enriched News
         env:
           AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
           AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
-          AI_BASE_URL: https://api.agnes-ai.cn/v1
+          AI_BASE_URL: https://api.agnes-ai.com/v1
           AI_MODEL: agnes-2.5-flash
         run: |
           set -e
@@ -843,12 +854,10 @@ jobs:
 
           SCRIPT="01_自生长知识系统/scripts/source_enrichment.py"
 
-          RAW_ROOT="01_自生长知识系统/Raw News"
-
-          echo
-          echo "============================================================"
-          echo "ENRICHED NEWS - THREE DAY DIRECTORY CHECK"
-          echo "============================================================"
+          if [ ! -f "$SCRIPT" ]; then
+            echo "❌ source_enrichment.py not found"
+            exit 1
+          fi
 
           for DATE in \
             "$DAY_BEFORE" \
@@ -857,171 +866,138 @@ jobs:
           do
 
             echo
-            echo "############################################################"
-            echo "ENRICHED DATE: $DATE"
-            echo "############################################################"
+            echo "============================================================"
+            echo "SOURCE ENRICHMENT: $DATE"
+            echo "============================================================"
 
-            ATOMIC_DIR="$RAW_ROOT/${DATE}-Atomic"
-            ZH_DIR="$ATOMIC_DIR/zh"
-            EN_DIR="$ATOMIC_DIR/en"
+            ATOMIC_ROOT="01_自生长知识系统/Raw News/${DATE}-Atomic"
 
-            OUTPUT="$RAW_ROOT/${DATE}-Enriched"
-            OUTPUT_ZH="$OUTPUT/zh"
-            OUTPUT_EN="$OUTPUT/en"
+            ZH="$ATOMIC_ROOT/zh"
+            EN="$ATOMIC_ROOT/en"
 
-            # ----------------------------------------------------
-            # 1. Atomic 必须完整
-            # ----------------------------------------------------
-
-            if [ ! -d "$ATOMIC_DIR" ]; then
-
-              echo "❌ Atomic directory missing: $ATOMIC_DIR"
-
-              exit 1
-
-            fi
-
-            if [ ! -d "$ZH_DIR" ]; then
-
-              echo "❌ Atomic ZH directory missing: $ZH_DIR"
-
-              exit 1
-
-            fi
-
-            if [ ! -d "$EN_DIR" ]; then
-
-              echo "❌ Atomic EN directory missing: $EN_DIR"
-
-              exit 1
-
-            fi
+            OUTPUT="01_自生长知识系统/Raw News/${DATE}-Enriched"
 
             # ----------------------------------------------------
-            # 2. 判断 Enriched 日期目录
+            # 第一件事：建立 Enriched 文件夹
             # ----------------------------------------------------
 
-            if [ -d "$OUTPUT" ]; then
-
-              echo "📁 Enriched directory exists"
-
-            else
-
-              echo "❌ Enriched directory missing"
+            if [ ! -d "$OUTPUT" ]; then
+              echo "📁 Enriched root missing"
               echo "▶️ Creating $OUTPUT"
-
               mkdir -p "$OUTPUT"
-
-            fi
-
-            # ----------------------------------------------------
-            # 3. 判断 ZH
-            # ----------------------------------------------------
-
-            if [ -d "$OUTPUT_ZH" ]; then
-
-              echo "📁 Enriched ZH directory exists"
-
             else
-
-              echo "❌ Enriched ZH directory missing"
-              echo "▶️ Creating $OUTPUT_ZH"
-
-              mkdir -p "$OUTPUT_ZH"
-
+              echo "📁 Enriched root exists"
             fi
 
-            # ----------------------------------------------------
-            # 4. 判断 EN
-            # ----------------------------------------------------
-
-            if [ -d "$OUTPUT_EN" ]; then
-
-              echo "📁 Enriched EN directory exists"
-
+            if [ ! -d "$OUTPUT/zh" ]; then
+              echo "📁 Enriched ZH missing"
+              mkdir -p "$OUTPUT/zh"
             else
-
-              echo "❌ Enriched EN directory missing"
-              echo "▶️ Creating $OUTPUT_EN"
-
-              mkdir -p "$OUTPUT_EN"
-
+              echo "📁 Enriched ZH exists"
             fi
 
-            # ----------------------------------------------------
-            # 5. 判断是否已经有内容
-            #
-            # 有内容则跳过整个日期。
-            # 没有内容才运行 Source Enrichment。
-            # ----------------------------------------------------
+            if [ ! -d "$OUTPUT/en" ]; then
+              echo "📁 Enriched EN missing"
+              mkdir -p "$OUTPUT/en"
+            else
+              echo "📁 Enriched EN exists"
+            fi
 
-            ENRICHED_COUNT=$(find "$OUTPUT" \
+            ATOMIC_ZH=$(find "$ZH" \
+              -maxdepth 1 \
               -type f \
               -name "*.md" \
               | wc -l)
 
-            echo "Existing Enriched files: $ENRICHED_COUNT"
+            ATOMIC_EN=$(find "$EN" \
+              -maxdepth 1 \
+              -type f \
+              -name "*.md" \
+              | wc -l)
 
-            if [ "$ENRICHED_COUNT" -gt 0 ]; then
+            ENRICHED_ZH=$(find "$OUTPUT/zh" \
+              -maxdepth 1 \
+              -type f \
+              -name "*.md" \
+              | wc -l)
 
-              echo "✅ Enriched content already exists"
+            ENRICHED_EN=$(find "$OUTPUT/en" \
+              -maxdepth 1 \
+              -type f \
+              -name "*.md" \
+              | wc -l)
+
+            echo "Atomic ZH: $ATOMIC_ZH"
+            echo "Atomic EN: $ATOMIC_EN"
+            echo "Enriched ZH: $ENRICHED_ZH"
+            echo "Enriched EN: $ENRICHED_EN"
+
+            # ----------------------------------------------------
+            # 如果双语都已经有内容，跳过
+            # ----------------------------------------------------
+
+            if [ "$ENRICHED_ZH" -gt 0 ] && \
+               [ "$ENRICHED_EN" -gt 0 ]; then
+
+              echo "✅ Enriched bilingual folders already contain data"
               echo "⏭️ Skip $DATE"
 
               continue
 
             fi
 
-            echo "❌ Enriched content missing"
-            echo "▶️ Run Source Enrichment for $DATE"
+            # ----------------------------------------------------
+            # Atomic 必须存在
+            # ----------------------------------------------------
+
+            if [ "$ATOMIC_ZH" -eq 0 ]; then
+              echo "❌ Atomic ZH missing for $DATE"
+              exit 1
+            fi
+
+            if [ "$ATOMIC_EN" -eq 0 ]; then
+              echo "❌ Atomic EN missing for $DATE"
+              exit 1
+            fi
+
+            # ----------------------------------------------------
+            # 正式调用 Source Enrichment
+            # ----------------------------------------------------
 
             python "$SCRIPT" \
-              --zh "$ZH_DIR" \
-              --en "$EN_DIR" \
+              --zh "$ZH" \
+              --en "$EN" \
               --output "$OUTPUT" \
               --date "$DATE"
 
             # ----------------------------------------------------
-            # 6. 最终目录检查
+            # 最终检查
             # ----------------------------------------------------
 
-            if [ ! -d "$OUTPUT" ]; then
+            ENRICHED_ZH=$(find "$OUTPUT/zh" \
+              -maxdepth 1 \
+              -type f \
+              -name "*.md" \
+              | wc -l)
 
-              echo "❌ Enriched directory missing after processing"
-
-              exit 1
-
-            fi
-
-            if [ ! -d "$OUTPUT_ZH" ]; then
-
-              echo "❌ Enriched ZH directory missing after processing"
-
-              exit 1
-
-            fi
-
-            if [ ! -d "$OUTPUT_EN" ]; then
-
-              echo "❌ Enriched EN directory missing after processing"
-
-              exit 1
-
-            fi
-
-            FINAL_COUNT=$(find "$OUTPUT" \
+            ENRICHED_EN=$(find "$OUTPUT/en" \
+              -maxdepth 1 \
               -type f \
               -name "*.md" \
               | wc -l)
 
             echo
-            echo "Final Enriched count: $FINAL_COUNT"
+            echo "Final Enriched ZH: $ENRICHED_ZH"
+            echo "Final Enriched EN: $ENRICHED_EN"
 
-            if [ "$FINAL_COUNT" -eq 0 ]; then
-
-              echo "❌ Enrichment produced no files for $DATE"
-
+            if [ "$ENRICHED_ZH" -eq 0 ]; then
+              echo "❌ Enriched ZH generation failed"
               exit 1
+            fi
 
+            if [ "$ENRICHED_EN" -eq 0 ]; then
+              echo "❌ Enriched EN generation failed"
+              exit 1
             fi
 
             echo "✅ Enriched complete: $DATE"
@@ -1030,20 +1006,20 @@ jobs:
 
 
       # ==========================================================
-      # 17. Verify THREE Enriched directories
+      # 17. Final three-day Enriched validation
       #
-      # 三天全部确认后才能继续。
+      # ★ 只有这里全部通过，
+      #   才允许 Knowledge Pipeline。
       # ==========================================================
 
-      - name: Verify three-day Enriched structure
+      - name: Validate three-day Enriched News
         run: |
           set -e
 
           RAW_ROOT="01_自生长知识系统/Raw News"
 
-          echo
           echo "============================================================"
-          echo "VERIFY THREE-DAY ENRICHED STRUCTURE"
+          echo "FINAL THREE-DAY ENRICHED VALIDATION"
           echo "============================================================"
 
           for DATE in \
@@ -1053,57 +1029,82 @@ jobs:
           do
 
             OUTPUT="$RAW_ROOT/${DATE}-Enriched"
-            ZH_DIR="$OUTPUT/zh"
-            EN_DIR="$OUTPUT/en"
+
+            ZH="$OUTPUT/zh"
+            EN="$OUTPUT/en"
 
             echo
             echo "DATE: $DATE"
 
             if [ ! -d "$OUTPUT" ]; then
-              echo "❌ Missing Enriched directory: $OUTPUT"
+              echo "❌ Enriched root missing"
               exit 1
             fi
 
-            if [ ! -d "$ZH_DIR" ]; then
-              echo "❌ Missing Enriched ZH directory: $ZH_DIR"
+            if [ ! -d "$ZH" ]; then
+              echo "❌ Enriched ZH folder missing"
               exit 1
             fi
 
-            if [ ! -d "$EN_DIR" ]; then
-              echo "❌ Missing Enriched EN directory: $EN_DIR"
+            if [ ! -d "$EN" ]; then
+              echo "❌ Enriched EN folder missing"
               exit 1
             fi
 
-            COUNT=$(find "$OUTPUT" \
+            ZH_COUNT=$(find "$ZH" \
+              -maxdepth 1 \
               -type f \
               -name "*.md" \
               | wc -l)
 
-            if [ "$COUNT" -eq 0 ]; then
-              echo "❌ Enriched directory empty: $DATE"
+            EN_COUNT=$(find "$EN" \
+              -maxdepth 1 \
+              -type f \
+              -name "*.md" \
+              | wc -l)
+
+            echo "Enriched ZH: $ZH_COUNT"
+            echo "Enriched EN: $EN_COUNT"
+
+            if [ "$ZH_COUNT" -eq 0 ]; then
+              echo "❌ Enriched ZH empty"
               exit 1
             fi
 
-            echo "✅ Enriched structure ready: $DATE"
+            if [ "$EN_COUNT" -eq 0 ]; then
+              echo "❌ Enriched EN empty"
+              exit 1
+            fi
+
+            echo "✅ $DATE Enriched complete"
 
           done
 
           echo
-          echo "✅ THREE-DAY ENRICHED STRUCTURE COMPLETE"
+          echo "============================================================"
+          echo "✅ THREE-DAY DATA CHAIN COMPLETE"
+          echo "============================================================"
+
+          echo
+          echo "Raw       : ✅ 3 days"
+          echo "Atomic    : ✅ 3 days"
+          echo "Enriched  : ✅ 3 days"
+
+          echo
+          echo "▶️ Knowledge Pipeline is now allowed to start."
 
 
       # ==========================================================
       # 18. Knowledge Pipeline
       #
-      # 三天全部 Raw / Atomic / Enriched 完成之后，
-      # 才允许进入这里。
+      # ★ 前面三层全部确认以后才能执行
       # ==========================================================
 
       - name: Run Knowledge Pipeline - three days
         env:
           AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
           AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
-          AI_BASE_URL: https://api.agnes-ai.cn/v1
+          AI_BASE_URL: https://api.agnes-ai.com/v1
           AI_MODEL: agnes-2.5-flash
         run: |
           set -e
@@ -1115,15 +1116,14 @@ jobs:
           do
 
             echo
-            echo "=========================================="
+            echo "============================================================"
             echo "KNOWLEDGE PIPELINE: $DATE"
-            echo "=========================================="
+            echo "============================================================"
 
             python \
               "01_自生长知识系统/scripts/knowledge_pipeline.py" \
               --date "$DATE"
 
-            echo
             echo "✅ Knowledge Pipeline finished: $DATE"
 
           done
@@ -1137,7 +1137,7 @@ jobs:
         env:
           AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
           AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
-          AI_BASE_URL: https://api.agnes-ai.cn/v1
+          AI_BASE_URL: https://api.agnes-ai.com/v1
           AI_MODEL: agnes-2.5-flash
         run: |
           set -e
@@ -1172,13 +1172,10 @@ jobs:
             echo "DATE: $DATE"
             echo "############################################################"
 
-            RAW_DIR="01_自生长知识系统/Raw News/$DATE"
-            ATOMIC_DIR="01_自生长知识系统/Raw News/${DATE}-Atomic"
-            ENRICHED_DIR="01_自生长知识系统/Raw News/${DATE}-Enriched"
-
             echo
             echo "RAW:"
-            find "$RAW_DIR" \
+            find \
+              "01_自生长知识系统/Raw News/$DATE" \
               -maxdepth 1 \
               -type f \
               -name "*.md" \
@@ -1186,14 +1183,16 @@ jobs:
 
             echo
             echo "ATOMIC:"
-            find "$ATOMIC_DIR" \
+            find \
+              "01_自生长知识系统/Raw News/${DATE}-Atomic" \
               -type f \
               -name "*.md" \
               | sort
 
             echo
             echo "ENRICHED:"
-            find "$ENRICHED_DIR" \
+            find \
+              "01_自生长知识系统/Raw News/${DATE}-Enriched" \
               -type f \
               -name "*.md" \
               | sort
@@ -1204,15 +1203,10 @@ jobs:
             REPORT="01_自生长知识系统/05_日报/${DATE:0:4}/${DATE:5:2}/${DATE}.md"
 
             if [ -f "$REPORT" ]; then
-
               echo "✅ $REPORT"
-
             else
-
               echo "❌ Missing $REPORT"
-
               exit 1
-
             fi
 
           done
@@ -1252,7 +1246,7 @@ jobs:
 
 
       # ==========================================================
-      # 22. Complete Job
+      # 22. Complete
       # ==========================================================
 
       - name: Complete Job
@@ -1277,30 +1271,28 @@ jobs:
           echo "$TODAY"
 
           echo
-          echo "Horizon:"
-          echo "✅ three-day checked"
+          echo "=========================================="
+          echo "DATA CHAIN"
+          echo "=========================================="
 
-          echo
+          echo "Horizon:"
+          echo "✅ checked"
+
           echo "Raw News:"
           echo "✅ three-day checked"
 
-          echo
           echo "Atomic News:"
-          echo "✅ three-day directory checked and completed"
+          echo "✅ three-day checked"
 
-          echo
-          echo "Enriched News:"
-          echo "✅ three-day directory checked and completed"
+          echo "Source Enrichment:"
+          echo "✅ three-day checked"
 
-          echo
           echo "Knowledge Pipeline:"
           echo "✅ processed day-by-day"
 
-          echo
           echo "Weekly Report:"
           echo "✅ completed"
 
-          echo
           echo "GitHub:"
           echo "✅ pushed"
 
