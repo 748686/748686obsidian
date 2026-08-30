@@ -4,14 +4,6 @@ on:
   workflow_dispatch:
 
   schedule:
-    # ==========================================================
-    # GitHub Actions cron 使用 UTC
-    #
-    # 每天 UTC 23:00
-    # = 北京时间第二天 07:00
-    #
-    # 整个系统统一使用 UTC
-    # ==========================================================
     - cron: "0 23 * * *"
 
 permissions:
@@ -34,6 +26,7 @@ jobs:
         with:
           fetch-depth: 0
 
+
       # ==========================================================
       # 2. Setup Python
       # ==========================================================
@@ -43,6 +36,7 @@ jobs:
         with:
           python-version: "3.12"
 
+
       # ==========================================================
       # 3. Install uv
       # ==========================================================
@@ -50,64 +44,50 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v6
 
+
       # ==========================================================
-      # 4. Set System Time
+      # 4. Calculate three processing dates
       #
-      # IMPORTANT:
+      # 北京时间：
       #
-      # GitHub Actions Runner 默认使用 UTC。
+      # 前天
+      # 昨天
+      # 今天
       #
-      # 整个系统统一使用 UTC。
+      # 例如：
       #
-      # 不再设置：
-      #
-      # TZ=Asia/Shanghai
-      #
-      # TODAY 只在这里生成一次。
-      # 后面所有步骤统一使用这个 TODAY。
+      # 2026-08-28
+      # 2026-08-29
+      # 2026-08-30
       # ==========================================================
 
-      - name: Set UTC Time
+      - name: Calculate three processing dates
         run: |
           set -e
 
-          TODAY=$(date -u +%Y-%m-%d)
+          TODAY=$(TZ=Asia/Shanghai date +%Y-%m-%d)
+          YESTERDAY=$(TZ=Asia/Shanghai date -d "$TODAY -1 day" +%Y-%m-%d)
+          DAY_BEFORE=$(TZ=Asia/Shanghai date -d "$TODAY -2 days" +%Y-%m-%d)
 
           echo "TODAY=$TODAY" >> "$GITHUB_ENV"
+          echo "YESTERDAY=$YESTERDAY" >> "$GITHUB_ENV"
+          echo "DAY_BEFORE=$DAY_BEFORE" >> "$GITHUB_ENV"
 
           echo "=========================================="
-          echo "SYSTEM TIME"
+          echo "PROCESSING DATES"
           echo "=========================================="
 
+          echo "DAY_BEFORE : $DAY_BEFORE"
+          echo "YESTERDAY  : $YESTERDAY"
+          echo "TODAY      : $TODAY"
+
+          echo
           echo "Timezone:"
-          echo "UTC"
+          echo "Asia/Shanghai"
 
-          echo
-          echo "Current UTC time:"
-          date -u '+%Y-%m-%d %H:%M:%S'
-
-          echo
-          echo "System date:"
-          echo "$TODAY"
 
       # ==========================================================
       # 5. Checkout Horizon main
-      #
-      # 完全使用 748686/Horizon 自己的系统。
-      #
-      # 不使用：
-      #
-      # 01_自生长知识系统/00_System/horizon_config.json
-      #
-      # 不使用：
-      #
-      # horizon_runtime_config.json
-      #
-      # 不重新组装 Horizon 配置。
-      #
-      # Horizon 自己使用：
-      #
-      # Horizon/data/config.github.json
       # ==========================================================
 
       - name: Checkout Horizon main
@@ -116,6 +96,7 @@ jobs:
           repository: 748686/Horizon
           ref: main
           path: horizon
+
 
       # ==========================================================
       # 6. Install Horizon
@@ -132,21 +113,17 @@ jobs:
 
           uv sync
 
-          echo
-          echo "Horizon config:"
-          echo "data/config.github.json"
-
           if [ ! -f "data/config.github.json" ]; then
-            echo "❌ Horizon data/config.github.json not found"
+            echo "❌ Horizon native config not found"
             exit 1
           fi
 
-          echo
           echo "✅ Horizon installed"
-          echo "✅ Native Horizon config found"
+          echo "✅ Native config found"
+
 
       # ==========================================================
-      # 7. Check Agnes API
+      # 7. Check AGNES
       # ==========================================================
 
       - name: Check Agnes API configuration
@@ -155,10 +132,6 @@ jobs:
         run: |
           set -e
 
-          echo "=========================================="
-          echo "CHECK AGNES API CONFIGURATION"
-          echo "=========================================="
-
           if [ -z "$AGNES_API_KEY" ]; then
             echo "❌ AGNES_API_KEY is missing"
             exit 1
@@ -166,119 +139,180 @@ jobs:
 
           echo "✅ AGNES_API_KEY exists"
 
-          echo
-          echo "API Base:"
-          echo "https://api.agnes-ai.cn/v1"
-
-          echo
-          echo "Model:"
-          echo "agnes-2.5-flash"
 
       # ==========================================================
-      # 8. Checkout Horizon gh-pages - initial
+      # 8. Get Horizon gh-pages
       #
-      # 第一次检查。
-      #
-      # 如果 TODAY*.md 已经存在：
-      #
-      # 不运行 Horizon。
-      #
-      # 如果不存在：
-      #
-      # 才运行 Horizon。
-      #
-      # 注意：
-      #
-      # TODAY 现在统一使用 UTC。
+      # 一次性获取 Horizon 当前最新 gh-pages。
       # ==========================================================
 
-      - name: Checkout Horizon gh-pages - initial
-        uses: actions/checkout@v4
-        with:
-          repository: 748686/Horizon
-          ref: gh-pages
-          path: horizon-pages-initial
-
-      # ==========================================================
-      # 9. Check today's Horizon output
-      # ==========================================================
-
-      - name: Check today's Horizon output
-        id: horizon_initial_check
+      - name: Get Horizon gh-pages
         run: |
           set -e
 
-          POSTS_DIR="horizon-pages-initial/_posts"
+          rm -rf horizon-pages
 
-          echo "=========================================="
-          echo "CHECK TODAY'S HORIZON OUTPUT"
-          echo "=========================================="
+          git clone \
+            --quiet \
+            --depth 1 \
+            --branch gh-pages \
+            "https://github.com/748686/Horizon.git" \
+            horizon-pages
 
-          echo "Timezone: UTC"
-          echo "Today: $TODAY"
-
-          echo
-          echo "Checking:"
-          echo "$POSTS_DIR"
-
-          if [ ! -d "$POSTS_DIR" ]; then
-
-            echo
+          if [ ! -d "horizon-pages/_posts" ]; then
             echo "❌ Horizon _posts directory not found"
-
-            echo "HORIZON_TODAY_READY=false" >> "$GITHUB_ENV"
-
-            exit 0
-
+            exit 1
           fi
 
-          echo
-          echo "Today's files:"
+          echo "✅ Horizon gh-pages downloaded"
 
-          find "$POSTS_DIR" \
+
+      # ==========================================================
+      # 9. Check three-day Raw News
+      #
+      # 先检查本系统 Raw News。
+      #
+      # 已存在：
+      #     跳过
+      #
+      # 不存在：
+      #     再去 Horizon 找
+      #
+      # 三天分别检查。
+      # ==========================================================
+
+      - name: Check three-day Raw News
+        run: |
+          set -e
+
+          RAW_ROOT="01_自生长知识系统/Raw News"
+
+          mkdir -p "$RAW_ROOT"
+
+          echo "=========================================="
+          echo "CHECK THREE-DAY RAW NEWS"
+          echo "=========================================="
+
+          for DATE in \
+            "$DAY_BEFORE" \
+            "$YESTERDAY" \
+            "$TODAY"
+          do
+
+            RAW_DIR="$RAW_ROOT/$DATE"
+
+            mkdir -p "$RAW_DIR"
+
+            COUNT=$(find "$RAW_DIR" \
+              -maxdepth 1 \
+              -type f \
+              -name "*.md" \
+              | wc -l)
+
+            echo
+            echo "------------------------------------------"
+            echo "DATE: $DATE"
+            echo "------------------------------------------"
+
+            echo "Existing Raw News: $COUNT"
+
+            if [ "$COUNT" -gt 0 ]; then
+
+              echo "✅ Raw News already exists"
+              echo "⏭️ Skip Raw import"
+
+            else
+
+              echo "❌ Raw News missing"
+              echo "Will import from Horizon if available"
+
+              POSTS_DIR="horizon-pages/_posts"
+
+              HCOUNT=$(find "$POSTS_DIR" \
+                -maxdepth 1 \
+                -type f \
+                -name "$DATE*.md" \
+                | wc -l)
+
+              echo "Horizon files: $HCOUNT"
+
+              if [ "$HCOUNT" -gt 0 ]; then
+
+                while IFS= read -r file; do
+
+                  cp "$file" "$RAW_DIR/"
+
+                done < <(
+                  find "$POSTS_DIR" \
+                    -maxdepth 1 \
+                    -type f \
+                    -name "$DATE*.md" \
+                    | sort
+                )
+
+                echo "✅ Imported $DATE from Horizon"
+
+              else
+
+                echo "⚠️ Horizon does not currently contain $DATE"
+
+                if [ "$DATE" = "$TODAY" ]; then
+                  echo "TODAY missing from Horizon"
+                  echo "Horizon must run"
+                else
+                  echo "Historical date missing from Horizon"
+                  echo "Cannot fabricate historical Horizon output"
+                fi
+
+              fi
+
+            fi
+
+          done
+
+
+      # ==========================================================
+      # 10. Determine whether today's Horizon must run
+      #
+      # 只有 TODAY 缺失时启动 Horizon。
+      #
+      # 28 / 29 不通过伪造方式让 Horizon 生成。
+      # 如果 Horizon gh-pages 已有，就直接补进本系统。
+      # ==========================================================
+
+      - name: Check whether Horizon must run
+        run: |
+          set -e
+
+          RAW_DIR="01_自生长知识系统/Raw News/$TODAY"
+
+          COUNT=$(find "$RAW_DIR" \
             -maxdepth 1 \
             -type f \
-            -name "$TODAY*.md" \
-            | sort
-
-          COUNT=$(find "$POSTS_DIR" \
-            -maxdepth 1 \
-            -type f \
-            -name "$TODAY*.md" \
+            -name "*.md" \
             | wc -l)
 
-          echo
-          echo "Today's Horizon file count:"
-          echo "$COUNT"
+          echo "Today's Raw News: $COUNT"
 
           if [ "$COUNT" -gt 0 ]; then
 
-            echo
-            echo "✅ Today's Horizon output already exists"
-            echo "⏭️ Horizon will NOT run"
-
             echo "HORIZON_TODAY_READY=true" >> "$GITHUB_ENV"
+
+            echo "✅ Today's Raw News already exists"
+            echo "⏭️ Horizon does not need to run"
 
           else
 
-            echo
-            echo "❌ Today's Horizon output does not exist"
-            echo "▶️ Horizon will run"
-
             echo "HORIZON_TODAY_READY=false" >> "$GITHUB_ENV"
+
+            echo "❌ Today's Raw News missing"
+            echo "▶️ Horizon must run"
 
           fi
 
+
       # ==========================================================
-      # 10. Run Horizon
-      #
-      # 只有今天没有文件的时候才运行。
-      #
-      # Horizon 使用自己的：
-      #
-      # data/config.github.json
-      #
-      # 系统时间统一为 UTC。
+      # 11. Run Horizon only when today's data is missing
       # ==========================================================
 
       - name: Run Horizon
@@ -296,443 +330,324 @@ jobs:
           echo "RUN HORIZON"
           echo "=========================================="
 
-          echo "Timezone:"
-          echo "UTC"
-
-          echo
-          echo "Today:"
+          echo "Date:"
           echo "$TODAY"
-
-          echo
-          echo "Current UTC time:"
-          date -u '+%Y-%m-%d %H:%M:%S'
-
-          echo
-          echo "Horizon repository:"
-          echo "748686/Horizon"
-
-          echo
-          echo "Horizon native config:"
-          echo "data/config.github.json"
-
-          echo
-          echo "Hours:"
-          echo "24"
-
-          echo
-          echo "Starting Horizon..."
 
           uv run horizon \
             --hours 24 \
             --config data/config.github.json
 
           echo
-          echo "=========================================="
-          echo "HORIZON PROCESS FINISHED"
-          echo "=========================================="
+          echo "✅ Horizon process finished"
 
-          echo "Horizon process completed."
-          echo "Now the system will wait for today's gh-pages output."
 
       # ==========================================================
-      # 11. Wait for today's gh-pages output
-      #
-      # Horizon 程序结束
-      # 不等于
-      # gh-pages 已经立即更新。
-      #
-      # 每 30 秒检查一次
-      # 最多 5 分钟
-      #
-      # TODAY 使用 UTC。
+      # 12. Refresh Horizon gh-pages after Horizon run
       # ==========================================================
 
-      - name: Wait for today's Horizon output
+      - name: Refresh Horizon gh-pages
         if: env.HORIZON_TODAY_READY != 'true'
         run: |
           set -e
 
-          echo "=========================================="
-          echo "WAIT FOR HORIZON GH-PAGES"
-          echo "=========================================="
-
-          echo "Timezone:"
-          echo "UTC"
-
-          echo
-          echo "Today:"
-          echo "$TODAY"
-
-          echo
-          echo "Maximum wait:"
-          echo "5 minutes"
-
-          echo
-          echo "Check interval:"
-          echo "30 seconds"
-
-          FOUND=false
+          rm -rf horizon-pages
 
           for i in {1..10}; do
 
             echo
-            echo "------------------------------------------"
-            echo "CHECK $i / 10"
-            echo "------------------------------------------"
-
-            rm -rf horizon-pages-check
+            echo "=========================================="
+            echo "HORIZON OUTPUT CHECK $i / 10"
+            echo "=========================================="
 
             git clone \
               --quiet \
               --depth 1 \
               --branch gh-pages \
               "https://github.com/748686/Horizon.git" \
-              horizon-pages-check
+              horizon-pages
 
-            POSTS_DIR="horizon-pages-check/_posts"
+            COUNT=$(find \
+              "horizon-pages/_posts" \
+              -maxdepth 1 \
+              -type f \
+              -name "$TODAY*.md" \
+              | wc -l)
 
-            if [ ! -d "$POSTS_DIR" ]; then
+            echo "Today's Horizon files: $COUNT"
 
-              echo "_posts directory not found"
+            if [ "$COUNT" -gt 0 ]; then
 
-            else
+              echo "✅ Today's Horizon output found"
 
-              COUNT=$(find "$POSTS_DIR" \
-                -maxdepth 1 \
-                -type f \
-                -name "$TODAY*.md" \
-                | wc -l)
-
-              echo "Today's files:"
-              echo "$COUNT"
-
-              if [ "$COUNT" -gt 0 ]; then
-
-                echo
-                echo "✅ TODAY'S HORIZON FILES FOUND"
-
-                echo
-                find "$POSTS_DIR" \
-                  -maxdepth 1 \
-                  -type f \
-                  -name "$TODAY*.md" \
-                  | sort
-
-                FOUND=true
-
-                break
-
-              fi
+              break
 
             fi
 
+            rm -rf horizon-pages
+
             if [ "$i" -lt 10 ]; then
-
-              echo
-              echo "No today's output yet."
-              echo "Waiting 30 seconds..."
-
               sleep 30
+            fi
+
+          done
+
+          COUNT=$(find \
+            "horizon-pages/_posts" \
+            -maxdepth 1 \
+            -type f \
+            -name "$TODAY*.md" \
+            | wc -l)
+
+          if [ "$COUNT" -eq 0 ]; then
+
+            echo "❌ Today's Horizon output not found"
+
+            exit 1
+
+          fi
+
+
+      # ==========================================================
+      # 13. Import missing Raw News again
+      #
+      # Horizon 运行完之后，
+      # 再次检查三天。
+      #
+      # 这一步非常重要。
+      # ==========================================================
+
+      - name: Complete three-day Raw News
+        run: |
+          set -e
+
+          RAW_ROOT="01_自生长知识系统/Raw News"
+
+          for DATE in \
+            "$DAY_BEFORE" \
+            "$YESTERDAY" \
+            "$TODAY"
+          do
+
+            RAW_DIR="$RAW_ROOT/$DATE"
+
+            mkdir -p "$RAW_DIR"
+
+            COUNT=$(find "$RAW_DIR" \
+              -maxdepth 1 \
+              -type f \
+              -name "*.md" \
+              | wc -l)
+
+            if [ "$COUNT" -gt 0 ]; then
+
+              echo "✅ $DATE Raw News ready: $COUNT"
+
+              continue
+
+            fi
+
+            echo "⚠️ $DATE Raw News still missing"
+
+            HCOUNT=$(find \
+              "horizon-pages/_posts" \
+              -maxdepth 1 \
+              -type f \
+              -name "$DATE*.md" \
+              | wc -l)
+
+            if [ "$HCOUNT" -gt 0 ]; then
+
+              while IFS= read -r file; do
+                cp "$file" "$RAW_DIR/"
+              done < <(
+                find \
+                  "horizon-pages/_posts" \
+                  -maxdepth 1 \
+                  -type f \
+                  -name "$DATE*.md" \
+                  | sort
+              )
+
+              echo "✅ $DATE imported"
+
+            else
+
+              echo "❌ Cannot obtain Raw News for $DATE"
+
+              exit 1
 
             fi
 
           done
 
-          if [ "$FOUND" != "true" ]; then
+
+      # ==========================================================
+      # 14. Atomic News
+      #
+      # 三天逐日检查。
+      #
+      # 已存在：
+      #     跳过
+      #
+      # 不存在：
+      #     从对应 Raw News 生成。
+      # ==========================================================
+
+      - name: Build missing Atomic News
+        run: |
+          set -e
+
+          RAW_ROOT="01_自生长知识系统/Raw News"
+
+          for DATE in \
+            "$DAY_BEFORE" \
+            "$YESTERDAY" \
+            "$TODAY"
+          do
+
+            RAW_DIR="$RAW_ROOT/$DATE"
+            ATOMIC_DIR="$RAW_ROOT/${DATE}-Atomic"
+
+            ZH_DIR="$ATOMIC_DIR/zh"
+            EN_DIR="$ATOMIC_DIR/en"
 
             echo
             echo "=========================================="
-            echo "❌ HORIZON OUTPUT NOT FOUND"
+            echo "ATOMIC CHECK: $DATE"
             echo "=========================================="
 
-            echo
-            echo "Horizon process finished,"
-            echo "but today's .md files did not appear"
-            echo "in Horizon gh-pages/_posts within 5 minutes."
+            mkdir -p "$ZH_DIR"
+            mkdir -p "$EN_DIR"
 
-            echo
-            echo "System stops here."
-            echo "Atomic / Enrichment / Knowledge Pipeline"
-            echo "will NOT run."
-
-            exit 1
-
-          fi
-
-          echo
-          echo "✅ Horizon gh-pages is ready"
-
-      # ==========================================================
-      # 12. Final checkout Horizon gh-pages
-      #
-      # 重新获取最新 gh-pages。
-      # ==========================================================
-
-      - name: Checkout Horizon gh-pages - final
-        run: |
-          set -e
-
-          echo "=========================================="
-          echo "GET FINAL HORIZON GH-PAGES"
-          echo "=========================================="
-
-          rm -rf horizon-pages
-
-          git clone \
-            --quiet \
-            --depth 1 \
-            --branch gh-pages \
-            "https://github.com/748686/Horizon.git" \
-            horizon-pages
-
-          echo "✅ Latest Horizon gh-pages downloaded"
-
-      # ==========================================================
-      # 13. Final verify today's files
-      # ==========================================================
-
-      - name: Verify today's Horizon files
-        run: |
-          set -e
-
-          POSTS_DIR="horizon-pages/_posts"
-
-          echo "=========================================="
-          echo "FINAL HORIZON OUTPUT CHECK"
-          echo "=========================================="
-
-          echo "Timezone: UTC"
-          echo "Today: $TODAY"
-
-          if [ ! -d "$POSTS_DIR" ]; then
-
-            echo "❌ Horizon _posts directory missing"
-            exit 1
-
-          fi
-
-          echo
-          echo "Today's Horizon files:"
-
-          find "$POSTS_DIR" \
-            -maxdepth 1 \
-            -type f \
-            -name "$TODAY*.md" \
-            | sort
-
-          COUNT=$(find "$POSTS_DIR" \
-            -maxdepth 1 \
-            -type f \
-            -name "$TODAY*.md" \
-            | wc -l)
-
-          echo
-          echo "Today's file count:"
-          echo "$COUNT"
-
-          if [ "$COUNT" -eq 0 ]; then
-
-            echo
-            echo "❌ Today's Horizon files disappeared"
-            echo "System stops here."
-
-            exit 1
-
-          fi
-
-          echo
-          echo "✅ Today's Horizon output confirmed"
-
-      # ==========================================================
-      # 14. Copy ONLY today's Horizon files
-      #
-      # 只复制：
-      #
-      # $TODAY*.md
-      #
-      # TODAY = UTC
-      # ==========================================================
-
-      - name: Copy today's Horizon files to Raw News
-        run: |
-          set -e
-
-          POSTS_DIR="horizon-pages/_posts"
-
-          RAW_DIR="01_自生长知识系统/Raw News/$TODAY"
-
-          mkdir -p "$RAW_DIR"
-
-          echo "=========================================="
-          echo "COPY TODAY'S HORIZON FILES"
-          echo "=========================================="
-
-          echo "Timezone:"
-          echo "UTC"
-
-          echo
-          echo "Today:"
-          echo "$TODAY"
-
-          echo
-          echo "Source:"
-          echo "$POSTS_DIR"
-
-          echo
-          echo "Destination:"
-          echo "$RAW_DIR"
-
-          COUNT=0
-
-          while IFS= read -r file; do
-
-            filename=$(basename "$file")
-
-            echo
-            echo "Copying:"
-            echo "$filename"
-
-            cp "$file" "$RAW_DIR/$filename"
-
-            COUNT=$((COUNT + 1))
-
-          done < <(
-            find "$POSTS_DIR" \
-              -maxdepth 1 \
+            ATOMIC_COUNT=$(find "$ATOMIC_DIR" \
               -type f \
-              -name "$TODAY*.md" \
-              | sort
-          )
+              -name "*.md" \
+              | wc -l)
 
-          echo
-          echo "Copied files:"
-          echo "$COUNT"
-
-          if [ "$COUNT" -eq 0 ]; then
-
-            echo "❌ Nothing copied"
-            exit 1
-
-          fi
-
-          echo
-          echo "Raw News result:"
-
-          find "$RAW_DIR" \
-            -maxdepth 1 \
-            -type f \
-            -name "*.md" \
-            | sort
-
-          echo
-          echo "✅ Today's Horizon files imported"
-
-      # ==========================================================
-      # 15. Build Atomic News
-      # ==========================================================
-
-      - name: Build Atomic News
-        run: |
-          set -e
-
-          RAW_DIR="01_自生长知识系统/Raw News/$TODAY"
-
-          ATOMIC_DIR="01_自生长知识系统/Raw News/$TODAY-Atomic"
-
-          ZH_DIR="$ATOMIC_DIR/zh"
-          EN_DIR="$ATOMIC_DIR/en"
-
-          mkdir -p "$ZH_DIR"
-          mkdir -p "$EN_DIR"
-
-          echo "=========================================="
-          echo "BUILD ATOMIC NEWS"
-          echo "=========================================="
-
-          echo "Raw:"
-          echo "$RAW_DIR"
-
-          echo
-          echo "Atomic:"
-          echo "$ATOMIC_DIR"
-
-          FOUND=0
-
-          while IFS= read -r file; do
-
-            FOUND=$((FOUND + 1))
-
-            filename=$(basename "$file")
-
-            language="zh"
-
-            if grep -qi \
-              -E \
-              'language:[[:space:]]*(en|english)' \
-              "$file"; then
-
-              language="en"
-
-            elif grep -qi \
-              -E \
-              'language:[[:space:]]*zh' \
-              "$file"; then
-
-              language="zh"
-
-            else
-
-              if [[ "$filename" == *"-en.md" ]]; then
-                language="en"
-              elif [[ "$filename" == *"-zh.md" ]]; then
-                language="zh"
-              fi
-
-            fi
-
-            if [ "$language" = "en" ]; then
-
-              cp "$file" "$EN_DIR/$filename"
-
-            else
-
-              cp "$file" "$ZH_DIR/$filename"
-
-            fi
-
-          done < <(
-            find "$RAW_DIR" \
+            RAW_COUNT=$(find "$RAW_DIR" \
               -maxdepth 1 \
               -type f \
               -name "*.md" \
-              | sort
-          )
+              | wc -l)
 
-          echo
-          echo "Processed:"
-          echo "$FOUND"
+            echo "Raw: $RAW_COUNT"
+            echo "Atomic: $ATOMIC_COUNT"
 
-          echo
-          echo "Chinese Atomic:"
+            if [ "$RAW_COUNT" -eq 0 ]; then
 
-          find "$ZH_DIR" \
-            -type f \
-            -name "*.md" \
-            | sort
+              echo "❌ No Raw News for $DATE"
+              exit 1
 
-          echo
-          echo "English Atomic:"
+            fi
 
-          find "$EN_DIR" \
-            -type f \
-            -name "*.md" \
-            | sort
+            if [ "$ATOMIC_COUNT" -ge "$RAW_COUNT" ]; then
+
+              echo "✅ Atomic News already complete"
+              echo "⏭️ Skip $DATE"
+
+              continue
+
+            fi
+
+            echo "❌ Atomic News incomplete"
+            echo "▶️ Generating missing Atomic News"
+
+
+            while IFS= read -r file; do
+
+              filename=$(basename "$file")
+
+              if [ -f "$ZH_DIR/$filename" ] || \
+                 [ -f "$EN_DIR/$filename" ]; then
+
+                echo "⏭️ Already exists: $filename"
+
+                continue
+
+              fi
+
+              language="zh"
+
+              if grep -qi \
+                -E \
+                'language:[[:space:]]*(en|english)' \
+                "$file"; then
+
+                language="en"
+
+              elif grep -qi \
+                -E \
+                'language:[[:space:]]*zh' \
+                "$file"; then
+
+                language="zh"
+
+              elif [[ "$filename" == *"-en.md" ]]; then
+
+                language="en"
+
+              elif [[ "$filename" == *"-zh.md" ]]; then
+
+                language="zh"
+
+              fi
+
+              if [ "$language" = "en" ]; then
+
+                cp "$file" "$EN_DIR/$filename"
+
+              else
+
+                cp "$file" "$ZH_DIR/$filename"
+
+              fi
+
+              echo "✅ Atomic: $filename"
+
+            done < <(
+              find "$RAW_DIR" \
+                -maxdepth 1 \
+                -type f \
+                -name "*.md" \
+                | sort
+            )
+
+            FINAL_COUNT=$(find "$ATOMIC_DIR" \
+              -type f \
+              -name "*.md" \
+              | wc -l)
+
+            echo
+            echo "Final Atomic count: $FINAL_COUNT"
+
+            if [ "$FINAL_COUNT" -lt "$RAW_COUNT" ]; then
+
+              echo "❌ Atomic generation incomplete for $DATE"
+
+              exit 1
+
+            fi
+
+            echo "✅ Atomic complete: $DATE"
+
+          done
+
 
       # ==========================================================
-      # 16. Source Enrichment V3
+      # 15. Source Enrichment
+      #
+      # 三天逐日检查。
+      #
+      # Enriched 已经完整：
+      #     跳过
+      #
+      # 缺失：
+      #     只处理该日期。
+      #
+      # 不重新处理已经完成日期。
       # ==========================================================
 
-      - name: Run Source Enrichment V3
+      - name: Build missing Enriched News
         env:
           AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
           AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
@@ -740,232 +655,145 @@ jobs:
           AI_MODEL: agnes-2.5-flash
         run: |
           set -e
-
-          echo "=========================================="
-          echo "INSTALL SOURCE ENRICHMENT DEPENDENCIES"
-          echo "=========================================="
 
           python -m pip install --upgrade pip
           python -m pip install requests
 
-          echo
-          echo "=========================================="
-          echo "HORIZON SOURCE ENRICHMENT V3"
-          echo "=========================================="
-
-          ZH="01_自生长知识系统/Raw News/$TODAY-Atomic/zh"
-          EN="01_自生长知识系统/Raw News/$TODAY-Atomic/en"
-
-          OUTPUT="01_自生长知识系统/Raw News/$TODAY-Enriched"
-
           SCRIPT="01_自生长知识系统/scripts/source_enrichment.py"
 
-          echo
-          echo "Chinese Atomic:"
-          echo "$ZH"
+          for DATE in \
+            "$DAY_BEFORE" \
+            "$YESTERDAY" \
+            "$TODAY"
+          do
 
-          echo
-          echo "English Atomic:"
-          echo "$EN"
+            echo
+            echo "=========================================="
+            echo "SOURCE ENRICHMENT CHECK: $DATE"
+            echo "=========================================="
 
-          echo
-          echo "Output:"
-          echo "$OUTPUT"
+            ZH="01_自生长知识系统/Raw News/${DATE}-Atomic/zh"
+            EN="01_自生长知识系统/Raw News/${DATE}-Atomic/en"
 
-          echo
-          echo "Running..."
+            OUTPUT="01_自生长知识系统/Raw News/${DATE}-Enriched"
 
-          python "$SCRIPT" \
-            --zh "$ZH" \
-            --en "$EN" \
-            --output "$OUTPUT" \
-            --date "$TODAY"
+            mkdir -p "$OUTPUT"
 
-          echo
-          echo "✅ Source Enrichment V3 completed"
+            ATOMIC_COUNT=$(find \
+              "01_自生长知识系统/Raw News/${DATE}-Atomic" \
+              -type f \
+              -name "*.md" \
+              | wc -l)
 
-      # ==========================================================
-      # 17. Validate Chinese Enriched
-      # ==========================================================
+            ENRICHED_COUNT=$(find "$OUTPUT" \
+              -type f \
+              -name "*.md" \
+              | wc -l)
 
-      - name: Validate Chinese Enriched
-        run: |
-          set -e
+            echo "Atomic: $ATOMIC_COUNT"
+            echo "Enriched: $ENRICHED_COUNT"
 
-          DIR="01_自生长知识系统/Raw News/$TODAY-Enriched/zh"
+            if [ "$ATOMIC_COUNT" -eq 0 ]; then
 
-          echo "=========================================="
-          echo "VALIDATE CHINESE ENRICHED"
-          echo "=========================================="
-
-          if [ ! -d "$DIR" ]; then
-            echo "❌ Chinese Enriched directory missing"
-            exit 1
-          fi
-
-          COUNT=$(find "$DIR" \
-            -type f \
-            -name "*.md" \
-            | wc -l)
-
-          echo "Chinese enriched files: $COUNT"
-
-          if [ "$COUNT" -eq 0 ]; then
-            echo "⚠️ No Chinese enriched files"
-          else
-            echo "✅ Chinese Enriched OK"
-          fi
-
-      # ==========================================================
-      # 18. Validate English Enriched
-      # ==========================================================
-
-      - name: Validate English Enriched
-        run: |
-          set -e
-
-          DIR="01_自生长知识系统/Raw News/$TODAY-Enriched/en"
-
-          echo "=========================================="
-          echo "VALIDATE ENGLISH ENRICHED"
-          echo "=========================================="
-
-          if [ ! -d "$DIR" ]; then
-            echo "❌ English Enriched directory missing"
-            exit 1
-          fi
-
-          COUNT=$(find "$DIR" \
-            -type f \
-            -name "*.md" \
-            | wc -l)
-
-          echo "English enriched files: $COUNT"
-
-          if [ "$COUNT" -eq 0 ]; then
-            echo "⚠️ No English enriched files"
-          else
-            echo "✅ English Enriched OK"
-          fi
-
-      # ==========================================================
-      # 19. Validate Front Matter
-      # ==========================================================
-
-      - name: Validate Front Matter
-        run: |
-          set -e
-
-          DIR="01_自生长知识系统/Raw News/$TODAY-Enriched"
-
-          echo "=========================================="
-          echo "VALIDATE FRONT MATTER"
-          echo "=========================================="
-
-          TOTAL=0
-          FAILED=0
-
-          while IFS= read -r file; do
-
-            TOTAL=$((TOTAL + 1))
-
-            if ! head -n 1 "$file" | grep -q "^---$"; then
-
-              echo "❌ Missing front matter:"
-              echo "$file"
-
-              FAILED=$((FAILED + 1))
+              echo "❌ Atomic News missing for $DATE"
+              exit 1
 
             fi
 
-          done < <(
-            find "$DIR" \
+            if [ "$ENRICHED_COUNT" -ge "$ATOMIC_COUNT" ]; then
+
+              echo "✅ Enriched already complete"
+              echo "⏭️ Skip $DATE"
+
+              continue
+
+            fi
+
+            echo "❌ Enriched incomplete"
+            echo "▶️ Run Source Enrichment for $DATE"
+
+            python "$SCRIPT" \
+              --zh "$ZH" \
+              --en "$EN" \
+              --output "$OUTPUT" \
+              --date "$DATE"
+
+            FINAL_COUNT=$(find "$OUTPUT" \
               -type f \
               -name "*.md" \
-              | sort
-          )
+              | wc -l)
 
-          echo
-          echo "Checked:"
-          echo "$TOTAL"
+            echo
+            echo "Final Enriched count: $FINAL_COUNT"
 
-          echo
-          echo "Failed:"
-          echo "$FAILED"
+            if [ "$FINAL_COUNT" -lt "$ATOMIC_COUNT" ]; then
 
-          if [ "$FAILED" -gt 0 ]; then
-            echo "❌ Front Matter validation failed"
-            exit 1
-          fi
+              echo "❌ Enrichment incomplete for $DATE"
 
-          echo "✅ Front Matter OK"
+              exit 1
+
+            fi
+
+            echo "✅ Enriched complete: $DATE"
+
+          done
+
 
       # ==========================================================
-      # 20. Report Source Status
+      # 16. Validate all three days
       # ==========================================================
 
-      - name: Report Source Status
+      - name: Validate three-day Enriched News
         run: |
           set -e
 
-          echo "=========================================="
-          echo "SOURCE STATUS"
-          echo "=========================================="
+          for DATE in \
+            "$DAY_BEFORE" \
+            "$YESTERDAY" \
+            "$TODAY"
+          do
 
-          python - <<'PY'
+            DIR="01_自生长知识系统/Raw News/${DATE}-Enriched"
 
-          from pathlib import Path
-          from collections import Counter
-          import os
-          import re
+            COUNT=$(find "$DIR" \
+              -type f \
+              -name "*.md" \
+              | wc -l)
 
-          root = (
-              Path("01_自生长知识系统/Raw News")
-              / f"{os.environ['TODAY']}-Enriched"
-          )
+            echo
+            echo "$DATE Enriched: $COUNT"
 
-          counter = Counter()
+            if [ "$COUNT" -eq 0 ]; then
 
-          total = 0
+              echo "❌ No Enriched News for $DATE"
 
-          for path in root.rglob("*.md"):
+              exit 1
 
-              total += 1
+            fi
 
-              text = path.read_text(
-                  encoding="utf-8",
-                  errors="replace"
-              )
+          done
 
-              match = re.search(
-                  r"^source_status:\s*(.+)$",
-                  text,
-                  re.MULTILINE
-              )
+          echo
+          echo "✅ Three-day Enriched News ready"
 
-              if match:
-                  status = match.group(1).strip()
-              else:
-                  status = "missing"
-
-              counter[status] += 1
-
-          print(f"Total: {total}")
-
-          for status, count in sorted(
-              counter.items()
-          ):
-              print(
-                  f"{status}: {count}"
-              )
-
-          PY
 
       # ==========================================================
-      # 21. Knowledge Pipeline V2
+      # 17. Knowledge Pipeline
+      #
+      # 最重要的一步：
+      #
+      # 28 → 29 → 30
+      #
+      # 每天独立处理。
+      #
+      # 已完成：
+      #     跳过
+      #
+      # 未完成：
+      #     当前日期完整处理
       # ==========================================================
 
-      - name: Run Knowledge Pipeline V2
+      - name: Run Knowledge Pipeline - three days
         env:
           AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
           AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
@@ -974,30 +802,29 @@ jobs:
         run: |
           set -e
 
-          echo "=========================================="
-          echo "KNOWLEDGE PIPELINE V2"
-          echo "=========================================="
+          for DATE in \
+            "$DAY_BEFORE" \
+            "$YESTERDAY" \
+            "$TODAY"
+          do
 
-          echo
-          echo "Skills:"
+            echo
+            echo "=========================================="
+            echo "KNOWLEDGE PIPELINE: $DATE"
+            echo "=========================================="
 
-          find \
-            "01_自生长知识系统/Skills" \
-            -type f \
-            -name "*.md" \
-            | sort
+            python \
+              "01_自生长知识系统/scripts/knowledge_pipeline.py" \
+              --date "$DATE"
 
-          echo
-          echo "Running..."
+            echo
+            echo "✅ Knowledge Pipeline finished: $DATE"
 
-          python \
-            "01_自生长知识系统/scripts/knowledge_pipeline.py"
+          done
 
-          echo
-          echo "✅ Knowledge Pipeline V2 completed"
 
       # ==========================================================
-      # 22. Weekly Report V2
+      # 18. Weekly Report
       # ==========================================================
 
       - name: Run Weekly Report V2
@@ -1009,155 +836,88 @@ jobs:
         run: |
           set -e
 
-          echo "=========================================="
-          echo "WEEKLY REPORT V2"
-          echo "=========================================="
-
           python \
             "01_自生长知识系统/scripts/weekly_report.py"
 
-          echo
-          echo "✅ Weekly Report V2 completed"
+          echo "✅ Weekly Report completed"
+
 
       # ==========================================================
-      # 23. Show final result
+      # 19. Final result
       # ==========================================================
 
-      - name: Show Final System Result
+      - name: Show three-day final result
         run: |
           set -e
 
-          echo "=========================================="
-          echo "748686 KNOWLEDGE SYSTEM RESULT"
-          echo "=========================================="
-
           echo
-          echo "Timezone:"
-          echo "UTC"
+          echo "============================================================"
+          echo "748686 自生长知识系统 - THREE DAY RESULT"
+          echo "============================================================"
 
-          echo
-          echo "TODAY:"
-          echo "$TODAY"
+          for DATE in \
+            "$DAY_BEFORE" \
+            "$YESTERDAY" \
+            "$TODAY"
+          do
 
-          echo
-          echo "=========================================="
-          echo "RAW NEWS"
-          echo "=========================================="
+            echo
+            echo "############################################################"
+            echo "DATE: $DATE"
+            echo "############################################################"
 
-          find \
-            "01_自生长知识系统/Raw News/$TODAY" \
-            -type f \
-            -name "*.md" \
-            | sort
+            echo
+            echo "RAW:"
+            find \
+              "01_自生长知识系统/Raw News/$DATE" \
+              -maxdepth 1 \
+              -type f \
+              -name "*.md" \
+              | sort
 
-          echo
-          echo "Raw count:"
+            echo
+            echo "ATOMIC:"
+            find \
+              "01_自生长知识系统/Raw News/${DATE}-Atomic" \
+              -type f \
+              -name "*.md" \
+              | sort
 
-          find \
-            "01_自生长知识系统/Raw News/$TODAY" \
-            -type f \
-            -name "*.md" \
-            | wc -l
+            echo
+            echo "ENRICHED:"
+            find \
+              "01_自生长知识系统/Raw News/${DATE}-Enriched" \
+              -type f \
+              -name "*.md" \
+              | sort
 
-          echo
-          echo "=========================================="
-          echo "ATOMIC NEWS"
-          echo "=========================================="
+            echo
+            echo "DAILY REPORT:"
 
-          find \
-            "01_自生长知识系统/Raw News/$TODAY-Atomic" \
-            -type f \
-            -name "*.md" \
-            | sort
+            REPORT="01_自生长知识系统/05_日报/${DATE:0:4}/${DATE:5:2}/${DATE}.md"
 
-          echo
-          echo "Atomic count:"
+            if [ -f "$REPORT" ]; then
 
-          find \
-            "01_自生长知识系统/Raw News/$TODAY-Atomic" \
-            -type f \
-            -name "*.md" \
-            | wc -l
+              echo "✅ $REPORT"
 
-          echo
-          echo "=========================================="
-          echo "ENRICHED NEWS"
-          echo "=========================================="
+            else
 
-          find \
-            "01_自生长知识系统/Raw News/$TODAY-Enriched" \
-            -type f \
-            -name "*.md" \
-            | sort
+              echo "❌ Missing $REPORT"
 
-          echo
-          echo "Enriched count:"
+              exit 1
 
-          find \
-            "01_自生长知识系统/Raw News/$TODAY-Enriched" \
-            -type f \
-            -name "*.md" \
-            | wc -l
+            fi
 
-          echo
-          echo "=========================================="
-          echo "DAILY REPORTS"
-          echo "=========================================="
+          done
 
-          find \
-            "01_自生长知识系统/05_日报" \
-            -type f \
-            -name "*.md" \
-            | sort \
-            | tail -10
-
-          echo
-          echo "=========================================="
-          echo "KNOWLEDGE"
-          echo "=========================================="
-
-          find \
-            "01_自生长知识系统/08_知识库" \
-            -type f \
-            -name "*.md" \
-            | sort \
-            | tail -10
-
-          echo
-          echo "=========================================="
-          echo "TOPICS"
-          echo "=========================================="
-
-          find \
-            "01_自生长知识系统/07_专题报告" \
-            -type f \
-            -name "*.md" \
-            | sort \
-            | tail -10
-
-          echo
-          echo "=========================================="
-          echo "WEEKLY"
-          echo "=========================================="
-
-          find \
-            "01_自生长知识系统/06_周报" \
-            -type f \
-            -name "*.md" \
-            | sort \
-            | tail -10
 
       # ==========================================================
-      # 24. Commit everything
+      # 20. Commit
       # ==========================================================
 
       - name: Commit Knowledge System
         run: |
           set -e
-
-          echo "=========================================="
-          echo "COMMIT KNOWLEDGE SYSTEM"
-          echo "=========================================="
 
           git config user.name \
             "748686 Knowledge Bot"
@@ -1170,23 +930,22 @@ jobs:
 
           if git diff --cached --quiet; then
 
-            echo
             echo "No changes to commit"
 
           else
 
             git commit \
-              -m "chore: daily knowledge system $TODAY"
+              -m "chore: three-day knowledge system $TODAY"
 
             git push
 
-            echo
-            echo "✅ Changes pushed to GitHub"
+            echo "✅ Changes pushed"
 
           fi
 
+
       # ==========================================================
-      # 25. Complete
+      # 21. Complete
       # ==========================================================
 
       - name: Complete Job
@@ -1194,55 +953,51 @@ jobs:
           set -e
 
           echo
-          echo "=========================================="
+          echo "============================================================"
           echo "748686 自生长知识系统"
-          echo "=========================================="
+          echo "============================================================"
 
           echo
-          echo "Timezone:"
-          echo "UTC"
+          echo "前天:"
+          echo "$DAY_BEFORE"
 
           echo
-          echo "TODAY:"
+          echo "昨天:"
+          echo "$YESTERDAY"
+
+          echo
+          echo "今天:"
           echo "$TODAY"
 
           echo
           echo "Horizon:"
-          echo "✅ today's output confirmed"
+          echo "✅ checked"
 
           echo
           echo "Raw News:"
-          echo "✅ today's files imported"
+          echo "✅ three-day checked"
 
           echo
           echo "Atomic News:"
-          echo "✅ completed"
+          echo "✅ three-day checked"
 
           echo
-          echo "Source Enrichment V3:"
-          echo "✅ completed"
+          echo "Source Enrichment:"
+          echo "✅ three-day checked"
 
           echo
-          echo "Knowledge Pipeline V2:"
-          echo "✅ completed"
-
-          echo
-          echo "Knowledge Cards:"
-          echo "✅ generated"
-
-          echo
-          echo "Topic Candidates:"
-          echo "✅ generated"
+          echo "Knowledge Pipeline:"
+          echo "✅ processed day-by-day"
 
           echo
           echo "Weekly Report:"
-          echo "✅ generated"
+          echo "✅ completed"
 
           echo
           echo "GitHub:"
           echo "✅ pushed"
 
           echo
-          echo "=========================================="
+          echo "============================================================"
           echo "SYSTEM COMPLETE"
-          echo "=========================================="
+          echo "============================================================"
