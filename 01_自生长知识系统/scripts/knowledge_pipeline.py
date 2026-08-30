@@ -4748,4 +4748,4 @@ def load_saved_event_units(
         title = ""
 
         heading_match = re.search(
-            r
+            r)
