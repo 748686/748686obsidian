@@ -3,35 +3,41 @@
 
 """
 748686 自生长知识系统
-Source Enrichment V3
+Source Enrichment V4
 
-流程：
+============================================================
+核心逻辑
+============================================================
 
-1. 读取 Horizon Atomic News
-2. 清洗 Horizon 标题
-3. 尝试从 RSS / 新闻搜索候选中寻找原文
-4. 对候选来源进行标题 + 日期 + 域名匹配
-5. RSS 找不到可信来源时：
-      -> 调用 Agnes API
-      -> 让 Agnes 对候选来源进行判断
-6. 通过后抓取真实网页
-7. 提取：
-      - 原文标题
-      - 作者
-      - 描述
-      - 正文
-8. 永远不修改 Atomic 原文件
-9. 输出：
-      Raw News/YYYY-MM-DD-Enriched/zh
-      Raw News/YYYY-MM-DD-Enriched/en
+每次运行固定处理：
 
-状态：
+    前天
+    昨天
+    今天
 
-fetched
-rss_unresolved
-agnes_unresolved
-fetch_failed
-unresolved
+目录：
+
+    YYYY-MM-DD-Atomic/
+        ├── zh/
+        └── en/
+
+        ↓
+
+    YYYY-MM-DD-Enriched/
+        ├── zh/
+        └── en/
+
+重要原则：
+
+1. 先创建日期 Enriched 文件夹
+2. 再创建 zh / en
+3. 分别检查 Atomic
+4. 分别检查 Enriched
+5. 已经存在的文件跳过
+6. 缺失文件重新寻找真实原文
+7. Atomic 永远不修改
+8. Horizon 摘要永远不能冒充原文
+9. 三天全部完成后才成功
 """
 
 from __future__ import annotations
@@ -39,12 +45,13 @@ from __future__ import annotations
 import argparse
 import html
 import json
+import os
 import re
-import time
+from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import (
-    urlparse,
     quote_plus,
+    urlparse,
 )
 
 import requests
@@ -64,12 +71,14 @@ AGNES_MODEL = (
 
 USER_AGENT = (
     "Mozilla/5.0 "
-    "(compatible; 748686-Knowledge-Bot/3.0; "
+    "(compatible; 748686-Knowledge-Bot/4.0; "
     "+https://github.com/748686/748686obsidian)"
 )
 
 RSS_TIMEOUT = 10
+
 FETCH_TIMEOUT = 15
+
 AGNES_TIMEOUT = 30
 
 MAX_ARTICLE_LENGTH = 50000
@@ -81,12 +90,16 @@ MIN_MATCH_SCORE = 0.72
 # 通用
 # ============================================================
 
-def clean_text(text: str) -> str:
+def clean_text(
+    text: str,
+):
 
     if not text:
         return ""
 
-    text = html.unescape(text)
+    text = html.unescape(
+        text
+    )
 
     text = re.sub(
         r"<script.*?</script>",
@@ -117,9 +130,13 @@ def clean_text(text: str) -> str:
     return text.strip()
 
 
-def yaml_escape(text: str) -> str:
+def yaml_escape(
+    text: str,
+):
 
-    text = clean_text(text)
+    text = clean_text(
+        text
+    )
 
     text = text.replace(
         "\\",
@@ -139,21 +156,23 @@ def yaml_escape(text: str) -> str:
     return text
 
 
-def normalize_title(title: str) -> str:
+def normalize_title(
+    title: str,
+):
 
     if not title:
         return ""
 
-    title = html.unescape(title)
+    title = html.unescape(
+        title
+    )
 
-    # 删除 Horizon markdown 链接
     title = re.sub(
         r"\[([^\]]+)\]\([^)]+\)",
         r"\1",
         title,
     )
 
-    # 删除 Horizon item id
     title = re.sub(
         r"\(#item-[^)]+\)",
         "",
@@ -161,14 +180,12 @@ def normalize_title(title: str) -> str:
         flags=re.I,
     )
 
-    # 删除 emoji
     title = re.sub(
         r"[⭐️🌟🔥🚨⚡️]+",
         "",
         title,
     )
 
-    # 删除多余空格
     title = re.sub(
         r"\s+",
         " ",
@@ -178,9 +195,13 @@ def normalize_title(title: str) -> str:
     return title.strip()
 
 
-def tokenize(title: str):
+def tokenize(
+    title: str,
+):
 
-    title = normalize_title(title)
+    title = normalize_title(
+        title
+    )
 
     title = title.lower()
 
@@ -196,9 +217,12 @@ def tokenize(title: str):
 # Front Matter
 # ============================================================
 
-def parse_front_matter(content: str):
+def parse_front_matter(
+    content: str,
+):
 
     if not content.startswith("---"):
+
         return {}, content
 
     parts = content.split(
@@ -207,6 +231,7 @@ def parse_front_matter(content: str):
     )
 
     if len(parts) < 3:
+
         return {}, content
 
     raw = parts[1].strip()
@@ -229,9 +254,11 @@ def parse_front_matter(content: str):
 
         value = value.strip()
 
-        value = value.strip(
-            '"'
-        ).strip("'")
+        value = (
+            value
+            .strip('"')
+            .strip("'")
+        )
 
         data[key] = value
 
@@ -242,7 +269,9 @@ def parse_front_matter(content: str):
 # URL
 # ============================================================
 
-def extract_urls(text: str):
+def extract_urls(
+    text: str,
+):
 
     urls = re.findall(
         r"https?://[^\s<>\"\]\)]+",
@@ -258,7 +287,10 @@ def extract_urls(text: str):
         )
 
         if url not in result:
-            result.append(url)
+
+            result.append(
+                url
+            )
 
     return result
 
@@ -269,9 +301,18 @@ def extract_urls(text: str):
 
 RSS_SOURCES = [
 
-    "https://news.google.com/rss/search?q={query}&hl=en-US&gl=US&ceid=US:en",
+    (
+        "https://news.google.com/rss/search"
+        "?q={query}"
+        "&hl=en-US"
+        "&gl=US"
+        "&ceid=US:en"
+    ),
 
-    "https://www.google.com/alerts/feeds?q={query}",
+    (
+        "https://www.google.com/alerts/feeds"
+        "?q={query}"
+    ),
 
 ]
 
@@ -333,7 +374,10 @@ def fetch_rss_candidates(
                     flags=re.I | re.S,
                 )
 
-                if not title_match or not link_match:
+                if (
+                    not title_match
+                    or not link_match
+                ):
                     continue
 
                 candidate_title = clean_text(
@@ -349,16 +393,20 @@ def fetch_rss_candidates(
                 ):
                     continue
 
-                candidates.append({
-                    "title":
-                        candidate_title,
-                    "url":
-                        candidate_url,
-                    "source":
-                        urlparse(
-                            candidate_url
-                        ).netloc,
-                })
+                candidates.append(
+                    {
+                        "title":
+                            candidate_title,
+
+                        "url":
+                            candidate_url,
+
+                        "source":
+                            urlparse(
+                                candidate_url
+                            ).netloc,
+                    }
+                )
 
         except Exception as exc:
 
@@ -366,7 +414,6 @@ def fetch_rss_candidates(
                 f"RSS failed: {exc}"
             )
 
-    # 去重
     unique = {}
 
     for candidate in candidates:
@@ -389,25 +436,32 @@ def title_similarity(
     candidate: str,
 ):
 
-    a = tokenize(original)
+    a = tokenize(
+        original
+    )
 
-    b = tokenize(candidate)
+    b = tokenize(
+        candidate
+    )
 
     if not a or not b:
         return 0.0
 
-    intersection = (
-        len(a & b)
+    intersection = len(
+        a & b
     )
 
-    union = (
-        len(a | b)
+    union = len(
+        a | b
     )
 
     if union == 0:
         return 0.0
 
-    return intersection / union
+    return (
+        intersection
+        / union
+    )
 
 
 def rank_candidates(
@@ -449,7 +503,7 @@ def rank_candidates(
 
 
 # ============================================================
-# Agnes API
+# Agnes
 # ============================================================
 
 def call_agnes(
@@ -458,13 +512,9 @@ def call_agnes(
     candidates: list,
 ):
 
-    api_key = (
-        __import__("os")
-        .environ
-        .get(
-            "AGNES_API_KEY",
-            "",
-        )
+    api_key = os.environ.get(
+        "AGNES_API_KEY",
+        "",
     )
 
     if not api_key:
@@ -547,6 +597,7 @@ def call_agnes(
 """
 
     payload = {
+
         "model":
             AGNES_MODEL,
 
@@ -620,14 +671,22 @@ def call_agnes(
 
         text = (
             data
-            .get("choices", [{}])[0]
-            .get("message", {})
-            .get("content", "")
+            .get(
+                "choices",
+                [{}],
+            )[0]
+            .get(
+                "message",
+                {},
+            )
+            .get(
+                "content",
+                "",
+            )
         )
 
         text = text.strip()
 
-        # 去掉可能的 markdown JSON
         text = re.sub(
             r"^```json",
             "",
@@ -643,11 +702,9 @@ def call_agnes(
 
         text = text.strip()
 
-        result = json.loads(
+        return json.loads(
             text
         )
-
-        return result
 
     except Exception as exc:
 
@@ -659,11 +716,11 @@ def call_agnes(
 
 
 # ============================================================
-# 网页正文
+# HTML
 # ============================================================
 
 def extract_html_title(
-    content: str
+    content: str,
 ):
 
     match = re.search(
@@ -717,7 +774,7 @@ def extract_meta(
 
 
 def extract_author(
-    content: str
+    content: str,
 ):
 
     patterns = [
@@ -748,7 +805,7 @@ def extract_author(
 
 
 def extract_article_text(
-    content: str
+    content: str,
 ):
 
     match = re.search(
@@ -828,15 +885,17 @@ def extract_article_text(
         cleaned
     )
 
-    return text[:MAX_ARTICLE_LENGTH]
+    return text[
+        :MAX_ARTICLE_LENGTH
+    ]
 
 
 # ============================================================
-# 抓取 URL
+# 抓取
 # ============================================================
 
 def fetch_url(
-    url: str
+    url: str,
 ):
 
     print(
@@ -853,6 +912,7 @@ def fetch_url(
             headers={
                 "User-Agent":
                     USER_AGENT,
+
                 "Accept":
                     "text/html,"
                     "application/xhtml+xml,"
@@ -966,49 +1026,29 @@ def build_markdown(
     if not source:
         source = "Unknown"
 
-    source_url = (
-        source_data.get(
-            "url",
-            "",
-        )
-        if source_data
-        else ""
+    source_url = source_data.get(
+        "url",
+        "",
     )
 
-    original_title = (
-        source_data.get(
-            "title",
-            "",
-        )
-        if source_data
-        else ""
+    original_title = source_data.get(
+        "title",
+        "",
     )
 
-    author = (
-        source_data.get(
-            "author",
-            "",
-        )
-        if source_data
-        else ""
+    author = source_data.get(
+        "author",
+        "",
     )
 
-    description = (
-        source_data.get(
-            "description",
-            "",
-        )
-        if source_data
-        else ""
+    description = source_data.get(
+        "description",
+        "",
     )
 
-    article = (
-        source_data.get(
-            "article",
-            "",
-        )
-        if source_data
-        else ""
+    article = source_data.get(
+        "article",
+        "",
     )
 
     source_status = source_data.get(
@@ -1081,7 +1121,9 @@ author: "{yaml_escape(author)}"
 
     body += original_body.strip()
 
-    body += "\n\n## 原文信息\n\n"
+    body += (
+        "\n\n## 原文信息\n\n"
+    )
 
     if source_url:
 
@@ -1154,9 +1196,12 @@ def process_file(
 
     print()
     print("=" * 70)
+
     print(
-        f"Processing: {input_file.name}"
+        f"Processing: "
+        f"{input_file.name}"
     )
+
     print("=" * 70)
 
     content = input_file.read_text(
@@ -1276,11 +1321,12 @@ def process_file(
         )
 
     # --------------------------------------------------------
-    # 3. RSS 高置信度 → 直接抓
+    # 3. RSS 高置信度
     # --------------------------------------------------------
 
-    if best and (
-        best["match_score"]
+    if (
+        best
+        and best["match_score"]
         >= MIN_MATCH_SCORE
     ):
 
@@ -1327,7 +1373,7 @@ def process_file(
             return "fetched"
 
     # --------------------------------------------------------
-    # 4. Agnes 兜底
+    # 4. Agnes
     # --------------------------------------------------------
 
     print(
@@ -1355,7 +1401,7 @@ def process_file(
             "found"
         ):
 
-            index = (
+            index = int(
                 agnes_result.get(
                     "candidate_index",
                     0,
@@ -1377,9 +1423,9 @@ def process_file(
                 >= MIN_MATCH_SCORE
             ):
 
-                selected = (
-                    ranked[index - 1]
-                )
+                selected = ranked[
+                    index - 1
+                ]
 
                 result = fetch_url(
                     selected["url"]
@@ -1419,17 +1465,18 @@ def process_file(
                     )
 
                     print(
-                        "✅ Agnes verified source fetched"
+                        "✅ Agnes verified "
+                        "source fetched"
                     )
 
                     return "fetched"
 
     # --------------------------------------------------------
-    # 5. 最终 unresolved
+    # 5. unresolved
     # --------------------------------------------------------
 
     print(
-        "❌ No trustworthy source found."
+        "⚠️ No trustworthy source found."
     )
 
     result = {
@@ -1442,7 +1489,6 @@ def process_file(
 
         "match_score":
             0.0,
-
     }
 
     enriched = build_markdown(
@@ -1465,7 +1511,38 @@ def process_file(
 
 
 # ============================================================
-# 语言目录
+# 判断 Enriched 文件是否已经真正生成
+# ============================================================
+
+def valid_enriched_file(
+    path: Path,
+):
+
+    if not path.exists():
+        return False
+
+    try:
+
+        content = path.read_text(
+            encoding="utf-8",
+            errors="replace",
+        )
+
+    except Exception:
+
+        return False
+
+    if len(content) < 250:
+        return False
+
+    if not content.startswith("---"):
+        return False
+
+    return True
+
+
+# ============================================================
+# 单语言
 # ============================================================
 
 def process_language(
@@ -1473,29 +1550,40 @@ def process_language(
     output_dir: Path,
 ):
 
+    # --------------------------------------------------------
+    # 先建目录
+    # --------------------------------------------------------
+
+    output_dir.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
     files = sorted(
         input_dir.glob("*.md")
     )
 
     if not files:
 
-        print(
-            f"⚠️ No files: {input_dir}"
+        raise RuntimeError(
+            f"Atomic directory empty: "
+            f"{input_dir}"
         )
-
-        return {
-            "total": 0,
-            "fetched": 0,
-            "unresolved": 0,
-        }
 
     stats = {
 
-        "total": len(files),
+        "total":
+            len(files),
 
-        "fetched": 0,
+        "already":
+            0,
 
-        "unresolved": 0,
+        "fetched":
+            0,
+
+        "unresolved":
+            0,
+
     }
 
     for index, file in enumerate(
@@ -1503,14 +1591,42 @@ def process_language(
         start=1,
     ):
 
+        output_file = (
+            output_dir
+            / file.name
+        )
+
         print()
         print(
-            f"[{index}/{len(files)}]"
+            f"[{index}/{len(files)}] "
+            f"{file.name}"
         )
+
+        # ----------------------------------------------------
+        # 已存在 → 跳过
+        # ----------------------------------------------------
+
+        if valid_enriched_file(
+            output_file
+        ):
+
+            print(
+                "⏭️ Already enriched"
+            )
+
+            stats[
+                "already"
+            ] += 1
+
+            continue
+
+        # ----------------------------------------------------
+        # 缺失 → 重新生成
+        # ----------------------------------------------------
 
         status = process_file(
             file,
-            output_dir / file.name,
+            output_file,
         )
 
         if status == "fetched":
@@ -1529,6 +1645,313 @@ def process_language(
 
 
 # ============================================================
+# 单日期
+# ============================================================
+
+def process_date(
+    raw_root: Path,
+    date: str,
+):
+
+    print()
+    print("#" * 80)
+
+    print(
+        f"SOURCE ENRICHMENT: {date}"
+    )
+
+    print("#" * 80)
+
+    atomic_root = (
+        raw_root
+        / f"{date}-Atomic"
+    )
+
+    enriched_root = (
+        raw_root
+        / f"{date}-Enriched"
+    )
+
+    atomic_zh = (
+        atomic_root / "zh"
+    )
+
+    atomic_en = (
+        atomic_root / "en"
+    )
+
+    enriched_zh = (
+        enriched_root / "zh"
+    )
+
+    enriched_en = (
+        enriched_root / "en"
+    )
+
+    # --------------------------------------------------------
+    # STEP 1
+    # 先建立所有目录
+    # --------------------------------------------------------
+
+    print()
+    print(
+        "STEP 1: CREATE DIRECTORIES"
+    )
+
+    atomic_root.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    atomic_zh.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    atomic_en.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    enriched_root.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    enriched_zh.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    enriched_en.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    print(
+        f"✅ Atomic : {atomic_root}"
+    )
+
+    print(
+        f"✅ Atomic ZH : {atomic_zh}"
+    )
+
+    print(
+        f"✅ Atomic EN : {atomic_en}"
+    )
+
+    print(
+        f"✅ Enriched : {enriched_root}"
+    )
+
+    print(
+        f"✅ Enriched ZH : {enriched_zh}"
+    )
+
+    print(
+        f"✅ Enriched EN : {enriched_en}"
+    )
+
+    # --------------------------------------------------------
+    # STEP 2
+    # 检查 Atomic
+    # --------------------------------------------------------
+
+    print()
+    print(
+        "STEP 2: CHECK ATOMIC"
+    )
+
+    zh_atomic = sorted(
+        atomic_zh.glob("*.md")
+    )
+
+    en_atomic = sorted(
+        atomic_en.glob("*.md")
+    )
+
+    print(
+        f"Atomic ZH: "
+        f"{len(zh_atomic)}"
+    )
+
+    print(
+        f"Atomic EN: "
+        f"{len(en_atomic)}"
+    )
+
+    if not zh_atomic:
+
+        raise RuntimeError(
+            f"{date} Atomic ZH missing."
+        )
+
+    if not en_atomic:
+
+        raise RuntimeError(
+            f"{date} Atomic EN missing."
+        )
+
+    # --------------------------------------------------------
+    # STEP 3
+    # 分别处理 ZH / EN
+    # --------------------------------------------------------
+
+    print()
+    print(
+        "STEP 3: ENRICH ZH"
+    )
+
+    zh_stats = process_language(
+        atomic_zh,
+        enriched_zh,
+    )
+
+    print()
+    print(
+        "ZH RESULT:",
+        zh_stats,
+    )
+
+    print()
+    print(
+        "STEP 4: ENRICH EN"
+    )
+
+    en_stats = process_language(
+        atomic_en,
+        enriched_en,
+    )
+
+    print()
+    print(
+        "EN RESULT:",
+        en_stats,
+    )
+
+    # --------------------------------------------------------
+    # STEP 5
+    # 分别验证
+    # --------------------------------------------------------
+
+    print()
+    print(
+        "STEP 5: FINAL VALIDATION"
+    )
+
+    zh_valid = [
+        file
+        for file in enriched_zh.glob(
+            "*.md"
+        )
+        if valid_enriched_file(file)
+    ]
+
+    en_valid = [
+        file
+        for file in enriched_en.glob(
+            "*.md"
+        )
+        if valid_enriched_file(file)
+    ]
+
+    print(
+        f"{date} ZH Atomic   : "
+        f"{len(zh_atomic)}"
+    )
+
+    print(
+        f"{date} ZH Enriched : "
+        f"{len(zh_valid)}"
+    )
+
+    print(
+        f"{date} EN Atomic   : "
+        f"{len(en_atomic)}"
+    )
+
+    print(
+        f"{date} EN Enriched : "
+        f"{len(en_valid)}"
+    )
+
+    # --------------------------------------------------------
+    # 数量必须一一对应
+    # --------------------------------------------------------
+
+    if len(zh_valid) < len(
+        zh_atomic
+    ):
+
+        raise RuntimeError(
+            f"{date} ZH Enrichment "
+            f"incomplete: "
+            f"{len(zh_valid)} / "
+            f"{len(zh_atomic)}"
+        )
+
+    if len(en_valid) < len(
+        en_atomic
+    ):
+
+        raise RuntimeError(
+            f"{date} EN Enrichment "
+            f"incomplete: "
+            f"{len(en_valid)} / "
+            f"{len(en_atomic)}"
+        )
+
+    print()
+    print(
+        f"✅ {date} SOURCE ENRICHMENT COMPLETE"
+    )
+
+    return {
+
+        "date":
+            date,
+
+        "zh_atomic":
+            len(zh_atomic),
+
+        "zh_enriched":
+            len(zh_valid),
+
+        "en_atomic":
+            len(en_atomic),
+
+        "en_enriched":
+            len(en_valid),
+
+    }
+
+
+# ============================================================
+# 三天
+# ============================================================
+
+def calculate_three_dates():
+
+    today = datetime.now().date()
+
+    return [
+
+        (
+            today
+            - timedelta(days=2)
+        ).isoformat(),
+
+        (
+            today
+            - timedelta(days=1)
+        ).isoformat(),
+
+        today.isoformat(),
+
+    ]
+
+
+# ============================================================
 # Main
 # ============================================================
 
@@ -1537,89 +1960,127 @@ def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "--zh",
-        required=True,
-    )
-
-    parser.add_argument(
-        "--en",
-        required=True,
-    )
-
-    parser.add_argument(
-        "--output",
-        required=True,
+        "--raw-root",
+        default=(
+            "01_自生长知识系统/Raw News"
+        ),
     )
 
     parser.add_argument(
         "--date",
-        required=True,
+        default=None,
+        help=(
+            "兼容单日期测试。"
+            "不提供则运行前天、昨天、今天。"
+        ),
     )
 
     args = parser.parse_args()
 
-    zh_input = Path(
-        args.zh
+    raw_root = Path(
+        args.raw_root
     )
 
-    en_input = Path(
-        args.en
-    )
-
-    output = Path(
-        args.output
-    )
-
-    print("=" * 70)
+    print("=" * 80)
 
     print(
-        "HORIZON SOURCE ENRICHMENT V3"
+        "748686 HORIZON "
+        "SOURCE ENRICHMENT V4"
     )
 
-    print("=" * 70)
+    print("=" * 80)
 
-    print(
-        "Date:",
-        args.date,
-    )
+    if args.date:
 
-    print(
-        "Agnes:",
-        AGNES_MODEL,
-    )
+        dates = [
+            args.date
+        ]
 
-    print(
-        "RSS → Agnes → Fetch"
-    )
+        print(
+            "MODE: SINGLE DATE"
+        )
 
-    zh_stats = process_language(
-        zh_input,
-        output / "zh",
-    )
+    else:
 
-    en_stats = process_language(
-        en_input,
-        output / "en",
-    )
+        dates = calculate_three_dates()
 
-    print()
-    print("=" * 70)
-    print("FINAL RESULT")
-    print("=" * 70)
-
-    print(
-        "Chinese:",
-        zh_stats,
-    )
-
-    print(
-        "English:",
-        en_stats,
-    )
+        print(
+            "MODE: THREE DAYS"
+        )
 
     print()
     print(
-        "✅ SOURCE ENRICHMENT V3 COMPLETE"
+        "Processing dates:"
+    )
+
+    for date in dates:
+
+        print(
+            f"  - {date}"
+        )
+
+    results = []
+
+    for date in dates:
+
+        result = process_date(
+            raw_root,
+            date,
+        )
+
+        results.append(
+            result
+        )
+
+    # ========================================================
+    # 三天最终验证
+    # ========================================================
+
+    print()
+    print("=" * 80)
+
+    print(
+        "THREE-DAY ENRICHMENT FINAL RESULT"
+    )
+
+    print("=" * 80)
+
+    for result in results:
+
+        print(
+            f"{result['date']} | "
+            f"ZH "
+            f"{result['zh_enriched']}/"
+            f"{result['zh_atomic']} | "
+            f"EN "
+            f"{result['en_enriched']}/"
+            f"{result['en_atomic']}"
+        )
+
+        if (
+            result["zh_enriched"]
+            < result["zh_atomic"]
+        ):
+
+            raise RuntimeError(
+                f"{result['date']} ZH "
+                "enrichment failed"
+            )
+
+        if (
+            result["en_enriched"]
+            < result["en_atomic"]
+        ):
+
+            raise RuntimeError(
+                f"{result['date']} EN "
+                "enrichment failed"
+            )
+
+    print()
+    print(
+        "✅ THREE-DAY SOURCE "
+        "ENRICHMENT COMPLETE"
     )
 
 
