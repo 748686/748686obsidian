@@ -47,20 +47,32 @@ jobs:
 
       # ==========================================================
       # 4. Calculate three processing dates
+      #
+      # ★★★ 全链路统一使用 GitHub Actions UTC 时间 ★★★
+      #
+      # GitHub Actions cron 使用 UTC。
+      # 因此业务日期也统一使用 UTC。
+      #
+      # TODAY
+      # YESTERDAY
+      # DAY_BEFORE
+      #
+      # 全部以 UTC 为唯一时间基准。
       # ==========================================================
 
       - name: Calculate three processing dates
         run: |
           set -e
 
-          TODAY=$(TZ=Asia/Shanghai date +%Y-%m-%d)
-          YESTERDAY=$(TZ=Asia/Shanghai date -d "$TODAY -1 day" +%Y-%m-%d)
-          DAY_BEFORE=$(TZ=Asia/Shanghai date -d "$TODAY -2 days" +%Y-%m-%d)
+          TODAY=$(date -u +%Y-%m-%d)
+          YESTERDAY=$(date -u -d "$TODAY -1 day" +%Y-%m-%d)
+          DAY_BEFORE=$(date -u -d "$TODAY -2 days" +%Y-%m-%d)
 
           echo "TODAY=$TODAY" >> "$GITHUB_ENV"
           echo "YESTERDAY=$YESTERDAY" >> "$GITHUB_ENV"
           echo "DAY_BEFORE=$DAY_BEFORE" >> "$GITHUB_ENV"
 
+          echo
           echo "=========================================="
           echo "PROCESSING DATES"
           echo "=========================================="
@@ -70,7 +82,8 @@ jobs:
           echo "TODAY      : $TODAY"
 
           echo
-          echo "Timezone: Asia/Shanghai"
+          echo "Timezone: UTC"
+          echo "Time source: GitHub Actions Runner"
 
 
       # ==========================================================
@@ -280,6 +293,11 @@ jobs:
 
       # ==========================================================
       # 11. Run Horizon
+      #
+      # 时间基准：
+      # GitHub Actions Runner = UTC
+      #
+      # 不再使用 Asia/Shanghai。
       # ==========================================================
 
       - name: Run Horizon
@@ -298,6 +316,7 @@ jobs:
           echo "=========================================="
 
           echo "Date: $TODAY"
+          echo "Timezone: UTC"
 
           uv run horizon \
             --hours 24 \
@@ -914,7 +933,6 @@ jobs:
       # 昨天 → aggregation
       # 今天 → aggregation
       #
-      # 注意：
       # 此阶段只负责生成 EventUnits。
       # 不允许进入 Skills。
       # ==========================================================
@@ -968,7 +986,7 @@ jobs:
 
 
       # ==========================================================
-      # 21. ★★★ EventUnits 三日完整性验证 ★★★
+      # 21. EventUnits 三日完整性验证
       #
       # Aggregation 全部完成之后，
       # 必须确认三天 EventUnits 已经完整落入本地仓库。
@@ -981,7 +999,7 @@ jobs:
       #       ├── EVT-*.md
       #       └── _EVENT_UNITS_COMPLETE
       #
-      # 任何一天不完整：
+      # 任意一天不完整：
       #     立即失败
       #
       # 三天全部完整：
@@ -1068,7 +1086,7 @@ jobs:
 
 
       # ==========================================================
-      # 22. ★★★ EventUnits 立即 Push + Pull ★★★
+      # 22. EventUnits immediately Push + Pull
       #
       # 只有三天 EventUnits 全部完成验证之后，
       # 才进行 Git 同步。
@@ -1360,6 +1378,15 @@ jobs:
           echo
           echo "今天:"
           echo "$TODAY"
+
+          echo
+          echo "=========================================="
+          echo "TIME STANDARD"
+          echo "=========================================="
+
+          echo "✅ GitHub Actions UTC"
+          echo "✅ cron uses UTC"
+          echo "✅ Processing dates use UTC"
 
           echo
           echo "=========================================="
