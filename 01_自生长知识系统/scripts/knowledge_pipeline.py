@@ -3,7 +3,7 @@
 
 """
 748686 自生长知识系统
-Knowledge Pipeline V4
+Knowledge Pipeline V5
 
 ============================================================
 正式架构
@@ -40,21 +40,60 @@ Raw News/
 EVENT_UNITS_COMPLETE
 
 ============================================================
-此处断点
+断点续跑原则
 ============================================================
 
-Git commit
-   ↓
-Git push
-   ↓
-本地重新拉取
-   ↓
+1. EventUnits目录不存在：
+   → 正常执行Stage 1。
+
+2. EventUnits目录存在：
+   → 检查_index。
+   → 检查每一个EVT文件。
+   → 已经存在的EventUnit不重新生成。
+   → 缺失的EventUnit只补缺失部分。
+
+3. 如果Index不存在或损坏：
+   → 重新执行事件聚类。
+   → 重新建立完整Event Index。
+
+4. 只有所有EventUnit实际文件都存在：
+   → 才生成_EVENT_UNITS_COMPLETE。
+
+5. Stage 1完成后立即退出。
+   → 不进入Stage 2。
 
 ============================================================
-STAGE 2：27 Skills 深度处理
+三日架构
 ============================================================
 
-读取已经保存的 EventUnits
+外层Workflow负责：
+
+前天
+昨天
+今天
+
+分别执行本程序。
+
+本程序：
+每次只处理传入的一个date。
+
+外层Workflow完成：
+
+三天EventUnits全部完成
+   ↓
+git commit
+   ↓
+git push
+   ↓
+重新git pull
+   ↓
+Stage 2
+
+============================================================
+STAGE 2：27 Skills深度处理
+============================================================
+
+读取已经保存的EventUnits
    ↓
 每天独立处理
    ↓
@@ -62,7 +101,7 @@ STAGE 2：27 Skills 深度处理
    ↓
 skill_routes.json
    ↓
-动态选择 Skills
+动态选择Skills
    ↓
 深度分析
    ↓
@@ -73,60 +112,50 @@ skill_routes.json
 Watchlist
    ↓
 日报
-   ↓
-============================================================
-STAGE 3：自生长
-============================================================
-知识实体
-   ↓
-长期知识库
-   ↓
-专题
-   ↓
-追踪
-   ↓
-后续自生长
 
 ============================================================
 核心原则
 ============================================================
 
-1. Horizon 完全由 Horizon 管理。
-2. 本程序不读取 Horizon Config。
-3. 本程序不启动 Horizon。
-4. 本程序只处理已经存在的 Enriched News。
-5. AI 使用 AGNES.ai。
-6. API Key 从 AGNES_API_KEY 读取。
-7. 模型固定 agnes-2.5-flash。
-8. Base URL 固定 https://api.agnes-ai.cn/v1。
-9. 不设置 max_tokens。
-10. 日期统一 Asia/Shanghai。
-11. 不限制 Enriched News 数量。
-12. 所有有效 Enriched News 都进入 Stage 1。
-13. Stage 1 每批最多40篇。
-14. Stage 1 必须覆盖全部新闻。
-15. Stage 1 支持跨来源。
-16. Stage 1 支持跨语言。
-17. Stage 1 同事件尽量归并。
+1. Horizon完全由Horizon管理。
+2. 本程序不读取Horizon Config。
+3. 本程序不启动Horizon。
+4. 本程序只处理已经存在的Enriched News。
+5. AI使用AGNES.ai。
+6. API Key从AGNES_API_KEY读取。
+7. 模型固定agnes-2.5-flash。
+8. Base URL固定https://api.agnes-ai.cn/v1。
+9. 不设置max_tokens。
+10. 日期统一Asia/Shanghai。
+11. 不限制Enriched News数量。
+12. 所有有效Enriched News都进入Stage 1。
+13. Stage 1每批最多40篇。
+14. Stage 1必须覆盖全部新闻。
+15. Stage 1支持跨来源。
+16. Stage 1支持跨语言。
+17. Stage 1同事件尽量归并。
 18. 不同事件不得强行合并。
-19. Stage 1 完成后必须落盘。
-20. Stage 2 不再读取原始 Enriched News。
-21. Stage 2 只读取 EventUnits。
+19. Stage 1完成后必须落盘。
+20. Stage 2不再读取原始Enriched News。
+21. Stage 2只读取EventUnits。
 22. 三天完全独立。
-23. 任意关键 AI 步骤失败立即失败。
-24. 不允许半成品标记 SUCCESS。
-25. Stage 1 和 Stage 2 必须可以断点续跑。
+23. 任意关键AI步骤失败立即失败。
+24. 不允许半成品标记SUCCESS。
+25. Stage 1和Stage 2必须可以断点续跑。
+26. EventUnits存在则优先补缺，不重复生成。
 """
+
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import re
 import sys
 
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime
 from zoneinfo import ZoneInfo
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
@@ -153,10 +182,12 @@ ROUTES_FILE = SYSTEM / "skill_routes.json"
 
 
 # ============================================================
-# Event Unit目录
+# Event Units
 # ============================================================
 
 EVENT_UNITS_SUFFIX = "EventUnits"
+
+EVENT_INDEX_FILE = "_event_index.json"
 
 EVENT_UNITS_COMPLETE_FILE = "_EVENT_UNITS_COMPLETE"
 
@@ -217,12 +248,15 @@ def read_json(path: Path, default=None):
         return default
 
     try:
+
         return json.loads(
             path.read_text(
                 encoding="utf-8"
             )
         )
+
     except Exception as exc:
+
         raise RuntimeError(
             f"❌ JSON读取失败：{path}\n{exc}"
         ) from exc
@@ -249,7 +283,10 @@ def write_json(path: Path, data):
 # AI JSON解析
 # ============================================================
 
-def parse_ai_json(result: str, context: str):
+def parse_ai_json(
+    result: str,
+    context: str
+):
 
     text = str(result).strip()
 
@@ -311,9 +348,12 @@ def safe_name(text: str):
 # Front Matter
 # ============================================================
 
-def parse_front_matter(content: str):
+def parse_front_matter(
+    content: str
+):
 
     if not content.startswith("---"):
+
         return {}, content
 
     parts = content.split(
@@ -322,6 +362,7 @@ def parse_front_matter(content: str):
     )
 
     if len(parts) < 3:
+
         return {}, content
 
     raw = parts[1].strip()
@@ -333,6 +374,7 @@ def parse_front_matter(content: str):
     for line in raw.splitlines():
 
         if ":" not in line:
+
             continue
 
         key, value = line.split(
@@ -344,7 +386,11 @@ def parse_front_matter(content: str):
 
         value = value.strip()
 
-        value = value.strip('"').strip("'")
+        value = (
+            value
+            .strip('"')
+            .strip("'")
+        )
 
         data[key] = value
 
@@ -425,7 +471,7 @@ def call_ai(
                 "application/json",
 
             "User-Agent":
-                "748686-Knowledge-Pipeline/4.0",
+                "748686-Knowledge-Pipeline/5.0",
         },
 
         method="POST",
@@ -466,6 +512,7 @@ def call_ai(
                     errors="replace"
                 )
             )
+
         except Exception:
             pass
 
@@ -678,6 +725,75 @@ def is_news(item):
     return bool(title)
 
 
+def load_all_enriched_news(
+    date
+):
+
+    files = get_enriched_files(
+        date
+    )
+
+    print(
+        f"Enriched files: {len(files)}"
+    )
+
+    if not files:
+
+        raise RuntimeError(
+            f"❌ {date} 没有Enriched新闻"
+        )
+
+    news_items = []
+
+    for path in files:
+
+        item = load_news_file(
+            path
+        )
+
+        if is_news(item):
+
+            news_items.append(
+                item
+            )
+
+    print(
+        f"Valid news: {len(news_items)}"
+    )
+
+    if not news_items:
+
+        raise RuntimeError(
+            f"❌ {date} 没有有效新闻"
+        )
+
+    # --------------------------------------------------------
+    # Horizon Score只负责排序，不负责截断
+    # --------------------------------------------------------
+
+    def score(item):
+
+        try:
+
+            return float(
+                item["metadata"].get(
+                    "horizon_score",
+                    0
+                )
+            )
+
+        except Exception:
+
+            return 0
+
+    news_items.sort(
+        key=score,
+        reverse=True
+    )
+
+    return news_items
+
+
 # ============================================================
 # 第一轮文章Digest
 # ============================================================
@@ -746,10 +862,6 @@ def cluster_news_batch(
         articles
     )
 
-    # --------------------------------------------------------
-    # 重要硬检查
-    # --------------------------------------------------------
-
     if not joined.strip():
 
         raise RuntimeError(
@@ -765,10 +877,6 @@ def cluster_news_batch(
         f"   Prompt article characters: "
         f"{len(joined)}"
     )
-
-    # --------------------------------------------------------
-    # 正式Prompt
-    # --------------------------------------------------------
 
     prompt = f"""
 你现在正在执行748686自生长知识系统的第二层事件聚合。
@@ -949,11 +1057,14 @@ def validate_cluster_coverage(
         )
 
     duplicates = [
-        x for x in actual
+        x
+        for x in actual
         if actual.count(x) > 1
     ]
 
-    actual_set = set(actual)
+    actual_set = set(
+        actual
+    )
 
     missing = sorted(
         expected - actual_set
@@ -1180,7 +1291,7 @@ Cluster输入
 
 
 # ============================================================
-# Stage 1：建立初始Clusters
+# Stage 1A
 # ============================================================
 
 def build_initial_clusters(
@@ -1303,7 +1414,7 @@ def build_initial_clusters(
 
 
 # ============================================================
-# Stage 1B：跨批次合并
+# Stage 1B
 # ============================================================
 
 def merge_all_clusters(
@@ -1420,10 +1531,6 @@ def merge_all_clusters(
         current = next_level
 
         merge_round += 1
-
-    # --------------------------------------------------------
-    # 最终全局合并
-    # --------------------------------------------------------
 
     if len(current) > 1:
 
@@ -1633,10 +1740,12 @@ def build_event_units(
 
 
 # ============================================================
-# Stage 1C：多来源事件综合
+# Stage 1C
 # ============================================================
 
-def synthesize_event(event):
+def synthesize_event(
+    event
+):
 
     articles = event[
         "articles"
@@ -1776,16 +1885,36 @@ content_status：
 
 
 # ============================================================
-# 保存 Event Unit
+# EventUnits目录
 # ============================================================
 
-def event_units_dir(date):
+def event_units_dir(
+    date
+):
 
     return (
         RAW_NEWS
         / f"{date}-{EVENT_UNITS_SUFFIX}"
     )
 
+
+# ============================================================
+# EventUnit文件名
+# ============================================================
+
+def event_unit_filename(
+    event
+):
+
+    return (
+        f"{event['event_id']}_"
+        f"{safe_name(event['event_title'])}.md"
+    )
+
+
+# ============================================================
+# 保存EventUnit
+# ============================================================
 
 def save_event_unit(
     date,
@@ -1802,9 +1931,8 @@ def save_event_unit(
         exist_ok=True
     )
 
-    filename = (
-        f"{event['event_id']}_"
-        f"{safe_name(event['event_title'])}.md"
+    filename = event_unit_filename(
+        event
     )
 
     path = target / filename
@@ -1858,12 +1986,12 @@ timezone: Asia/Shanghai
 
 
 # ============================================================
-# 保存 Event Unit Index
+# 保存Index
 # ============================================================
 
 def save_aggregation_index(
     date,
-    events,
+    events
 ):
 
     target = event_units_dir(
@@ -1926,7 +2054,7 @@ def save_aggregation_index(
 
     index_path = (
         target
-        / "_event_index.json"
+        / EVENT_INDEX_FILE
     )
 
     write_json(
@@ -1938,7 +2066,338 @@ def save_aggregation_index(
 
 
 # ============================================================
-# Stage 1完成标记
+# 读取Event Index
+# ============================================================
+
+def load_event_index(
+    date
+):
+
+    target = event_units_dir(
+        date
+    )
+
+    index_path = (
+        target
+        / EVENT_INDEX_FILE
+    )
+
+    if not index_path.exists():
+
+        return None
+
+    try:
+
+        data = read_json(
+            index_path,
+            None
+        )
+
+    except Exception:
+
+        return None
+
+    if not isinstance(
+        data,
+        list
+    ):
+
+        return None
+
+    if not data:
+
+        return None
+
+    return data
+
+
+# ============================================================
+# EventUnit文件有效性检查
+# ============================================================
+
+def event_unit_file_valid(
+    path: Path,
+    event_id: str
+):
+
+    if not path.exists():
+
+        return False
+
+    if path.stat().st_size <= 0:
+
+        return False
+
+    try:
+
+        content = path.read_text(
+            encoding="utf-8",
+            errors="replace"
+        )
+
+        metadata, body = parse_front_matter(
+            content
+        )
+
+    except Exception:
+
+        return False
+
+    if not body.strip():
+
+        return False
+
+    if metadata.get(
+        "event_id",
+        ""
+    ) != event_id:
+
+        return False
+
+    if metadata.get(
+        "status",
+        ""
+    ) != "completed":
+
+        return False
+
+    return True
+
+
+# ============================================================
+# 检查EventUnits完整性
+# ============================================================
+
+def inspect_event_units(
+    date
+):
+
+    target = event_units_dir(
+        date
+    )
+
+    print()
+    print("=" * 70)
+    print(
+        f"EVENT UNITS PREFLIGHT: {date}"
+    )
+    print("=" * 70)
+
+    if not target.exists():
+
+        print(
+            "📁 EventUnits目录：不存在"
+        )
+
+        print(
+            "➡️ 需要创建并完整生成。"
+        )
+
+        return {
+
+            "exists": False,
+
+            "complete": False,
+
+            "index": None,
+
+            "missing": [],
+
+            "invalid": [],
+
+        }
+
+    print(
+        f"📁 EventUnits目录：{target}"
+    )
+
+    index = load_event_index(
+        date
+    )
+
+    if index is None:
+
+        print(
+            "⚠️ _event_index.json不存在或无效。"
+        )
+
+        print(
+            "➡️ 将重新建立完整EventUnits。"
+        )
+
+        return {
+
+            "exists": True,
+
+            "complete": False,
+
+            "index": None,
+
+            "missing": [],
+
+            "invalid": [],
+
+        }
+
+    expected_ids = []
+
+    missing = []
+
+    invalid = []
+
+    for event in index:
+
+        event_id = str(
+            event.get(
+                "event_id",
+                ""
+            )
+        ).strip()
+
+        if not event_id:
+
+            invalid.append(
+                "missing_event_id"
+            )
+
+            continue
+
+        expected_ids.append(
+            event_id
+        )
+
+        matching = sorted(
+            target.glob(
+                f"{event_id}_*.md"
+            )
+        )
+
+        if not matching:
+
+            missing.append(
+                event_id
+            )
+
+            continue
+
+        valid = any(
+            event_unit_file_valid(
+                path,
+                event_id
+            )
+            for path in matching
+        )
+
+        if not valid:
+
+            invalid.append(
+                event_id
+            )
+
+    # --------------------------------------------------------
+    # 检查是否有重复Event文件
+    # --------------------------------------------------------
+
+    existing_event_files = sorted(
+        target.glob(
+            "EVT-*.md"
+        )
+    )
+
+    existing_ids = set()
+
+    for path in existing_event_files:
+
+        match = re.match(
+            r"^(EVT-[^_]+)",
+            path.stem
+        )
+
+        if match:
+
+            existing_ids.add(
+                match.group(1)
+            )
+
+    expected_id_set = set(
+        expected_ids
+    )
+
+    unexpected = sorted(
+        existing_ids
+        - expected_id_set
+    )
+
+    if unexpected:
+
+        print(
+            "⚠️ 发现Index中不存在的Event文件："
+        )
+
+        for item in unexpected:
+
+            print(
+                f"   - {item}"
+            )
+
+    complete = (
+        len(missing) == 0
+        and len(invalid) == 0
+        and len(expected_ids) > 0
+    )
+
+    print()
+    print(
+        f"Index Event Units : "
+        f"{len(expected_ids)}"
+    )
+
+    print(
+        f"Missing           : "
+        f"{len(missing)}"
+    )
+
+    print(
+        f"Invalid           : "
+        f"{len(invalid)}"
+    )
+
+    print(
+        f"Unexpected files  : "
+        f"{len(unexpected)}"
+    )
+
+    if complete:
+
+        print(
+            "✅ EventUnits内容完整。"
+        )
+
+    else:
+
+        print(
+            "⚠️ EventUnits尚未完整。"
+        )
+
+    return {
+
+        "exists": True,
+
+        "complete": complete,
+
+        "index": index,
+
+        "missing": missing,
+
+        "invalid": invalid,
+
+        "unexpected": unexpected,
+
+    }
+
+
+# ============================================================
+# EventUnits完成标记
 # ============================================================
 
 def mark_event_units_complete(
@@ -1973,144 +2432,175 @@ timezone: Asia/Shanghai
     return marker
 
 
-def event_units_complete(date):
+# ============================================================
+# 删除错误的完成标记
+# ============================================================
+
+def remove_event_units_complete(
+    date
+):
 
     marker = (
         event_units_dir(date)
         / EVENT_UNITS_COMPLETE_FILE
     )
 
-    return marker.exists()
+    if marker.exists():
+
+        marker.unlink()
+
+        print(
+            f"🧹 已删除错误完成标记：{marker}"
+        )
 
 
 # ============================================================
-# Stage 1
+# 根据Index重新建立Event对象
 # ============================================================
 
-def run_stage_1(date):
+def rebuild_events_from_index(
+    date,
+    index,
+    news_items,
+):
 
-    print()
-    print("=" * 70)
-    print(f"STAGE 1 — EVENT UNIT GENERATION: {date}")
-    print("=" * 70)
+    events = []
 
-    target = event_units_dir(
-        date
-    )
+    for record in index:
 
-    if event_units_complete(date):
+        event_id = str(
+            record.get(
+                "event_id",
+                ""
+            )
+        ).strip()
 
-        print(
-            f"✅ {date} EventUnits 已经完成。"
-        )
+        if not event_id:
 
-        print(
-            f"📁 {target}"
-        )
-
-        return False
-
-    files = get_enriched_files(
-        date
-    )
-
-    print(
-        f"Enriched files: {len(files)}"
-    )
-
-    if not files:
-
-        raise RuntimeError(
-            f"❌ {date} 没有Enriched新闻"
-        )
-
-    news_items = []
-
-    for path in files:
-
-        item = load_news_file(
-            path
-        )
-
-        if is_news(item):
-
-            news_items.append(
-                item
+            raise RuntimeError(
+                f"❌ Event Index存在空event_id"
             )
 
-    print(
-        f"Valid news: {len(news_items)}"
-    )
+        articles = []
 
-    if not news_items:
+        for article_record in record.get(
+            "articles",
+            []
+        ):
 
-        raise RuntimeError(
-            f"❌ {date} 没有有效新闻"
-        )
+            try:
 
-    # --------------------------------------------------------
-    # Horizon Score仅排序，不截断
-    # --------------------------------------------------------
-
-    def score(item):
-
-        try:
-
-            return float(
-                item["metadata"].get(
-                    "horizon_score",
-                    0
+                article_index = int(
+                    article_record[
+                        "index"
+                    ]
                 )
-            )
 
-        except Exception:
+            except Exception as exc:
 
-            return 0
+                raise RuntimeError(
+                    f"❌ {event_id} Index中的文章index无效"
+                ) from exc
 
-    news_items.sort(
-        key=score,
-        reverse=True
-    )
+            if (
+                article_index < 1
+                or article_index > len(news_items)
+            ):
 
-    print(
-        f"AI Input News: {len(news_items)}"
-    )
+                raise RuntimeError(
+                    f"❌ {event_id} "
+                    f"引用不存在文章："
+                    f"{article_index}"
+                )
 
-    print(
-        "News processing limit: NONE"
-    )
+            item = news_items[
+                article_index - 1
+            ]
 
-    # --------------------------------------------------------
-    # 第一轮
-    # --------------------------------------------------------
+            metadata = item[
+                "metadata"
+            ]
 
-    initial_clusters = build_initial_clusters(
-        date,
-        news_items
-    )
+            articles.append({
 
-    # --------------------------------------------------------
-    # 第二轮
-    # --------------------------------------------------------
+                "index":
+                    article_index,
 
-    final_clusters = merge_all_clusters(
-        date,
-        initial_clusters
-    )
+                "path":
+                    str(
+                        item["path"]
+                    ),
 
-    # --------------------------------------------------------
-    # Event Units
-    # --------------------------------------------------------
+                "title":
+                    metadata.get(
+                        "title",
+                        "Untitled"
+                    ),
 
-    events = build_event_units(
-        date,
-        final_clusters,
-        news_items
-    )
+                "source":
+                    metadata.get(
+                        "source",
+                        "Unknown"
+                    ),
 
-    # --------------------------------------------------------
-    # 覆盖检查
-    # --------------------------------------------------------
+                "source_url":
+                    metadata.get(
+                        "source_url",
+                        ""
+                    ),
+
+                "source_status":
+                    metadata.get(
+                        "source_status",
+                        ""
+                    ),
+
+                "content_status":
+                    metadata.get(
+                        "content_status",
+                        ""
+                    ),
+
+                "body":
+                    item["body"],
+            })
+
+        events.append({
+
+            "event_id":
+                event_id,
+
+            "date":
+                date,
+
+            "event_title":
+                record.get(
+                    "event_title",
+                    "未命名事件"
+                ),
+
+            "event_reason":
+                record.get(
+                    "event_reason",
+                    ""
+                ),
+
+            "articles":
+                articles,
+        })
+
+    return events
+
+
+# ============================================================
+# 检查Index覆盖率
+# ============================================================
+
+def validate_event_index_coverage(
+    date,
+    events,
+    news_count
+):
 
     all_indexes = []
 
@@ -2126,7 +2616,7 @@ def run_stage_1(date):
     expected = set(
         range(
             1,
-            len(news_items) + 1
+            news_count + 1
         )
     )
 
@@ -2137,7 +2627,7 @@ def run_stage_1(date):
     if expected != actual:
 
         raise RuntimeError(
-            f"❌ {date} Event覆盖率失败\n"
+            f"❌ {date} Event Index覆盖率失败\n"
             f"Missing={sorted(expected - actual)}\n"
             f"Extra={sorted(actual - expected)}"
         )
@@ -2147,46 +2637,87 @@ def run_stage_1(date):
     ):
 
         raise RuntimeError(
-            f"❌ {date} Event存在重复新闻归属"
+            f"❌ {date} Event Index存在重复新闻归属"
         )
 
-    # --------------------------------------------------------
-    # 保存Index
-    # --------------------------------------------------------
 
-    index_path = save_aggregation_index(
-        date,
-        events
+# ============================================================
+# 检查并补齐EventUnits
+# ============================================================
+
+def complete_existing_event_units(
+    date,
+    events,
+    news_count
+):
+
+    target = event_units_dir(
+        date
     )
 
-    print(
-        f"✅ Event Index: {index_path}"
+    target.mkdir(
+        parents=True,
+        exist_ok=True
     )
-
-    # --------------------------------------------------------
-    # 多来源综合
-    # --------------------------------------------------------
 
     print()
     print("=" * 70)
-    print("STAGE 1C — EVENT SYNTHESIS")
+    print("EVENT UNIT RESUME / REPAIR")
     print("=" * 70)
 
-    saved_events = []
+    completed = 0
+
+    generated = 0
 
     for index, event in enumerate(
         events,
         start=1
     ):
 
+        event_id = event[
+            "event_id"
+        ]
+
+        matches = sorted(
+            target.glob(
+                f"{event_id}_*.md"
+            )
+        )
+
+        valid_existing = None
+
+        for path in matches:
+
+            if event_unit_file_valid(
+                path,
+                event_id
+            ):
+
+                valid_existing = path
+
+                break
+
+        if valid_existing:
+
+            print(
+                f"[{index}/{len(events)}] "
+                f"⏭️ 已存在："
+                f"{event_id}"
+            )
+
+            completed += 1
+
+            continue
+
         print()
         print(
             f"[{index}/{len(events)}] "
-            f"{event['event_id']}"
+            f"🔨 补齐：{event_id}"
         )
 
         print(
-            f"   {event['event_title']}"
+            f"   Event: "
+            f"{event['event_title']}"
         )
 
         print(
@@ -2201,7 +2732,7 @@ def run_stage_1(date):
         if not aggregated_content.strip():
 
             raise RuntimeError(
-                f"❌ {event['event_id']} "
+                f"❌ {event_id} "
                 "综合结果为空"
             )
 
@@ -2214,18 +2745,68 @@ def run_stage_1(date):
             aggregated_content
         )
 
+        if not event_unit_file_valid(
+            path,
+            event_id
+        ):
+
+            raise RuntimeError(
+                f"❌ {event_id} 文件保存后验证失败："
+                f"{path}"
+            )
+
         print(
             f"   ✅ Saved: {path}"
         )
 
-        saved_events.append(
-            event
-        )
+        generated += 1
 
-    if len(saved_events) != len(events):
+        completed += 1
+
+    if completed != len(events):
 
         raise RuntimeError(
-            f"❌ {date} EventUnits保存数量异常"
+            f"❌ {date} EventUnit补齐数量异常："
+            f"{completed}/{len(events)}"
+        )
+
+    # --------------------------------------------------------
+    # 再次实际检查磁盘
+    # --------------------------------------------------------
+
+    missing_after = []
+
+    for event in events:
+
+        event_id = event[
+            "event_id"
+        ]
+
+        matches = sorted(
+            target.glob(
+                f"{event_id}_*.md"
+            )
+        )
+
+        valid = any(
+            event_unit_file_valid(
+                path,
+                event_id
+            )
+            for path in matches
+        )
+
+        if not valid:
+
+            missing_after.append(
+                event_id
+            )
+
+    if missing_after:
+
+        raise RuntimeError(
+            f"❌ {date} EventUnits补齐后仍缺失："
+            f"{missing_after}"
         )
 
     # --------------------------------------------------------
@@ -2236,34 +2817,252 @@ def run_stage_1(date):
 
         date,
 
-        len(news_items),
+        news_count,
 
         len(events)
     )
 
     print()
+    print(
+        "=" * 70
+    )
+
+    print(
+        "✅ EVENT UNITS COMPLETE"
+    )
+
+    print(
+        f"Existing skipped : {completed - generated}"
+    )
+
+    print(
+        f"Newly generated  : {generated}"
+    )
+
+    print(
+        f"Total EventUnits  : {len(events)}"
+    )
+
+    print(
+        f"Directory         : {target}"
+    )
+
+    print(
+        f"Marker            : {marker}"
+    )
+
+    return True
+
+
+# ============================================================
+# Stage 1完整执行
+# ============================================================
+
+def run_stage_1(
+    date
+):
+
+    print()
     print("=" * 70)
-    print("✅ STAGE 1 COMPLETE")
+    print(
+        f"STAGE 1 — EVENT UNIT GENERATION: {date}"
+    )
     print("=" * 70)
 
-    print(
-        f"Original Enriched News : "
-        f"{len(news_items)}"
+    # --------------------------------------------------------
+    # 第一关：先检查EventUnits
+    # --------------------------------------------------------
+
+    inspection = inspect_event_units(
+        date
+    )
+
+    # --------------------------------------------------------
+    # 如果已经完整：
+    # 直接结束，不重新调用AI
+    # --------------------------------------------------------
+
+    if inspection["complete"]:
+
+        print()
+        print(
+            f"✅ {date} EventUnits已经完整。"
+        )
+
+        print(
+            "⏭️ 不重新执行AI聚合。"
+        )
+
+        print(
+            f"📁 {event_units_dir(date)}"
+        )
+
+        return False
+
+    # --------------------------------------------------------
+    # 只有需要检查/生成时，才读取Enriched
+    # --------------------------------------------------------
+
+    news_items = load_all_enriched_news(
+        date
     )
 
     print(
-        f"Final Event Units      : "
-        f"{len(events)}"
+        f"AI Input News: {len(news_items)}"
     )
 
     print(
-        f"Event Units Directory  : "
-        f"{target}"
+        "News processing limit: NONE"
+    )
+
+    # ========================================================
+    # 情况A：
+    # 已经有有效Index
+    #
+    # → 不重新聚类
+    # → 根据Index恢复Event
+    # → 只补缺失EventUnit
+    # ========================================================
+
+    if inspection["index"] is not None:
+
+        print()
+        print(
+            "♻️ 检测到已有有效Event Index。"
+        )
+
+        print(
+            "➡️ 不重新执行事件聚类。"
+        )
+
+        print(
+            "➡️ 直接检查并补齐缺失EventUnit。"
+        )
+
+        events = rebuild_events_from_index(
+
+            date,
+
+            inspection["index"],
+
+            news_items
+        )
+
+        validate_event_index_coverage(
+
+            date,
+
+            events,
+
+            len(news_items)
+        )
+
+        return complete_existing_event_units(
+
+            date,
+
+            events,
+
+            len(news_items)
+        )
+
+    # ========================================================
+    # 情况B：
+    # 没有有效Index
+    #
+    # → 完整执行AI事件聚类
+    # ========================================================
+
+    print()
+    print(
+        "🆕 未找到有效Event Index。"
     )
 
     print(
-        f"Completion Marker      : "
-        f"{marker}"
+        "➡️ 执行完整Stage 1聚合。"
+    )
+
+    remove_event_units_complete(
+        date
+    )
+
+    # --------------------------------------------------------
+    # 第一轮
+    # --------------------------------------------------------
+
+    initial_clusters = build_initial_clusters(
+
+        date,
+
+        news_items
+    )
+
+    # --------------------------------------------------------
+    # 第二轮
+    # --------------------------------------------------------
+
+    final_clusters = merge_all_clusters(
+
+        date,
+
+        initial_clusters
+    )
+
+    # --------------------------------------------------------
+    # Event Units
+    # --------------------------------------------------------
+
+    events = build_event_units(
+
+        date,
+
+        final_clusters,
+
+        news_items
+    )
+
+    # --------------------------------------------------------
+    # 覆盖检查
+    # --------------------------------------------------------
+
+    validate_event_index_coverage(
+
+        date,
+
+        events,
+
+        len(news_items)
+    )
+
+    # --------------------------------------------------------
+    # Index必须先落盘
+    # --------------------------------------------------------
+
+    index_path = save_aggregation_index(
+
+        date,
+
+        events
+    )
+
+    print()
+    print(
+        f"✅ Event Index saved: "
+        f"{index_path}"
+    )
+
+    # --------------------------------------------------------
+    # EventUnits：
+    # 新建后逐个生成
+    # --------------------------------------------------------
+
+    complete_existing_event_units(
+
+        date,
+
+        events,
+
+        len(news_items)
     )
 
     return True
@@ -2273,7 +3072,9 @@ def run_stage_1(date):
 # Stage 2：读取Event Units
 # ============================================================
 
-def load_saved_event_units(date):
+def load_saved_event_units(
+    date
+):
 
     target = event_units_dir(
         date
@@ -2285,7 +3086,12 @@ def load_saved_event_units(date):
             f"EventUnits目录不存在：{target}"
         )
 
-    if not event_units_complete(date):
+    marker = (
+        target
+        / EVENT_UNITS_COMPLETE_FILE
+    )
+
+    if not marker.exists():
 
         raise RuntimeError(
             f"❌ {date} EventUnits尚未完成，"
@@ -2343,12 +3149,18 @@ def load_saved_event_units(date):
                 .strip()
             )
 
-        source_count = int(
-            metadata.get(
-                "source_count",
-                "0"
+        try:
+
+            source_count = int(
+                metadata.get(
+                    "source_count",
+                    "0"
+                )
             )
-        )
+
+        except Exception:
+
+            source_count = 0
 
         events.append({
 
@@ -2947,16 +3759,19 @@ def save_daily_report(
     )
 
     if knowledge:
+
         sections.append(
             knowledge
         )
 
     if topics:
+
         sections.append(
             topics
         )
 
     if watchlist:
+
         sections.append(
             watchlist
         )
@@ -2974,7 +3789,9 @@ def save_daily_report(
 # Stage 2完成标记
 # ============================================================
 
-def skills_complete(date):
+def skills_complete(
+    date
+):
 
     marker = (
         event_units_dir(date)
@@ -3022,7 +3839,9 @@ def run_stage_2(
 
     print()
     print("=" * 70)
-    print(f"STAGE 2 — 27 SKILLS DEEP PROCESSING: {date}")
+    print(
+        f"STAGE 2 — 27 SKILLS DEEP PROCESSING: {date}"
+    )
     print("=" * 70)
 
     if skills_complete(date):
@@ -3079,10 +3898,6 @@ def run_stage_2(
             f"{event['source_count']}"
         )
 
-        # ----------------------------------------------------
-        # 分类
-        # ----------------------------------------------------
-
         classification = classify_event(
 
             event,
@@ -3097,10 +3912,6 @@ def run_stage_2(
         print(
             f"Category: {category}"
         )
-
-        # ----------------------------------------------------
-        # Skills
-        # ----------------------------------------------------
 
         selected_skills = route_skills(
 
@@ -3127,10 +3938,6 @@ def run_stage_2(
             print(
                 f"  - {skill['name']}"
             )
-
-        # ----------------------------------------------------
-        # 深度分析
-        # ----------------------------------------------------
 
         analysis = analyze_event_with_skills(
 
@@ -3304,7 +4111,7 @@ def run_stage_2(
 
     log_path.write_text(
 
-        f"""# {date} Knowledge Pipeline V4
+        f"""# {date} Knowledge Pipeline V5
 
 - 时间：{now().isoformat()}
 - 时区：Asia/Shanghai
@@ -3396,12 +4203,28 @@ SUCCESS
 
 
 # ============================================================
+# 日期格式检查
+# ============================================================
+
+def validate_date(
+    date
+):
+
+    if not re.fullmatch(
+        r"\d{4}-\d{2}-\d{2}",
+        date
+    ):
+
+        raise RuntimeError(
+            f"❌ 日期格式错误：{date}"
+        )
+
+
+# ============================================================
 # 统一入口
 # ============================================================
 
 def main():
-
-    import argparse
 
     parser = argparse.ArgumentParser()
 
@@ -3423,8 +4246,12 @@ def main():
 
     date = args.date
 
+    validate_date(
+        date
+    )
+
     print("=" * 70)
-    print("748686 KNOWLEDGE PIPELINE V4")
+    print("748686 KNOWLEDGE PIPELINE V5")
     print("=" * 70)
 
     print(
@@ -3450,7 +4277,7 @@ def main():
     print()
 
     # --------------------------------------------------------
-    # 目录
+    # 基础目录
     # --------------------------------------------------------
 
     for directory in [
@@ -3469,7 +4296,7 @@ def main():
         )
 
     # --------------------------------------------------------
-    # API
+    # API Key
     # --------------------------------------------------------
 
     if not os.getenv(
@@ -3485,9 +4312,9 @@ def main():
         "✅ AGNES_API_KEY detected"
     )
 
-    # --------------------------------------------------------
+    # ========================================================
     # Stage 1
-    # --------------------------------------------------------
+    # ========================================================
 
     if args.stage == "aggregation":
 
@@ -3497,7 +4324,7 @@ def main():
 
         print()
         print(
-            "============================================================"
+            "=" * 70
         )
 
         print(
@@ -3505,26 +4332,38 @@ def main():
         )
 
         print(
-            "EventUnits已经落盘。"
+            f"{date} EventUnits检查/生成/补齐已经完成。"
         )
 
         print(
-            "现在可以Git commit + push。"
+            "现在停止，不进入Stage 2。"
         )
 
         print(
-            "之后再进入Stage 2。"
+            "外层Workflow确认三天全部完成后："
         )
 
         print(
-            "============================================================"
+            "Git commit + push"
+        )
+
+        print(
+            "然后重新pull到本地"
+        )
+
+        print(
+            "再进入Stage 2。"
+        )
+
+        print(
+            "=" * 70
         )
 
         return
 
-    # --------------------------------------------------------
+    # ========================================================
     # Stage 2
-    # --------------------------------------------------------
+    # ========================================================
 
     routes = load_routes()
 
@@ -3579,7 +4418,7 @@ if __name__ == "__main__":
         print("=" * 70)
 
         print(
-            "❌ KNOWLEDGE PIPELINE V4 FAILED"
+            "❌ KNOWLEDGE PIPELINE V5 FAILED"
         )
 
         print("=" * 70)
