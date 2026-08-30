@@ -158,8 +158,6 @@ jobs:
       # ==========================================================
       # 9. Check / Import three-day Raw News
       #
-      # 这里的判断逻辑：
-      #
       # 第一优先级：
       #     本系统对应日期 Raw News 文件夹存在且有日报
       #
@@ -168,7 +166,6 @@ jobs:
       #
       # TODAY 如果 Horizon 没有：
       #     启动 Horizon
-      #
       # ==========================================================
 
       - name: Check three-day Raw News
@@ -398,11 +395,10 @@ jobs:
       # 13. Complete three-day Raw News
       #
       # 最终确认：
-      #
       # 三个日期的 Raw 文件夹
       # 三个日期都有至少两份 Horizon MD
       #
-      # 才能进入 Atomic。
+      # 才能进入下一阶段。
       # ==========================================================
 
       - name: Validate three-day Raw News
@@ -452,8 +448,59 @@ jobs:
           echo
           echo "✅ THREE-DAY RAW NEWS COMPLETE"
 
+
       # ==========================================================
-      # 14. Atomic News
+      # 14. ★ IMMEDIATE SYNC #1
+      #
+      # 日报分解 / Horizon 完成
+      #         ↓
+      # Raw News 已确认
+      #         ↓
+      # 立即写回 748686obsidian
+      #
+      # 这一层完成后才进入 Atomic。
+      # ==========================================================
+
+      - name: Sync Raw News immediately
+        run: |
+          set -e
+
+          echo "============================================================"
+          echo "IMMEDIATE RAW NEWS SYNC"
+          echo "============================================================"
+
+          git config user.name \
+            "748686 Knowledge Bot"
+
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            "01_自生长知识系统/Raw News"
+
+          if git diff --cached --quiet; then
+
+            echo "ℹ️ No new Raw News changes to commit"
+
+          else
+
+            git commit \
+              -m "data: sync Raw News $TODAY"
+
+            git push
+
+            echo "✅ Raw News immediately pushed to 748686obsidian"
+
+          fi
+
+          echo
+          echo "=========================================="
+          echo "RAW NEWS IS NOW SAFELY STORED"
+          echo "=========================================="
+
+
+      # ==========================================================
+      # 15. Atomic News
       # ==========================================================
 
       - name: Build three-day Atomic News
@@ -512,14 +559,6 @@ jobs:
 
             fi
 
-            # ----------------------------------------------------
-            # 直接调用当前版本 horizon_split.py
-            #
-            # 当前脚本接口：
-            #   --raw-root
-            #   --date
-            # ----------------------------------------------------
-
             echo "▶️ Running horizon_split.py"
 
             python "$SCRIPT" \
@@ -569,11 +608,10 @@ jobs:
             echo "✅ Atomic News complete: $DATE"
 
           done
+
+
       # ==========================================================
-      # 15. Final three-day Atomic validation
-      #
-      # 在进入 Source Enrichment 之前，
-      # 三天全部必须通过。
+      # 16. Final three-day Atomic validation
       # ==========================================================
 
       - name: Validate three-day Atomic News
@@ -641,13 +679,9 @@ jobs:
           echo
           echo "✅ THREE-DAY ATOMIC NEWS COMPLETE"
 
+
       # ==========================================================
-      # 16. Source Enrichment
-      #
-      # 当前 source_enrichment.py 接口：
-      #
-      #   --raw-root
-      #   --date
+      # 17. Source Enrichment
       #
       # Atomic
       #   ↓
@@ -660,7 +694,7 @@ jobs:
         env:
           AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
           AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
-          AI_BASE_URL: https://api.agnes-ai.com/v1
+          AI_BASE_URL: https://api.agnes-ai.cn/v1
           AI_MODEL: agnes-2.5-flash
         run: |
           set -e
@@ -788,15 +822,7 @@ jobs:
             fi
 
             # ----------------------------------------------------
-            # 正式调用当前版本 source_enrichment.py
-            #
-            # 注意：
-            # 不再传 --zh
-            # 不再传 --en
-            # 不再传 --output
-            #
-            # 当前脚本自己根据 raw-root + date
-            # 找到对应 Atomic 并生成 Enriched。
+            # 正式调用 source_enrichment.py
             # ----------------------------------------------------
 
             echo "▶️ Running source_enrichment.py"
@@ -838,11 +864,10 @@ jobs:
             echo "✅ Enriched complete: $DATE"
 
           done
+
+
       # ==========================================================
-      # 17. Final three-day Enriched validation
-      #
-      # ★ 只有这里全部通过，
-      #   才允许 Knowledge Pipeline。
+      # 18. Final three-day Enriched validation
       # ==========================================================
 
       - name: Validate three-day Enriched News
@@ -928,7 +953,57 @@ jobs:
 
 
       # ==========================================================
-      # 18. Knowledge Pipeline
+      # 19. ★ IMMEDIATE SYNC #2
+      #
+      # Source Enrichment 完成
+      #         ↓
+      # Enriched 已确认
+      #         ↓
+      # 立即写回 748686obsidian
+      #
+      # 这一层完成后才进入 Knowledge Pipeline。
+      # ==========================================================
+
+      - name: Sync Enriched News immediately
+        run: |
+          set -e
+
+          echo "============================================================"
+          echo "IMMEDIATE ENRICHED NEWS SYNC"
+          echo "============================================================"
+
+          git config user.name \
+            "748686 Knowledge Bot"
+
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            "01_自生长知识系统/Raw News"
+
+          if git diff --cached --quiet; then
+
+            echo "ℹ️ No new Enriched News changes to commit"
+
+          else
+
+            git commit \
+              -m "data: sync Enriched News $TODAY"
+
+            git push
+
+            echo "✅ Enriched News immediately pushed to 748686obsidian"
+
+          fi
+
+          echo
+          echo "=========================================="
+          echo "ENRICHED NEWS IS NOW SAFELY STORED"
+          echo "=========================================="
+
+
+      # ==========================================================
+      # 20. Knowledge Pipeline
       #
       # ★ 前面三层全部确认以后才能执行
       # ==========================================================
@@ -937,7 +1012,7 @@ jobs:
         env:
           AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
           AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
-          AI_BASE_URL: https://api.agnes-ai.com/v1
+          AI_BASE_URL: https://api.agnes-ai.cn/v1
           AI_MODEL: agnes-2.5-flash
         run: |
           set -e
@@ -963,14 +1038,14 @@ jobs:
 
 
       # ==========================================================
-      # 19. Weekly Report
+      # 21. Weekly Report
       # ==========================================================
 
       - name: Run Weekly Report V2
         env:
           AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
           AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
-          AI_BASE_URL: https://api.agnes-ai.com/v1
+          AI_BASE_URL: https://api.agnes-ai.cn/v1
           AI_MODEL: agnes-2.5-flash
         run: |
           set -e
@@ -982,7 +1057,7 @@ jobs:
 
 
       # ==========================================================
-      # 20. Final result
+      # 22. Final result
       # ==========================================================
 
       - name: Show three-day final result
@@ -1046,7 +1121,10 @@ jobs:
 
 
       # ==========================================================
-      # 21. Commit
+      # 23. Final Commit
+      #
+      # 前面两个阶段已经分别实时提交，
+      # 这里负责 Knowledge / Weekly 等后续产物。
       # ==========================================================
 
       - name: Commit Knowledge System
@@ -1079,7 +1157,7 @@ jobs:
 
 
       # ==========================================================
-      # 22. Complete
+      # 24. Complete
       # ==========================================================
 
       - name: Complete Job
@@ -1113,12 +1191,14 @@ jobs:
 
           echo "Raw News:"
           echo "✅ three-day checked"
+          echo "✅ immediately pushed"
 
           echo "Atomic News:"
           echo "✅ three-day checked"
 
           echo "Source Enrichment:"
           echo "✅ three-day checked"
+          echo "✅ immediately pushed"
 
           echo "Knowledge Pipeline:"
           echo "✅ processed day-by-day"
