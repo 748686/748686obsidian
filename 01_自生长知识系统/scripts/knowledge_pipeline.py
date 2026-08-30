@@ -5,7 +5,6 @@
 748686 自生长知识系统
 Knowledge Pipeline V5
 
-============================================================
 正式架构
 ============================================================
 
@@ -17,9 +16,8 @@ Source Enrichment
    ↓
 Enriched News
    ↓
-============================================================
 STAGE 1：第二层 AI 事件聚合
-============================================================
+   ↓
 全部 Enriched News
    ↓
 AI 第一轮批量事件聚类
@@ -30,91 +28,17 @@ Final Event Units
    ↓
 AI 多来源事件综合
    ↓
-保存：
-Raw News/
-    YYYY-MM-DD-EventUnits/
-        ├── _event_index.json
-        ├── EVT-xxxx.md
-        └── ...
+Raw News/YYYY-MM-DD-EventUnits/
+   ├── _event_index.json
+   ├── EVT-xxxx_事件名称.md
+   └── _EVENT_UNITS_COMPLETE
+
+   ↓ Git commit + push（由外层 Workflow 负责）
+   ↓ git pull
    ↓
-EVENT_UNITS_COMPLETE
+STAGE 2：27 Skills 深度处理
 
-============================================================
-断点续跑原则
-============================================================
-
-1. EventUnits目录不存在：
-   → 正常执行Stage 1。
-
-2. EventUnits目录存在：
-   → 检查_index。
-   → 检查每一个EVT文件。
-   → 已经存在的EventUnit不重新生成。
-   → 缺失的EventUnit只补缺失部分。
-
-3. 如果Index不存在或损坏：
-   → 重新执行事件聚类。
-   → 重新建立完整Event Index。
-
-4. 只有所有EventUnit实际文件都存在：
-   → 才生成_EVENT_UNITS_COMPLETE。
-
-5. Stage 1完成后立即退出。
-   → 不进入Stage 2。
-
-============================================================
-三日架构
-============================================================
-
-外层Workflow负责：
-
-前天
-昨天
-今天
-
-分别执行本程序。
-
-本程序：
-每次只处理传入的一个date。
-
-外层Workflow完成：
-
-三天EventUnits全部完成
-   ↓
-git commit
-   ↓
-git push
-   ↓
-重新git pull
-   ↓
-Stage 2
-
-============================================================
-STAGE 2：27 Skills深度处理
-============================================================
-
-读取已经保存的EventUnits
-   ↓
-每天独立处理
-   ↓
-事件分类
-   ↓
-skill_routes.json
-   ↓
-动态选择Skills
-   ↓
-深度分析
-   ↓
-知识卡片
-   ↓
-专题候选
-   ↓
-Watchlist
-   ↓
-日报
-
-============================================================
-核心原则
+核心规则
 ============================================================
 
 1. Horizon完全由Horizon管理。
@@ -135,14 +59,20 @@ Watchlist
 16. Stage 1支持跨语言。
 17. Stage 1同事件尽量归并。
 18. 不同事件不得强行合并。
-19. Stage 1完成后必须落盘。
-20. Stage 2不再读取原始Enriched News。
-21. Stage 2只读取EventUnits。
-22. 三天完全独立。
-23. 任意关键AI步骤失败立即失败。
-24. 不允许半成品标记SUCCESS。
-25. Stage 1和Stage 2必须可以断点续跑。
-26. EventUnits存在则优先补缺，不重复生成。
+19. 一篇文章最终只能属于一个EventUnit。
+20. AI返回重复ARTICLE ID时，不静默吞掉。
+21. 发现重复ARTICLE ID时记录清晰冲突日志，并自动要求AI重新修复本批聚类。
+22. 修复后仍不满足“一篇文章一个归属”则立即失败。
+23. EventUnits目录存在则优先断点检查。
+24. 有效Event Index存在时，不重新执行事件聚类，只补缺失EventUnit。
+25. Index无效时重新建立完整Event Index。
+26. 只有所有EventUnit实际文件都存在并通过验证，才生成_EVENT_UNITS_COMPLETE。
+27. Stage 1完成后立即退出，不进入Stage 2。
+28. Stage 2只读取已经保存的EventUnits。
+29. Stage 2不重新读取原始Enriched News。
+30. 三天由外层Workflow分别调用，日期彼此独立。
+31. Source Enrichment不在本程序内处理。
+32. Git commit/push/pull不在本程序内处理。
 """
 
 
@@ -223,6 +153,11 @@ ARTICLE_AGGREGATION_CONTENT_LIMIT = 8000
 
 MAX_ARTICLES_PER_EVENT_CONTEXT = 30
 
+# AI聚类冲突自动修复次数。
+# 第一次正常聚类失败后，会再次把本批输入和冲突信息交给AI修复。
+# 修复仍失败，则整个批次失败，绝不生成错误EventUnit。
+CLUSTER_REPAIR_ATTEMPTS = 2
+
 
 # ============================================================
 # 北京时间
@@ -233,6 +168,80 @@ BEIJING_TZ = ZoneInfo("Asia/Shanghai")
 
 def now() -> datetime:
     return datetime.now(BEIJING_TZ)
+
+
+# ============================================================
+# 冲突日志
+# ============================================================
+
+def conflict_log_path(date: str) -> Path:
+    return LOGS / f"{date}_event_aggregation_conflicts.log"
+
+
+def log_conflict(
+    date: str,
+    stage: str,
+    message: str,
+    details=None,
+):
+    """
+    写入清晰的事件聚类冲突日志。
+
+    注意：
+    这里不会把API Key写入日志。
+    """
+
+    LOGS.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    path = conflict_log_path(date)
+
+    lines = [
+        "",
+        "=" * 80,
+        f"TIME: {now().isoformat()}",
+        f"DATE: {date}",
+        f"STAGE: {stage}",
+        f"MESSAGE: {message}",
+    ]
+
+    if details is not None:
+        try:
+            if isinstance(details, str):
+                detail_text = details
+            else:
+                detail_text = json.dumps(
+                    details,
+                    ensure_ascii=False,
+                    indent=2
+                )
+        except Exception:
+            detail_text = str(details)
+
+        lines.append("DETAILS:")
+        lines.append(detail_text)
+
+    lines.append("=" * 80)
+    lines.append("")
+
+    with path.open(
+        "a",
+        encoding="utf-8"
+    ) as f:
+        f.write("\n".join(lines))
+
+    print()
+    print("⚠️ EVENT AGGREGATION CONFLICT")
+    print(f"   Stage : {stage}")
+    print(f"   Message: {message}")
+
+    if details is not None:
+        print("   Details:")
+        print(str(details)[:5000])
+
+    print(f"   Conflict log: {path}")
 
 
 # ============================================================
@@ -248,7 +257,6 @@ def read_json(path: Path, default=None):
         return default
 
     try:
-
         return json.loads(
             path.read_text(
                 encoding="utf-8"
@@ -767,10 +775,7 @@ def load_all_enriched_news(
             f"❌ {date} 没有有效新闻"
         )
 
-    # --------------------------------------------------------
     # Horizon Score只负责排序，不负责截断
-    # --------------------------------------------------------
-
     def score(item):
 
         try:
@@ -831,6 +836,197 @@ def build_article_digest(
 
 
 # ============================================================
+# 聚类结果冲突检测
+# ============================================================
+
+def inspect_cluster_assignment(
+    clusters,
+    expected_indexes,
+):
+    """
+    返回聚类结果的结构化覆盖问题：
+
+    duplicate:
+        同一ARTICLE出现在多个cluster中。
+
+    missing:
+        输入ARTICLE没有被任何cluster覆盖。
+
+    extra:
+        AI创造了输入之外的ARTICLE编号。
+
+    malformed:
+        cluster/article_indexes结构错误。
+    """
+
+    expected = set(
+        int(x)
+        for x in expected_indexes
+    )
+
+    occurrences = {}
+
+    malformed = []
+
+    for cluster_position, cluster in enumerate(
+        clusters,
+        start=1
+    ):
+
+        if not isinstance(
+            cluster,
+            dict
+        ):
+
+            malformed.append(
+                f"cluster[{cluster_position}]不是对象"
+            )
+            continue
+
+        indexes = cluster.get(
+            "article_indexes"
+        )
+
+        if not isinstance(
+            indexes,
+            list
+        ):
+
+            malformed.append(
+                f"cluster[{cluster_position}] article_indexes不是数组"
+            )
+            continue
+
+        for raw_index in indexes:
+
+            try:
+                article_index = int(
+                    raw_index
+                )
+            except Exception:
+                malformed.append(
+                    f"cluster[{cluster_position}]存在无法转换的ARTICLE ID：{raw_index}"
+                )
+                continue
+
+            occurrences.setdefault(
+                article_index,
+                []
+            ).append(
+                cluster_position
+            )
+
+    duplicate = {
+        article_index: positions
+        for article_index, positions
+        in occurrences.items()
+        if len(positions) > 1
+    }
+
+    actual = set(
+        occurrences.keys()
+    )
+
+    missing = sorted(
+        expected - actual
+    )
+
+    extra = sorted(
+        actual - expected
+    )
+
+    return {
+        "duplicate": duplicate,
+        "missing": missing,
+        "extra": extra,
+        "malformed": malformed,
+    }
+
+
+def cluster_assignment_is_valid(
+    issues
+):
+    return not any(
+        [
+            issues["duplicate"],
+            issues["missing"],
+            issues["extra"],
+            issues["malformed"],
+        ]
+    )
+
+
+# ============================================================
+# 聚类结果规范化
+# ============================================================
+
+def normalize_cluster_indexes(
+    clusters
+):
+    """
+    只做类型转换，不做任何“自动抢归属”。
+
+    这是故意的：
+    如果AI把ARTICLE 153放进两个cluster，
+    我们不能武断地替AI决定它应该属于哪个事件。
+
+    正确做法是：
+    记录冲突 → AI修复 → 再验证。
+
+    """
+
+    normalized = []
+
+    for cluster in clusters:
+
+        if not isinstance(
+            cluster,
+            dict
+        ):
+            normalized.append(
+                cluster
+            )
+            continue
+
+        copied = dict(
+            cluster
+        )
+
+        indexes = copied.get(
+            "article_indexes",
+            []
+        )
+
+        if isinstance(
+            indexes,
+            list
+        ):
+
+            converted = []
+
+            for value in indexes:
+
+                try:
+                    converted.append(
+                        int(value)
+                    )
+                except Exception:
+                    converted.append(
+                        value
+                    )
+
+            copied[
+                "article_indexes"
+            ] = converted
+
+        normalized.append(
+            copied
+        )
+
+    return normalized
+
+
+# ============================================================
 # 第一轮AI聚类
 # ============================================================
 
@@ -841,6 +1037,14 @@ def cluster_news_batch(
 ):
 
     articles = []
+
+    expected_indexes = list(
+        range(
+            batch_start_index,
+            batch_start_index
+            + len(batch_items)
+        )
+    )
 
     for offset, item in enumerate(
         batch_items
@@ -933,14 +1137,33 @@ def cluster_news_batch(
 宁可分开。
 
 ============================================================
-覆盖要求
+绝对覆盖要求
 ============================================================
+
+本批输入ARTICLE编号为：
+
+{json.dumps(
+    expected_indexes,
+    ensure_ascii=False
+)}
 
 输入中的每一篇ARTICLE：
 
 必须且只能属于一个cluster。
 
-无法与其他文章合并的：
+例如：
+
+ARTICLE 153不能同时出现在：
+
+cluster C001
+和
+cluster C004
+
+如果ARTICLE 153与ARTICLE 200属于同一事件，
+应该把它们放入同一个cluster，
+而不是让ARTICLE 153重复出现。
+
+如果某ARTICLE无法与任何其他文章合并：
 
 自己成为一个cluster。
 
@@ -973,6 +1196,22 @@ def cluster_news_batch(
   ]
 }}
 
+============================================================
+输出前强制自检
+============================================================
+
+在输出JSON之前，请你自己检查：
+
+1. ARTICLE总覆盖数是否等于输入ARTICLE数量。
+2. 每个ARTICLE是否只出现一次。
+3. 是否出现重复ARTICLE ID。
+4. 是否出现输入之外的ARTICLE ID。
+5. 是否遗漏ARTICLE。
+6. 每个cluster是否至少包含一个ARTICLE。
+7. cluster_id是否唯一。
+
+如果发现冲突，必须先在内部修正，再输出最终JSON。
+
 要求：
 
 1. article_indexes必须来自输入。
@@ -992,6 +1231,9 @@ def cluster_news_batch(
         system_prompt=(
             "你是全球新闻事件聚类专家。"
             "你必须直接分析用户提供的ARTICLE。"
+            "每篇ARTICLE必须且只能归属于一个cluster。"
+            "绝对禁止重复ARTICLE ID。"
+            "绝对禁止遗漏ARTICLE。"
             "必须覆盖全部ARTICLE。"
             "必须返回合法JSON。"
         ),
@@ -1017,7 +1259,336 @@ def cluster_news_batch(
             f"❌ {date} 第一轮聚类结果缺少clusters"
         )
 
-    return clusters
+    return normalize_cluster_indexes(
+        clusters
+    )
+
+
+# ============================================================
+# AI聚类冲突修复
+# ============================================================
+
+def repair_cluster_news_batch(
+    date,
+    batch_items,
+    batch_start_index,
+    broken_clusters,
+    issues,
+    attempt,
+):
+    """
+    当AI第一次聚类出现重复/遗漏/越界时，
+    不直接人工猜测归属。
+
+    重新把本批真实文章 + 错误聚类结果 + 冲突信息
+    交给AI进行修复。
+
+    修复结果仍必须经过严格覆盖检查。
+    """
+
+    articles = []
+
+    expected_indexes = list(
+        range(
+            batch_start_index,
+            batch_start_index
+            + len(batch_items)
+        )
+    )
+
+    for offset, item in enumerate(
+        batch_items
+    ):
+
+        global_index = (
+            batch_start_index
+            + offset
+        )
+
+        articles.append(
+            build_article_digest(
+                item,
+                global_index
+            )
+        )
+
+    joined_articles = "\n\n".join(
+        articles
+    )
+
+    broken_json = json.dumps(
+        broken_clusters,
+        ensure_ascii=False,
+        indent=2
+    )
+
+    issue_json = json.dumps(
+        issues,
+        ensure_ascii=False,
+        indent=2
+    )
+
+    prompt = f"""
+你正在修复748686自生长知识系统第二层事件聚合中的一个严重覆盖冲突。
+
+日期：
+{date}
+
+修复次数：
+第 {attempt} 次
+
+============================================================
+本批真实ARTICLE
+============================================================
+
+{joined_articles}
+
+============================================================
+AI上一次错误的聚类结果
+============================================================
+
+{broken_json}
+
+============================================================
+检测到的冲突
+============================================================
+
+{issue_json}
+
+============================================================
+修复任务
+============================================================
+
+请重新检查全部ARTICLE。
+
+你必须同时满足：
+
+1. 同一个现实世界事件尽量归入同一个cluster。
+2. 不同现实世界事件不能强行合并。
+3. 一篇ARTICLE只能属于一个cluster。
+4. 一篇ARTICLE不能出现在两个cluster。
+5. 不允许遗漏任何ARTICLE。
+6. 不允许创造任何ARTICLE编号。
+7. 不允许修改ARTICLE编号。
+8. 如果一个ARTICLE无法与其他文章合并，让它单独成为cluster。
+9. 不确定时宁可分开。
+10. 必须依据文章内容判断，不依据cluster原结果盲目修复。
+
+============================================================
+本批完整ARTICLE编号
+============================================================
+
+{json.dumps(
+    expected_indexes,
+    ensure_ascii=False
+)}
+
+============================================================
+输出前强制检查
+============================================================
+
+在输出之前逐项检查：
+
+- 输入ARTICLE数量 = 输出ARTICLE归属总数
+- 每个ARTICLE出现次数 = 1
+- Missing = 0
+- Duplicate = 0
+- Extra = 0
+
+如果发现任何问题，必须在内部重新修正。
+
+============================================================
+输出
+============================================================
+
+只输出合法JSON：
+
+{{
+  "clusters": [
+    {{
+      "cluster_id": "C001",
+      "article_indexes": [1, 7, 13],
+      "event_title": "统一事件名称",
+      "event_reason": "为什么这些文章属于同一个现实世界事件"
+    }}
+  ]
+}}
+"""
+
+    result = call_ai(
+
+        prompt,
+
+        system_prompt=(
+            "你是新闻事件聚类冲突修复专家。"
+            "你必须修复ARTICLE覆盖冲突。"
+            "一篇ARTICLE绝对不能属于多个cluster。"
+            "绝对不能遗漏ARTICLE。"
+            "绝对不能创造ARTICLE编号。"
+            "必须返回合法JSON。"
+        ),
+
+        temperature=0,
+    )
+
+    data = parse_ai_json(
+        result,
+        f"{date} 第一轮新闻聚类冲突修复 #{attempt}"
+    )
+
+    clusters = data.get(
+        "clusters"
+    )
+
+    if not isinstance(
+        clusters,
+        list
+    ):
+
+        raise RuntimeError(
+            f"❌ {date} 聚类修复结果缺少clusters"
+        )
+
+    return normalize_cluster_indexes(
+        clusters
+    )
+
+
+# ============================================================
+# 带自动冲突修复的第一轮聚类
+# ============================================================
+
+def cluster_news_batch_with_repair(
+    date,
+    batch_items,
+    batch_start_index,
+    batch_number,
+):
+
+    expected_indexes = list(
+        range(
+            batch_start_index,
+            batch_start_index
+            + len(batch_items)
+        )
+    )
+
+    clusters = cluster_news_batch(
+        date,
+        batch_items,
+        batch_start_index
+    )
+
+    issues = inspect_cluster_assignment(
+        clusters,
+        expected_indexes
+    )
+
+    if cluster_assignment_is_valid(
+        issues
+    ):
+        return clusters
+
+    # --------------------------------------------------------
+    # 第一次发现冲突：
+    # 必须记录完整日志。
+    # --------------------------------------------------------
+
+    log_conflict(
+        date,
+        f"STAGE 1A / BATCH {batch_number}",
+        "AI第一次聚类返回了非法ARTICLE归属，启动自动修复。",
+        {
+            "batch_number": batch_number,
+            "expected_indexes": expected_indexes,
+            "issues": issues,
+            "broken_clusters": clusters,
+        }
+    )
+
+    repaired_clusters = clusters
+
+    repaired_issues = issues
+
+    for attempt in range(
+        1,
+        CLUSTER_REPAIR_ATTEMPTS + 1
+    ):
+
+        print()
+        print(
+            f"🔧 Cluster conflict repair "
+            f"{attempt}/{CLUSTER_REPAIR_ATTEMPTS}"
+        )
+
+        repaired_clusters = repair_cluster_news_batch(
+
+            date,
+
+            batch_items,
+
+            batch_start_index,
+
+            repaired_clusters,
+
+            repaired_issues,
+
+            attempt
+        )
+
+        repaired_issues = inspect_cluster_assignment(
+
+            repaired_clusters,
+
+            expected_indexes
+        )
+
+        if cluster_assignment_is_valid(
+            repaired_issues
+        ):
+
+            print(
+                "   ✅ Cluster conflict repaired successfully."
+            )
+
+            log_conflict(
+                date,
+                f"STAGE 1A / BATCH {batch_number}",
+                "AI聚类冲突已成功修复。",
+                {
+                    "repair_attempt": attempt,
+                    "final_cluster_count":
+                        len(repaired_clusters),
+                }
+            )
+
+            return repaired_clusters
+
+        log_conflict(
+            date,
+            f"STAGE 1A / BATCH {batch_number}",
+            f"第{attempt}次聚类冲突修复仍然失败。",
+            {
+                "repair_attempt": attempt,
+                "issues": repaired_issues,
+                "clusters": repaired_clusters,
+            }
+        )
+
+    # --------------------------------------------------------
+    # 修复次数用尽：
+    # 绝不继续生成EventUnits。
+    # --------------------------------------------------------
+
+    raise RuntimeError(
+        f"❌ {date} Batch {batch_number} "
+        f"ARTICLE聚类覆盖冲突无法自动修复。\n"
+        f"Duplicate={repaired_issues['duplicate']}\n"
+        f"Missing={repaired_issues['missing']}\n"
+        f"Extra={repaired_issues['extra']}\n"
+        f"Malformed={repaired_issues['malformed']}\n"
+        f"详细冲突日志：{conflict_log_path(date)}"
+    )
 
 
 # ============================================================
@@ -1028,72 +1599,42 @@ def validate_cluster_coverage(
     clusters,
     expected_indexes,
     context,
+    date=None,
 ):
 
-    expected = set(
+    issues = inspect_cluster_assignment(
+        clusters,
         expected_indexes
     )
 
-    actual = []
+    if cluster_assignment_is_valid(
+        issues
+    ):
+        return
 
-    for cluster in clusters:
+    if date:
 
-        indexes = cluster.get(
-            "article_indexes",
-            []
+        log_conflict(
+            date,
+            context,
+            "聚类覆盖验证失败。",
+            {
+                "expected_indexes":
+                    list(expected_indexes),
+                "issues":
+                    issues,
+                "clusters":
+                    clusters,
+            }
         )
 
-        if not isinstance(
-            indexes,
-            list
-        ):
-
-            raise RuntimeError(
-                f"❌ {context} article_indexes不是数组"
-            )
-
-        actual.extend(
-            indexes
-        )
-
-    duplicates = [
-        x
-        for x in actual
-        if actual.count(x) > 1
-    ]
-
-    actual_set = set(
-        actual
+    raise RuntimeError(
+        f"❌ {context} 聚类覆盖失败\n"
+        f"Duplicate={issues['duplicate']}\n"
+        f"Missing={issues['missing']}\n"
+        f"Extra={issues['extra']}\n"
+        f"Malformed={issues['malformed']}"
     )
-
-    missing = sorted(
-        expected - actual_set
-    )
-
-    extra = sorted(
-        actual_set - expected
-    )
-
-    if duplicates:
-
-        raise RuntimeError(
-            f"❌ {context} 存在重复文章："
-            f"{sorted(set(duplicates))}"
-        )
-
-    if missing:
-
-        raise RuntimeError(
-            f"❌ {context} 存在未聚类文章："
-            f"{missing}"
-        )
-
-    if extra:
-
-        raise RuntimeError(
-            f"❌ {context} 出现不存在文章："
-            f"{extra}"
-        )
 
 
 # ============================================================
@@ -1190,6 +1731,30 @@ Cluster输入
 
 不得创造不存在的CLUSTER编号。
 
+如果两个Cluster属于同一事件：
+可以放入同一个group。
+
+如果不属于同一事件：
+各自成为独立group。
+
+============================================================
+输出前强制检查
+============================================================
+
+输入Cluster编号为：
+
+{json.dumps(
+    list(range(1, len(clusters) + 1)),
+    ensure_ascii=False
+)}
+
+检查：
+
+1. 每个Cluster编号恰好出现一次。
+2. 不得重复Cluster。
+3. 不得遗漏Cluster。
+4. 不得创造Cluster编号。
+
 ============================================================
 输出
 ============================================================
@@ -1221,6 +1786,7 @@ Cluster输入
         system_prompt=(
             "你是跨来源新闻事件归并专家。"
             "必须覆盖所有输入Cluster。"
+            "每个Cluster必须且只能属于一个group。"
             "必须返回合法JSON。"
         ),
 
@@ -1256,29 +1822,81 @@ Cluster输入
 
     for group in groups:
 
-        actual.extend(
-            group.get(
-                "cluster_indexes",
-                []
-            )
+        indexes = group.get(
+            "cluster_indexes",
+            []
         )
 
-    if len(actual) != len(
-        set(actual)
-    ):
+        if not isinstance(
+            indexes,
+            list
+        ):
+
+            raise RuntimeError(
+                f"❌ {date} 跨批次合并存在非法cluster_indexes"
+            )
+
+        actual.extend(
+            indexes
+        )
+
+    duplicate = [
+        x
+        for x in set(actual)
+        if actual.count(x) > 1
+    ]
+
+    if duplicate:
+
+        log_conflict(
+            date,
+            f"STAGE 1B / ROUND {merge_round} / BATCH {batch_index}",
+            "AI跨批次合并返回重复Cluster。",
+            {
+                "duplicate_cluster_indexes":
+                    duplicate,
+                "expected":
+                    sorted(expected),
+                "actual":
+                    actual,
+                "groups":
+                    groups,
+            }
+        )
 
         raise RuntimeError(
-            f"❌ {date} 跨批次合并存在重复Cluster"
+            f"❌ {date} 跨批次合并存在重复Cluster："
+            f"{duplicate}"
         )
 
-    if set(actual) != expected:
+    actual_set = set(actual)
 
-        missing = sorted(
-            expected - set(actual)
-        )
+    missing = sorted(
+        expected - actual_set
+    )
 
-        extra = sorted(
-            set(actual) - expected
+    extra = sorted(
+        actual_set - expected
+    )
+
+    if missing or extra:
+
+        log_conflict(
+            date,
+            f"STAGE 1B / ROUND {merge_round} / BATCH {batch_index}",
+            "AI跨批次合并覆盖异常。",
+            {
+                "missing":
+                    missing,
+                "extra":
+                    extra,
+                "expected":
+                    sorted(expected),
+                "actual":
+                    actual,
+                "groups":
+                    groups,
+            }
         )
 
         raise RuntimeError(
@@ -1345,14 +1963,20 @@ def build_initial_clusters(
             f"{start + 1}-{end}/{total}"
         )
 
-        clusters = cluster_news_batch(
+        clusters = cluster_news_batch_with_repair(
 
             date,
 
             batch_items,
 
-            start + 1
+            start + 1,
+
+            batch_number
         )
+
+        # ----------------------------------------------------
+        # 修复后的最终强制检查
+        # ----------------------------------------------------
 
         validate_cluster_coverage(
 
@@ -1365,7 +1989,9 @@ def build_initial_clusters(
                 )
             ),
 
-            f"{date} Batch {batch_number}"
+            f"{date} Batch {batch_number}",
+
+            date=date
         )
 
         for cluster in clusters:
@@ -1404,10 +2030,35 @@ def build_initial_clusters(
             f"{len(clusters)}"
         )
 
+    # --------------------------------------------------------
+    # 整个Stage 1A再次做一次总覆盖检查
+    # --------------------------------------------------------
+
+    validate_cluster_coverage(
+
+        all_clusters,
+
+        list(
+            range(
+                1,
+                total + 1
+            )
+        ),
+
+        f"{date} Stage 1A GLOBAL",
+
+        date=date
+    )
+
     print()
     print(
         f"✅ Initial Clusters: "
         f"{len(all_clusters)}"
+    )
+
+    print(
+        f"✅ Stage 1A coverage: "
+        f"{total}/{total}"
     )
 
     return all_clusters
@@ -1522,6 +2173,100 @@ def merge_all_clusters(
                         ),
                 })
 
+        # ----------------------------------------------------
+        # 每一轮完成后，检查文章是否仍然一篇只属于一个Cluster
+        # ----------------------------------------------------
+
+        previous_indexes = []
+
+        for cluster in current:
+
+            previous_indexes.extend(
+                cluster.get(
+                    "article_indexes",
+                    []
+                )
+            )
+
+        next_indexes = []
+
+        for cluster in next_level:
+
+            next_indexes.extend(
+                cluster.get(
+                    "article_indexes",
+                    []
+                )
+            )
+
+        if (
+            len(previous_indexes)
+            != len(set(previous_indexes))
+        ):
+
+            raise RuntimeError(
+                f"❌ {date} Merge Round "
+                f"{merge_round} 输入Cluster本身存在重复文章"
+            )
+
+        if (
+            len(next_indexes)
+            != len(set(next_indexes))
+        ):
+
+            log_conflict(
+                date,
+                f"STAGE 1B / ROUND {merge_round}",
+                "跨批次合并后发现同一ARTICLE进入多个Cluster。",
+                {
+                    "duplicate_articles": sorted(
+                        {
+                            x
+                            for x in next_indexes
+                            if next_indexes.count(x) > 1
+                        }
+                    )
+                }
+            )
+
+            raise RuntimeError(
+                f"❌ {date} Merge Round "
+                f"{merge_round} 产生重复文章归属"
+            )
+
+        if set(previous_indexes) != set(
+            next_indexes
+        ):
+
+            missing = sorted(
+                set(previous_indexes)
+                - set(next_indexes)
+            )
+
+            extra = sorted(
+                set(next_indexes)
+                - set(previous_indexes)
+            )
+
+            log_conflict(
+                date,
+                f"STAGE 1B / ROUND {merge_round}",
+                "跨批次合并后文章覆盖发生变化。",
+                {
+                    "missing":
+                        missing,
+                    "extra":
+                        extra,
+                }
+            )
+
+            raise RuntimeError(
+                f"❌ {date} Merge Round "
+                f"{merge_round} 文章覆盖异常\n"
+                f"Missing={missing}\n"
+                f"Extra={extra}"
+            )
+
         print(
             f"   Result after round "
             f"{merge_round}: "
@@ -1627,6 +2372,48 @@ def merge_all_clusters(
             }
 
         ]
+
+    # --------------------------------------------------------
+    # 最终Event Cluster生成后再次做全量唯一性检查
+    # --------------------------------------------------------
+
+    final_indexes = []
+
+    for event in final_clusters:
+
+        final_indexes.extend(
+            event.get(
+                "article_indexes",
+                []
+            )
+        )
+
+    if len(final_indexes) != len(
+        set(final_indexes)
+    ):
+
+        duplicates = sorted(
+            {
+                x
+                for x in final_indexes
+                if final_indexes.count(x) > 1
+            }
+        )
+
+        log_conflict(
+            date,
+            "STAGE 1B / FINAL",
+            "最终Event Units出现重复ARTICLE归属。",
+            {
+                "duplicate_articles":
+                    duplicates
+            }
+        )
+
+        raise RuntimeError(
+            f"❌ {date} 最终Event Units存在重复文章："
+            f"{duplicates}"
+        )
 
     print()
     print(
@@ -2604,7 +3391,24 @@ def validate_event_index_coverage(
 
     all_indexes = []
 
+    event_ids = set()
+
     for event in events:
+
+        event_id = event[
+            "event_id"
+        ]
+
+        if event_id in event_ids:
+
+            raise RuntimeError(
+                f"❌ {date} Event Index存在重复event_id："
+                f"{event_id}"
+            )
+
+        event_ids.add(
+            event_id
+        )
 
         all_indexes.extend(
             article["index"]
@@ -2636,8 +3440,27 @@ def validate_event_index_coverage(
         set(all_indexes)
     ):
 
+        duplicates = sorted(
+            {
+                x
+                for x in all_indexes
+                if all_indexes.count(x) > 1
+            }
+        )
+
+        log_conflict(
+            date,
+            "EVENT INDEX",
+            "Event Index存在重复新闻归属。",
+            {
+                "duplicates":
+                    duplicates
+            }
+        )
+
         raise RuntimeError(
-            f"❌ {date} Event Index存在重复新闻归属"
+            f"❌ {date} Event Index存在重复新闻归属："
+            f"{duplicates}"
         )
 
 
