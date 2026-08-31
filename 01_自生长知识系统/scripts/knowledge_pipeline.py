@@ -861,9 +861,10 @@ def inspect_cluster_assignment(
             )
             continue
 
+        # 修改这里：优先取 local_cluster_id，再取 cluster_id
         local_id = (
-            c.get("cluster_id")
-            or c.get("local_cluster_id")
+            c.get("local_cluster_id")
+            or c.get("cluster_id")
         )
 
         try:
