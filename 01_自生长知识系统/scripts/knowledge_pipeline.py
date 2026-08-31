@@ -1898,8 +1898,10 @@ def register_global_cluster_ids(
             ]
         )
 
+        # 关键修复：日期转为紧凑格式 YYYYMMDD
+        date_compact = str(date).replace("-", "")
         global_id = (
-            f"EVT-{date}-{seq:06d}"
+            f"EVT-{date_compact}-{seq:06d}"
         )
 
         registry[
