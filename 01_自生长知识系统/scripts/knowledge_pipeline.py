@@ -947,10 +947,11 @@ def get_enriched_files(
     date,
     language,
 ):
+    # 修复：输入目录语言使用小写
     root = (
         RAW_NEWS
         / f"{date}-Enriched"
-        / language
+        / language.lower()
     )
 
     if not root.exists():
