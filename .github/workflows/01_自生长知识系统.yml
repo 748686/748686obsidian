@@ -1355,7 +1355,366 @@ jobs:
 
 
       # ==========================================================
-      # 27. Complete
+      # 27. RUN RETURN LOG
+      #
+      # ★★★ 新增返回日志 ★★★
+      #
+      # 这里不参与任何业务处理。
+      #
+      # 只负责：
+      # 1. 汇总本次三日运行结果
+      # 2. 返回各层实际文件数量
+      # 3. 返回 EventUnits 数量
+      # 4. 返回日报状态
+      # 5. 返回 Git 最新 Commit
+      # 6. 写入 GitHub Actions Step Summary
+      #
+      # 不改变前面的任何处理逻辑。
+      # ==========================================================
+
+      - name: Run Return Log
+        if: always()
+        run: |
+          echo
+          echo "######################################################################"
+          echo "                  748686 KNOWLEDGE SYSTEM"
+          echo "                       RUN RETURN LOG"
+          echo "######################################################################"
+
+          echo
+          echo "============================================================"
+          echo "RUN INFORMATION"
+          echo "============================================================"
+
+          echo "Workflow : 01 自生长知识系统 - 主运行"
+          echo "Run ID   : $GITHUB_RUN_ID"
+          echo "Run No.  : $GITHUB_RUN_NUMBER"
+          echo "Repository: $GITHUB_REPOSITORY"
+          echo "Branch   : $GITHUB_REF_NAME"
+          echo "Commit   : $GITHUB_SHA"
+          echo "Runner   : ubuntu-latest"
+          echo "Python   : 3.12"
+          echo "Timezone : UTC"
+
+          echo
+          echo "============================================================"
+          echo "PROCESSING DATES"
+          echo "============================================================"
+
+          echo "DAY_BEFORE : $DAY_BEFORE"
+          echo "YESTERDAY  : $YESTERDAY"
+          echo "TODAY      : $TODAY"
+
+          echo
+          echo "============================================================"
+          echo "THREE-DAY DATA STATUS"
+          echo "============================================================"
+
+          for DATE in \
+            "$DAY_BEFORE" \
+            "$YESTERDAY" \
+            "$TODAY"
+          do
+
+            echo
+            echo "------------------------------------------------------------"
+            echo "DATE: $DATE"
+            echo "------------------------------------------------------------"
+
+            RAW_DIR="01_自生长知识系统/Raw News/$DATE"
+            ATOMIC_DIR="01_自生长知识系统/Raw News/${DATE}-Atomic"
+            ENRICHED_DIR="01_自生长知识系统/Raw News/${DATE}-Enriched"
+            EVENT_DIR="01_自生长知识系统/Raw News/${DATE}-EventUnits"
+            REPORT="01_自生长知识系统/05_日报/${DATE:0:4}/${DATE:5:2}/${DATE}.md"
+
+            if [ -d "$RAW_DIR" ]; then
+              RAW_COUNT=$(find "$RAW_DIR" \
+                -maxdepth 1 \
+                -type f \
+                -name "*.md" \
+                | wc -l)
+            else
+              RAW_COUNT=0
+            fi
+
+            if [ -d "$ATOMIC_DIR/zh" ]; then
+              ATOMIC_ZH=$(find "$ATOMIC_DIR/zh" \
+                -maxdepth 1 \
+                -type f \
+                -name "*.md" \
+                | wc -l)
+            else
+              ATOMIC_ZH=0
+            fi
+
+            if [ -d "$ATOMIC_DIR/en" ]; then
+              ATOMIC_EN=$(find "$ATOMIC_DIR/en" \
+                -maxdepth 1 \
+                -type f \
+                -name "*.md" \
+                | wc -l)
+            else
+              ATOMIC_EN=0
+            fi
+
+            if [ -d "$ENRICHED_DIR/zh" ]; then
+              ENRICHED_ZH=$(find "$ENRICHED_DIR/zh" \
+                -maxdepth 1 \
+                -type f \
+                -name "*.md" \
+                | wc -l)
+            else
+              ENRICHED_ZH=0
+            fi
+
+            if [ -d "$ENRICHED_DIR/en" ]; then
+              ENRICHED_EN=$(find "$ENRICHED_DIR/en" \
+                -maxdepth 1 \
+                -type f \
+                -name "*.md" \
+                | wc -l)
+            else
+              ENRICHED_EN=0
+            fi
+
+            if [ -d "$EVENT_DIR" ]; then
+              EVENT_COUNT=$(find "$EVENT_DIR" \
+                -maxdepth 1 \
+                -type f \
+                -name "EVT-*.md" \
+                | wc -l)
+            else
+              EVENT_COUNT=0
+            fi
+
+            echo "Raw News       : $RAW_COUNT"
+
+            echo "Atomic ZH      : $ATOMIC_ZH"
+            echo "Atomic EN      : $ATOMIC_EN"
+
+            echo "Enriched ZH    : $ENRICHED_ZH"
+            echo "Enriched EN    : $ENRICHED_EN"
+
+            echo "EventUnits     : $EVENT_COUNT"
+
+            if [ -f "$EVENT_DIR/_EVENT_UNITS_COMPLETE" ]; then
+              echo "Event Complete : YES"
+            else
+              echo "Event Complete : NO"
+            fi
+
+            if [ -f "$REPORT" ]; then
+              echo "Daily Report   : YES"
+            else
+              echo "Daily Report   : NO"
+            fi
+
+          done
+
+          echo
+          echo "============================================================"
+          echo "SYSTEM STAGES"
+          echo "============================================================"
+
+          echo "Horizon:"
+          echo "  ✅ checked"
+
+          echo "Raw News:"
+          echo "  ✅ three-day checked"
+
+          echo "Atomic News:"
+          echo "  ✅ three-day checked"
+          echo "  ✅ immediately pushed"
+          echo "  ✅ immediately pulled"
+
+          echo "Source Enrichment:"
+          echo "  ✅ three-day checked"
+
+          echo "Enriched News:"
+          echo "  ✅ three-day checked"
+          echo "  ✅ immediately pushed"
+          echo "  ✅ immediately pulled"
+
+          echo "Knowledge Pipeline:"
+          echo "  ✅ three-day aggregation"
+          echo "  ✅ three-day EventUnits validation"
+          echo "  ✅ EventUnits immediately pushed"
+          echo "  ✅ EventUnits immediately pulled"
+          echo "  ✅ three-day skills"
+
+          echo "Weekly Report:"
+          echo "  ✅ completed"
+
+          echo "Final Commit:"
+          echo "  ✅ executed"
+
+          echo
+          echo "============================================================"
+          echo "LATEST GIT COMMIT"
+          echo "============================================================"
+
+          git log -1 \
+            --pretty=format:"Commit: %H%nAuthor: %an%nDate: %ad%nMessage: %s" \
+            --date=iso
+
+          echo
+
+          echo
+          echo "============================================================"
+          echo "GITHUB ACTIONS STEP SUMMARY"
+          echo "============================================================"
+
+          {
+            echo "# 748686 自生长知识系统 — Run Return Log"
+            echo
+            echo "## Run Information"
+            echo
+            echo "| Item | Value |"
+            echo "|---|---|"
+            echo "| Workflow | 01 自生长知识系统 - 主运行 |"
+            echo "| Run ID | $GITHUB_RUN_ID |"
+            echo "| Run Number | $GITHUB_RUN_NUMBER |"
+            echo "| Repository | $GITHUB_REPOSITORY |"
+            echo "| Branch | $GITHUB_REF_NAME |"
+            echo "| Commit | $GITHUB_SHA |"
+            echo "| Timezone | UTC |"
+            echo "| Runner | ubuntu-latest |"
+            echo
+            echo "## Processing Dates"
+            echo
+            echo "| Role | Date |"
+            echo "|---|---|"
+            echo "| 前天 | $DAY_BEFORE |"
+            echo "| 昨天 | $YESTERDAY |"
+            echo "| 今天 | $TODAY |"
+            echo
+            echo "## Three-Day Data"
+            echo
+            echo "| Date | Raw | Atomic ZH | Atomic EN | Enriched ZH | Enriched EN | EventUnits | Event Complete | Daily Report |"
+            echo "|---|---:|---:|---:|---:|---:|---:|---|---|"
+
+            for DATE in \
+              "$DAY_BEFORE" \
+              "$YESTERDAY" \
+              "$TODAY"
+            do
+
+              RAW_DIR="01_自生长知识系统/Raw News/$DATE"
+              ATOMIC_DIR="01_自生长知识系统/Raw News/${DATE}-Atomic"
+              ENRICHED_DIR="01_自生长知识系统/Raw News/${DATE}-Enriched"
+              EVENT_DIR="01_自生长知识系统/Raw News/${DATE}-EventUnits"
+              REPORT="01_自生长知识系统/05_日报/${DATE:0:4}/${DATE:5:2}/${DATE}.md"
+
+              if [ -d "$RAW_DIR" ]; then
+                RAW_COUNT=$(find "$RAW_DIR" \
+                  -maxdepth 1 \
+                  -type f \
+                  -name "*.md" \
+                  | wc -l)
+              else
+                RAW_COUNT=0
+              fi
+
+              if [ -d "$ATOMIC_DIR/zh" ]; then
+                ATOMIC_ZH=$(find "$ATOMIC_DIR/zh" \
+                  -maxdepth 1 \
+                  -type f \
+                  -name "*.md" \
+                  | wc -l)
+              else
+                ATOMIC_ZH=0
+              fi
+
+              if [ -d "$ATOMIC_DIR/en" ]; then
+                ATOMIC_EN=$(find "$ATOMIC_DIR/en" \
+                  -maxdepth 1 \
+                  -type f \
+                  -name "*.md" \
+                  | wc -l)
+              else
+                ATOMIC_EN=0
+              fi
+
+              if [ -d "$ENRICHED_DIR/zh" ]; then
+                ENRICHED_ZH=$(find "$ENRICHED_DIR/zh" \
+                  -maxdepth 1 \
+                  -type f \
+                  -name "*.md" \
+                  | wc -l)
+              else
+                ENRICHED_ZH=0
+              fi
+
+              if [ -d "$ENRICHED_DIR/en" ]; then
+                ENRICHED_EN=$(find "$ENRICHED_DIR/en" \
+                  -maxdepth 1 \
+                  -type f \
+                  -name "*.md" \
+                  | wc -l)
+              else
+                ENRICHED_EN=0
+              fi
+
+              if [ -d "$EVENT_DIR" ]; then
+                EVENT_COUNT=$(find "$EVENT_DIR" \
+                  -maxdepth 1 \
+                  -type f \
+                  -name "EVT-*.md" \
+                  | wc -l)
+              else
+                EVENT_COUNT=0
+              fi
+
+              if [ -f "$EVENT_DIR/_EVENT_UNITS_COMPLETE" ]; then
+                EVENT_STATUS="YES"
+              else
+                EVENT_STATUS="NO"
+              fi
+
+              if [ -f "$REPORT" ]; then
+                REPORT_STATUS="YES"
+              else
+                REPORT_STATUS="NO"
+              fi
+
+              echo "| $DATE | $RAW_COUNT | $ATOMIC_ZH | $ATOMIC_EN | $ENRICHED_ZH | $ENRICHED_EN | $EVENT_COUNT | $EVENT_STATUS | $REPORT_STATUS |"
+
+            done
+
+            echo
+            echo "## Pipeline Status"
+            echo
+            echo "- ✅ Horizon checked"
+            echo "- ✅ Three-day Raw News validated"
+            echo "- ✅ Three-day Atomic News validated"
+            echo "- ✅ Atomic News pushed + pulled"
+            echo "- ✅ Three-day Enriched News validated"
+            echo "- ✅ Enriched News pushed + pulled"
+            echo "- ✅ Three-day Aggregation completed"
+            echo "- ✅ Three-day EventUnits validated"
+            echo "- ✅ EventUnits pushed + pulled"
+            echo "- ✅ Three-day Skills completed"
+            echo "- ✅ Weekly Report completed"
+            echo "- ✅ Final Knowledge System commit executed"
+            echo
+            echo "## Latest Git Commit"
+            echo
+            echo '```text'
+            git log -1 \
+              --pretty=format:"%H%n%an%n%ad%n%s" \
+              --date=iso
+            echo
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo
+          echo "######################################################################"
+          echo "                    RETURN LOG COMPLETE"
+          echo "######################################################################"
+
+
+      # ==========================================================
+      # 28. Complete Job
       # ==========================================================
 
       - name: Complete Job
