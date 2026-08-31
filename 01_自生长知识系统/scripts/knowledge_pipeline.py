@@ -73,6 +73,7 @@ EVENT_INDEX_FILE = "_event_index.json"
 EVENT_UNITS_COMPLETE_FILE = "_EVENT_UNITS_COMPLETE"
 GLOBAL_MERGE_CHECKPOINT_FILE = "_global_merge_checkpoint.json"
 GLOBAL_CLUSTER_REGISTRY_FILE = "_global_cluster_registry.json"
+SKILLS_COMPLETE_FILE = "_SKILLS_COMPLETE"  # 补充定义
 
 
 # ============================================================
@@ -5158,28 +5159,17 @@ def run_stage_1(date):
         date
     )
 
-    # ========================================================
-    # 重要：
-    #
-    # 这里不再删除 Registry。
-    #
-    # V6.5.1 的：
-    #
-    # registry_file.unlink()
-    #
-    # 已删除。
-    #
-    # Resume必须保留Global ID Ledger。
-    # ========================================================
-
-    registry = load_global_cluster_registry(
-        date,
-        create_if_missing=True
-    )
-
+    # 注意：不需要提前加载 registry，
+    # build_initial_clusters 内部会自己加载并更新。
     initial = build_initial_clusters(
         date,
         news
+    )
+
+    # 重新加载最新 registry（build 内部已持久化）
+    registry = load_global_cluster_registry(
+        date,
+        create_if_missing=False
     )
 
     # 确保build阶段和当前Registry一致。
