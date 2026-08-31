@@ -579,7 +579,7 @@ class UnionFind:
             self.find(v)
         return {"parent": dict(self.parent), "rank": dict(self.rank)}
 
-@classmethod
+    @classmethod
     def from_checkpoint(cls, values, data):
         uf = cls(values)
         if not isinstance(data, dict):
