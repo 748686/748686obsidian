@@ -1,6 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-""" 748686 自生长知识系统 - Knowledge Pipeline V6.4.2 V6.4.2 changes: 1. Global Merge checkpoint explicitly distinguishes: - running: current round + completed windows + UF - round_completed: next round + rebuilt clusters - converged: final stable clusters 2. A running checkpoint always stores the exact immutable cluster universe used by the current round and its Union-Find state. 3. Every completed window is checkpointed atomically. 4. Round completion is checkpointed only after rebuild + validation. 5. Converged checkpoint stores the actual converged round, never a fake MAX_GLOBAL_MERGE_ROUNDS value. 6. Global merge metadata keeps a persistent per-component metadata history during a round, so overlap singleton judgments cannot overwrite a stable event merely because they occur later. 7. Original cluster membership is immutable and must cover exactly once. 8. Article coverage is independently validated and overlap is never treated as article duplication. 9. Existing EventUnit / Skill resume behavior is preserved. """
+""" 748686 自生长知识系统 - Knowledge Pipeline V6.5.0 
+           V6.5.0 changes:
+           1. Global Merge checkpoint explicitly distinguishes: - running: current round + completed windows + UF - round_completed: next round + rebuilt clusters - converged: final stable clusters 
+           2. A running checkpoint always stores the exact immutable cluster universe used by the current round and its Union-Find state.
+           3. Every completed window is checkpointed atomically. 
+           4. Round completion is checkpointed only after rebuild + validation.
+           5. Converged checkpoint stores the actual converged round, never a fake MAX_GLOBAL_MERGE_ROUNDS value.
+           6. Global merge metadata keeps a persistent per-component metadata history during a round, so overlap singleton judgments cannot overwrite a stable event merely because they occur later.
+           7. Original cluster membership is immutable and must cover exactly once.
+           8. Article coverage is independently validated and overlap is never treated as article duplication. 
+           9. Existing EventUnit / Skill resume behavior is preserved. """
 
 from __future__ import annotations
 
@@ -47,10 +57,11 @@ AI_429_BACKOFF_MAX = 180
 AI_429_JITTER_MAX = 3
 _LAST_AI_REQUEST_TIME = 0.0
 
-AGGREGATION_BATCH_SIZE = 40
+# 第一层：严格每30篇Enriched News为一个AI聚类批次。
+AGGREGATION_BATCH_SIZE = 30
+# 后续每一轮：严格以30个当前Cluster为一个AI归并窗口。
 GLOBAL_MERGE_WINDOW_SIZE = 30
 GLOBAL_MERGE_OVERLAP = 15
-MAX_GLOBAL_MERGE_ROUNDS = 12
 MAX_ARTICLES_PER_EVENT_CONTEXT = 30
 ARTICLE_CLUSTER_CONTENT_LIMIT = 3500
 ARTICLE_AGGREGATION_CONTENT_LIMIT = 8000
@@ -128,14 +139,24 @@ def write_json_atomic(path, data):
 
 
 def parse_ai_json(result, context):
+    """严格解析AI JSON，同时容忍常见Markdown围栏和前后说明。"""
     text = str(result).strip()
     if text.startswith("```"):
         text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.I)
         text = re.sub(r"\s*```$", "", text).strip()
     try:
         return json.loads(text)
-    except Exception as e:
-        raise RuntimeError(f"❌ AI JSON解析失败：{context}\n\n{text[:5000]}") from e
+    except Exception:
+        # 尝试从前后说明中提取完整JSON对象。
+        start = text.find("{")
+        end = text.rfind("}")
+        if start >= 0 and end > start:
+            candidate = text[start:end + 1]
+            try:
+                return json.loads(candidate)
+            except Exception:
+                pass
+        raise RuntimeError(f"❌ AI JSON解析失败：{context}\n\n{text[:5000]}")
 
 
 def safe_name(text):
@@ -210,7 +231,7 @@ def call_ai(prompt, system_prompt=None, temperature=DEFAULT_TEMPERATURE):
             "Authorization": f"Bearer {key}",
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "User-Agent": "748686-Knowledge-Pipeline/6.4.2"
+            "User-Agent": "748686-Knowledge-Pipeline/6.5.0"
         },
         method="POST"
     )
@@ -373,10 +394,28 @@ def normalize_clusters(cs):
 def cluster_news_batch(date, items, start):
     expected = list(range(start, start + len(items)))
     joined = "\n\n".join(build_article_digest(x, start + i) for i, x in enumerate(items))
-    prompt = f"""你正在执行748686自生长知识系统V6.4.2第二层事件聚合。 日期：{date} {joined} 任务：识别哪些新闻属于同一个现实世界事件。 支持跨来源、跨语言。 不要因为关键词、公司、行业、国家相同就强行合并。 无法确定时宁可分开。 绝对覆盖ARTICLE编号：{json.dumps(expected)} 每篇必须且只能属于一个cluster。 无法与其他文章合并的文章必须单独成为cluster。 只输出JSON： {{ "clusters": [ {{ "cluster_id": "C001", "article_indexes": [1], "event_title": "统一事件名称", "event_reason": "事件判断" }} ] }}"""
-    data = parse_ai_json(call_ai(prompt,
-        "你是全球新闻事件聚类专家。每篇ARTICLE必须且只能属于一个cluster。", 0),
-        f"{date} 第一轮新闻聚类")
+
+    prompt = f"""你正在执行748686自生长知识系统V6.5.0第一层事件聚类。 日期：{date} {joined} 任务：识别哪些新闻属于同一个现实世界的具体事件。 支持跨来源、跨语言。 不要因为关键词、公司、行业、国家相同就强行合并。 无法确定时宁可分开。 绝对覆盖ARTICLE编号：{json.dumps(expected)} 每篇必须且只能属于一个cluster。 无法与其他文章合并的文章必须单独成为cluster。 重要输出限制： - 只输出JSON，不要Markdown，不要解释。 - event_title尽量短。 - event_reason尽量短，一句话即可。 - 不要复制文章正文。 只输出： {{ "clusters": [ {{ "cluster_id": "C001", "article_indexes": [1], "event_title": "统一事件名称", "event_reason": "一句话判断" }} ] }}"""
+
+    try:
+        result = call_ai(
+            prompt,
+            "你是全球新闻事件聚类专家。每篇ARTICLE必须且只能属于一个cluster。只输出合法JSON。",
+            0
+        )
+        data = parse_ai_json(result, f"{date} 第一轮新闻聚类")
+    except RuntimeError as first_error:
+        # 30篇一批仍可能因模型输出过长而被截断。
+        # 此时不直接让整天失败，而是用更短的输出格式重试同一批。
+        compact_prompt = f"""748686 V6.5.0 新闻事件聚类JSON修复。 日期：{date} ARTICLE范围：{json.dumps(expected)} 文章： {joined} 重新聚类。严格要求： 1. 每个ARTICLE恰好一次； 2. 同一具体现实事件合并；不同事件分开； 3. 不能确定宁可分开； 4. 每个cluster只返回cluster_id、article_indexes、event_title、event_reason； 5. event_title不超过40字；event_reason不超过80字； 6. 绝对不要输出文章正文； 7. 只输出JSON，不要代码围栏，不要解释。 格式：{{"clusters":[{{"cluster_id":"C001","article_indexes":[1],"event_title":"事件","event_reason":"判断"}}]}}"""
+        print(f" ⚠️ 第一轮聚类JSON解析失败，启动同批次紧凑JSON重试：{first_error}")
+        result = call_ai(
+            compact_prompt,
+            "你是新闻聚类JSON修复器。只输出合法JSON，绝不输出解释。",
+            0
+        )
+        data = parse_ai_json(result, f"{date} 第一轮新闻聚类紧凑重试")
+
     cs = data.get("clusters")
     if not isinstance(cs, list):
         raise RuntimeError(f"❌ {date} 第一轮聚类结果缺少clusters")
@@ -386,7 +425,7 @@ def cluster_news_batch(date, items, start):
 def repair_cluster_news_batch(date, items, start, broken, issues, attempt):
     expected = list(range(start, start + len(items)))
     joined = "\n\n".join(build_article_digest(x, start + i) for i, x in enumerate(items))
-    prompt = f"""修复748686 V6.4.2 ARTICLE覆盖冲突。 日期：{date} 第{attempt}次修复 真实ARTICLE：{json.dumps(expected)} 文章： {joined} 上次结果： {json.dumps(broken, ensure_ascii=False, indent=2)} 检测问题： {json.dumps(issues, ensure_ascii=False, indent=2)} 重新判断全部文章。 要求：同事件合并；不同事件分开；每篇ARTICLE恰好一次；Missing=0；Duplicate=0；Extra=0。 只输出JSON： {{ "clusters": [ {{ "cluster_id": "C001", "article_indexes": [1], "event_title": "事件", "event_reason": "原因" }} ] }}"""
+    prompt = f"""修复748686 V6.5.0 ARTICLE覆盖冲突。 日期：{date} 第{attempt}次修复 真实ARTICLE：{json.dumps(expected)} 文章： {joined} 上次结果： {json.dumps(broken, ensure_ascii=False, indent=2)} 检测问题： {json.dumps(issues, ensure_ascii=False, indent=2)} 重新判断全部文章。 要求：同事件合并；不同事件分开；每篇ARTICLE恰好一次；Missing=0；Duplicate=0；Extra=0。 只输出JSON： {{ "clusters": [ {{ "cluster_id": "C001", "article_indexes": [1], "event_title": "事件", "event_reason": "原因" }} ] }}"""
     data = parse_ai_json(call_ai(prompt, "你是新闻事件聚类冲突修复专家。", 0),
                          f"{date} 聚类冲突修复 #{attempt}")
     cs = data.get("clusters")
@@ -579,7 +618,7 @@ class UnionFind:
             self.find(v)
         return {"parent": dict(self.parent), "rank": dict(self.rank)}
 
-    @classmethod
+@classmethod
     def from_checkpoint(cls, values, data):
         uf = cls(values)
         if not isinstance(data, dict):
@@ -632,7 +671,7 @@ def merge_cluster_window(date, window, round_no, window_no):
     extra = sorted(set(actual) - set(expected))
     if dup or miss or extra or malformed:
         log_conflict(date, f"STAGE 1B / ROUND {round_no} / WINDOW {window_no}",
-                     "V6.4.2 Global Merge窗口AI输出覆盖异常。",
+                     "V6.5.0 Global Merge窗口AI输出覆盖异常。",
                      {"duplicate": dup, "missing": miss, "extra": extra,
                       "malformed": malformed, "groups": groups})
         raise RuntimeError(f"❌ Global Merge窗口AI输出异常 Duplicate={dup} Missing={miss} Extra={extra} Malformed={malformed}")
@@ -777,7 +816,7 @@ def save_global_merge_checkpoint(date, round_no, current, original_cluster_ids, 
     if completed_windows is None:
         completed_windows = []
     data = {
-        "version": "6.4.2",
+        "version": "6.5.0",
         "date": date,
         "status": status,
         "round": int(round_no),
@@ -803,7 +842,7 @@ def load_global_merge_checkpoint(date):
         return None
     if not isinstance(data, dict):
         return None
-    if data.get("version") not in ("6.4", "6.4.1", "6.4.2") or data.get("date") != date:
+    if data.get("version") not in ("6.4", "6.4.1", "6.4.2", "6.5.0") or data.get("date") != date:
         return None
     return data
 
@@ -888,7 +927,7 @@ def merge_all_clusters(date, clusters, news_count):
     if checkpoint_valid:
         status = checkpoint.get("status")
         current = checkpoint["current_clusters"]
-        print(f"\n♻️ 检测到有效 V6.4.2 Global Merge checkpoint | status={status} | round={checkpoint.get('round')}")
+        print(f"\n♻️ 检测到有效 V6.5.0 Global Merge checkpoint | status={status} | round={checkpoint.get('round')}")
         print(f" Restored clusters: {len(current)}")
 
         if status == "converged":
@@ -915,10 +954,11 @@ def merge_all_clusters(date, clusters, news_count):
         completed_windows = []
         uf = None
         metadata_history = {}
-        print("\n🆕 未检测到可恢复的V6.4.2 checkpoint")
+        print("\n🆕 未检测到可恢复的V6.5.0 checkpoint")
 
     if final_current is None:
-        for rnd in range(start_round, MAX_GLOBAL_MERGE_ROUNDS + 1):
+        rnd = start_round
+        while True:
             before = len(current)
             print(f"\nGLOBAL MERGE ROUND {rnd} | Input Clusters: {before}")
 
@@ -999,18 +1039,9 @@ def merge_all_clusters(date, clusters, news_count):
             )
             print(f" 💾 Round {rnd} completed checkpoint saved | next_round={rnd + 1}")
 
+            rnd += 1
             checkpoint_valid = True
             checkpoint = load_global_merge_checkpoint(date)
-
-        else:
-            print(f"⚠️ Global Merge达到最大轮次：{MAX_GLOBAL_MERGE_ROUNDS}")
-            final_current = current
-            # Preserve a resumable round-completed state rather than falsely
-            # declaring convergence.
-            save_global_merge_checkpoint(
-                date, MAX_GLOBAL_MERGE_ROUNDS + 1, current,
-                original_cluster_ids, [], "round_completed", None, None, {}
-            )
 
     validate_global_cluster_membership(date, final_current, "STAGE 1B FINAL", original_cluster_ids)
     validate_global_article_coverage(date, final_current, news_count, "STAGE 1B FINAL")
@@ -1068,7 +1099,7 @@ def synthesize_event(event):
     blocks = []
     for a in event["articles"][:MAX_ARTICLES_PER_EVENT_CONTEXT]:
         blocks.append(f"""### 来源文章 #{a['index']} 标题：{a['title']} 来源：{a['source']} 链接：{a['source_url']} source_status：{a['source_status']} content_status：{a['content_status']} 内容： {a['body'][:ARTICLE_AGGREGATION_CONTENT_LIMIT]}""")
-    prompt = f"""你正在执行748686自生长知识系统V6.4.2第二层事件知识综合。 日期：{event['date']} 事件ID：{event['event_id']} 事件名称：{event['event_title']} 第一轮事件判断：{event['event_reason']} 同一事件的多来源输入： {chr(10).join(blocks)} 把来源综合成一个高质量事件知识单元。 要求： 1. 识别共同事实 2. 保留来源独有信息 3. 保留不同地区视角 4. 区分事实与推测 5. 不编造 6. source_status不是fetched时不得声称完整阅读原文 7. 冲突明确指出 8. 资料不足明确说明 输出标准中文Markdown，包含： # 事件名称 ## 事件概述 ## 核心事实 ## 多来源交叉验证 ## 不同来源独有信息 ## 不同国家 / 地区视角 ## 信息差异与冲突 ## 当前已知影响 ## 目前不能确定的事情 ## 来源 ## 事件结论"""
+    prompt = f"""你正在执行748686自生长知识系统V6.5.0第二层事件知识综合。 日期：{event['date']} 事件ID：{event['event_id']} 事件名称：{event['event_title']} 第一轮事件判断：{event['event_reason']} 同一事件的多来源输入： {chr(10).join(blocks)} 把来源综合成一个高质量事件知识单元。 要求： 1. 识别共同事实 2. 保留来源独有信息 3. 保留不同地区视角 4. 区分事实与推测 5. 不编造 6. source_status不是fetched时不得声称完整阅读原文 7. 冲突明确指出 8. 资料不足明确说明 输出标准中文Markdown，包含： # 事件名称 ## 事件概述 ## 核心事实 ## 多来源交叉验证 ## 不同来源独有信息 ## 不同国家 / 地区视角 ## 信息差异与冲突 ## 当前已知影响 ## 目前不能确定的事情 ## 来源 ## 事件结论"""
     return call_ai(prompt, "你是跨来源新闻综合专家。严格依据输入，不得编造。输出标准中文Markdown。", 0.2)
 
 
@@ -1296,7 +1327,7 @@ def run_stage_2(date):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="748686 Knowledge Pipeline V6.4.2")
+    ap = argparse.ArgumentParser(description="748686 Knowledge Pipeline V6.5.0")
     ap.add_argument("--date", required=True)
     ap.add_argument("--stage", choices=["aggregation", "skills", "all"], default="aggregation")
     args = ap.parse_args()
@@ -1309,9 +1340,9 @@ def main():
         print("\n❌ 用户中断")
         return 130
     except Exception as e:
-        print(f"\n❌ Knowledge Pipeline V6.4.2 FAILED: {e}", file=sys.stderr)
+        print(f"\n❌ Knowledge Pipeline V6.5.0 FAILED: {e}", file=sys.stderr)
         return 1
-    print(f"\n✅ Knowledge Pipeline V6.4.2 finished: {args.date} / {args.stage}")
+    print(f"\n✅ Knowledge Pipeline V6.5.0 finished: {args.date} / {args.stage}")
     return 0
 
 
