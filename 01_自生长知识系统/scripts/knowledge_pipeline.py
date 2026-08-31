@@ -2,10 +2,10 @@
 # -*- coding: utf-8 -*-
 
 """
-748686 自生长知识系统 - Knowledge Pipeline V6.4
+748686 自生长知识系统 - Knowledge Pipeline V6.4.1
 
 ================================================================
-V6.4
+V6.4.1
 ================================================================
 
 Stage 1:
@@ -30,10 +30,10 @@ EventUnits
 
 
 ================================================================
-V6.4 GLOBAL MERGE ENGINE
+V6.4.1 GLOBAL MERGE ENGINE
 ================================================================
 
-V6.3 基础：
+V6.4 基础：
 
     Initial Cluster
         ↓
@@ -50,7 +50,7 @@ V6.3 基础：
     Stable Global Cluster Membership
 
 
-V6.4 进一步强化：
+V6.4.1 修复：
 
 1. 原始 Cluster Universe 永久保存
 
@@ -74,9 +74,12 @@ V6.4 进一步强化：
        只合并 membership
        保留稳定的原始 Cluster 集合
 
-7. metadata：
-       优先采用真正发生合并的 AI group
-       防止 overlap 中 singleton 判断覆盖已有事件判断
+7. metadata 稳定性：
+       ① 优先采用真正发生合并的 AI group
+       ② 其次采用本轮明确合并多个 Cluster 的 group
+       ③ 再保留已有稳定事件 metadata
+       ④ singleton 最后
+       防止 overlap 中 singleton 判断覆盖已有事件
 
 8. Global Merge checkpoint：
        真正支持 Window 级断点续跑
@@ -84,28 +87,30 @@ V6.4 进一步强化：
 9. 每完成一个 Window：
        保存完整 Union-Find 状态
 
-10. 中断后：
+10. checkpoint 使用临时文件 + replace 原子替换
+
+11. 中断后：
        不重新执行已经完成的 Window
 
-11. 恢复时：
+12. 恢复时：
        从最后一个未完成 Window继续
 
-12. Round完成后：
-       保存完整 Round结果
+13. Round完成后：
+       保存下一轮可以恢复的稳定状态
 
-13. 最终 Event ID：
+14. 最终 Event ID：
        EVT-{date}-{序号}
        序号按照最小 ARTICLE index 稳定排序
 
 
 ================================================================
-V6.4 CHECKPOINT MODEL
+V6.4.1 CHECKPOINT MODEL
 ================================================================
 
 checkpoint保存：
 
 {
-    "version": "6.4",
+    "version": "6.4.1",
     "date": "...",
     "status": "running",
 
@@ -113,11 +118,14 @@ checkpoint保存：
 
     "completed_windows": [1, 2, 3],
 
+    "window_count": 8,
+
     "current_clusters": [...],
 
-    "uf_parent": {...},
-
-    "uf_rank": {...},
+    "union_find": {
+        "parent": {...},
+        "rank": {...}
+    },
 
     "original_cluster_ids": [...],
 
@@ -143,7 +151,7 @@ Round 3
 
 
 ================================================================
-V6.3 保留
+V6.3 / V6.4 保留
 ================================================================
 
 - Batch Size = 40
@@ -230,7 +238,7 @@ EVENT_UNITS_COMPLETE_FILE = "_EVENT_UNITS_COMPLETE"
 
 SKILLS_COMPLETE_FILE = "_SKILLS_COMPLETE"
 
-# V6.4 Global Merge checkpoint
+# V6.4.1 Global Merge checkpoint
 GLOBAL_MERGE_CHECKPOINT_FILE = "_global_merge_checkpoint.json"
 
 
@@ -431,6 +439,75 @@ def write_json(path, data):
         ),
         encoding="utf-8"
     )
+
+
+# ============================================================
+# V6.4.1 ATOMIC JSON WRITE
+# ============================================================
+
+def write_json_atomic(path, data):
+
+    """
+    V6.4.1：
+
+    先写临时文件，再使用 Path.replace()
+    原子替换正式checkpoint。
+
+    这样即使程序在正式文件替换前中断，
+    原有checkpoint仍然保持完整。
+
+    注意：
+    tmp文件必须与目标文件位于同一目录，
+    以保证replace发生在同一filesystem。
+    """
+
+    path.parent.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    tmp_path = path.with_name(
+        path.name + ".tmp"
+    )
+
+    payload = json.dumps(
+        data,
+        ensure_ascii=False,
+        indent=2
+    )
+
+    try:
+
+        tmp_path.write_text(
+            payload,
+            encoding="utf-8"
+        )
+
+        # 强制读取验证临时JSON完整性
+        json.loads(
+            tmp_path.read_text(
+                encoding="utf-8"
+            )
+        )
+
+        # 原子替换正式文件
+        tmp_path.replace(
+            path
+        )
+
+    except Exception:
+
+        # 如果replace尚未发生，清理临时文件。
+        # 不影响已有正式checkpoint。
+        try:
+
+            if tmp_path.exists():
+                tmp_path.unlink()
+
+        except Exception:
+            pass
+
+        raise
 
 
 # ============================================================
@@ -707,7 +784,7 @@ def call_ai(
                 "application/json",
 
             "User-Agent":
-                "748686-Knowledge-Pipeline/6.4"
+                "748686-Knowledge-Pipeline/6.4.1"
         },
 
         method="POST"
@@ -1054,7 +1131,8 @@ def load_all_enriched_news(date):
 
     items = [
         x
-        for x in items
+        for x
+        in items
         if x["metadata"]
         .get(
             "title",
@@ -1321,7 +1399,7 @@ def cluster_news_batch(
         )
     )
 
-    prompt = f"""你正在执行748686自生长知识系统V6.4第二层事件聚合。
+    prompt = f"""你正在执行748686自生长知识系统V6.4.1第二层事件聚合。
 日期：{date}
 
 {joined}
@@ -1426,7 +1504,7 @@ def repair_cluster_news_batch(
         )
     )
 
-    prompt = f"""修复748686 V6.4 ARTICLE覆盖冲突。
+    prompt = f"""修复748686 V6.4.1 ARTICLE覆盖冲突。
 
 日期：{date}
 第{attempt}次修复
@@ -2096,7 +2174,7 @@ class UnionFind:
         return result
 
     # ========================================================
-    # V6.4 checkpoint serialization
+    # V6.4.1 checkpoint serialization
     # ========================================================
 
     def to_checkpoint(self):
@@ -2221,10 +2299,6 @@ class UnionFind:
             in rank.items()
         }
 
-        # ====================================================
-        # 验证parent指向存在
-        # ====================================================
-
         for k, v in uf.parent.items():
 
             if v not in uf.parent:
@@ -2233,10 +2307,6 @@ class UnionFind:
                     "❌ Union-Find checkpoint "
                     f"存在非法parent：{k}->{v}"
                 )
-
-        # ====================================================
-        # 验证rank合法
-        # ====================================================
 
         for k, v in uf.rank.items():
 
@@ -2322,7 +2392,7 @@ Cluster ID：
         )
     )
 
-    prompt = f"""你正在执行748686自生长知识系统V6.4全局事件归并。
+    prompt = f"""你正在执行748686自生长知识系统V6.4.1全局事件归并。
 
 日期：
 {date}
@@ -2501,7 +2571,7 @@ Cluster ID：
             date,
             f"STAGE 1B / ROUND {round_no} "
             f"/ WINDOW {window_no}",
-            "V6.4 Global Merge窗口AI输出覆盖异常。",
+            "V6.4.1 Global Merge窗口AI输出覆盖异常。",
             {
                 "duplicate": dup,
                 "missing": miss,
@@ -2621,7 +2691,7 @@ def apply_window_groups(
 
 
 # ============================================================
-# V6.4 STABLE GLOBAL CLUSTER REBUILD
+# V6.4.1 STABLE GLOBAL CLUSTER REBUILD
 # ============================================================
 
 def rebuild_global_clusters(
@@ -2746,39 +2816,116 @@ def rebuild_global_clusters(
         )
 
         # ====================================================
-        # metadata 选择规则
+        # V6.4.1 metadata稳定选择
         #
-        # 1. 优先真正发生 merge 的 group
-        # 2. 其次选择参与多个Cluster的 group
-        # 3. 最后才使用singleton group
-        # 4. 同等级情况下：
-        #       reason更完整者优先
+        # 优先级：
+        #
+        # 1. 真正发生实际Union的group
+        # 2. 明确包含多个Cluster的group
+        # 3. 已有稳定Cluster metadata
+        # 4. singleton group
+        #
+        # 核心目的：
+        #
+        # overlap窗口中的singleton判断，
+        # 不得覆盖已经形成的稳定事件。
         # ====================================================
 
-        candidates = [
+        merge_candidates = [
             r
             for r
             in component_records
             if r.get("merged")
+            and len(
+                r.get(
+                    "cluster_ids",
+                    []
+                )
+            ) > 1
         ]
 
-        if not candidates:
+        multi_cluster_candidates = [
+            r
+            for r
+            in component_records
+            if len(
+                r.get(
+                    "cluster_ids",
+                    []
+                )
+            ) > 1
+        ]
 
-            candidates = [
-                r
-                for r
-                in component_records
-                if len(
-                    r.get(
-                        "cluster_ids",
-                        []
-                    )
-                ) > 1
-            ]
+        singleton_candidates = [
+            r
+            for r
+            in component_records
+            if len(
+                r.get(
+                    "cluster_ids",
+                    []
+                )
+            ) == 1
+        ]
 
-        if not candidates:
+        # ----------------------------------------------------
+        # 1. 真正发生Union的AI判断最高优先级
+        # ----------------------------------------------------
 
-            candidates = component_records
+        if merge_candidates:
+
+            candidates = merge_candidates
+
+            candidate_priority = (
+                "actual_merge"
+            )
+
+        # ----------------------------------------------------
+        # 2. 当前轮明确多个Cluster属于同一group
+        # ----------------------------------------------------
+
+        elif multi_cluster_candidates:
+
+            candidates = (
+                multi_cluster_candidates
+            )
+
+            candidate_priority = (
+                "multi_cluster"
+            )
+
+        # ----------------------------------------------------
+        # 3. 已有稳定metadata
+        #
+        # 注意：
+        # old_titles / old_reasons来自当前进入Round
+        # 的稳定Cluster。
+        #
+        # 只要没有新的真实多Cluster AI判断，
+        # 就优先保留已有事件语义。
+        # ----------------------------------------------------
+
+        elif old_titles or old_reasons:
+
+            candidates = []
+
+            candidate_priority = (
+                "existing_stable_metadata"
+            )
+
+        # ----------------------------------------------------
+        # 4. 最后才允许singleton提供metadata
+        # ----------------------------------------------------
+
+        else:
+
+            candidates = (
+                singleton_candidates
+            )
+
+            candidate_priority = (
+                "singleton"
+            )
 
         def candidate_score(r):
 
@@ -2830,6 +2977,32 @@ def rebuild_global_clusters(
             title = ""
 
             reason = ""
+
+        # ====================================================
+        # V6.4.1：
+        # 如果没有新的有效multi-cluster metadata，
+        # 保留已有稳定metadata。
+        # ====================================================
+
+        if candidate_priority == (
+            "existing_stable_metadata"
+        ):
+
+            title = max(
+                old_titles,
+                key=len,
+                default=""
+            )
+
+            reason = max(
+                old_reasons,
+                key=len,
+                default=""
+            )
+
+        # ====================================================
+        # 防止AI group返回空metadata
+        # ====================================================
 
         if not title:
 
@@ -3017,7 +3190,7 @@ def validate_global_article_coverage(
 
 
 # ============================================================
-# V6.4 GLOBAL MERGE CHECKPOINT
+# V6.4.1 GLOBAL MERGE CHECKPOINT
 # ============================================================
 
 def save_global_merge_checkpoint(
@@ -3036,7 +3209,7 @@ def save_global_merge_checkpoint(
 
     data = {
         "version":
-            "6.4",
+            "6.4.1",
 
         "date":
             date,
@@ -3044,15 +3217,27 @@ def save_global_merge_checkpoint(
         "status":
             status,
 
+        # ====================================================
+        # round语义：
+        #
+        # running checkpoint：
+        # 当前正在执行的Round
+        #
+        # Round完成后：
+        # 保存为下一轮Round编号
+        # ====================================================
+
         "round":
             int(round_no),
 
         "completed_windows":
-            [
-                int(x)
-                for x
-                in completed_windows
-            ],
+            sorted(
+                set(
+                    int(x)
+                    for x
+                    in completed_windows
+                )
+            ),
 
         "window_count":
             (
@@ -3064,7 +3249,8 @@ def save_global_merge_checkpoint(
         "original_cluster_ids":
             sorted(
                 str(x)
-                for x in original_cluster_ids
+                for x
+                in original_cluster_ids
             ),
 
         "current_clusters":
@@ -3081,7 +3267,12 @@ def save_global_merge_checkpoint(
             now().isoformat()
     }
 
-    write_json(
+    # ========================================================
+    # V6.4.1：
+    # 使用原子JSON写入
+    # ========================================================
+
+    write_json_atomic(
         global_merge_checkpoint_path(date),
         data
     )
@@ -3106,7 +3297,14 @@ def load_global_merge_checkpoint(
             None
         )
 
-    except Exception:
+    except Exception as e:
+
+        log_conflict(
+            date,
+            "GLOBAL MERGE CHECKPOINT",
+            "Checkpoint JSON读取失败，将忽略checkpoint。",
+            str(e)
+        )
 
         return None
 
@@ -3117,9 +3315,14 @@ def load_global_merge_checkpoint(
 
         return None
 
-    if data.get(
+    version = data.get(
         "version"
-    ) != "6.4":
+    )
+
+    if version not in (
+        "6.4",
+        "6.4.1"
+    ):
 
         return None
 
@@ -3146,7 +3349,7 @@ def remove_global_merge_checkpoint(
 
 
 # ============================================================
-# V6.4 GLOBAL MERGE CHECKPOINT VALIDATION
+# V6.4.1 GLOBAL MERGE CHECKPOINT VALIDATION
 # ============================================================
 
 def validate_checkpoint(
@@ -3236,8 +3439,7 @@ def validate_checkpoint(
     )
 
     # ========================================================
-    # converged checkpoint：
-    # Union-Find可以为空
+    # converged checkpoint
     # ========================================================
 
     if status == "converged":
@@ -3280,7 +3482,6 @@ def validate_checkpoint(
             uf_data
         )
 
-        # 强制验证components可正常生成
         uf.components()
 
     except Exception as e:
@@ -3350,6 +3551,10 @@ def validate_checkpoint(
 
             return False
 
+        if window_count < 1:
+
+            return False
+
         if any(
             x > window_count
             for x
@@ -3383,7 +3588,7 @@ def merge_all_clusters(
     print(
         "\n"
         + "=" * 70
-        + "\nSTAGE 1B — V6.4 GLOBAL EVENT MERGING\n"
+        + "\nSTAGE 1B — V6.4.1 GLOBAL EVENT MERGING\n"
         + "=" * 70
     )
 
@@ -3435,7 +3640,7 @@ def merge_all_clusters(
         ]
 
         print(
-            "\n♻️ 检测到有效 V6.4 Global Merge checkpoint"
+            "\n♻️ 检测到有效 V6.4.1 Global Merge checkpoint"
         )
 
         print(
@@ -3510,16 +3715,16 @@ def merge_all_clusters(
             if checkpoint_valid:
 
                 # ====================================================
-                # 重要：
+                # checkpoint round：
+                # 当前正在执行的Round
                 #
-                # checkpoint round代表“正在执行的round”
+                # completed_windows：
+                # 该Round已经完成的Window
                 #
-                # completed_windows代表：
-                # 该round已经完成的window
+                # 所以：
                 #
-                # 因此：
-                #
-                # next_window = max(completed_windows)+1
+                # next_window =
+                #     max(completed_windows) + 1
                 # ====================================================
 
                 start_round = checkpoint_round
@@ -3539,7 +3744,7 @@ def merge_all_clusters(
         uf = None
 
         print(
-            "\n🆕 未检测到可恢复的V6.4 checkpoint"
+            "\n🆕 未检测到可恢复的V6.4.1 checkpoint"
         )
 
     # ========================================================
@@ -3669,13 +3874,6 @@ def merge_all_clusters(
                         "Window已经完成。"
                     )
 
-                    # =========================================
-                    # 当前checkpoint保存的是：
-                    # round内最后一个window之后的UF
-                    #
-                    # 需要直接进入components/rebuild。
-                    # =========================================
-
                     round_group_records = []
 
                 else:
@@ -3739,7 +3937,7 @@ def merge_all_clusters(
                 )
 
                 # =============================================
-                # V6.4：
+                # V6.4.1：
                 # 每完成一个Window立即保存完整UF
                 # =============================================
 
@@ -3879,14 +4077,25 @@ def merge_all_clusters(
             current = merged
 
             # =================================================
-            # Round完成
+            # Round完成 checkpoint
             #
-            # 保存下一轮可以恢复的稳定状态
+            # 当前Round已经完成并且已经rebuild。
             #
-            # 注意：
-            # 当前Round已经rebuild，
-            # 所以Union-Find只属于旧current，
-            # 下一轮必须重新创建UF。
+            # 所以checkpoint中的round明确表示：
+            #
+            # “下一次应该执行的Round”
+            #
+            # 例如：
+            #
+            # Round 3完成
+            #     ↓
+            # checkpoint.round = 4
+            #
+            # completed_windows = []
+            #
+            # union_find = None
+            #
+            # 下一次启动直接从Round 4开始。
             # =================================================
 
             save_global_merge_checkpoint(
@@ -3901,7 +4110,9 @@ def merge_all_clusters(
             )
 
             print(
-                f"   💾 Round {rnd} completed checkpoint saved"
+                f"   💾 Round {rnd} completed "
+                f"checkpoint saved "
+                f"| next_round={rnd + 1}"
             )
 
             checkpoint_valid = True
@@ -4163,7 +4374,7 @@ content_status：{a['content_status']}
 {a['body'][:ARTICLE_AGGREGATION_CONTENT_LIMIT]}"""
         )
 
-    prompt = f"""你正在执行748686自生长知识系统V6.4第二层事件知识综合。
+    prompt = f"""你正在执行748686自生长知识系统V6.4.1第二层事件知识综合。
 
 日期：
 {event['date']}
@@ -4916,7 +5127,7 @@ def run_stage_1(
     print(
         f"\n{'=' * 70}\n"
         f"STAGE 1 — EVENT UNIT "
-        f"GENERATION V6.4: {date}\n"
+        f"GENERATION V6.4.1: {date}\n"
         f"{'=' * 70}"
     )
 
@@ -5115,7 +5326,7 @@ def run_one_skill(
         errors="replace"
     )
 
-    prompt = f"""你正在执行748686自生长知识系统V6.4的27 Skills深度处理。
+    prompt = f"""你正在执行748686自生长知识系统V6.4.1的27 Skills深度处理。
 
 事件：
 {event[0].get(
@@ -5310,7 +5521,7 @@ def main():
 
     ap = argparse.ArgumentParser(
         description=
-        "748686 Knowledge Pipeline V6.4"
+        "748686 Knowledge Pipeline V6.4.1"
     )
 
     ap.add_argument(
@@ -5362,7 +5573,7 @@ def main():
 
         print(
             f"\n❌ Knowledge Pipeline "
-            f"V6.4 FAILED: {e}",
+            f"V6.4.1 FAILED: {e}",
             file=sys.stderr
         )
 
@@ -5370,7 +5581,7 @@ def main():
 
     print(
         f"\n✅ Knowledge Pipeline "
-        f"V6.4 finished: "
+        f"V6.4.1 finished: "
         f"{args.date} / "
         f"{args.stage}"
     )
