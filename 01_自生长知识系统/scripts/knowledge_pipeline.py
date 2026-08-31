@@ -2,10 +2,10 @@
 # -*- coding: utf-8 -*-
 
 """
-748686 自生长知识系统 - Knowledge Pipeline V6.3
+748686 自生长知识系统 - Knowledge Pipeline V6.4
 
 ================================================================
-V6.3
+V6.4
 ================================================================
 
 Stage 1:
@@ -30,10 +30,10 @@ EventUnits
 
 
 ================================================================
-V6.3 GLOBAL MERGE ENGINE
+V6.4 GLOBAL MERGE ENGINE
 ================================================================
 
-V6.2 基础架构：
+V6.3 基础：
 
     Initial Cluster
         ↓
@@ -50,33 +50,96 @@ V6.2 基础架构：
     Stable Global Cluster Membership
 
 
-V6.3 进一步强化：
+V6.4 进一步强化：
 
 1. 原始 Cluster Universe 永久保存
-2. 每轮验证原始 Cluster membership：
+
+2. 每轮验证 Original Cluster membership：
        Original Cluster 1..N
            ↓
        恰好一次
+
 3. 每轮验证 Article coverage：
        ARTICLE 1..N
            ↓
        恰好一次
+
 4. overlap 不参与 coverage 去重判断
+
 5. 如果本轮没有任何实际 Union：
        不重新 rebuild Cluster
        直接 Converged
+
 6. 如果发生实际 merge：
        只合并 membership
        保留稳定的原始 Cluster 集合
+
 7. metadata：
        优先采用真正发生合并的 AI group
        防止 overlap 中 singleton 判断覆盖已有事件判断
+
 8. Global Merge checkpoint：
-       中断后可以继续
-       不需要重新执行已经完成的 Global Merge round/window
-9. 最终 Event ID：
+       真正支持 Window 级断点续跑
+
+9. 每完成一个 Window：
+       保存完整 Union-Find 状态
+
+10. 中断后：
+       不重新执行已经完成的 Window
+
+11. 恢复时：
+       从最后一个未完成 Window继续
+
+12. Round完成后：
+       保存完整 Round结果
+
+13. 最终 Event ID：
        EVT-{date}-{序号}
        序号按照最小 ARTICLE index 稳定排序
+
+
+================================================================
+V6.4 CHECKPOINT MODEL
+================================================================
+
+checkpoint保存：
+
+{
+    "version": "6.4",
+    "date": "...",
+    "status": "running",
+
+    "round": 3,
+
+    "completed_windows": [1, 2, 3],
+
+    "current_clusters": [...],
+
+    "uf_parent": {...},
+
+    "uf_rank": {...},
+
+    "original_cluster_ids": [...],
+
+    "saved_at": "..."
+}
+
+
+因此：
+
+Round 3
+    Window 1  ✅
+    Window 2  ✅
+    Window 3  ✅
+    Window 4  ← 中断
+
+重新启动：
+
+Round 3
+    Window 1  ⏭️
+    Window 2  ⏭️
+    Window 3  ⏭️
+    Window 4  ▶️
 
 
 ================================================================
@@ -167,7 +230,7 @@ EVENT_UNITS_COMPLETE_FILE = "_EVENT_UNITS_COMPLETE"
 
 SKILLS_COMPLETE_FILE = "_SKILLS_COMPLETE"
 
-# V6.3 Global Merge checkpoint
+# V6.4 Global Merge checkpoint
 GLOBAL_MERGE_CHECKPOINT_FILE = "_global_merge_checkpoint.json"
 
 
@@ -644,7 +707,7 @@ def call_ai(
                 "application/json",
 
             "User-Agent":
-                "748686-Knowledge-Pipeline/6.3"
+                "748686-Knowledge-Pipeline/6.4"
         },
 
         method="POST"
@@ -1258,7 +1321,7 @@ def cluster_news_batch(
         )
     )
 
-    prompt = f"""你正在执行748686自生长知识系统V6.3第二层事件聚合。
+    prompt = f"""你正在执行748686自生长知识系统V6.4第二层事件聚合。
 日期：{date}
 
 {joined}
@@ -1363,7 +1426,7 @@ def repair_cluster_news_batch(
         )
     )
 
-    prompt = f"""修复748686 V6.3 ARTICLE覆盖冲突。
+    prompt = f"""修复748686 V6.4 ARTICLE覆盖冲突。
 
 日期：{date}
 第{attempt}次修复
@@ -2032,6 +2095,160 @@ class UnionFind:
 
         return result
 
+    # ========================================================
+    # V6.4 checkpoint serialization
+    # ========================================================
+
+    def to_checkpoint(self):
+
+        self._compress_all()
+
+        return {
+            "parent":
+                dict(
+                    self.parent
+                ),
+
+            "rank":
+                dict(
+                    self.rank
+                )
+        }
+
+    def _compress_all(self):
+
+        for value in list(
+            self.parent
+        ):
+
+            self.find(
+                value
+            )
+
+    @classmethod
+    def from_checkpoint(
+        cls,
+        values,
+        data
+    ):
+
+        uf = cls(
+            values
+        )
+
+        if not isinstance(
+            data,
+            dict
+        ):
+
+            raise RuntimeError(
+                "❌ Union-Find checkpoint格式异常"
+            )
+
+        parent = data.get(
+            "parent"
+        )
+
+        rank = data.get(
+            "rank"
+        )
+
+        if not isinstance(
+            parent,
+            dict
+        ):
+
+            raise RuntimeError(
+                "❌ Union-Find checkpoint缺少parent"
+            )
+
+        if not isinstance(
+            rank,
+            dict
+        ):
+
+            raise RuntimeError(
+                "❌ Union-Find checkpoint缺少rank"
+            )
+
+        expected = {
+            str(x)
+            for x
+            in values
+        }
+
+        actual_parent = {
+            str(x)
+            for x
+            in parent
+        }
+
+        actual_rank = {
+            str(x)
+            for x
+            in rank
+        }
+
+        if (
+            actual_parent
+            != expected
+        ):
+
+            raise RuntimeError(
+                "❌ Union-Find checkpoint "
+                "parent Universe不一致"
+            )
+
+        if (
+            actual_rank
+            != expected
+        ):
+
+            raise RuntimeError(
+                "❌ Union-Find checkpoint "
+                "rank Universe不一致"
+            )
+
+        uf.parent = {
+            str(k): str(v)
+            for k, v
+            in parent.items()
+        }
+
+        uf.rank = {
+            str(k): int(v)
+            for k, v
+            in rank.items()
+        }
+
+        # ====================================================
+        # 验证parent指向存在
+        # ====================================================
+
+        for k, v in uf.parent.items():
+
+            if v not in uf.parent:
+
+                raise RuntimeError(
+                    "❌ Union-Find checkpoint "
+                    f"存在非法parent：{k}->{v}"
+                )
+
+        # ====================================================
+        # 验证rank合法
+        # ====================================================
+
+        for k, v in uf.rank.items():
+
+            if v < 0:
+
+                raise RuntimeError(
+                    "❌ Union-Find checkpoint "
+                    f"存在非法rank：{k}->{v}"
+                )
+
+        return uf
+
 
 # ============================================================
 # GLOBAL MERGE WINDOW AI
@@ -2105,7 +2322,7 @@ Cluster ID：
         )
     )
 
-    prompt = f"""你正在执行748686自生长知识系统V6.3全局事件归并。
+    prompt = f"""你正在执行748686自生长知识系统V6.4全局事件归并。
 
 日期：
 {date}
@@ -2284,7 +2501,7 @@ Cluster ID：
             date,
             f"STAGE 1B / ROUND {round_no} "
             f"/ WINDOW {window_no}",
-            "V6.3 Global Merge窗口AI输出覆盖异常。",
+            "V6.4 Global Merge窗口AI输出覆盖异常。",
             {
                 "duplicate": dup,
                 "missing": miss,
@@ -2404,7 +2621,7 @@ def apply_window_groups(
 
 
 # ============================================================
-# V6.3 STABLE GLOBAL CLUSTER REBUILD
+# V6.4 STABLE GLOBAL CLUSTER REBUILD
 # ============================================================
 
 def rebuild_global_clusters(
@@ -2533,9 +2750,9 @@ def rebuild_global_clusters(
         #
         # 1. 优先真正发生 merge 的 group
         # 2. 其次选择参与多个Cluster的 group
-        # 3. 最后才使用 singleton group
+        # 3. 最后才使用singleton group
         # 4. 同等级情况下：
-        #       reason 更完整者优先
+        #       reason更完整者优先
         # ====================================================
 
         candidates = [
@@ -2629,22 +2846,6 @@ def rebuild_global_clusters(
                 key=len,
                 default=""
             )
-
-        # ====================================================
-        # V6.3：
-        # Global Cluster ID基于最小原始Cluster ID。
-        #
-        # 这样：
-        #
-        # B001-C001
-        # B002-C003
-        #
-        # 合并后：
-        #
-        # GM-B001-C001
-        #
-        # 下一轮仍然保留这个身份。
-        # ====================================================
 
         if not original_members:
 
@@ -2816,7 +3017,7 @@ def validate_global_article_coverage(
 
 
 # ============================================================
-# V6.3 GLOBAL MERGE CHECKPOINT
+# V6.4 GLOBAL MERGE CHECKPOINT
 # ============================================================
 
 def save_global_merge_checkpoint(
@@ -2825,7 +3026,9 @@ def save_global_merge_checkpoint(
     current,
     original_cluster_ids,
     completed_windows=None,
-    status="running"
+    status="running",
+    uf=None,
+    window_count=None
 ):
 
     if completed_windows is None:
@@ -2833,7 +3036,7 @@ def save_global_merge_checkpoint(
 
     data = {
         "version":
-            "6.3",
+            "6.4",
 
         "date":
             date,
@@ -2842,20 +3045,37 @@ def save_global_merge_checkpoint(
             status,
 
         "round":
-            round_no,
+            int(round_no),
 
         "completed_windows":
-            completed_windows,
+            [
+                int(x)
+                for x
+                in completed_windows
+            ],
+
+        "window_count":
+            (
+                int(window_count)
+                if window_count is not None
+                else None
+            ),
 
         "original_cluster_ids":
             sorted(
                 str(x)
-                for x
-                in original_cluster_ids
+                for x in original_cluster_ids
             ),
 
         "current_clusters":
             current,
+
+        "union_find":
+            (
+                uf.to_checkpoint()
+                if uf is not None
+                else None
+            ),
 
         "saved_at":
             now().isoformat()
@@ -2899,7 +3119,7 @@ def load_global_merge_checkpoint(
 
     if data.get(
         "version"
-    ) != "6.3":
+    ) != "6.4":
 
         return None
 
@@ -2926,7 +3146,7 @@ def remove_global_merge_checkpoint(
 
 
 # ============================================================
-# GLOBAL MERGE CHECKPOINT VALIDATION
+# V6.4 GLOBAL MERGE CHECKPOINT VALIDATION
 # ============================================================
 
 def validate_checkpoint(
@@ -3010,6 +3230,134 @@ def validate_checkpoint(
 
         return False
 
+    status = checkpoint.get(
+        "status",
+        "running"
+    )
+
+    # ========================================================
+    # converged checkpoint：
+    # Union-Find可以为空
+    # ========================================================
+
+    if status == "converged":
+
+        return True
+
+    # ========================================================
+    # running checkpoint：
+    # 必须存在UF
+    # ========================================================
+
+    uf_data = checkpoint.get(
+        "union_find"
+    )
+
+    if not isinstance(
+        uf_data,
+        dict
+    ):
+
+        log_conflict(
+            date,
+            "GLOBAL MERGE CHECKPOINT",
+            "running checkpoint缺少完整Union-Find状态。"
+        )
+
+        return False
+
+    try:
+
+        current_ids = [
+            str(
+                c["cluster_id"]
+            )
+            for c in current
+        ]
+
+        uf = UnionFind.from_checkpoint(
+            current_ids,
+            uf_data
+        )
+
+        # 强制验证components可正常生成
+        uf.components()
+
+    except Exception as e:
+
+        log_conflict(
+            date,
+            "GLOBAL MERGE CHECKPOINT",
+            "Union-Find checkpoint验证失败。",
+            str(e)
+        )
+
+        return False
+
+    completed_windows = checkpoint.get(
+        "completed_windows",
+        []
+    )
+
+    if not isinstance(
+        completed_windows,
+        list
+    ):
+
+        return False
+
+    try:
+
+        completed_windows = [
+            int(x)
+            for x
+            in completed_windows
+        ]
+
+    except Exception:
+
+        return False
+
+    if any(
+        x < 1
+        for x
+        in completed_windows
+    ):
+
+        return False
+
+    if len(
+        set(completed_windows)
+    ) != len(
+        completed_windows
+    ):
+
+        return False
+
+    window_count = checkpoint.get(
+        "window_count"
+    )
+
+    if window_count is not None:
+
+        try:
+
+            window_count = int(
+                window_count
+            )
+
+        except Exception:
+
+            return False
+
+        if any(
+            x > window_count
+            for x
+            in completed_windows
+        ):
+
+            return False
+
     return True
 
 
@@ -3035,7 +3383,7 @@ def merge_all_clusters(
     print(
         "\n"
         + "=" * 70
-        + "\nSTAGE 1B — V6.3 GLOBAL EVENT MERGING\n"
+        + "\nSTAGE 1B — V6.4 GLOBAL EVENT MERGING\n"
         + "=" * 70
     )
 
@@ -3053,21 +3401,22 @@ def merge_all_clusters(
         "STAGE 1B INITIAL"
     )
 
-    # ========================================================
-    # V6.3：
-    # 尝试读取 Global Merge checkpoint
-    # ========================================================
-
     checkpoint = load_global_merge_checkpoint(
         date
     )
 
-    if validate_checkpoint(
+    checkpoint_valid = validate_checkpoint(
         date,
         checkpoint,
         original_cluster_ids,
         news_count
-    ):
+    )
+
+    # ========================================================
+    # checkpoint恢复
+    # ========================================================
+
+    if checkpoint_valid:
 
         checkpoint_status = checkpoint.get(
             "status",
@@ -3086,7 +3435,7 @@ def merge_all_clusters(
         ]
 
         print(
-            "\n♻️ 检测到有效 Global Merge checkpoint"
+            "\n♻️ 检测到有效 V6.4 Global Merge checkpoint"
         )
 
         print(
@@ -3111,24 +3460,94 @@ def merge_all_clusters(
                 "已经Converged，直接恢复最终结果。"
             )
 
+            final_current = current
+
         else:
 
-            # 已经完成的round已经保存在current，
-            # 下一轮从checkpoint round继续。
-            pass
+            completed_windows = [
+                int(x)
+                for x
+                in checkpoint.get(
+                    "completed_windows",
+                    []
+                )
+            ]
+
+            print(
+                f"   Completed windows: "
+                f"{completed_windows}"
+            )
+
+            uf_data = checkpoint.get(
+                "union_find"
+            )
+
+            current_ids = [
+                str(
+                    c["cluster_id"]
+                )
+                for c in current
+            ]
+
+            try:
+
+                uf = UnionFind.from_checkpoint(
+                    current_ids,
+                    uf_data
+                )
+
+            except Exception as e:
+
+                log_conflict(
+                    date,
+                    "GLOBAL MERGE CHECKPOINT",
+                    "恢复Union-Find失败，将忽略checkpoint。",
+                    str(e)
+                )
+
+                checkpoint_valid = False
+
+            if checkpoint_valid:
+
+                # ====================================================
+                # 重要：
+                #
+                # checkpoint round代表“正在执行的round”
+                #
+                # completed_windows代表：
+                # 该round已经完成的window
+                #
+                # 因此：
+                #
+                # next_window = max(completed_windows)+1
+                # ====================================================
+
+                start_round = checkpoint_round
 
     # ========================================================
-    # 如果checkpoint是converged
+    # 没有有效checkpoint
+    # ========================================================
+
+    if not checkpoint_valid:
+
+        current = clusters
+
+        start_round = 1
+
+        completed_windows = []
+
+        uf = None
+
+        print(
+            "\n🆕 未检测到可恢复的V6.4 checkpoint"
+        )
+
+    # ========================================================
+    # converged checkpoint
     # ========================================================
 
     if (
-        checkpoint
-        and validate_checkpoint(
-            date,
-            checkpoint,
-            original_cluster_ids,
-            news_count
-        )
+        checkpoint_valid
         and checkpoint.get(
             "status"
         ) == "converged"
@@ -3138,24 +3557,9 @@ def merge_all_clusters(
 
     else:
 
-        start_round = 1
-
-        if checkpoint and validate_checkpoint(
-            date,
-            checkpoint,
-            original_cluster_ids,
-            news_count
-        ):
-
-            start_round = (
-                int(
-                    checkpoint.get(
-                        "round",
-                        0
-                    )
-                )
-                + 1
-            )
+        # ====================================================
+        # 主 Round Loop
+        # ====================================================
 
         for rnd in range(
             start_round,
@@ -3184,8 +3588,12 @@ def merge_all_clusters(
                     current,
                     original_cluster_ids,
                     [],
-                    "converged"
+                    "converged",
+                    None,
+                    0
                 )
+
+                final_current = current
 
                 break
 
@@ -3193,38 +3601,121 @@ def merge_all_clusters(
                 current
             )
 
+            window_count = len(
+                windows
+            )
+
             print(
                 f"Windows: "
-                f"{len(windows)} "
+                f"{window_count} "
                 f"| Size: "
                 f"{GLOBAL_MERGE_WINDOW_SIZE} "
                 f"| Overlap: "
                 f"{GLOBAL_MERGE_OVERLAP}"
             )
 
-            # =================================================
-            # 每一轮重新建立Union-Find
-            # =================================================
-
             current_ids = [
-                c["cluster_id"]
+                str(
+                    c["cluster_id"]
+                )
                 for c in current
             ]
 
-            uf = UnionFind(
-                current_ids
-            )
+            # =================================================
+            # 判断本轮是否是恢复
+            # =================================================
 
-            round_group_records = []
-
-            for wi, w in enumerate(
-                windows,
-                1
+            if (
+                checkpoint_valid
+                and rnd == start_round
+                and checkpoint.get(
+                    "status"
+                ) == "running"
             ):
+
+                completed_windows = [
+                    int(x)
+                    for x
+                    in checkpoint.get(
+                        "completed_windows",
+                        []
+                    )
+                ]
+
+                uf_data = checkpoint.get(
+                    "union_find"
+                )
+
+                uf = UnionFind.from_checkpoint(
+                    current_ids,
+                    uf_data
+                )
+
+                next_window = (
+                    max(
+                        completed_windows,
+                        default=0
+                    )
+                    + 1
+                )
+
+                if (
+                    next_window
+                    > window_count
+                ):
+
+                    print(
+                        "♻️ Checkpoint显示本轮所有"
+                        "Window已经完成。"
+                    )
+
+                    # =========================================
+                    # 当前checkpoint保存的是：
+                    # round内最后一个window之后的UF
+                    #
+                    # 需要直接进入components/rebuild。
+                    # =========================================
+
+                    round_group_records = []
+
+                else:
+
+                    print(
+                        f"♻️ 从 Window "
+                        f"{next_window} "
+                        f"继续"
+                    )
+
+                    round_group_records = []
+
+            else:
+
+                completed_windows = []
+
+                uf = UnionFind(
+                    current_ids
+                )
+
+                next_window = 1
+
+                round_group_records = []
+
+            # =================================================
+            # Window Loop
+            # =================================================
+
+            for wi in range(
+                next_window,
+                window_count + 1
+            ):
+
+                w = windows[
+                    wi - 1
+                ]
 
                 print(
                     f"🔹 Window {wi}/"
-                    f"{len(windows)} "
+                    f"{window_count} "
                     f"| size={len(w)}"
                 )
 
@@ -3248,26 +3739,35 @@ def merge_all_clusters(
                 )
 
                 # =============================================
-                # Window完成以后做轻量checkpoint。
-                #
-                # 当前轮的UF不能直接跨进程恢复，
-                # 所以这里记录完成情况主要用于诊断。
-                # 真正可恢复状态在round完成以后保存。
+                # V6.4：
+                # 每完成一个Window立即保存完整UF
                 # =============================================
+
+                completed_windows = sorted(
+                    set(
+                        completed_windows
+                        + [wi]
+                    )
+                )
 
                 save_global_merge_checkpoint(
                     date,
                     rnd,
                     current,
                     original_cluster_ids,
-                    list(
-                        range(
-                            1,
-                            wi + 1
-                        )
-                    ),
-                    "running"
+                    completed_windows,
+                    "running",
+                    uf,
+                    window_count
                 )
+
+                print(
+                    f"   💾 Window {wi} checkpoint saved"
+                )
+
+            # =================================================
+            # 本轮所有Window完成
+            # =================================================
 
             components = (
                 uf.components()
@@ -3301,22 +3801,10 @@ def merge_all_clusters(
                 )
 
             # =================================================
-            # V6.3关键：
+            # 无实际Union：
             #
-            # 如果没有实际Union，
-            # 不再rebuild。
-            #
-            # 这样可以避免：
-            #
-            # overlap
-            # ↓
-            # singleton AI group
-            # ↓
-            # metadata变化
-            # ↓
-            # cluster identity变化
-            #
-            # 实际没有合并，就什么都不改变。
+            # 不rebuild
+            # 直接converged
             # =================================================
 
             if not actual_merge_happened:
@@ -3343,10 +3831,12 @@ def merge_all_clusters(
                     list(
                         range(
                             1,
-                            len(windows) + 1
+                            window_count + 1
                         )
                     ),
-                    "converged"
+                    "converged",
+                    uf,
+                    window_count
                 )
 
                 print(
@@ -3389,22 +3879,32 @@ def merge_all_clusters(
             current = merged
 
             # =================================================
-            # 保存真正可恢复的round checkpoint
+            # Round完成
+            #
+            # 保存下一轮可以恢复的稳定状态
+            #
+            # 注意：
+            # 当前Round已经rebuild，
+            # 所以Union-Find只属于旧current，
+            # 下一轮必须重新创建UF。
             # =================================================
 
             save_global_merge_checkpoint(
                 date,
-                rnd,
+                rnd + 1,
                 current,
                 original_cluster_ids,
-                list(
-                    range(
-                        1,
-                        len(windows) + 1
-                    )
-                ),
-                "running"
+                [],
+                "running",
+                None,
+                None
             )
+
+            print(
+                f"   💾 Round {rnd} completed checkpoint saved"
+            )
+
+            checkpoint_valid = True
 
         else:
 
@@ -3516,8 +4016,6 @@ def merge_all_clusters(
 
     # ========================================================
     # Global Merge完成以后checkpoint保留为converged，
-    # 方便断点检查。
-    #
     # 后面Event Index成功写入后再删除。
     # ========================================================
 
@@ -3527,7 +4025,9 @@ def merge_all_clusters(
         final_current,
         original_cluster_ids,
         [],
-        "converged"
+        "converged",
+        None,
+        None
     )
 
     return final
@@ -3663,7 +4163,7 @@ content_status：{a['content_status']}
 {a['body'][:ARTICLE_AGGREGATION_CONTENT_LIMIT]}"""
         )
 
-    prompt = f"""你正在执行748686自生长知识系统V6.3第二层事件知识综合。
+    prompt = f"""你正在执行748686自生长知识系统V6.4第二层事件知识综合。
 
 日期：
 {event['date']}
@@ -4416,7 +4916,7 @@ def run_stage_1(
     print(
         f"\n{'=' * 70}\n"
         f"STAGE 1 — EVENT UNIT "
-        f"GENERATION V6.3: {date}\n"
+        f"GENERATION V6.4: {date}\n"
         f"{'=' * 70}"
     )
 
@@ -4615,7 +5115,7 @@ def run_one_skill(
         errors="replace"
     )
 
-    prompt = f"""你正在执行748686自生长知识系统V6.3的27 Skills深度处理。
+    prompt = f"""你正在执行748686自生长知识系统V6.4的27 Skills深度处理。
 
 事件：
 {event[0].get(
@@ -4810,7 +5310,7 @@ def main():
 
     ap = argparse.ArgumentParser(
         description=
-        "748686 Knowledge Pipeline V6.3"
+        "748686 Knowledge Pipeline V6.4"
     )
 
     ap.add_argument(
@@ -4862,7 +5362,7 @@ def main():
 
         print(
             f"\n❌ Knowledge Pipeline "
-            f"V6.3 FAILED: {e}",
+            f"V6.4 FAILED: {e}",
             file=sys.stderr
         )
 
@@ -4870,7 +5370,7 @@ def main():
 
     print(
         f"\n✅ Knowledge Pipeline "
-        f"V6.3 finished: "
+        f"V6.4 finished: "
         f"{args.date} / "
         f"{args.stage}"
     )
