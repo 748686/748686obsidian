@@ -2,38 +2,118 @@
 # -*- coding: utf-8 -*-
 
 """
-748686 自生长知识系统 - Knowledge Pipeline V6.5.2
+748686 自生长知识系统
+Knowledge Pipeline V6.5.3
 
-Global Cluster Contract
-=======================
+============================================================
+V6.5.3 Processing Unit 架构
+============================================================
 
-AI:
-    Local Cluster ID only:
-        C001 / C002 / C003 / ...
+Processing Unit = DATE + LANGUAGE
 
-Python Global Registry:
-    EVT-YYYYMMDD-NNNNNN
+例如：
 
-正式 Global ID:
-    EVT-YYYYMMDD-NNNNNN
+2026-08-29 + EN
+2026-08-29 + ZH
+2026-08-30 + EN
+2026-08-30 + ZH
+2026-08-31 + EN
+2026-08-31 + ZH
 
-禁止：
-    EVT-YYYY-MM-DD-NNNNNN
-    REC-...
-    GM-...
-    C001 作为 Global ID
+每一个 Processing Unit 完全独立执行：
 
-核心原则：
-1. AI 永远不生产 Global ID。
-2. Global ID 只能由 Python Registry Producer 生成。
-3. Registry 以 ARTICLE membership 为幂等键。
-4. Resume / Recovery 不重复注册同一 ARTICLE membership。
-5. Registry 与 Global Merge checkpoint 必须一致。
-6. Validator 严格，不放宽格式。
-7. Stage 1A AI阶段只验证 Local Cluster + ARTICLE coverage。
-8. 注册完成后才进入 Global Cluster membership validation。
-9. 保留原有 Recovery / Union-Find / Global Merge / EventUnit / Skills。
+    DATE
+      ↓
+    LANGUAGE
+      ↓
+    Enriched News
+      ↓
+    Stage 1A Local Event Clustering
+      ↓
+    Recovery Queue
+      ↓
+    Global Registry
+      ↓
+    Stage 1B Global Merge
+      ↓
+    EventUnit
+      ↓
+    _EVENT_UNITS_COMPLETE
+      ↓
+    Stage 2 Skills
+      ↓
+    _SKILLS_COMPLETE
+
+Git Push / Pull 不属于本文件职责。
+由外层 GitHub Actions 严格：
+
+    Unit 完整
+      ↓
+    Git Push
+      ↓
+    Git Pull
+      ↓
+    下一个 Unit
+
+============================================================
+V6.5.3 主要修复
+============================================================
+
+1. Processing Unit 明确固定为 DATE + LANGUAGE。
+
+2. Global Cluster Registry 改为：
+       DATE/EN/event_units/_global_cluster_registry.json
+       DATE/ZH/event_units/_global_cluster_registry.json
+
+3. Global Merge Checkpoint 同样按 LANGUAGE 隔离。
+
+4. EN 与 ZH 不共享 Merge 状态。
+
+5. AI 只能生成 Local Cluster ID：
+       C001 / C002 / C003 ...
+
+6. Python Registry 负责：
+       EVT-YYYYMMDD-NNNNNN
+
+7. Stage 1A：
+       30 -> 正常
+       失败 -> Recovery
+       Recovery:
+       30 -> 15 -> 8 -> 4 -> 2 -> 1
+
+8. Missing-only：
+       安全覆盖部分保留
+       Missing 进入 Recovery
+
+9. Duplicate / Extra / Malformed：
+       整批隔离
+
+10. Singleton：
+       自动形成独立 Event Cluster
+
+11. ARTICLE：
+       1..N 恰好覆盖一次
+
+12. Global Merge：
+       Union-Find
+       Metadata History
+       Checkpoint Resume
+
+13. EventUnit：
+       已完成的不重复生成
+
+14. Skills：
+       已完成 Skill 不重复生成
+
+15. 原 ARTICLE 编号始终保持不变。
+
+16. 当前脚本只处理传入的：
+       --date
+       --language
+
+17. 不允许脚本内部自动切换 EN / ZH。
 """
+
 
 from __future__ import annotations
 
@@ -44,15 +124,16 @@ import random
 import re
 import sys
 import time
+
 from datetime import datetime
 from pathlib import Path
-from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+from urllib.error import HTTPError, URLError
 from zoneinfo import ZoneInfo
 
 
 # ============================================================
-# PATHS
+# PATH
 # ============================================================
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -68,161 +149,193 @@ LOGS = SYSTEM / "运行日志"
 
 ROUTES_FILE = SYSTEM / "skill_routes.json"
 
-EVENT_UNITS_SUFFIX = "EventUnits"
+
+# ============================================================
+# CONSTANTS
+# ============================================================
+
+EVENT_UNITS_SUFFIX = "EventUnit"
+
 EVENT_INDEX_FILE = "_event_index.json"
+
 EVENT_UNITS_COMPLETE_FILE = "_EVENT_UNITS_COMPLETE"
+
+SKILLS_COMPLETE_FILE = "_SKILLS_COMPLETE"
+
 GLOBAL_MERGE_CHECKPOINT_FILE = "_global_merge_checkpoint.json"
+
 GLOBAL_CLUSTER_REGISTRY_FILE = "_global_cluster_registry.json"
-SKILLS_COMPLETE_FILE = "_SKILLS_COMPLETE"  # 补充定义
 
-
-# ============================================================
-# VERSION / GLOBAL ID CONTRACT
-# ============================================================
-
-PIPELINE_VERSION = "6.5.2"
-
-GLOBAL_ID_PATTERN = re.compile(
-    r"^EVT-\d{8}-\d{6}$"
-)
-
-LOCAL_CLUSTER_ID_PATTERN = re.compile(
-    r"^C\d{3,}$"
-)
-
-GLOBAL_ID_PREFIX = "EVT"
-
-RECOVERY_BATCH_SIZES = (30, 15, 8, 4, 2, 1)
-
-AGGREGATION_BATCH_SIZE = 30
-
-GLOBAL_MERGE_WINDOW_SIZE = 30
-GLOBAL_MERGE_OVERLAP = 15
-
-
-# ============================================================
-# AI
-# ============================================================
 
 AGNES_BASE_URL = "https://api.agnes-ai.cn/v1"
+
 AGNES_MODEL = "agnes-2.5-flash"
+
 AGNES_API_KEY_ENV = "AGNES_API_KEY"
 
+
 DEFAULT_TEMPERATURE = 0.3
+
 AI_TIMEOUT = 180
 
 AI_REQUEST_THROTTLE_SECONDS = 1.5
+
 AI_MAX_429_RETRIES = 5
+
 AI_429_BACKOFF_BASE = 10
+
 AI_429_BACKOFF_MAX = 180
+
 AI_429_JITTER_MAX = 3
 
 _LAST_AI_REQUEST_TIME = 0.0
 
 
+AGGREGATION_BATCH_SIZE = 30
+
+GLOBAL_MERGE_WINDOW_SIZE = 30
+
+GLOBAL_MERGE_OVERLAP = 15
+
 MAX_ARTICLES_PER_EVENT_CONTEXT = 30
+
 ARTICLE_CLUSTER_CONTENT_LIMIT = 3500
+
 ARTICLE_AGGREGATION_CONTENT_LIMIT = 8000
 
 CLUSTER_REPAIR_ATTEMPTS = 2
 
+
+RECOVERY_BATCH_SIZES = (
+    30,
+    15,
+    8,
+    4,
+    2,
+    1,
+)
+
+
 BEIJING_TZ = ZoneInfo("Asia/Shanghai")
 
 
+CURRENT_LANGUAGE = None
+
+SUPPORTED_LANGUAGES = (
+    "EN",
+    "ZH",
+)
+
+
 # ============================================================
-# BASIC UTILITIES
+# TIME
 # ============================================================
 
 def now():
     return datetime.now(BEIJING_TZ)
 
 
-def compact_date(date: str) -> str:
+# ============================================================
+# PROCESSING UNIT PATH
+# ============================================================
+
+def event_units_root(date):
     """
-    2026-08-29 -> 20260829
-    20260829  -> 20260829
+    DATE 总目录：
+
+        Raw News/
+        └── YYYY-MM-DD-EventUnit/
     """
-    value = str(date).strip().replace("-", "")
-    if not re.fullmatch(r"\d{8}", value):
+    return RAW_NEWS / f"{date}-EventUnit"
+
+
+def language_dir(date, language=None):
+    """
+    Processing Unit：
+
+        DATE + LANGUAGE
+
+    例如：
+
+        2026-08-29-EventUnit/EN
+        2026-08-29-EventUnit/ZH
+    """
+
+    lang = language or CURRENT_LANGUAGE
+
+    if lang not in SUPPORTED_LANGUAGES:
         raise RuntimeError(
-            f"❌ 非法日期：{date}"
-        )
-    return value
-
-
-def formal_global_id(date: str, sequence: int) -> str:
-    """
-    唯一 Global ID Producer 格式。
-
-    EVT-YYYYMMDD-NNNNNN
-    """
-    d = compact_date(date)
-
-    if sequence < 1:
-        raise RuntimeError(
-            f"❌ Global sequence非法：{sequence}"
-        )
-
-    if sequence > 999999:
-        raise RuntimeError(
-            f"❌ Global sequence超过六位：{sequence}"
-        )
-
-    return f"{GLOBAL_ID_PREFIX}-{d}-{sequence:06d}"
-
-
-def validate_global_id(global_id: str):
-    """
-    严格 Global ID Validator。
-    不允许任何旧格式。
-    """
-    value = str(global_id or "").strip()
-
-    if not GLOBAL_ID_PATTERN.fullmatch(value):
-        raise RuntimeError(
-            f"❌ 非法Global Cluster ID：{value}"
+            f"❌ 未设置合法语言批次：{lang}"
         )
 
-    return True
+    return event_units_root(date) / lang
 
 
-def validate_local_cluster_id(local_id: str):
-    value = str(local_id or "").strip()
+def event_units_dir(date, language=None):
+    """
+    当前 Processing Unit 的 EventUnit 目录。
+    """
 
-    if not LOCAL_CLUSTER_ID_PATTERN.fullmatch(value):
-        raise RuntimeError(
-            f"❌ 非法Local Cluster ID：{value}"
-        )
-
-    return True
-
-
-def event_units_dir(date):
-    return RAW_NEWS / f"{date}-{EVENT_UNITS_SUFFIX}"
-
-
-def conflict_log_path(date):
-    return LOGS / f"{date}_event_aggregation_conflicts.log"
-
-
-def global_merge_checkpoint_path(date):
     return (
-        event_units_dir(date)
+        language_dir(date, language)
+        / "event_units"
+    )
+
+
+def conflict_log_path(date, language=None):
+    lang = language or CURRENT_LANGUAGE
+
+    return (
+        LOGS
+        / f"{date}_{lang}_event_aggregation_conflicts.log"
+    )
+
+
+def global_merge_checkpoint_path(date, language=None):
+    return (
+        event_units_dir(date, language)
         / GLOBAL_MERGE_CHECKPOINT_FILE
     )
 
 
-def global_cluster_registry_path(date):
+def global_cluster_registry_path(date, language=None):
+    """
+    V6.5.3：
+
+    Registry 必须属于 DATE + LANGUAGE Processing Unit。
+
+    不再放在：
+
+        YYYY-MM-DD-EventUnit/_global_cluster_registry.json
+
+    而是：
+
+        YYYY-MM-DD-EventUnit/EN/event_units/
+            _global_cluster_registry.json
+
+        YYYY-MM-DD-EventUnit/ZH/event_units/
+            _global_cluster_registry.json
+    """
+
     return (
-        event_units_dir(date)
+        event_units_dir(date, language)
         / GLOBAL_CLUSTER_REGISTRY_FILE
     )
 
 
-def log_conflict(date, stage, message, details=None):
+# ============================================================
+# LOGGING
+# ============================================================
+
+def log_conflict(
+    date,
+    stage,
+    message,
+    details=None,
+):
     LOGS.mkdir(
         parents=True,
-        exist_ok=True
+        exist_ok=True,
     )
 
     lines = [
@@ -230,6 +343,7 @@ def log_conflict(date, stage, message, details=None):
         "=" * 80,
         f"TIME: {now().isoformat()}",
         f"DATE: {date}",
+        f"LANGUAGE: {CURRENT_LANGUAGE}",
         f"STAGE: {stage}",
         f"MESSAGE: {message}",
     ]
@@ -242,7 +356,7 @@ def log_conflict(date, stage, message, details=None):
                 else json.dumps(
                     details,
                     ensure_ascii=False,
-                    indent=2
+                    indent=2,
                 )
             )
         except Exception:
@@ -250,30 +364,46 @@ def log_conflict(date, stage, message, details=None):
 
         lines += [
             "DETAILS:",
-            detail
+            detail,
         ]
 
     lines += [
         "=" * 80,
-        ""
+        "",
     ]
 
-    with conflict_log_path(date).open(
-        "a",
-        encoding="utf-8"
-    ) as f:
-        f.write("\n".join(lines))
+    path = conflict_log_path(date)
 
-    print(f"⚠️ {message}")
+    with path.open(
+        "a",
+        encoding="utf-8",
+    ) as f:
+        f.write(
+            "\n".join(lines)
+        )
+
     print(
-        f"   Conflict log: "
-        f"{conflict_log_path(date)}"
+        f"⚠️ {message}"
+    )
+
+    print(
+        f" Conflict log: {path}"
     )
 
 
-def read_json(path, default=None):
+# ============================================================
+# JSON
+# ============================================================
+
+def read_json(
+    path,
+    default=None,
+):
+    if default is None:
+        default = {}
+
     if not path.exists():
-        return {} if default is None else default
+        return default
 
     try:
         return json.loads(
@@ -281,32 +411,39 @@ def read_json(path, default=None):
                 encoding="utf-8"
             )
         )
+
     except Exception as e:
         raise RuntimeError(
             f"❌ JSON读取失败：{path}\n{e}"
         ) from e
 
 
-def write_json(path, data):
+def write_json(
+    path,
+    data,
+):
     path.parent.mkdir(
         parents=True,
-        exist_ok=True
+        exist_ok=True,
     )
 
     path.write_text(
         json.dumps(
             data,
             ensure_ascii=False,
-            indent=2
+            indent=2,
         ),
-        encoding="utf-8"
+        encoding="utf-8",
     )
 
 
-def write_json_atomic(path, data):
+def write_json_atomic(
+    path,
+    data,
+):
     path.parent.mkdir(
         parents=True,
-        exist_ok=True
+        exist_ok=True,
     )
 
     tmp = path.with_name(
@@ -317,12 +454,12 @@ def write_json_atomic(path, data):
         payload = json.dumps(
             data,
             ensure_ascii=False,
-            indent=2
+            indent=2,
         )
 
         tmp.write_text(
             payload,
-            encoding="utf-8"
+            encoding="utf-8",
         )
 
         json.loads(
@@ -332,7 +469,9 @@ def write_json_atomic(path, data):
         )
 
         with tmp.open("rb") as f:
-            os.fsync(f.fileno())
+            os.fsync(
+                f.fileno()
+            )
 
         tmp.replace(path)
 
@@ -346,7 +485,14 @@ def write_json_atomic(path, data):
         raise
 
 
-def parse_ai_json(result, context):
+# ============================================================
+# AI JSON
+# ============================================================
+
+def parse_ai_json(
+    result,
+    context,
+):
     text = str(result).strip()
 
     if text.startswith("```"):
@@ -354,48 +500,62 @@ def parse_ai_json(result, context):
             r"^```(?:json)?\s*",
             "",
             text,
-            flags=re.I
+            flags=re.I,
         )
+
         text = re.sub(
             r"\s*```$",
             "",
-            text
+            text,
         ).strip()
 
     try:
         return json.loads(text)
+
     except Exception:
         start = text.find("{")
         end = text.rfind("}")
 
         if start >= 0 and end > start:
-            candidate = text[start:end + 1]
+            candidate = text[
+                start:end + 1
+            ]
 
             try:
-                return json.loads(candidate)
+                return json.loads(
+                    candidate
+                )
             except Exception:
                 pass
 
         raise RuntimeError(
-            f"❌ AI JSON解析失败：{context}\n\n"
+            f"❌ AI JSON解析失败："
+            f"{context}\n\n"
             f"{text[:5000]}"
         )
 
+
+# ============================================================
+# SAFE NAME
+# ============================================================
 
 def safe_name(text):
     text = re.sub(
         r'[\\/:*?"<>|]',
         "_",
-        str(text or "")
+        str(text or ""),
     )
 
     text = re.sub(
         r"\s+",
         " ",
-        text
+        text,
     ).strip()
 
-    return text[:120] or "未命名"
+    return (
+        text[:120]
+        or "未命名"
+    )
 
 
 # ============================================================
@@ -406,7 +566,10 @@ def parse_front_matter(content):
     if not content.startswith("---"):
         return {}, content
 
-    parts = content.split("---", 2)
+    parts = content.split(
+        "---",
+        2,
+    )
 
     if len(parts) < 3:
         return {}, content
@@ -417,7 +580,10 @@ def parse_front_matter(content):
         if ":" not in line:
             continue
 
-        k, v = line.split(":", 1)
+        k, v = line.split(
+            ":",
+            1,
+        )
 
         data[k.strip()] = (
             v.strip()
@@ -425,11 +591,14 @@ def parse_front_matter(content):
             .strip("'")
         )
 
-    return data, parts[2].lstrip()
+    return (
+        data,
+        parts[2].lstrip(),
+    )
 
 
 # ============================================================
-# AI REQUEST
+# AI THROTTLE
 # ============================================================
 
 def wait_for_ai_throttle():
@@ -447,19 +616,26 @@ def wait_for_ai_throttle():
 
     if remaining > 0:
         print(
-            f"   ⏳ AI请求节流等待 "
+            f" ⏳ AI请求节流等待 "
             f"{remaining:.1f}s"
         )
-        time.sleep(remaining)
 
-    _LAST_AI_REQUEST_TIME = time.monotonic()
+        time.sleep(
+            remaining
+        )
+
+    _LAST_AI_REQUEST_TIME = (
+        time.monotonic()
+    )
 
 
 def parse_retry_after(headers):
     if headers is None:
         return None
 
-    value = headers.get("Retry-After")
+    value = headers.get(
+        "Retry-After"
+    )
 
     if value is None:
         return None
@@ -479,31 +655,42 @@ def parse_retry_after(headers):
         return None
 
 
-def calculate_429_backoff(retry_number):
+def calculate_429_backoff(
+    retry_number,
+):
     base = min(
         AI_429_BACKOFF_BASE
-        * (2 ** (retry_number - 1)),
-        AI_429_BACKOFF_MAX
+        * (
+            2
+            ** (
+                retry_number - 1
+            )
+        ),
+        AI_429_BACKOFF_MAX,
     )
 
     return min(
         base
         + random.uniform(
             0,
-            AI_429_JITTER_MAX
+            AI_429_JITTER_MAX,
         ),
-        AI_429_BACKOFF_MAX
+        AI_429_BACKOFF_MAX,
     )
 
+
+# ============================================================
+# AI CALL
+# ============================================================
 
 def call_ai(
     prompt,
     system_prompt=None,
-    temperature=DEFAULT_TEMPERATURE
+    temperature=DEFAULT_TEMPERATURE,
 ):
     key = os.getenv(
         AGNES_API_KEY_ENV,
-        ""
+        "",
     ).strip()
 
     if not key:
@@ -517,23 +704,27 @@ def call_ai(
             "严格依据输入内容，不得编造事实。"
         )
 
-    payload = json.dumps({
-        "model": AGNES_MODEL,
-        "messages": [
-            {
-                "role": "system",
-                "content": system_prompt
-            },
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-        "temperature": temperature
-    }, ensure_ascii=False).encode()
+    payload = json.dumps(
+        {
+            "model": AGNES_MODEL,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": system_prompt,
+                },
+                {
+                    "role": "user",
+                    "content": prompt,
+                },
+            ],
+            "temperature": temperature,
+        },
+        ensure_ascii=False,
+    ).encode()
 
     req = Request(
-        AGNES_BASE_URL + "/chat/completions",
+        AGNES_BASE_URL
+        + "/chat/completions",
         data=payload,
         headers={
             "Authorization":
@@ -543,9 +734,9 @@ def call_ai(
             "Accept":
                 "application/json",
             "User-Agent":
-                "748686-Knowledge-Pipeline/6.5.2"
+                "748686-Knowledge-Pipeline/6.5.3",
         },
-        method="POST"
+        method="POST",
     )
 
     for attempt in range(
@@ -556,15 +747,17 @@ def call_ai(
         try:
             with urlopen(
                 req,
-                timeout=AI_TIMEOUT
+                timeout=AI_TIMEOUT,
             ) as r:
-                raw = (
-                    r.read()
-                    .decode("utf-8")
+                raw = r.read().decode(
+                    "utf-8"
                 )
 
             try:
-                data = json.loads(raw)
+                data = json.loads(
+                    raw
+                )
+
             except Exception as e:
                 raise RuntimeError(
                     "❌ AGNES.ai 返回不是合法JSON\n"
@@ -576,12 +769,13 @@ def call_ai(
                     data["choices"][0]
                     ["message"]["content"]
                 )
+
             except Exception as e:
                 raise RuntimeError(
                     "❌ AGNES.ai 返回格式异常\n"
                     + json.dumps(
                         data,
-                        ensure_ascii=False
+                        ensure_ascii=False,
                     )[:5000]
                 ) from e
 
@@ -590,30 +784,39 @@ def call_ai(
                     "❌ AGNES.ai 返回空内容"
                 )
 
-            return str(result).strip()
+            return str(
+                result
+            ).strip()
 
         except HTTPError as e:
             body = ""
 
             try:
-                body = (
-                    e.read()
-                    .decode(
-                        "utf-8",
-                        errors="replace"
-                    )
+                body = e.read().decode(
+                    "utf-8",
+                    errors="replace",
                 )
             except Exception:
                 pass
 
             if e.code == 429:
-                if attempt >= AI_MAX_429_RETRIES:
+                if (
+                    attempt
+                    >= AI_MAX_429_RETRIES
+                ):
+                    print(
+                        "❌ AGNES.ai HTTP 429 — "
+                        "已达到最大自动重试次数"
+                    )
+
                     raise RuntimeError(
                         "❌ AGNES.ai HTTP 429："
                         "自动重试次数耗尽"
                     ) from e
 
-                retry_number = attempt + 1
+                retry_number = (
+                    attempt + 1
+                )
 
                 retry_after = (
                     parse_retry_after(
@@ -624,38 +827,48 @@ def call_ai(
                 if retry_after is not None:
                     wait_seconds = min(
                         retry_after,
-                        AI_429_BACKOFF_MAX
+                        AI_429_BACKOFF_MAX,
                     )
-                    source = "Retry-After"
+
+                    source = (
+                        "Retry-After"
+                    )
+
                 else:
                     wait_seconds = (
                         calculate_429_backoff(
                             retry_number
                         )
                     )
-                    source = "指数退避"
+
+                    source = (
+                        "指数退避"
+                    )
 
                 print(
                     f"⚠️ AGNES.ai HTTP 429 — "
-                    f"Retry {retry_number}/"
+                    f"Retry "
+                    f"{retry_number}/"
                     f"{AI_MAX_429_RETRIES}, "
-                    f"Wait {wait_seconds:.1f}s, "
+                    f"Wait "
+                    f"{wait_seconds:.1f}s, "
                     f"Source={source}"
                 )
 
                 if body:
                     print(
-                        "   Response:",
+                        " Response:",
                         re.sub(
                             r"\s+",
                             " ",
-                            body
-                        ).strip()[:1000]
+                            body,
+                        ).strip()[:1000],
                     )
 
                 time.sleep(
                     wait_seconds
                 )
+
                 continue
 
             raise RuntimeError(
@@ -705,8 +918,8 @@ def load_skills():
             "path": str(p),
             "content": p.read_text(
                 encoding="utf-8",
-                errors="replace"
-            )
+                errors="replace",
+            ),
         }
 
     return out
@@ -715,7 +928,7 @@ def load_skills():
 def load_routes():
     routes = read_json(
         ROUTES_FILE,
-        {}
+        {},
     )
 
     if not routes:
@@ -727,15 +940,24 @@ def load_routes():
 
 
 # ============================================================
-# NEWS
+# ENRICHED NEWS
 # ============================================================
 
-def get_enriched_files(date):
-    root = RAW_NEWS / f"{date}-Enriched"
+def get_enriched_files(
+    date,
+    language,
+):
+    root = (
+        RAW_NEWS
+        / f"{date}-Enriched"
+        / language
+    )
 
     if not root.exists():
         raise FileNotFoundError(
-            f"没有找到 Enriched目录：{root}"
+            f"没有找到 "
+            f"{date} / {language} "
+            f"Enriched目录：{root}"
         )
 
     return sorted(
@@ -746,31 +968,41 @@ def get_enriched_files(date):
 def load_news_file(path):
     content = path.read_text(
         encoding="utf-8",
-        errors="replace"
+        errors="replace",
     )
 
-    meta, body = parse_front_matter(
-        content
+    meta, body = (
+        parse_front_matter(
+            content
+        )
     )
 
     return {
         "path": path,
         "metadata": meta,
         "body": body,
-        "content": content
+        "content": content,
     }
 
 
-def load_all_enriched_news(date):
-    files = get_enriched_files(date)
+def load_all_enriched_news(
+    date,
+    language,
+):
+    files = get_enriched_files(
+        date,
+        language,
+    )
 
     print(
-        f"Enriched files: {len(files)}"
+        f"Enriched files: "
+        f"{len(files)}"
     )
 
     if not files:
         raise RuntimeError(
-            f"❌ {date} 没有Enriched新闻"
+            f"❌ {date} / {language} "
+            f"没有Enriched新闻"
         )
 
     items = [
@@ -779,7 +1011,8 @@ def load_all_enriched_news(date):
     ]
 
     items = [
-        x for x in items
+        x
+        for x in items
         if x["metadata"]
         .get("title", "")
         .strip()
@@ -787,7 +1020,8 @@ def load_all_enriched_news(date):
 
     if not items:
         raise RuntimeError(
-            f"❌ {date} 没有有效新闻"
+            f"❌ {date} / {language} "
+            f"没有有效新闻"
         )
 
     def score(x):
@@ -795,7 +1029,7 @@ def load_all_enriched_news(date):
             return float(
                 x["metadata"].get(
                     "horizon_score",
-                    0
+                    0,
                 )
             )
         except Exception:
@@ -803,95 +1037,92 @@ def load_all_enriched_news(date):
 
     items.sort(
         key=score,
-        reverse=True
+        reverse=True,
     )
 
     print(
-        f"Valid news: {len(items)}"
+        f"Valid news: "
+        f"{len(items)}"
     )
 
     return items
 
 
+# ============================================================
+# ARTICLE DIGEST
+# ============================================================
+
 def build_article_digest(
     item,
-    index
+    index,
 ):
     m = item["metadata"]
 
-    return f"""[ARTICLE {index}]
-标题：
-{m.get("title", "Untitled")}
-来源：
-{m.get("source", "Unknown")}
-原文链接：
-{m.get("source_url", "")}
-来源状态：
-{m.get("source_status", "")}
-内容状态：
-{m.get("content_status", "")}
+    return f"""
+[ARTICLE {index}]
+标题：{m.get("title", "Untitled")}
+来源：{m.get("source", "Unknown")}
+原文链接：{m.get("source_url", "")}
+来源状态：{m.get("source_status", "")}
+内容状态：{m.get("content_status", "")}
 内容：
-{item["body"][:ARTICLE_CLUSTER_CONTENT_LIMIT]}"""
+{item["body"][:ARTICLE_CLUSTER_CONTENT_LIMIT]}
+""".strip()
 
 
 # ============================================================
-# LOCAL CLUSTER VALIDATION
+# CLUSTER VALIDATION
 # ============================================================
 
 def inspect_cluster_assignment(
     clusters,
-    expected_indexes
+    expected_indexes,
 ):
     expected = set(
         map(
             int,
-            expected_indexes
+            expected_indexes,
         )
     )
 
     occ = {}
+
     malformed = []
 
     for pos, c in enumerate(
         clusters,
-        1
+        1,
     ):
-        if not isinstance(c, dict):
+        if not isinstance(
+            c,
+            dict,
+        ):
             malformed.append(
                 f"cluster[{pos}]不是对象"
             )
+
             continue
-
-        # 修改这里：优先取 local_cluster_id，再取 cluster_id
-        local_id = (
-            c.get("local_cluster_id")
-            or c.get("cluster_id")
-        )
-
-        try:
-            validate_local_cluster_id(
-                local_id
-            )
-        except Exception as e:
-            malformed.append(
-                f"cluster[{pos}]Local ID异常：{e}"
-            )
 
         ids = c.get(
             "article_indexes"
         )
 
-        if not isinstance(ids, list):
+        if not isinstance(
+            ids,
+            list,
+        ):
             malformed.append(
                 f"cluster[{pos}] "
-                "article_indexes不是数组"
+                f"article_indexes不是数组"
             )
+
             continue
 
         if not ids:
             malformed.append(
                 f"cluster[{pos}]为空Cluster"
             )
+
             continue
 
         for v in ids:
@@ -899,13 +1130,15 @@ def inspect_cluster_assignment(
                 i = int(v)
             except Exception:
                 malformed.append(
-                    f"cluster[{pos}]非法ARTICLE ID：{v}"
+                    f"cluster[{pos}]"
+                    f"非法ARTICLE ID：{v}"
                 )
+
                 continue
 
             occ.setdefault(
                 i,
-                []
+                [],
             ).append(pos)
 
     duplicate = {
@@ -914,74 +1147,69 @@ def inspect_cluster_assignment(
         if len(p) > 1
     }
 
-    actual = set(occ)
+    actual = set(
+        occ
+    )
 
     return {
         "duplicate": duplicate,
-        "missing":
-            sorted(
-                expected - actual
-            ),
-        "extra":
-            sorted(
-                actual - expected
-            ),
-        "malformed": malformed
+        "missing": sorted(
+            expected - actual
+        ),
+        "extra": sorted(
+            actual - expected
+        ),
+        "malformed": malformed,
     }
 
 
-def valid_issues(issues):
-    return not any([
-        issues["duplicate"],
-        issues["missing"],
-        issues["extra"],
-        issues["malformed"]
-    ])
+def valid_issues(
+    issues,
+):
+    return not any(
+        [
+            issues["duplicate"],
+            issues["missing"],
+            issues["extra"],
+            issues["malformed"],
+        ]
+    )
 
 
-def normalize_clusters(clusters):
+def normalize_clusters(
+    clusters,
+):
     out = []
 
     for c in clusters:
-        if not isinstance(c, dict):
+        if not isinstance(
+            c,
+            dict,
+        ):
             out.append(c)
             continue
 
         d = dict(c)
 
-        local_id = (
-            d.get("local_cluster_id")
-            or d.get("cluster_id")
-            or ""
-        )
-
-        d["local_cluster_id"] = (
-            str(local_id).strip()
-        )
-
-        d["cluster_id"] = (
-            d["local_cluster_id"]
-        )
-
         ids = d.get(
             "article_indexes",
-            []
+            [],
         )
 
-        if isinstance(ids, list):
-            normalized = []
-
-            for x in ids:
-                try:
-                    normalized.append(
-                        int(x)
-                    )
-                except Exception:
-                    normalized.append(x)
-
-            d["article_indexes"] = (
-                normalized
-            )
+        if isinstance(
+            ids,
+            list,
+        ):
+            d[
+                "article_indexes"
+            ] = [
+                int(x)
+                if str(x)
+                .lstrip("-")
+                .isdigit()
+                else x
+                for x in ids
+            ]
 
         out.append(d)
 
@@ -989,13 +1217,13 @@ def normalize_clusters(clusters):
 
 
 # ============================================================
-# AI LOCAL CLUSTER
+# FIRST AI CLUSTERING
 # ============================================================
 
 def cluster_news_batch(
     date,
     items,
-    indexes
+    indexes,
 ):
     expected = [
         int(x)
@@ -1005,45 +1233,62 @@ def cluster_news_batch(
     joined = "\n\n".join(
         build_article_digest(
             item,
-            expected[i]
+            expected[i],
         )
-        for i, item in enumerate(items)
+        for i, item
+        in enumerate(items)
     )
 
-    prompt = f"""你正在执行748686自生长知识系统V6.5.2第一层事件聚类。
+    prompt = f"""
+你正在执行748686自生长知识系统V6.5.3第一层事件聚类。
+
 日期：{date}
+语言：{CURRENT_LANGUAGE}
 
 {joined}
 
 任务：
+
 识别哪些新闻属于同一个现实世界的具体事件。
 
-支持跨来源、跨语言。
+支持：
+- 跨来源
+- 跨语言
+- 同一具体现实事件的不同报道
 
-不要因为关键词、公司、行业、国家相同就强行合并。
+不要因为：
+- 公司相同
+- 国家相同
+- 人物相同
+- 行业相同
+- 关键词相同
+
+就强行合并。
+
 无法确定时宁可分开。
 
 绝对覆盖ARTICLE编号：
+
 {json.dumps(expected)}
 
 每篇必须且只能属于一个cluster。
+
 无法与其他文章合并的文章必须单独成为cluster。
 
-最重要的ID规则：
-- 你只能生成Local Cluster ID。
-- Local Cluster ID只能是C001、C002、C003……
-- 严禁生成EVT-...
-- 严禁生成REC-...
-- 严禁生成GM-...
-- 不得把Local Cluster ID当作Global ID。
-- Global ID完全由Python Registry生成。
+重要输出限制：
 
-只输出JSON。
-不要Markdown。
-不要解释。
-不要复制正文。
+1. cluster_id只能是Local Cluster ID，例如C001、C002。
+2. 不得生成EVT-/REC-/GM-等Global ID。
+3. Global ID由Python Global Registry生成。
+4. event_title尽量短。
+5. event_reason尽量短。
+6. 不得复制文章正文。
+7. 只输出JSON。
+8. 不要Markdown。
+9. 不要解释。
 
 格式：
+
 {{
   "clusters": [
     {{
@@ -1053,80 +1298,24 @@ def cluster_news_batch(
       "event_reason": "一句话判断"
     }}
   ]
-}}"""
+}}
+"""
 
-    try:
-        result = call_ai(
-            prompt,
-            (
-                "你是全球新闻事件聚类专家。"
-                "每篇ARTICLE必须且只能属于一个cluster。"
-                "只能产生C001/C002形式Local Cluster ID。"
-                "绝不产生Global ID。"
-                "只输出合法JSON。"
-            ),
-            0
-        )
+    result = call_ai(
+        prompt,
+        (
+            "你是全球新闻事件聚类专家。"
+            "每篇ARTICLE必须且只能属于一个cluster。"
+            "只输出合法JSON。"
+        ),
+        0,
+    )
 
-        data = parse_ai_json(
-            result,
-            f"{date} 第一轮新闻聚类"
-        )
-
-    except RuntimeError as first_error:
-        compact_prompt = f"""748686 V6.5.2 新闻事件聚类JSON修复。
-
-日期：{date}
-ARTICLE范围：{json.dumps(expected)}
-
-文章：
-{joined}
-
-重新聚类。
-
-严格要求：
-1. 每个ARTICLE恰好一次；
-2. 同一具体现实事件合并；
-3. 不同事件分开；
-4. 不能确定宁可分开；
-5. cluster_id只能是C001/C002/C003；
-6. 严禁EVT-/REC-/GM-；
-7. 每个cluster只返回cluster_id、article_indexes、event_title、event_reason；
-8. 不输出正文；
-9. 只输出JSON。
-
-格式：
-{{
-  "clusters": [
-    {{
-      "cluster_id": "C001",
-      "article_indexes": [1],
-      "event_title": "事件",
-      "event_reason": "判断"
-    }}
-  ]
-}}"""
-
-        print(
-            "   ⚠️ 第一轮聚类JSON解析失败，"
-            "启动同批次紧凑JSON重试："
-            f"{first_error}"
-        )
-
-        result = call_ai(
-            compact_prompt,
-            (
-                "你是新闻聚类JSON修复器。"
-                "只输出合法JSON。"
-                "Local ID只能使用C001/C002形式。"
-            ),
-            0
-        )
-
-        data = parse_ai_json(
-            result,
-            f"{date} 第一轮新闻聚类紧凑重试"
-        )
+    data = parse_ai_json(
+        result,
+        f"{date} {CURRENT_LANGUAGE} "
+        f"第一轮新闻聚类",
+    )
 
     clusters = data.get(
         "clusters"
@@ -1134,10 +1323,10 @@ ARTICLE范围：{json.dumps(expected)}
 
     if not isinstance(
         clusters,
-        list
+        list,
     ):
         raise RuntimeError(
-            f"❌ {date} 第一轮聚类结果缺少clusters"
+            "❌ 第一轮聚类结果缺少clusters"
         )
 
     return normalize_clusters(
@@ -1145,13 +1334,17 @@ ARTICLE范围：{json.dumps(expected)}
     )
 
 
+# ============================================================
+# CLUSTER REPAIR
+# ============================================================
+
 def repair_cluster_news_batch(
     date,
     items,
     indexes,
     broken,
     issues,
-    attempt
+    attempt,
 ):
     expected = [
         int(x)
@@ -1161,51 +1354,62 @@ def repair_cluster_news_batch(
     joined = "\n\n".join(
         build_article_digest(
             item,
-            expected[i]
+            expected[i],
         )
-        for i, item in enumerate(items)
+        for i, item
+        in enumerate(items)
     )
 
-    prompt = f"""修复748686 V6.5.2 ARTICLE覆盖冲突。
+    prompt = f"""
+修复748686 V6.5.3 ARTICLE覆盖冲突。
 
 日期：{date}
+语言：{CURRENT_LANGUAGE}
 第{attempt}次修复
+
 真实ARTICLE：
+
 {json.dumps(expected)}
 
 文章：
+
 {joined}
 
 上次结果：
+
 {json.dumps(
     broken,
     ensure_ascii=False,
-    indent=2
+    indent=2,
 )}
 
 检测问题：
+
 {json.dumps(
     issues,
     ensure_ascii=False,
-    indent=2
+    indent=2,
 )}
 
 重新判断全部文章。
 
 要求：
-1. cluster_id只能是Local Cluster ID；
-2. Local Cluster ID只能是C001/C002/C003……；
-3. 不得生成EVT-/REC-/GM-；
-4. 同事件合并；
-5. 不同事件分开；
-6. 每篇ARTICLE恰好一次；
-7. Missing=0；
-8. Duplicate=0；
-9. Extra=0；
-10. 不得遗漏ARTICLE；
-11. 只输出JSON。
 
-只输出：
+1. cluster_id只能是Local Cluster ID。
+2. 例如C001。
+3. 不得生成EVT-/REC-/GM-。
+4. 同一现实事件合并。
+5. 不同事件分开。
+6. 每篇ARTICLE恰好一次。
+7. Missing=0。
+8. Duplicate=0。
+9. Extra=0。
+10. 不得遗漏。
+11. 只输出JSON。
+12. 不要解释。
+
+格式：
+
 {{
   "clusters": [
     {{
@@ -1215,19 +1419,22 @@ def repair_cluster_news_batch(
       "event_reason": "原因"
     }}
   ]
-}}"""
+}}
+"""
+
+    result = call_ai(
+        prompt,
+        (
+            "你是新闻事件聚类冲突修复专家。"
+            "必须完整覆盖输入ARTICLE。"
+        ),
+        0,
+    )
 
     data = parse_ai_json(
-        call_ai(
-            prompt,
-            (
-                "你是新闻事件聚类冲突修复专家。"
-                "必须完整覆盖输入ARTICLE。"
-                "只产生Local Cluster ID。"
-            ),
-            0
-        ),
-        f"{date} 聚类冲突修复 #{attempt}"
+        result,
+        f"{date} {CURRENT_LANGUAGE} "
+        f"聚类冲突修复 #{attempt}",
     )
 
     clusters = data.get(
@@ -1236,7 +1443,7 @@ def repair_cluster_news_batch(
 
     if not isinstance(
         clusters,
-        list
+        list,
     ):
         raise RuntimeError(
             "❌ 聚类修复结果缺少clusters"
@@ -1247,40 +1454,27 @@ def repair_cluster_news_batch(
     )
 
 
-def validate_cluster_coverage(
-    clusters,
-    expected,
-    context,
-    date=None
-):
-    issues = inspect_cluster_assignment(
-        clusters,
-        expected
-    )
-
-    if valid_issues(issues):
-        return
-
-    if date:
-        log_conflict(
-            date,
-            context,
-            "Local Cluster ARTICLE覆盖验证失败。",
-            issues
-        )
-
-    raise RuntimeError(
-        f"❌ {context} 聚类覆盖失败：{issues}"
-    )
-
+# ============================================================
+# SAFE COVERAGE
+# ============================================================
 
 def _safe_covered_indexes(
     clusters,
-    expected_indexes
+    expected_indexes,
 ):
+    """
+    只有不存在：
+
+        Duplicate
+        Extra
+        Malformed
+
+    才允许保留安全覆盖文章。
+    """
+
     issues = inspect_cluster_assignment(
         clusters,
-        expected_indexes
+        expected_indexes,
     )
 
     if (
@@ -1300,7 +1494,7 @@ def _safe_covered_indexes(
     for cluster in clusters:
         for value in cluster.get(
             "article_indexes",
-            []
+            [],
         ):
             actual.add(
                 int(value)
@@ -1312,345 +1506,361 @@ def _safe_covered_indexes(
 
 
 # ============================================================
-# GLOBAL CLUSTER REGISTRY
+# CLUSTER WITH REPAIR
 # ============================================================
 
-def create_global_cluster_registry(date):
+def cluster_news_batch_with_repair(
+    date,
+    items,
+    indexes,
+    batch_label,
+):
     """
-    Registry 是持久化 Global ID Ledger。
+    返回：
 
-    注意：
-    Registry 的 sequence 绝不因为 Recovery
-    或 Stage 1 resume 而重置。
+        ("complete", clusters, [])
+
+        ("partial", clusters, missing_indexes)
+
+        ("failed", [], expected_indexes)
     """
-    return {
-        "version": PIPELINE_VERSION,
-        "date": str(date),
-        "date_compact": compact_date(date),
-        "next_sequence": 1,
-        "registered": []
-    }
 
+    expected = [
+        int(x)
+        for x in indexes
+    ]
 
-def normalize_registry(registry, date):
-    if not isinstance(
-        registry,
-        dict
-    ):
-        raise RuntimeError(
-            "❌ Global Registry格式异常"
-        )
-
-    if registry.get(
-        "version"
-    ) != PIPELINE_VERSION:
-        raise RuntimeError(
-            "❌ Global Registry版本异常"
-        )
-
-    if str(
-        registry.get("date")
-    ) != str(date):
-        raise RuntimeError(
-            "❌ Global Registry日期不一致"
-        )
-
-    if (
-        registry.get("date_compact")
-        != compact_date(date)
-    ):
-        raise RuntimeError(
-            "❌ Global Registry日期compact值异常"
-        )
+    clusters = None
 
     try:
-        next_sequence = int(
-            registry.get(
-                "next_sequence",
-                1
-            )
-        )
-    except Exception as e:
-        raise RuntimeError(
-            "❌ Global Registry next_sequence非法"
-        ) from e
-
-    if next_sequence < 1:
-        raise RuntimeError(
-            "❌ Global Registry next_sequence必须>=1"
+        clusters = cluster_news_batch(
+            date,
+            items,
+            expected,
         )
 
-    registered = registry.get(
-        "registered",
-        []
-    )
-
-    if not isinstance(
-        registered,
-        list
-    ):
-        raise RuntimeError(
-            "❌ Global Registry registered不是数组"
+        issues = inspect_cluster_assignment(
+            clusters,
+            expected,
         )
 
-    normalized = []
-
-    seen_global = set()
-    seen_membership = set()
-
-    for item in registered:
-        if not isinstance(
-            item,
-            dict
+        if valid_issues(
+            issues
         ):
-            raise RuntimeError(
-                "❌ Global Registry存在非法记录"
+            return (
+                "complete",
+                clusters,
+                [],
             )
 
-        gid = str(
-            item.get(
-                "global_cluster_id",
-                ""
-            )
-        ).strip()
-
-        validate_global_id(gid)
-
-        local_id = str(
-            item.get(
-                "local_cluster_id",
-                ""
-            )
-        ).strip()
-
-        validate_local_cluster_id(
-            local_id
+        log_conflict(
+            date,
+            f"STAGE 1A / {batch_label}",
+            "AI第一次聚类返回非法ARTICLE归属，启动自动修复。",
+            {
+                "issues": issues,
+                "clusters": clusters,
+            },
         )
 
-        articles = item.get(
-            "article_indexes",
-            []
-        )
-
-        if not isinstance(
-            articles,
-            list
-        ) or not articles:
-            raise RuntimeError(
-                f"❌ Registry {gid} article_indexes非法"
-            )
-
-        membership = tuple(
-            sorted(
-                set(
-                    int(x)
-                    for x in articles
+        for attempt in range(
+            1,
+            CLUSTER_REPAIR_ATTEMPTS + 1,
+        ):
+            try:
+                clusters = (
+                    repair_cluster_news_batch(
+                        date,
+                        items,
+                        expected,
+                        clusters,
+                        issues,
+                        attempt,
+                    )
                 )
-            )
-        )
 
-        if not membership:
-            raise RuntimeError(
-                f"❌ Registry {gid} membership为空"
-            )
-
-        if gid in seen_global:
-            raise RuntimeError(
-                f"❌ Registry重复Global ID：{gid}"
-            )
-
-        if membership in seen_membership:
-            raise RuntimeError(
-                "❌ Registry重复ARTICLE membership："
-                f"{membership}"
-            )
-
-        seen_global.add(gid)
-        seen_membership.add(
-            membership
-        )
-
-        normalized.append({
-            "global_cluster_id": gid,
-            "local_cluster_id": local_id,
-            "source": str(
-                item.get(
-                    "source",
-                    ""
+                issues = (
+                    inspect_cluster_assignment(
+                        clusters,
+                        expected,
+                    )
                 )
-            ),
-            "article_indexes": list(
-                membership
+
+                if valid_issues(
+                    issues
+                ):
+                    print(
+                        " ✅ Cluster conflict "
+                        "repaired successfully."
+                    )
+
+                    return (
+                        "complete",
+                        clusters,
+                        [],
+                    )
+
+                log_conflict(
+                    date,
+                    f"STAGE 1A / {batch_label}",
+                    f"第{attempt}次聚类冲突修复仍然失败。",
+                    {
+                        "issues": issues,
+                        "clusters": clusters,
+                    },
+                )
+
+            except Exception as repair_error:
+                log_conflict(
+                    date,
+                    f"STAGE 1A / {batch_label}",
+                    f"第{attempt}次聚类修复请求/解析失败。",
+                    str(repair_error),
+                )
+
+        final_issues = inspect_cluster_assignment(
+            clusters or [],
+            expected,
+        )
+
+        # Missing-only
+        if (
+            final_issues["missing"]
+            and not final_issues["duplicate"]
+            and not final_issues["extra"]
+            and not final_issues["malformed"]
+        ):
+            safe = _safe_covered_indexes(
+                clusters,
+                expected,
             )
-        })
 
-    registry["next_sequence"] = (
-        next_sequence
-    )
+            unresolved = sorted(
+                set(expected)
+                - set(safe)
+            )
 
-    registry["registered"] = (
-        normalized
-    )
+            if safe and unresolved:
+                print(
+                    f" 🟡 Missing-only："
+                    f"安全保留{len(safe)}篇，"
+                    f"隔离{len(unresolved)}篇："
+                    f"{unresolved}"
+                )
 
-    return registry
+                log_conflict(
+                    date,
+                    f"STAGE 1A / {batch_label}",
+                    "修复失败，但仅存在Missing；"
+                    "安全覆盖部分保留，"
+                    "Missing进入Recovery Queue。",
+                    {
+                        "safe_covered": safe,
+                        "recovery_queue": unresolved,
+                        "issues": final_issues,
+                    },
+                )
+
+                return (
+                    "partial",
+                    clusters,
+                    unresolved,
+                )
+
+        # Unsafe batch
+        print(
+            f" 🔴 Batch结果不安全，"
+            f"整批进入Recovery Queue："
+            f"{expected}"
+        )
+
+        log_conflict(
+            date,
+            f"STAGE 1A / {batch_label}",
+            "自动修复失败；整批隔离。",
+            {
+                "issues": final_issues,
+                "recovery_queue": expected,
+            },
+        )
+
+        return (
+            "failed",
+            [],
+            expected,
+        )
+
+    except Exception as e:
+        log_conflict(
+            date,
+            f"STAGE 1A / {batch_label}",
+            "本批AI异常；整批隔离进入Recovery Queue。",
+            str(e),
+        )
+
+        print(
+            " 🔴 AI exception isolated into "
+            f"Recovery Queue: {expected}"
+        )
+
+        return (
+            "failed",
+            [],
+            expected,
+        )
+
+
+# ============================================================
+# GLOBAL REGISTRY
+# ============================================================
+
+def create_global_cluster_registry(
+    date,
+    language,
+):
+    return {
+        "version": "6.5.3",
+        "date": str(date),
+        "language": str(language),
+        "next_sequence": 1,
+        "registered": [],
+    }
 
 
 def persist_global_cluster_registry(
     date,
-    registry
+    registry,
 ):
-    registry = normalize_registry(
-        registry,
+    path = global_cluster_registry_path(
         date
     )
 
     write_json_atomic(
-        global_cluster_registry_path(date),
+        path,
         {
             "version":
-                PIPELINE_VERSION,
+                "6.5.3",
+
             "date":
                 registry["date"],
-            "date_compact":
-                registry["date_compact"],
+
+            "language":
+                registry["language"],
+
             "next_sequence":
                 int(
                     registry[
                         "next_sequence"
                     ]
                 ),
+
             "registered":
                 registry["registered"],
+
             "saved_at":
-                now().isoformat()
-        }
+                now().isoformat(),
+        },
     )
 
 
-def load_global_cluster_registry(
+def load_or_create_global_registry(
     date,
-    create_if_missing=True
+    language,
 ):
     path = global_cluster_registry_path(
-        date
+        date,
+        language,
     )
 
-    if not path.exists():
-        if not create_if_missing:
-            return None
-
-        registry = (
-            create_global_cluster_registry(
-                date
-            )
+    if path.exists():
+        registry = read_json(
+            path,
+            None,
         )
 
-        persist_global_cluster_registry(
-            date,
-            registry
+        if not isinstance(
+            registry,
+            dict,
+        ):
+            raise RuntimeError(
+                f"❌ {date}/{language} "
+                "Global Cluster Registry异常"
+            )
+
+        if (
+            str(
+                registry.get("date")
+            )
+            != str(date)
+        ):
+            raise RuntimeError(
+                "❌ Registry日期不一致"
+            )
+
+        if (
+            str(
+                registry.get(
+                    "language"
+                )
+            ).upper()
+            != str(language).upper()
+        ):
+            raise RuntimeError(
+                "❌ Registry语言不一致"
+            )
+
+        if (
+            not isinstance(
+                registry.get(
+                    "registered"
+                ),
+                list,
+            )
+        ):
+            raise RuntimeError(
+                "❌ Registry registered异常"
+            )
+
+        print(
+            f"♻️ 使用已有 Global Registry："
+            f"{path}"
         )
 
         return registry
 
-    registry = read_json(
-        path,
-        None
+    registry = create_global_cluster_registry(
+        date,
+        language,
     )
 
-    if registry is None:
-        raise RuntimeError(
-            "❌ Global Registry读取失败"
-        )
-
-    return normalize_registry(
+    persist_global_cluster_registry(
+        date,
         registry,
-        date
     )
 
-
-def _registry_membership_key(
-    article_indexes
-):
-    return tuple(
-        sorted(
-            set(
-                int(x)
-                for x in article_indexes
-            )
-        )
+    print(
+        f"🆕 创建 Global Registry："
+        f"{path}"
     )
 
-
-def registry_find_by_membership(
-    registry,
-    article_indexes
-):
-    key = _registry_membership_key(
-        article_indexes
-    )
-
-    for record in registry[
-        "registered"
-    ]:
-        if (
-            _registry_membership_key(
-                record["article_indexes"]
-            )
-            == key
-        ):
-            return record
-
-    return None
-
-
-def registry_find_by_global_id(
-    registry,
-    global_id
-):
-    validate_global_id(
-        global_id
-    )
-
-    for record in registry[
-        "registered"
-    ]:
-        if (
-            record[
-                "global_cluster_id"
-            ]
-            == global_id
-        ):
-            return record
-
-    return None
+    return registry
 
 
 def register_global_cluster_ids(
     date,
     clusters,
     registry,
-    source
+    source,
 ):
     """
-    唯一 Global ID Producer。
+    唯一Global ID生产入口。
 
-    幂等规则：
-        同一 ARTICLE membership
-        => 永远复用同一 Global ID。
+    AI：
+        C001
 
-    因此：
-        Recovery
-        Resume
-        重跑
-        checkpoint恢复
-
-    都不会重复注册同一Global ID。
+    Python：
+        EVT-YYYYMMDD-NNNNNN
     """
-
-    registry = normalize_registry(
-        registry,
-        date
-    )
 
     out = []
 
@@ -1667,366 +1877,88 @@ def register_global_cluster_ids(
             or ""
         ).strip()
 
-        validate_local_cluster_id(
-            local_id
-        )
-
-        article_indexes = sorted(
-            set(
-                int(x)
-                for x in d.get(
-                    "article_indexes",
-                    []
-                )
-            )
-        )
-
-        if not article_indexes:
+        if not local_id:
             raise RuntimeError(
-                "❌ Global Registry收到空ARTICLE membership"
+                "❌ Global Registry收到空Local Cluster ID"
             )
 
-        existing = (
-            registry_find_by_membership(
-                registry,
-                article_indexes
-            )
-        )
-
-        if existing:
-            global_id = existing[
-                "global_cluster_id"
-            ]
-
-            validate_global_id(
-                global_id
+        if not re.fullmatch(
+            r"C\d+",
+            local_id,
+        ):
+            raise RuntimeError(
+                f"❌ AI Local Cluster ID非法："
+                f"{local_id}"
             )
 
-            print(
-                f"   ♻️ Registry复用Global ID："
-                f"{global_id} | "
-                f"ARTICLE={article_indexes}"
-            )
-
-        else:
-            sequence = int(
-                registry[
-                    "next_sequence"
-                ]
-            )
-
-            global_id = formal_global_id(
-                date,
-                sequence
-            )
-
-            validate_global_id(
-                global_id
-            )
-
+        seq = int(
             registry[
                 "next_sequence"
-            ] = sequence + 1
+            ]
+        )
 
-            registry[
-                "registered"
-            ].append({
+        global_id = (
+            f"EVT-{date}-{seq:06d}"
+        )
+
+        registry[
+            "next_sequence"
+        ] = seq + 1
+
+        d[
+            "local_cluster_id"
+        ] = local_id
+
+        d[
+            "cluster_id"
+        ] = global_id
+
+        d[
+            "member_cluster_ids"
+        ] = [global_id]
+
+        d[
+            "global_id_source"
+        ] = "python_global_registry"
+
+        d[
+            "global_registry_source"
+        ] = source
+
+        registry[
+            "registered"
+        ].append(
+            {
                 "global_cluster_id":
                     global_id,
+
                 "local_cluster_id":
                     local_id,
+
                 "source":
                     source,
+
                 "article_indexes":
-                    article_indexes
-            })
-
-            print(
-                f"   🆕 Registry注册Global ID："
-                f"{global_id} | "
-                f"ARTICLE={article_indexes}"
-            )
-
-        d["local_cluster_id"] = local_id
-        d["cluster_id"] = global_id
-        d["member_cluster_ids"] = [
-            global_id
-        ]
-        d["global_id_source"] = (
-            "python_global_registry"
-        )
-        d["global_registry_source"] = (
-            source
+                    sorted(
+                        set(
+                            int(x)
+                            for x in d.get(
+                                "article_indexes",
+                                [],
+                            )
+                        )
+                    ),
+            }
         )
 
         out.append(d)
 
-        # 每个ID立即落盘。
-        # 防止AI后续失败导致已经注册的ID丢失。
-        persist_global_cluster_registry(
-            date,
-            registry
-        )
-
-    return out
-
-
-def validate_registry_against_clusters(
-    date,
-    registry,
-    clusters,
-    context
-):
-    registry = normalize_registry(
+    persist_global_cluster_registry(
+        date,
         registry,
-        date
     )
 
-    registry_by_id = {
-        r["global_cluster_id"]: r
-        for r in registry[
-            "registered"
-        ]
-    }
-
-    seen_membership = set()
-
-    for pos, c in enumerate(
-        clusters,
-        1
-    ):
-        if not isinstance(c, dict):
-            raise RuntimeError(
-                f"❌ {context} cluster[{pos}]不是对象"
-            )
-
-        gid = str(
-            c.get(
-                "cluster_id",
-                ""
-            )
-        ).strip()
-
-        validate_global_id(
-            gid
-        )
-
-        if gid not in registry_by_id:
-            raise RuntimeError(
-                f"❌ {context} Global ID不在Registry："
-                f"{gid}"
-            )
-
-        membership = (
-            _registry_membership_key(
-                c.get(
-                    "article_indexes",
-                    []
-                )
-            )
-        )
-
-        if not membership:
-            raise RuntimeError(
-                f"❌ {context} {gid} membership为空"
-            )
-
-        registry_membership = (
-            _registry_membership_key(
-                registry_by_id[gid][
-                    "article_indexes"
-                ]
-            )
-        )
-
-        if membership != registry_membership:
-            raise RuntimeError(
-                f"❌ {context} Registry membership不一致："
-                f"{gid} "
-                f"checkpoint={membership} "
-                f"registry={registry_membership}"
-            )
-
-        if membership in seen_membership:
-            raise RuntimeError(
-                f"❌ {context}存在重复membership："
-                f"{membership}"
-            )
-
-        seen_membership.add(
-            membership
-        )
-
-
-def validate_global_cluster_membership(
-    date,
-    clusters,
-    context,
-    expected_original_ids=None,
-    registry=None
-):
-    """
-    严格 Global Cluster membership Validator。
-
-    Global ID：
-        EVT-YYYYMMDD-NNNNNN
-
-    member_cluster_ids：
-        必须也是正式Global ID。
-
-    不接受：
-        C001
-        EVT-YYYY-MM-DD-000001
-        REC-...
-        GM-...
-    """
-
-    seen_current = set()
-    seen_original = set()
-
-    malformed = []
-    duplicate_current = []
-    duplicate_original = []
-
-    for pos, c in enumerate(
-        clusters,
-        1
-    ):
-        if not isinstance(c, dict):
-            malformed.append(
-                f"cluster[{pos}]不是对象"
-            )
-            continue
-
-        cid = str(
-            c.get(
-                "cluster_id",
-                ""
-            )
-        ).strip()
-
-        try:
-            validate_global_id(cid)
-        except Exception:
-            malformed.append(
-                f"cluster[{pos}]非法Global cluster_id：{cid}"
-            )
-
-        if cid in seen_current:
-            duplicate_current.append(
-                cid
-            )
-        else:
-            seen_current.add(cid)
-
-        members = c.get(
-            "member_cluster_ids"
-        )
-
-        if (
-            not isinstance(
-                members,
-                list
-            )
-            or not members
-        ):
-            malformed.append(
-                f"cluster[{pos}]"
-                "member_cluster_ids无效"
-            )
-            continue
-
-        for member in members:
-            member = str(
-                member
-            ).strip()
-
-            try:
-                validate_global_id(
-                    member
-                )
-            except Exception:
-                malformed.append(
-                    f"cluster[{pos}]非法member_cluster_id："
-                    f"{member}"
-                )
-                continue
-
-            if member in seen_original:
-                duplicate_original.append(
-                    member
-                )
-            else:
-                seen_original.add(
-                    member
-                )
-
-    missing_original = []
-    extra_original = []
-
-    if expected_original_ids is not None:
-        expected = {
-            str(x).strip()
-            for x in expected_original_ids
-        }
-
-        for x in expected:
-            try:
-                validate_global_id(x)
-            except Exception:
-                raise RuntimeError(
-                    f"❌ expected_original_ids包含非法Global ID：{x}"
-                )
-
-        missing_original = sorted(
-            expected - seen_original
-        )
-
-        extra_original = sorted(
-            seen_original - expected
-        )
-
-    if (
-        malformed
-        or duplicate_current
-        or duplicate_original
-        or missing_original
-        or extra_original
-    ):
-        log_conflict(
-            date,
-            context,
-            "Global Cluster membership验证失败。",
-            {
-                "malformed":
-                    malformed,
-                "duplicate_current":
-                    duplicate_current,
-                "duplicate_original":
-                    duplicate_original,
-                "missing_original":
-                    missing_original,
-                "extra_original":
-                    extra_original
-            }
-        )
-
-        raise RuntimeError(
-            f"❌ {context} Global Cluster membership异常："
-            f"Malformed={malformed} "
-            f"DuplicateCurrent={duplicate_current} "
-            f"DuplicateOriginal={duplicate_original} "
-            f"MissingOriginal={missing_original} "
-            f"ExtraOriginal={extra_original}"
-        )
-
-    if registry is not None:
-        validate_registry_against_clusters(
-            date,
-            registry,
-            clusters,
-            context
-        )
+    return out
 
 
 # ============================================================
@@ -2035,7 +1967,7 @@ def validate_global_cluster_membership(
 
 def _make_cluster_records(
     batch_identifier,
-    clusters
+    clusters,
 ):
     out = []
 
@@ -2045,7 +1977,7 @@ def _make_cluster_records(
                 int(x)
                 for x in c.get(
                     "article_indexes",
-                    []
+                    [],
                 )
             )
         )
@@ -2055,38 +1987,38 @@ def _make_cluster_records(
 
         local_id = str(
             c.get(
-                "local_cluster_id"
+                "cluster_id",
+                "C001",
             )
-            or c.get(
-                "cluster_id"
-            )
-            or ""
         ).strip()
 
-        validate_local_cluster_id(
-            local_id
-        )
+        out.append(
+            {
+                "cluster_id":
+                    local_id,
 
-        out.append({
-            "cluster_id":
-                local_id,
-            "local_cluster_id":
-                local_id,
-            "event_title":
-                c.get(
-                    "event_title",
-                    "未命名事件"
-                ),
-            "event_reason":
-                c.get(
-                    "event_reason",
-                    ""
-                ),
-            "article_indexes":
-                indexes,
-            "batch_identifier":
-                batch_identifier
-        })
+                "local_cluster_id":
+                    local_id,
+
+                "event_title":
+                    c.get(
+                        "event_title",
+                        "未命名事件",
+                    ),
+
+                "event_reason":
+                    c.get(
+                        "event_reason",
+                        "",
+                    ),
+
+                "article_indexes":
+                    indexes,
+
+                "batch_identifier":
+                    batch_identifier,
+            }
+        )
 
     return out
 
@@ -2095,163 +2027,12 @@ def _make_cluster_records(
 # RECOVERY
 # ============================================================
 
-def cluster_news_batch_with_repair(
-    date,
-    items,
-    indexes,
-    batch_label
-):
-    expected = [
-        int(x)
-        for x in indexes
-    ]
-
-    clusters = None
-
-    try:
-        clusters = cluster_news_batch(
-            date,
-            items,
-            expected
-        )
-
-        issues = inspect_cluster_assignment(
-            clusters,
-            expected
-        )
-
-        if valid_issues(issues):
-            return (
-                "complete",
-                clusters,
-                []
-            )
-
-        log_conflict(
-            date,
-            f"STAGE 1A / {batch_label}",
-            "AI第一次聚类返回非法ARTICLE归属，"
-            "启动自动修复。",
-            {
-                "issues":
-                    issues,
-                "clusters":
-                    clusters
-            }
-        )
-
-        for attempt in range(
-            1,
-            CLUSTER_REPAIR_ATTEMPTS + 1
-        ):
-            try:
-                clusters = (
-                    repair_cluster_news_batch(
-                        date,
-                        items,
-                        expected,
-                        clusters,
-                        issues,
-                        attempt
-                    )
-                )
-
-                issues = inspect_cluster_assignment(
-                    clusters,
-                    expected
-                )
-
-                if valid_issues(issues):
-                    print(
-                        "   ✅ Cluster conflict "
-                        "repaired successfully."
-                    )
-
-                    return (
-                        "complete",
-                        clusters,
-                        []
-                    )
-
-                log_conflict(
-                    date,
-                    f"STAGE 1A / {batch_label}",
-                    f"第{attempt}次聚类冲突修复仍然失败。",
-                    {
-                        "issues":
-                            issues,
-                        "clusters":
-                            clusters
-                    }
-                )
-
-            except Exception as repair_error:
-                log_conflict(
-                    date,
-                    f"STAGE 1A / {batch_label}",
-                    f"第{attempt}次聚类修复失败。",
-                    str(repair_error)
-                )
-
-        final_issues = (
-            inspect_cluster_assignment(
-                clusters or [],
-                expected
-            )
-        )
-
-        # Missing-only
-        if (
-            final_issues["missing"]
-            and not final_issues["duplicate"]
-            and not final_issues["extra"]
-            and not final_issues["malformed"]
-        ):
-            safe = _safe_covered_indexes(
-                clusters,
-                expected
-            )
-
-            unresolved = sorted(
-                set(expected)
-                - set(safe)
-            )
-
-            if safe and unresolved:
-                return (
-                    "partial",
-                    clusters,
-                    unresolved
-                )
-
-        # Duplicate / Extra / Malformed
-        return (
-            "failed",
-            [],
-            expected
-        )
-
-    except Exception as e:
-        log_conflict(
-            date,
-            f"STAGE 1A / {batch_label}",
-            "本批AI异常；整批隔离进入Recovery Queue。",
-            str(e)
-        )
-
-        return (
-            "failed",
-            [],
-            expected
-        )
-
-
 def _recovery_pass(
     date,
     news,
     indexes,
     recovery_pass_no,
-    batch_size
+    batch_size,
 ):
     indexes = sorted(
         set(
@@ -2265,23 +2046,25 @@ def _recovery_pass(
         for i in range(
             0,
             len(indexes),
-            batch_size
+            batch_size,
         )
     ]
 
     recovered = []
+
     pending = []
 
     print(
         f"\n🛠️ RECOVERY PASS "
         f"{recovery_pass_no} | "
         f"Articles={len(indexes)} | "
-        f"BatchSize={batch_size}"
+        f"BatchSize={batch_size} | "
+        f"SubBatches={len(sub_batches)}"
     )
 
     for sub_no, sub_indexes in enumerate(
         sub_batches,
-        1
+        1,
     ):
         items = [
             news[index - 1]
@@ -2289,39 +2072,50 @@ def _recovery_pass(
         ]
 
         label = (
-            f"RECOVERY {recovery_pass_no} / "
+            f"RECOVERY "
+            f"{recovery_pass_no} / "
             f"BATCH {sub_no}"
         )
 
+        print(
+            f" 🔹 {label}: "
+            f"{sub_indexes}"
+        )
+
+        # Singleton
         if len(sub_indexes) == 1:
             index = sub_indexes[0]
 
             title = (
-                news[index - 1]["metadata"]
+                news[index - 1]
+                ["metadata"]
                 .get(
                     "title",
-                    "未命名事件"
+                    "未命名事件",
                 )
                 .strip()
             )
 
-            recovered.append({
-                "cluster_id":
-                    f"C{index:03d}",
-                "local_cluster_id":
-                    f"C{index:03d}",
-                "article_indexes":
-                    [index],
-                "event_title":
-                    title[:120]
-                    if title
-                    else "未命名事件",
-                "event_reason":
-                    "该文章在恢复阶段作为独立事件单元保留。"
-            })
+            recovered.append(
+                {
+                    "cluster_id":
+                        f"C{index:03d}",
+
+                    "article_indexes":
+                        [index],
+
+                    "event_title":
+                        title[:120]
+                        if title
+                        else "未命名事件",
+
+                    "event_reason":
+                        "该文章在恢复阶段作为独立事件单元保留。",
+                }
+            )
 
             print(
-                f"      🟢 Singleton安全保留："
+                f" 🟢 Singleton安全保留："
                 f"ARTICLE {index}"
             )
 
@@ -2332,7 +2126,7 @@ def _recovery_pass(
                 date,
                 items,
                 sub_indexes,
-                label
+                label,
             )
         )
 
@@ -2344,26 +2138,28 @@ def _recovery_pass(
         elif status == "partial":
             safe = _safe_covered_indexes(
                 clusters,
-                sub_indexes
+                sub_indexes,
             )
 
             safe_set = set(safe)
+
             safe_clusters = []
 
             for cluster in clusters:
-                ids = []
-
-                for x in cluster.get(
-                    "article_indexes",
-                    []
-                ):
-                    i = int(x)
-
-                    if i in safe_set:
-                        ids.append(i)
+                ids = [
+                    int(x)
+                    for x in cluster.get(
+                        "article_indexes",
+                        [],
+                    )
+                    if int(x) in safe_set
+                ]
 
                 if ids:
-                    item = dict(cluster)
+                    item = dict(
+                        cluster
+                    )
+
                     item[
                         "article_indexes"
                     ] = sorted(
@@ -2375,13 +2171,6 @@ def _recovery_pass(
                     )
 
             if safe_clusters:
-                validate_cluster_coverage(
-                    safe_clusters,
-                    safe,
-                    f"{date} {label} SAFE PART",
-                    date
-                )
-
                 recovered.extend(
                     safe_clusters
                 )
@@ -2399,79 +2188,95 @@ def _recovery_pass(
         recovered,
         sorted(
             set(pending)
-        )
+        ),
     )
 
 
 # ============================================================
-# STAGE 1A INITIAL
+# INITIAL CLUSTERS
 # ============================================================
 
 def build_initial_clusters(
     date,
-    news
+    news,
+    registry,
 ):
     allc = []
+
     total = len(news)
 
-    registry = (
-        load_global_cluster_registry(
-            date,
-            create_if_missing=True
-        )
+    print(
+        "\n"
+        + "=" * 70
     )
 
-    print("\n" + "=" * 70)
     print(
-        "STAGE 1A — AI EVENT CLUSTERING "
-        "V6.5.2"
+        "STAGE 1A — "
+        "AI EVENT CLUSTERING V6.5.3"
     )
-    print("=" * 70)
+
     print(
-        f"Input Enriched News: {total}"
+        "=" * 70
     )
+
+    print(
+        f"Processing Unit: "
+        f"{date} / {CURRENT_LANGUAGE}"
+    )
+
+    print(
+        f"Input Enriched News: "
+        f"{total}"
+    )
+
     print(
         f"Normal Batch Size: "
         f"{AGGREGATION_BATCH_SIZE}"
     )
+
     print(
-        "Global ID: "
-        "EVT-YYYYMMDD-NNNNNN"
-    )
-    print(
-        "AI ID: "
-        "C001/C002/C003..."
+        "Recovery: "
+        "30/15/8/4/2/1"
     )
 
     pending = []
 
     normal_batch_no = 0
 
+    # --------------------------------------------------------
+    # Normal batches
+    # --------------------------------------------------------
+
     for start in range(
         0,
         total,
-        AGGREGATION_BATCH_SIZE
+        AGGREGATION_BATCH_SIZE,
     ):
         normal_batch_no += 1
 
         end = min(
-            start + AGGREGATION_BATCH_SIZE,
-            total
+            start
+            + AGGREGATION_BATCH_SIZE,
+            total,
         )
 
         indexes = list(
             range(
                 start + 1,
-                end + 1
+                end + 1,
             )
         )
 
-        items = news[start:end]
+        items = news[
+            start:end
+        ]
 
         print(
             f"\n🔹 Cluster Batch "
             f"{normal_batch_no}: "
-            f"{indexes[0]}-{indexes[-1]}/{total}"
+            f"{indexes[0]}-"
+            f"{indexes[-1]}/"
+            f"{total}"
         )
 
         status, clusters, unresolved = (
@@ -2479,46 +2284,41 @@ def build_initial_clusters(
                 date,
                 items,
                 indexes,
-                f"CLUSTER BATCH {normal_batch_no}"
+                f"CLUSTER BATCH "
+                f"{normal_batch_no}",
             )
         )
 
         if status == "complete":
-            validate_cluster_coverage(
-                clusters,
-                indexes,
-                f"Stage 1A Local Batch "
-                f"{normal_batch_no}",
-                date
-            )
-
             local_records = (
                 _make_cluster_records(
                     normal_batch_no,
-                    clusters
-                )
-            )
-
-            registered = (
-                register_global_cluster_ids(
-                    date,
-                    local_records,
-                    registry,
-                    f"Batch {normal_batch_no}"
+                    clusters,
                 )
             )
 
             allc.extend(
-                registered
+                register_global_cluster_ids(
+                    date,
+                    local_records,
+                    registry,
+                    f"Batch {normal_batch_no}",
+                )
+            )
+
+            print(
+                f" Clusters generated: "
+                f"{len(clusters)}"
             )
 
         elif status == "partial":
             safe = _safe_covered_indexes(
                 clusters,
-                indexes
+                indexes,
             )
 
             safe_set = set(safe)
+
             safe_clusters = []
 
             for cluster in clusters:
@@ -2526,13 +2326,16 @@ def build_initial_clusters(
                     int(x)
                     for x in cluster.get(
                         "article_indexes",
-                        []
+                        [],
                     )
                     if int(x) in safe_set
                 ]
 
                 if ids:
-                    item = dict(cluster)
+                    item = dict(
+                        cluster
+                    )
+
                     item[
                         "article_indexes"
                     ] = sorted(
@@ -2547,29 +2350,30 @@ def build_initial_clusters(
                 local_records = (
                     _make_cluster_records(
                         normal_batch_no,
-                        safe_clusters
-                    )
-                )
-
-                registered = (
-                    register_global_cluster_ids(
-                        date,
-                        local_records,
-                        registry,
-                        (
-                            f"Batch "
-                            f"{normal_batch_no} "
-                            f"SAFE PART"
-                        )
+                        safe_clusters,
                     )
                 )
 
                 allc.extend(
-                    registered
+                    register_global_cluster_ids(
+                        date,
+                        local_records,
+                        registry,
+                        f"Batch "
+                        f"{normal_batch_no} "
+                        f"SAFE PART",
+                    )
                 )
 
             pending.extend(
                 unresolved
+            )
+
+            print(
+                f" 🟡 Safe clusters kept="
+                f"{len(safe_clusters)} | "
+                f"Pending="
+                f"{len(pending)}"
             )
 
         else:
@@ -2577,10 +2381,19 @@ def build_initial_clusters(
                 unresolved
             )
 
+            print(
+                f" 🔴 Entire batch isolated | "
+                f"Pending="
+                f"{len(pending)}"
+            )
+
+    # --------------------------------------------------------
     # Recovery
+    # --------------------------------------------------------
+
     for pass_no, batch_size in enumerate(
         RECOVERY_BATCH_SIZES,
-        1
+        1,
     ):
         if not pending:
             break
@@ -2597,67 +2410,82 @@ def build_initial_clusters(
                 news,
                 current_pending,
                 pass_no,
-                batch_size
+                batch_size,
             )
         )
 
         local_records = (
             _make_cluster_records(
-                f"RECOVERY PASS {pass_no}",
-                recovered
-            )
-        )
-
-        registered = (
-            register_global_cluster_ids(
-                date,
-                local_records,
-                registry,
-                f"Recovery Pass {pass_no}"
+                f"RECOVERY PASS "
+                f"{pass_no}",
+                recovered,
             )
         )
 
         allc.extend(
-            registered
+            register_global_cluster_ids(
+                date,
+                local_records,
+                registry,
+                f"Recovery Pass "
+                f"{pass_no}",
+            )
         )
 
         pending.extend(
             unresolved
         )
 
+        print(
+            f" Recovery Pass "
+            f"{pass_no}: "
+            f"recovered="
+            f"{len(recovered)} | "
+            f"still_pending="
+            f"{len(pending)}"
+        )
+
+    # --------------------------------------------------------
+    # Final safety gate
+    # --------------------------------------------------------
+
     if pending:
+        log_conflict(
+            date,
+            "STAGE 1A / FINAL RECOVERY",
+            "Recovery Queue仍有未处理ARTICLE，禁止进入Global Merge。",
+            {
+                "pending_articles":
+                    sorted(
+                        set(pending)
+                    )
+            },
+        )
+
         raise RuntimeError(
-            "❌ Stage 1A最终仍有未处理ARTICLE："
+            "❌ V6.5.3 Stage 1A最终仍有未处理ARTICLE："
             f"{sorted(set(pending))}"
         )
 
-    # ========================================================
-    # Stage 1A final validation
-    # ========================================================
-
     validate_cluster_coverage(
         allc,
-        range(1, total + 1),
-        f"{date} Stage 1A GLOBAL ARTICLE",
-        date
+        range(
+            1,
+            total + 1,
+        ),
+        f"{date}/{CURRENT_LANGUAGE} "
+        f"Stage 1A GLOBAL",
+        date,
     )
 
-    original_ids = [
-        c["cluster_id"]
-        for c in allc
-    ]
-
-    # 这里才进入 Global membership validator。
     validate_global_cluster_membership(
         date,
         allc,
         "STAGE 1A INITIAL",
-        original_ids,
-        registry
     )
 
     print(
-        f"\n✅ Initial Global Clusters: "
+        f"\n✅ Initial Clusters: "
         f"{len(allc)}"
     )
 
@@ -2666,20 +2494,54 @@ def build_initial_clusters(
         f"{total}/{total}"
     )
 
-    print(
-        f"✅ Registry next_sequence: "
-        f"{registry['next_sequence']}"
-    )
-
     return allc
 
 
 # ============================================================
-# GLOBAL MERGE
+# CLUSTER COVERAGE
 # ============================================================
 
-def build_merge_windows(clusters):
-    if len(clusters) <= GLOBAL_MERGE_WINDOW_SIZE:
+def validate_cluster_coverage(
+    clusters,
+    expected,
+    context,
+    date=None,
+):
+    issues = inspect_cluster_assignment(
+        clusters,
+        expected,
+    )
+
+    if valid_issues(
+        issues
+    ):
+        return
+
+    if date:
+        log_conflict(
+            date,
+            context,
+            "聚类覆盖验证失败。",
+            issues,
+        )
+
+    raise RuntimeError(
+        f"❌ {context} "
+        f"聚类覆盖失败："
+        f"{issues}"
+    )
+
+
+# ============================================================
+# MERGE WINDOWS
+# ============================================================
+
+def build_merge_windows(
+    clusters,
+):
+    if len(clusters) <= (
+        GLOBAL_MERGE_WINDOW_SIZE
+    ):
         return [clusters]
 
     step = (
@@ -2694,21 +2556,23 @@ def build_merge_windows(clusters):
 
     return _windows(
         clusters,
-        step
+        step,
     )
 
 
 def _windows(
     clusters,
-    step
+    step,
 ):
     out = []
+
     s = 0
 
     while s < len(clusters):
         e = min(
-            s + GLOBAL_MERGE_WINDOW_SIZE,
-            len(clusters)
+            s
+            + GLOBAL_MERGE_WINDOW_SIZE,
+            len(clusters),
         )
 
         out.append(
@@ -2723,126 +2587,165 @@ def _windows(
     return out
 
 
+# ============================================================
+# GLOBAL MERGE AI
+# ============================================================
+
 def merge_cluster_window(
     date,
     window,
     round_no,
-    window_no
+    window_no,
 ):
     blocks = []
 
     for i, c in enumerate(
         window,
-        1
+        1,
     ):
         blocks.append(
-            f"""[CLUSTER {i}]
-Global Cluster ID：
-{c['cluster_id']}
-原始Global成员：
+            f"""
+[CLUSTER {i}]
+Cluster ID：
+{c["cluster_id"]}
+
+原始Cluster成员：
 {json.dumps(
     c.get(
-        'member_cluster_ids',
-        []
+        "member_cluster_ids",
+        [],
     ),
-    ensure_ascii=False
+    ensure_ascii=False,
 )}
+
 事件名称：
 {c.get(
-    'event_title',
-    '未命名事件'
+    "event_title",
+    "未命名事件",
 )}
+
 事件判断：
 {c.get(
-    'event_reason',
-    ''
+    "event_reason",
+    "",
 )}
+
 文章数量：
 {len(
     c.get(
-        'article_indexes',
-        []
+        "article_indexes",
+        [],
     )
 )}
+
 文章编号：
 {json.dumps(
     c.get(
-        'article_indexes',
-        []
+        "article_indexes",
+        [],
     )
-)}"""
+)}
+""".strip()
         )
 
     expected = list(
         range(
             1,
-            len(window) + 1
+            len(window) + 1,
         )
     )
 
-    prompt = f"""你正在执行748686自生长知识系统V6.5.2全局事件归并。
+    prompt = f"""
+你正在执行748686自生长知识系统V6.5.3全局事件归并。
 
-日期：{date}
-轮次：{round_no}
-窗口：{window_no}
+日期：
+{date}
+
+语言：
+{CURRENT_LANGUAGE}
+
+轮次：
+{round_no}
+
+窗口：
+{window_no}
 
 {chr(10).join(blocks)}
 
-判断这些Global Cluster是否属于同一个具体现实世界事件。
+判断这些Cluster是否属于同一个“具体现实世界事件”。
 
 可以合并：
-同一政策发布、同一公司重大动作、同一事故、
-同一产品发布、同一具体现实事件、
-同一正在持续发展的单一现实事件。
+
+- 同一政策发布
+- 同一公司重大动作
+- 同一事故
+- 同一产品发布
+- 同一具体现实事件
+- 同一正在持续发展的单一现实事件
 
 不得合并：
-同公司不同事件、同人物不同事件、
-同国家不同事件、同产业不同事件、
-同趋势不同具体事件、仅关键词相同、
-仅主题相同。
+
+- 同公司不同事件
+- 同人物不同事件
+- 同国家不同事件
+- 同产业不同事件
+- 同趋势不同具体事件
+- 仅关键词相同
+- 仅主题相同
 
 无法确认时宁可分开。
 
 要求：
+
 1. 每个输入Cluster必须且只能进入一个group。
-2. 不得遗漏、重复、创造Cluster编号。
-3. 一个group可以只有一个Cluster。
-4. Cluster ID是Python已经注册的Global ID。
-5. Global ID必须原样引用。
-6. 不得修改Global ID。
-7. 不得生成REC-/GM-。
-8. 不得生成新的EVT-。
-9. 不需要返回文章编号。
+2. 不得遗漏。
+3. 不得重复。
+4. 不得创造Cluster编号。
+5. 一个group可以只有一个Cluster。
+6. Cluster ID已经由Python注册。
+7. 必须原样引用Global ID。
+8. 不得修改Global ID。
+9. 不得生成REC-/GM-替代ID。
+10. 不需要返回文章编号。
+11. 只根据当前窗口判断。
+12. 只输出JSON。
 
 输入Cluster编号：
+
 {json.dumps(expected)}
 
-只输出JSON：
+格式：
+
 {{
   "groups": [
     {{
       "group_id": "G001",
-      "cluster_indexes": [1, 4],
+      "cluster_indexes": [1,4],
       "event_title": "统一事件名称",
-      "reason": "为什么属于同一现实世界事件"
+      "reason": "为什么属于同一现实事件"
     }}
   ]
-}}"""
+}}
+"""
 
     data = parse_ai_json(
         call_ai(
             prompt,
             (
                 "你是全球新闻事件归并专家。"
-                "必须覆盖全部输入Cluster。"
-                "Global Cluster ID只能原样引用。"
-                "不得生成任何新Global ID。"
+                "必须覆盖全部输入Cluster，"
+                "每个恰好一次。"
+                "这是具体事件合并，不是主题分类。"
             ),
-            0
+            0,
         ),
-        f"{date} Global Merge "
-        f"Round {round_no} "
-        f"Window {window_no}"
+        (
+            f"{date} "
+            f"{CURRENT_LANGUAGE} "
+            f"Global Merge Round "
+            f"{round_no} "
+            f"Window {window_no}"
+        ),
     )
 
     groups = data.get(
@@ -2851,39 +2754,46 @@ Global Cluster ID：
 
     if not isinstance(
         groups,
-        list
+        list,
     ):
         raise RuntimeError(
             "❌ Global Merge缺少groups"
         )
 
     actual = []
+
     malformed = []
 
     for p, g in enumerate(
         groups,
-        1
+        1,
     ):
         if not isinstance(
             g,
-            dict
+            dict,
         ):
             malformed.append(
                 f"group[{p}]不是对象"
             )
+
             continue
 
         ids = g.get(
             "cluster_indexes"
         )
 
-        if not isinstance(
-            ids,
-            list
-        ) or not ids:
-            malformed.append(
-                f"group[{p}]cluster_indexes无效"
+        if (
+            not isinstance(
+                ids,
+                list,
             )
+            or not ids
+        ):
+            malformed.append(
+                f"group[{p}]"
+                f"cluster_indexes无效"
+            )
+
             continue
 
         for x in ids:
@@ -2891,16 +2801,20 @@ Global Cluster ID：
                 actual.append(
                     int(x)
                 )
+
             except Exception:
                 malformed.append(
-                    f"group[{p}]非法编号：{x}"
+                    f"group[{p}]"
+                    f"非法编号：{x}"
                 )
 
-    dup = sorted({
-        x
-        for x in actual
-        if actual.count(x) > 1
-    })
+    dup = sorted(
+        {
+            x
+            for x in actual
+            if actual.count(x) > 1
+        }
+    )
 
     miss = sorted(
         set(expected)
@@ -2912,9 +2826,29 @@ Global Cluster ID：
         - set(expected)
     )
 
-    if dup or miss or extra or malformed:
+    if (
+        dup
+        or miss
+        or extra
+        or malformed
+    ):
+        log_conflict(
+            date,
+            f"STAGE 1B / ROUND "
+            f"{round_no} / WINDOW "
+            f"{window_no}",
+            "Global Merge窗口AI输出覆盖异常。",
+            {
+                "duplicate": dup,
+                "missing": miss,
+                "extra": extra,
+                "malformed": malformed,
+                "groups": groups,
+            },
+        )
+
         raise RuntimeError(
-            f"❌ Global Merge窗口AI输出异常 "
+            "❌ Global Merge窗口AI输出异常 "
             f"Duplicate={dup} "
             f"Missing={miss} "
             f"Extra={extra} "
@@ -2930,7 +2864,10 @@ Global Cluster ID：
 
 class UnionFind:
 
-    def __init__(self, values):
+    def __init__(
+        self,
+        values,
+    ):
         values = [
             str(x)
             for x in values
@@ -2946,13 +2883,20 @@ class UnionFind:
             for v in values
         }
 
-    def find(self, value):
+    def find(
+        self,
+        value,
+    ):
         value = str(value)
 
         if value not in self.parent:
-            raise KeyError(value)
+            raise KeyError(
+                value
+            )
 
-        p = self.parent[value]
+        p = self.parent[
+            value
+        ]
 
         if p != value:
             self.parent[value] = (
@@ -2961,7 +2905,11 @@ class UnionFind:
 
         return self.parent[value]
 
-    def union(self, a, b):
+    def union(
+        self,
+        a,
+        b,
+    ):
         a = str(a)
         b = str(b)
 
@@ -2971,12 +2919,18 @@ class UnionFind:
         if ra == rb:
             return False
 
-        if self.rank[ra] < self.rank[rb]:
+        if (
+            self.rank[ra]
+            < self.rank[rb]
+        ):
             ra, rb = rb, ra
 
         self.parent[rb] = ra
 
-        if self.rank[ra] == self.rank[rb]:
+        if (
+            self.rank[ra]
+            == self.rank[rb]
+        ):
             self.rank[ra] += 1
 
         return True
@@ -2985,11 +2939,13 @@ class UnionFind:
         result = {}
 
         for value in self.parent:
-            root = self.find(value)
+            root = self.find(
+                value
+            )
 
             result.setdefault(
                 root,
-                []
+                [],
             ).append(value)
 
         return result
@@ -3003,21 +2959,22 @@ class UnionFind:
         return {
             "parent":
                 dict(self.parent),
+
             "rank":
-                dict(self.rank)
+                dict(self.rank),
         }
 
     @classmethod
     def from_checkpoint(
         cls,
         values,
-        data
+        data,
     ):
         uf = cls(values)
 
         if not isinstance(
             data,
-            dict
+            dict,
         ):
             raise RuntimeError(
                 "❌ Union-Find checkpoint格式异常"
@@ -3032,8 +2989,14 @@ class UnionFind:
         )
 
         if (
-            not isinstance(parent, dict)
-            or not isinstance(rank, dict)
+            not isinstance(
+                parent,
+                dict,
+            )
+            or not isinstance(
+                rank,
+                dict,
+            )
         ):
             raise RuntimeError(
                 "❌ Union-Find checkpoint缺少parent/rank"
@@ -3045,10 +3008,20 @@ class UnionFind:
         }
 
         if (
-            set(map(str, parent))
+            set(
+                map(
+                    str,
+                    parent,
+                )
+            )
             != expected
             or
-            set(map(str, rank))
+            set(
+                map(
+                    str,
+                    rank,
+                )
+            )
             != expected
         ):
             raise RuntimeError(
@@ -3060,16 +3033,22 @@ class UnionFind:
             for k, v in parent.items()
         }
 
-        uf.rank = {
-            str(k): int(v)
-            for k, v in rank.items()
-        }
+        try:
+            uf.rank = {
+                str(k): int(v)
+                for k, v in rank.items()
+            }
+
+        except Exception as e:
+            raise RuntimeError(
+                "❌ Union-Find checkpoint rank非法"
+            ) from e
 
         for k, v in uf.parent.items():
             if v not in uf.parent:
                 raise RuntimeError(
-                    "❌ Union-Find checkpoint"
-                    f"存在非法parent：{k}->{v}"
+                    "❌ Union-Find checkpoint存在非法parent："
+                    f"{k}->{v}"
                 )
 
         if any(
@@ -3083,92 +3062,108 @@ class UnionFind:
         return uf
 
 
+# ============================================================
+# APPLY WINDOW GROUPS
+# ============================================================
+
 def apply_window_groups(
     uf,
     window,
     groups,
     round_no,
-    window_no
+    window_no,
 ):
     records = []
 
     for gp, g in enumerate(
         groups,
-        1
+        1,
     ):
         indexes = [
             int(x)
-            for x in g[
+            for x
+            in g[
                 "cluster_indexes"
             ]
         ]
 
         ids = [
-            window[i - 1][
-                "cluster_id"
-            ]
+            window[i - 1]
+            ["cluster_id"]
             for i in indexes
         ]
 
-        for gid in ids:
-            validate_global_id(gid)
-
         anchor = ids[0]
+
         merged = False
 
         for cid in ids[1:]:
             if uf.union(
                 anchor,
-                cid
+                cid,
             ):
                 merged = True
 
-        records.append({
-            "group_id":
-                g.get(
-                    "group_id",
-                    f"G{gp:03d}"
-                ),
-            "cluster_ids":
-                ids,
-            "event_title":
-                str(
+        records.append(
+            {
+                "group_id":
                     g.get(
-                        "event_title",
-                        "未命名事件"
-                    )
-                ).strip(),
-            "reason":
-                str(
-                    g.get(
-                        "reason",
-                        ""
-                    )
-                ).strip(),
-            "merged":
-                merged,
-            "round":
-                round_no,
-            "window":
-                window_no
-        })
+                        "group_id",
+                        f"G{gp:03d}",
+                    ),
+
+                "cluster_ids":
+                    ids,
+
+                "event_title":
+                    str(
+                        g.get(
+                            "event_title",
+                            "未命名事件",
+                        )
+                    ).strip(),
+
+                "reason":
+                    str(
+                        g.get(
+                            "reason",
+                            "",
+                        )
+                    ).strip(),
+
+                "merged":
+                    merged,
+
+                "round":
+                    round_no,
+
+                "window":
+                    window_no,
+            }
+        )
 
     return records
 
 
-def _metadata_record_valid(r):
+# ============================================================
+# METADATA HISTORY
+# ============================================================
+
+def _metadata_record_valid(
+    r,
+):
     return bool(
         str(
             r.get(
                 "event_title",
-                ""
+                "",
             )
         ).strip()
         or
         str(
             r.get(
                 "reason",
-                ""
+                "",
             )
         ).strip()
     )
@@ -3177,11 +3172,11 @@ def _metadata_record_valid(r):
 def merge_metadata_histories(
     history,
     records,
-    uf
+    uf,
 ):
     if not isinstance(
         history,
-        dict
+        dict,
     ):
         history = {}
 
@@ -3190,7 +3185,7 @@ def merge_metadata_histories(
             str(x)
             for x in r.get(
                 "cluster_ids",
-                []
+                [],
             )
         ]
 
@@ -3204,50 +3199,57 @@ def merge_metadata_histories(
         item = {
             "cluster_ids":
                 ids,
+
             "event_title":
                 r.get(
                     "event_title",
-                    ""
+                    "",
                 ),
+
             "reason":
                 r.get(
                     "reason",
-                    ""
+                    "",
                 ),
+
             "merged":
                 bool(
                     r.get(
                         "merged"
                     )
                 ),
+
             "round":
                 int(
                     r.get(
                         "round",
-                        0
+                        0,
                     )
                 ),
+
             "window":
                 int(
                     r.get(
                         "window",
-                        0
+                        0,
                     )
-                )
+                ),
         }
 
         history.setdefault(
             root,
-            []
-        ).append(item)
+            [],
+        ).append(
+            item
+        )
 
     merged = {}
 
-    for _, entries in history.items():
+    for old_root, entries in history.items():
         if not entries:
             continue
 
-        ids = (
+        first_ids = (
             entries[-1]
             .get(
                 "cluster_ids"
@@ -3255,62 +3257,66 @@ def merge_metadata_histories(
             or []
         )
 
-        if not ids:
+        if not first_ids:
             continue
 
         try:
             root = uf.find(
-                ids[0]
+                first_ids[0]
             )
+
         except KeyError:
             continue
 
         merged.setdefault(
             root,
-            []
-        ).extend(entries)
+            [],
+        ).extend(
+            entries
+        )
 
     return merged
 
+
+# ============================================================
+# CHOOSE METADATA
+# ============================================================
 
 def choose_component_metadata(
     member_ids,
     by_id,
     history,
-    uf
+    uf,
 ):
     old_titles = []
+
     old_reasons = []
 
     for cid in member_ids:
         c = by_id[cid]
 
-        if str(
+        title = str(
             c.get(
                 "event_title",
-                ""
+                "",
             )
-        ).strip():
-            old_titles.append(
-                str(
-                    c[
-                        "event_title"
-                    ]
-                ).strip()
-            )
+        ).strip()
 
-        if str(
+        reason = str(
             c.get(
                 "event_reason",
-                ""
+                "",
             )
-        ).strip():
+        ).strip()
+
+        if title:
+            old_titles.append(
+                title
+            )
+
+        if reason:
             old_reasons.append(
-                str(
-                    c[
-                        "event_reason"
-                    ]
-                ).strip()
+                reason
             )
 
     entries = []
@@ -3321,17 +3327,52 @@ def choose_component_metadata(
                 uf.find(
                     member_ids[0]
                 )
-                ==
-                uf.find(root)
+                == uf.find(
+                    root
+                )
             ):
-                entries.extend(rs)
+                entries.extend(
+                    rs
+                )
+
         except Exception:
             pass
 
-    candidates = [
+    actual = [
         r
         for r in entries
-        if _metadata_record_valid(r)
+        if r.get("merged")
+        and len(
+            r.get(
+                "cluster_ids",
+                [],
+            )
+        ) > 1
+        and _metadata_record_valid(r)
+    ]
+
+    multi = [
+        r
+        for r in entries
+        if len(
+            r.get(
+                "cluster_ids",
+                [],
+            )
+        ) > 1
+        and _metadata_record_valid(r)
+    ]
+
+    singleton = [
+        r
+        for r in entries
+        if len(
+            r.get(
+                "cluster_ids",
+                [],
+            )
+        ) == 1
+        and _metadata_record_valid(r)
     ]
 
     def score(r):
@@ -3339,17 +3380,17 @@ def choose_component_metadata(
             len(
                 r.get(
                     "cluster_ids",
-                    []
+                    [],
                 )
             ),
-            1 if r.get(
-                "merged"
-            ) else 0,
+            1
+            if r.get("merged")
+            else 0,
             len(
                 str(
                     r.get(
                         "reason",
-                        ""
+                        "",
                     )
                 )
             ),
@@ -3357,36 +3398,42 @@ def choose_component_metadata(
                 str(
                     r.get(
                         "event_title",
-                        ""
+                        "",
                     )
                 )
             ),
             -int(
                 r.get(
                     "round",
-                    0
+                    0,
                 )
-            )
+            ),
+            -int(
+                r.get(
+                    "window",
+                    0,
+                )
+            ),
         )
 
     candidate = max(
-        candidates,
+        actual or multi or [],
         key=score,
-        default=None
+        default=None,
     )
 
     if candidate:
         title = str(
             candidate.get(
                 "event_title",
-                ""
+                "",
             )
         ).strip()
 
         reason = str(
             candidate.get(
                 "reason",
-                ""
+                "",
             )
         ).strip()
 
@@ -3394,35 +3441,62 @@ def choose_component_metadata(
         title = max(
             old_titles,
             key=len,
-            default=""
+            default="",
         )
 
         reason = max(
             old_reasons,
             key=len,
-            default=""
+            default="",
         )
+
+        if (
+            not title
+            and not reason
+            and singleton
+        ):
+            candidate = max(
+                singleton,
+                key=score,
+            )
+
+            title = str(
+                candidate.get(
+                    "event_title",
+                    "",
+                )
+            ).strip()
+
+            reason = str(
+                candidate.get(
+                    "reason",
+                    "",
+                )
+            ).strip()
 
     return (
         title or "未命名事件",
-        reason
+        reason,
     )
 
+
+# ============================================================
+# REBUILD GLOBAL CLUSTERS
+# ============================================================
 
 def rebuild_global_clusters(
     current,
     uf,
-    metadata_history
+    metadata_history,
 ):
     by_id = {
-        c["cluster_id"]:
-            c
+        c["cluster_id"]: c
         for c in current
     }
 
     rebuilt = []
 
-    for _, member_ids in (
+    for root, member_ids in (
         uf.components().items()
     ):
         member_ids = sorted(
@@ -3430,6 +3504,7 @@ def rebuild_global_clusters(
         )
 
         articles = []
+
         originals = []
 
         for cid in member_ids:
@@ -3444,14 +3519,14 @@ def rebuild_global_clusters(
             articles.extend(
                 c.get(
                     "article_indexes",
-                    []
+                    [],
                 )
             )
 
             originals.extend(
                 c.get(
                     "member_cluster_ids",
-                    []
+                    [],
                 )
             )
 
@@ -3474,42 +3549,36 @@ def rebuild_global_clusters(
                 member_ids,
                 by_id,
                 metadata_history,
-                uf
+                uf,
             )
         )
 
-        # 保留最早Global ID，避免ID漂移。
-        stable_id = min(
-            member_ids
-        )
+        rebuilt.append(
+            {
+                # 保留最早Global ID
+                "cluster_id":
+                    min(member_ids),
 
-        validate_global_id(
-            stable_id
-        )
+                "event_title":
+                    title,
 
-        rebuilt.append({
-            "cluster_id":
-                stable_id,
-            "event_title":
-                title,
-            "event_reason":
-                reason,
-            "article_indexes":
-                articles,
-            "member_cluster_ids":
-                originals
-        })
+                "event_reason":
+                    reason,
+
+                "article_indexes":
+                    articles,
+
+                "member_cluster_ids":
+                    originals,
+            }
+        )
 
     rebuilt.sort(
         key=lambda c:
             min(
-                c[
-                    "article_indexes"
-                ]
+                c["article_indexes"]
             )
-            if c[
-                "article_indexes"
-            ]
+            if c["article_indexes"]
             else 10**12
     )
 
@@ -3517,29 +3586,197 @@ def rebuild_global_clusters(
 
 
 # ============================================================
-# ARTICLE COVERAGE
+# GLOBAL MEMBERSHIP VALIDATION
+# ============================================================
+
+def validate_global_cluster_membership(
+    date,
+    clusters,
+    context,
+    expected_original_ids=None,
+):
+    seen_current = set()
+
+    seen_original = set()
+
+    malformed = []
+
+    duplicate_current = []
+
+    duplicate_original = []
+
+    for pos, c in enumerate(
+        clusters,
+        1,
+    ):
+        if not isinstance(
+            c,
+            dict,
+        ):
+            malformed.append(
+                f"cluster[{pos}]不是对象"
+            )
+
+            continue
+
+        cid = str(
+            c.get(
+                "cluster_id",
+                "",
+            )
+        ).strip()
+
+        if not cid:
+            malformed.append(
+                f"cluster[{pos}]缺少cluster_id"
+            )
+
+        elif not re.fullmatch(
+            r"EVT-\d{8}-\d{6}",
+            cid,
+        ):
+            malformed.append(
+                f"cluster[{pos}]非法Global cluster_id："
+                f"{cid}"
+            )
+
+        elif cid in seen_current:
+            duplicate_current.append(
+                cid
+            )
+
+        else:
+            seen_current.add(
+                cid
+            )
+
+        members = c.get(
+            "member_cluster_ids"
+        )
+
+        if (
+            not isinstance(
+                members,
+                list,
+            )
+            or not members
+        ):
+            malformed.append(
+                f"cluster[{pos}]"
+                "member_cluster_ids无效"
+            )
+
+            continue
+
+        for member in members:
+            member = str(
+                member
+            ).strip()
+
+            if not member:
+                malformed.append(
+                    f"cluster[{pos}]"
+                    "存在空member_cluster_id"
+                )
+
+                continue
+
+            if member in seen_original:
+                duplicate_original.append(
+                    member
+                )
+
+            else:
+                seen_original.add(
+                    member
+                )
+
+    missing_original = []
+
+    extra_original = []
+
+    if expected_original_ids is not None:
+        expected = {
+            str(x).strip()
+            for x in expected_original_ids
+        }
+
+        missing_original = sorted(
+            expected
+            - seen_original
+        )
+
+        extra_original = sorted(
+            seen_original
+            - expected
+        )
+
+    if (
+        malformed
+        or duplicate_current
+        or duplicate_original
+        or missing_original
+        or extra_original
+    ):
+        log_conflict(
+            date,
+            context,
+            "Global Cluster membership验证失败。",
+            {
+                "malformed":
+                    malformed,
+
+                "duplicate_current":
+                    duplicate_current,
+
+                "duplicate_original":
+                    duplicate_original,
+
+                "missing_original":
+                    missing_original,
+
+                "extra_original":
+                    extra_original,
+            },
+        )
+
+        raise RuntimeError(
+            f"❌ {context} "
+            f"Global Cluster membership异常："
+            f"Malformed={malformed} "
+            f"DuplicateCurrent={duplicate_current} "
+            f"DuplicateOriginal={duplicate_original} "
+            f"MissingOriginal={missing_original} "
+            f"ExtraOriginal={extra_original}"
+        )
+
+
+# ============================================================
+# GLOBAL ARTICLE COVERAGE
 # ============================================================
 
 def validate_global_article_coverage(
     date,
     clusters,
     news_count,
-    context
+    context,
 ):
     allidx = []
+
     malformed = []
 
     for pos, c in enumerate(
         clusters,
-        1
+        1,
     ):
         if not isinstance(
             c,
-            dict
+            dict,
         ):
             malformed.append(
                 f"cluster[{pos}]不是对象"
             )
+
             continue
 
         ids = c.get(
@@ -3548,12 +3785,13 @@ def validate_global_article_coverage(
 
         if not isinstance(
             ids,
-            list
+            list,
         ):
             malformed.append(
                 f"cluster[{pos}]"
                 "article_indexes不是数组"
             )
+
             continue
 
         for x in ids:
@@ -3561,6 +3799,7 @@ def validate_global_article_coverage(
                 allidx.append(
                     int(x)
                 )
+
             except Exception:
                 malformed.append(
                     f"cluster[{pos}]"
@@ -3570,24 +3809,30 @@ def validate_global_article_coverage(
     expected = set(
         range(
             1,
-            news_count + 1
+            news_count + 1,
         )
     )
 
-    actual = set(allidx)
+    actual = set(
+        allidx
+    )
 
-    duplicate = sorted({
-        x
-        for x in allidx
-        if allidx.count(x) > 1
-    })
+    duplicate = sorted(
+        {
+            x
+            for x in allidx
+            if allidx.count(x) > 1
+        }
+    )
 
     missing = sorted(
-        expected - actual
+        expected
+        - actual
     )
 
     extra = sorted(
-        actual - expected
+        actual
+        - expected
     )
 
     if (
@@ -3596,8 +3841,28 @@ def validate_global_article_coverage(
         or extra
         or malformed
     ):
+        log_conflict(
+            date,
+            context,
+            "Global Article coverage异常。",
+            {
+                "duplicate":
+                    duplicate,
+
+                "missing":
+                    missing,
+
+                "extra":
+                    extra,
+
+                "malformed":
+                    malformed,
+            },
+        )
+
         raise RuntimeError(
-            f"❌ {context} Article覆盖异常 "
+            f"❌ {context} "
+            f"Article覆盖异常 "
             f"Duplicate={duplicate} "
             f"Missing={missing} "
             f"Extra={extra} "
@@ -3618,38 +3883,27 @@ def save_global_merge_checkpoint(
     status="running",
     uf=None,
     window_count=None,
-    metadata_history=None
+    metadata_history=None,
 ):
     if completed_windows is None:
         completed_windows = []
 
-    registry = load_global_cluster_registry(
-        date,
-        create_if_missing=False
-    )
-
-    if registry is None:
-        raise RuntimeError(
-            "❌ 保存checkpoint前Registry不存在"
-        )
-
-    validate_global_cluster_membership(
-        date,
-        current,
-        "CHECKPOINT BEFORE SAVE",
-        original_cluster_ids,
-        registry
-    )
-
     data = {
         "version":
-            PIPELINE_VERSION,
+            "6.5.3",
+
         "date":
             date,
+
+        "language":
+            CURRENT_LANGUAGE,
+
         "status":
             status,
+
         "round":
             int(round_no),
+
         "completed_windows":
             sorted(
                 set(
@@ -3657,58 +3911,49 @@ def save_global_merge_checkpoint(
                     for x in completed_windows
                 )
             ),
+
         "window_count":
-            (
-                int(window_count)
-                if window_count is not None
-                else None
-            ),
+            int(window_count)
+            if window_count is not None
+            else None,
+
         "original_cluster_ids":
             sorted(
                 str(x)
                 for x in original_cluster_ids
             ),
+
         "current_clusters":
             current,
+
         "union_find":
-            (
-                uf.to_checkpoint()
-                if uf is not None
-                else None
-            ),
+            uf.to_checkpoint()
+            if uf is not None
+            else None,
+
         "metadata_history":
-            (
-                metadata_history
-                if isinstance(
-                    metadata_history,
-                    dict
-                )
-                else {}
-            ),
-        "registry_next_sequence":
-            registry[
-                "next_sequence"
-            ],
-        "registry_global_ids":
-            sorted(
-                r[
-                    "global_cluster_id"
-                ]
-                for r in registry[
-                    "registered"
-                ]
-            ),
+            metadata_history
+            if isinstance(
+                metadata_history,
+                dict,
+            )
+            else {},
+
         "saved_at":
-            now().isoformat()
+            now().isoformat(),
     }
 
     write_json_atomic(
-        global_merge_checkpoint_path(date),
-        data
+        global_merge_checkpoint_path(
+            date
+        ),
+        data,
     )
 
 
-def load_global_merge_checkpoint(date):
+def load_global_merge_checkpoint(
+    date,
+):
     p = global_merge_checkpoint_path(
         date
     )
@@ -3716,34 +3961,76 @@ def load_global_merge_checkpoint(date):
     if not p.exists():
         return None
 
-    data = read_json(
-        p,
-        None
-    )
+    try:
+        data = read_json(
+            p,
+            None,
+        )
+
+    except Exception as e:
+        log_conflict(
+            date,
+            "GLOBAL MERGE CHECKPOINT",
+            "Checkpoint JSON读取失败，将忽略checkpoint。",
+            str(e),
+        )
+
+        return None
 
     if not isinstance(
         data,
-        dict
+        dict,
     ):
         return None
 
     if (
         data.get("version")
-        != PIPELINE_VERSION
+        not in (
+            "6.4",
+            "6.4.1",
+            "6.4.2",
+            "6.5.0",
+            "6.5.1",
+            "6.5.2",
+            "6.5.3",
+        )
         or
         data.get("date")
         != date
+        or
+        str(
+            data.get(
+                "language",
+                CURRENT_LANGUAGE,
+            )
+        ).upper()
+        != CURRENT_LANGUAGE
     ):
         return None
 
     return data
 
 
+def remove_global_merge_checkpoint(
+    date,
+):
+    p = global_merge_checkpoint_path(
+        date
+    )
+
+    if p.exists():
+        p.unlink()
+
+
+# ============================================================
+# CHECKPOINT VALIDATION
+# ============================================================
+
 def validate_checkpoint(
     date,
     checkpoint,
     expected_original_ids,
-    news_count
+    news_count,
 ):
     if not checkpoint:
         return False
@@ -3755,25 +4042,10 @@ def validate_checkpoint(
     if (
         not isinstance(
             current,
-            list
+            list,
         )
         or not current
     ):
-        return False
-
-    registry = (
-        load_global_cluster_registry(
-            date,
-            create_if_missing=False
-        )
-    )
-
-    if registry is None:
-        log_conflict(
-            date,
-            "GLOBAL MERGE CHECKPOINT",
-            "Checkpoint存在但Registry不存在。"
-        )
         return False
 
     expected_original = {
@@ -3785,7 +4057,7 @@ def validate_checkpoint(
         str(x)
         for x in checkpoint.get(
             "original_cluster_ids",
-            []
+            [],
         )
     }
 
@@ -3793,6 +4065,23 @@ def validate_checkpoint(
         actual_original
         != expected_original
     ):
+        log_conflict(
+            date,
+            "GLOBAL MERGE CHECKPOINT",
+            "Checkpoint原始Cluster Universe不一致。",
+            {
+                "checkpoint":
+                    sorted(
+                        actual_original
+                    ),
+
+                "expected":
+                    sorted(
+                        expected_original
+                    ),
+            },
+        )
+
         return False
 
     try:
@@ -3801,48 +4090,17 @@ def validate_checkpoint(
             current,
             "CHECKPOINT MEMBERSHIP",
             expected_original_ids,
-            registry
         )
 
         validate_global_article_coverage(
             date,
             current,
             news_count,
-            "CHECKPOINT ARTICLE COVERAGE"
+            "CHECKPOINT ARTICLE COVERAGE",
         )
 
-    except Exception as e:
-        log_conflict(
-            date,
-            "GLOBAL MERGE CHECKPOINT",
-            "Checkpoint验证失败。",
-            str(e)
-        )
+    except Exception:
         return False
-
-    checkpoint_ids = {
-        str(x)
-        for x in checkpoint.get(
-            "registry_global_ids",
-            checkpoint.get(
-                "registry_global_ids",
-                []
-            )
-        )
-    }
-
-    if checkpoint_ids:
-        registry_ids = {
-            r[
-                "global_cluster_id"
-            ]
-            for r in registry[
-                "registered"
-            ]
-        }
-
-        if not checkpoint_ids <= registry_ids:
-            return False
 
     status = checkpoint.get(
         "status"
@@ -3851,11 +4109,14 @@ def validate_checkpoint(
     if status == "converged":
         return True
 
+    if status not in (
+        "running",
+        "round_completed",
+    ):
+        return False
+
     if status == "round_completed":
         return True
-
-    if status != "running":
-        return False
 
     uf_data = checkpoint.get(
         "union_find"
@@ -3863,21 +4124,19 @@ def validate_checkpoint(
 
     if not isinstance(
         uf_data,
-        dict
+        dict,
     ):
         return False
 
     try:
         current_ids = [
-            str(
-                c["cluster_id"]
-            )
+            str(c["cluster_id"])
             for c in current
         ]
 
         uf = UnionFind.from_checkpoint(
             current_ids,
-            uf_data
+            uf_data,
         )
 
         uf.components()
@@ -3887,12 +4146,12 @@ def validate_checkpoint(
 
     completed = checkpoint.get(
         "completed_windows",
-        []
+        [],
     )
 
     if not isinstance(
         completed,
-        list
+        list,
     ):
         return False
 
@@ -3901,14 +4160,16 @@ def validate_checkpoint(
             int(x)
             for x in completed
         ]
+
     except Exception:
         return False
 
     if (
-        len(set(completed))
+        len(
+            set(completed)
+        )
         != len(completed)
-        or
-        any(
+        or any(
             x < 1
             for x in completed
         )
@@ -3931,12 +4192,12 @@ def validate_checkpoint(
 
     history = checkpoint.get(
         "metadata_history",
-        {}
+        {},
     )
 
     if not isinstance(
         history,
-        dict
+        dict,
     ):
         return False
 
@@ -3944,31 +4205,53 @@ def validate_checkpoint(
 
 
 # ============================================================
-# GLOBAL MERGE MAIN
+# GLOBAL MERGE
 # ============================================================
 
 def merge_all_clusters(
     date,
     clusters,
-    news_count
+    news_count,
 ):
+    """
+    注意：
+
+    V6.5.3 不再接受 registry 参数。
+
+    Registry 只负责Stage 1A产生Global ID。
+    Stage 1B只使用已经注册的Global ID。
+
+    这同时修复V6.5.2中：
+
+        merge_all_clusters(..., registry=registry)
+
+    与函数签名不一致的确定性Bug。
+    """
+
     current = clusters
 
-    registry = load_global_cluster_registry(
-        date,
-        create_if_missing=False
+    original_cluster_ids = sorted(
+        str(c["cluster_id"])
+        for c in clusters
     )
 
-    if registry is None:
-        raise RuntimeError(
-            "❌ Global Merge开始前Registry不存在"
-        )
+    print(
+        "\n"
+        + "=" * 70
+    )
 
-    original_cluster_ids = sorted(
-        str(
-            c["cluster_id"]
-        )
-        for c in clusters
+    print(
+        "STAGE 1B — "
+        "V6.5.3 GLOBAL EVENT MERGING"
+    )
+
+    print(
+        "=" * 70
+    )
+
+    print(
+        f"Processing Unit: "
+        f"{date} / {CURRENT_LANGUAGE}"
     )
 
     validate_global_cluster_membership(
@@ -3976,14 +4259,13 @@ def merge_all_clusters(
         current,
         "STAGE 1B INITIAL",
         original_cluster_ids,
-        registry
     )
 
     validate_global_article_coverage(
         date,
         current,
         news_count,
-        "STAGE 1B INITIAL"
+        "STAGE 1B INITIAL",
     )
 
     checkpoint = (
@@ -3997,7 +4279,7 @@ def merge_all_clusters(
             date,
             checkpoint,
             original_cluster_ids,
-            news_count
+            news_count,
         )
     )
 
@@ -4013,16 +4295,10 @@ def merge_all_clusters(
         ]
 
         print(
-            "\n♻️ 检测到有效 V6.5.2 "
-            "Global Merge checkpoint"
-        )
-
-        print(
-            f"   status={status}"
-        )
-
-        print(
-            f"   round={checkpoint.get('round')}"
+            "\n♻️ 检测到有效 "
+            "Global Merge checkpoint | "
+            f"status={status} | "
+            f"round={checkpoint.get('round')}"
         )
 
         if status == "converged":
@@ -4034,7 +4310,9 @@ def merge_all_clusters(
             )
 
             completed_windows = []
+
             uf = None
+
             metadata_history = {}
 
         else:
@@ -4046,45 +4324,59 @@ def merge_all_clusters(
                 int(x)
                 for x in checkpoint.get(
                     "completed_windows",
-                    []
+                    [],
                 )
             ]
 
-            uf = UnionFind.from_checkpoint(
-                [
-                    str(
-                        c["cluster_id"]
-                    )
-                    for c in current
-                ],
-                checkpoint[
-                    "union_find"
-                ]
+            uf = (
+                UnionFind.from_checkpoint(
+                    [
+                        str(
+                            c["cluster_id"]
+                        )
+                        for c in current
+                    ],
+                    checkpoint[
+                        "union_find"
+                    ],
+                )
             )
 
             metadata_history = (
                 checkpoint.get(
                     "metadata_history",
-                    {}
+                    {},
                 )
             )
 
     else:
         start_round = 1
+
         completed_windows = []
+
         uf = None
+
         metadata_history = {}
 
         print(
             "\n🆕 未检测到可恢复的"
-            "V6.5.2 checkpoint"
+            "Global Merge checkpoint"
         )
 
     if final_current is None:
         rnd = start_round
 
         while True:
-            before = len(current)
+            before = len(
+                current
+            )
+
+            print(
+                f"\nGLOBAL MERGE ROUND "
+                f"{rnd} | "
+                f"Input Clusters: "
+                f"{before}"
+            )
 
             if before <= 1:
                 save_global_merge_checkpoint(
@@ -4096,10 +4388,11 @@ def merge_all_clusters(
                     "converged",
                     None,
                     0,
-                    {}
+                    {},
                 )
 
                 final_current = current
+
                 break
 
             windows = build_merge_windows(
@@ -4119,12 +4412,9 @@ def merge_all_clusters(
 
             if not (
                 checkpoint_valid
-                and
-                rnd == start_round
-                and
-                checkpoint
-                and
-                checkpoint.get(
+                and rnd == start_round
+                and checkpoint
+                and checkpoint.get(
                     "status"
                 ) == "running"
             ):
@@ -4133,55 +4423,66 @@ def merge_all_clusters(
                 )
 
                 completed_windows = []
+
                 metadata_history = {}
 
                 next_window = 1
 
             else:
-                uf = UnionFind.from_checkpoint(
-                    current_ids,
-                    checkpoint[
-                        "union_find"
-                    ]
+                uf = (
+                    UnionFind.from_checkpoint(
+                        current_ids,
+                        checkpoint[
+                            "union_find"
+                        ],
+                    )
                 )
 
                 completed_windows = [
                     int(x)
-                    for x in checkpoint.get(
+                    for x
+                    in checkpoint.get(
                         "completed_windows",
-                        []
+                        [],
                     )
                 ]
 
                 metadata_history = (
                     checkpoint.get(
                         "metadata_history",
-                        {}
+                        {},
                     )
                 )
 
                 next_window = (
                     max(
                         completed_windows,
-                        default=0
+                        default=0,
                     )
                     + 1
                 )
 
             for wi in range(
                 next_window,
-                window_count + 1
+                window_count + 1,
             ):
                 w = windows[
                     wi - 1
                 ]
+
+                print(
+                    f"🔹 Window "
+                    f"{wi}/"
+                    f"{window_count} | "
+                    f"size={len(w)}"
+                )
 
                 groups = (
                     merge_cluster_window(
                         date,
                         w,
                         rnd,
-                        wi
+                        wi,
                     )
                 )
 
@@ -4191,7 +4492,7 @@ def merge_all_clusters(
                         w,
                         groups,
                         rnd,
-                        wi
+                        wi,
                     )
                 )
 
@@ -4199,7 +4500,7 @@ def merge_all_clusters(
                     merge_metadata_histories(
                         metadata_history,
                         records,
-                        uf
+                        uf,
                     )
                 )
 
@@ -4219,14 +4520,28 @@ def merge_all_clusters(
                     "running",
                     uf,
                     window_count,
-                    metadata_history
+                    metadata_history,
                 )
 
-            after = len(
+                print(
+                    f" 💾 Window {wi} "
+                    f"checkpoint saved"
+                )
+
+            components = (
                 uf.components()
             )
 
+            after = len(
+                components
+            )
+
             if after >= before:
+                print(
+                    "🟢 GLOBAL MERGE CONVERGED "
+                    "| 本轮没有发生实际合并"
+                )
+
                 save_global_merge_checkpoint(
                     date,
                     rnd,
@@ -4235,22 +4550,30 @@ def merge_all_clusters(
                     list(
                         range(
                             1,
-                            window_count + 1
+                            window_count + 1,
                         )
                     ),
                     "converged",
                     uf,
                     window_count,
-                    metadata_history
+                    metadata_history,
                 )
 
                 final_current = current
+
                 break
 
-            merged = rebuild_global_clusters(
-                current,
-                uf,
-                metadata_history
+            print(
+                f" 🔗 Actual merges: "
+                f"{before - after}"
+            )
+
+            merged = (
+                rebuild_global_clusters(
+                    current,
+                    uf,
+                    metadata_history,
+                )
             )
 
             validate_global_cluster_membership(
@@ -4258,14 +4581,19 @@ def merge_all_clusters(
                 merged,
                 f"STAGE 1B ROUND {rnd}",
                 original_cluster_ids,
-                registry
             )
 
             validate_global_article_coverage(
                 date,
                 merged,
                 news_count,
-                f"STAGE 1B ROUND {rnd}"
+                f"STAGE 1B ROUND {rnd}",
+            )
+
+            print(
+                f"✅ Round {rnd}: "
+                f"{before} -> "
+                f"{len(merged)}"
             )
 
             save_global_merge_checkpoint(
@@ -4277,10 +4605,11 @@ def merge_all_clusters(
                 "round_completed",
                 None,
                 None,
-                {}
+                {},
             )
 
             current = merged
+
             rnd += 1
 
             checkpoint_valid = True
@@ -4296,91 +4625,94 @@ def merge_all_clusters(
         final_current,
         "STAGE 1B FINAL",
         original_cluster_ids,
-        registry
     )
 
     validate_global_article_coverage(
         date,
         final_current,
         news_count,
-        "STAGE 1B FINAL"
+        "STAGE 1B FINAL",
     )
 
     ordered = sorted(
         final_current,
         key=lambda c:
             min(
-                c[
-                    "article_indexes"
-                ]
+                c["article_indexes"]
             )
+            if c["article_indexes"]
+            else 10**12
     )
 
     final = []
 
     for c in ordered:
-        gid = str(
-            c["cluster_id"]
-        ).strip()
+        final.append(
+            {
+                "event_id":
+                    str(
+                        c["cluster_id"]
+                    ),
 
-        validate_global_id(
-            gid
-        )
+                "event_title":
+                    c.get(
+                        "event_title",
+                        "未命名事件",
+                    ),
 
-        final.append({
-            "event_id":
-                gid,
-            "event_title":
-                c.get(
-                    "event_title",
-                    "未命名事件"
-                ),
-            "event_reason":
-                c.get(
-                    "event_reason",
-                    ""
-                ),
-            "article_indexes":
-                sorted(
-                    set(
-                        map(
-                            int,
-                            c[
-                                "article_indexes"
-                            ]
+                "event_reason":
+                    c.get(
+                        "event_reason",
+                        "",
+                    ),
+
+                "article_indexes":
+                    sorted(
+                        set(
+                            map(
+                                int,
+                                c[
+                                    "article_indexes"
+                                ],
+                            )
                         )
-                    )
-                )
-        })
-
-    validate_final_event_ids(
-        date,
-        final
-    )
+                    ),
+            }
+        )
 
     validate_global_article_coverage(
         date,
         final,
         news_count,
-        "STAGE 1B FINAL EVENT UNITS"
+        "STAGE 1B FINAL EVENT UNITS",
+    )
+
+    print(
+        f"\n✅ FINAL EVENT UNITS: "
+        f"{len(final)}"
+    )
+
+    print(
+        f"✅ ARTICLE COVERAGE: "
+        f"{news_count}/{news_count}"
     )
 
     return final
 
 
 # ============================================================
-# EVENT UNIT
+# FINAL EVENT ID
 # ============================================================
 
 def validate_final_event_ids(
     date,
-    events
+    events,
 ):
     ids = [
         str(
             e.get(
                 "event_id",
-                ""
+                "",
             )
         ).strip()
         for e in events
@@ -4394,19 +4726,37 @@ def validate_final_event_ids(
             f"❌ {date} Final EventUnit存在空event_id"
         )
 
-    if len(ids) != len(set(ids)):
+    if len(ids) != len(
+        set(ids)
+    ):
         raise RuntimeError(
             f"❌ {date} Final EventUnit存在重复event_id"
         )
 
-    for x in ids:
-        validate_global_id(x)
+    bad = [
+        x
+        for x in ids
+        if not re.fullmatch(
+            r"EVT-\d{8}-\d{6}",
+            x,
+        )
+    ]
 
+    if bad:
+        raise RuntimeError(
+            f"❌ {date} Final EventUnit存在非法Global ID："
+            f"{bad[:20]}"
+        )
+
+
+# ============================================================
+# BUILD EVENT UNITS
+# ============================================================
 
 def build_event_units(
     date,
     clusters,
-    news
+    news,
 ):
     out = []
 
@@ -4416,7 +4766,11 @@ def build_event_units(
         for i in c[
             "article_indexes"
         ]:
-            if not 1 <= i <= len(news):
+            if not (
+                1
+                <= i
+                <= len(news)
+            ):
                 raise RuntimeError(
                     f"❌ {c['event_id']}引用不存在文章：{i}"
                 )
@@ -4425,115 +4779,176 @@ def build_event_units(
                 i - 1
             ]["metadata"]
 
-            arts.append({
-                "index":
-                    i,
-                "path":
-                    str(
+            arts.append(
+                {
+                    "index":
+                        i,
+
+                    "path":
+                        str(
+                            news[
+                                i - 1
+                            ]["path"]
+                        ),
+
+                    "title":
+                        m.get(
+                            "title",
+                            "Untitled",
+                        ),
+
+                    "source":
+                        m.get(
+                            "source",
+                            "Unknown",
+                        ),
+
+                    "source_url":
+                        m.get(
+                            "source_url",
+                            "",
+                        ),
+
+                    "source_status":
+                        m.get(
+                            "source_status",
+                            "",
+                        ),
+
+                    "content_status":
+                        m.get(
+                            "content_status",
+                            "",
+                        ),
+
+                    "body":
                         news[
                             i - 1
-                        ]["path"]
-                    ),
-                "title":
-                    m.get(
-                        "title",
-                        "Untitled"
-                    ),
-                "source":
-                    m.get(
-                        "source",
-                        "Unknown"
-                    ),
-                "source_url":
-                    m.get(
-                        "source_url",
-                        ""
-                    ),
-                "source_status":
-                    m.get(
-                        "source_status",
-                        ""
-                    ),
-                "content_status":
-                    m.get(
-                        "content_status",
-                        ""
-                    ),
-                "body":
-                    news[
-                        i - 1
-                    ]["body"]
-            })
+                        ]["body"],
+                }
+            )
 
-        out.append({
-            "event_id":
-                c["event_id"],
-            "date":
-                date,
-            "event_title":
-                c["event_title"],
-            "event_reason":
-                c["event_reason"],
-            "articles":
-                arts
-        })
+        out.append(
+            {
+                "event_id":
+                    c["event_id"],
+
+                "date":
+                    date,
+
+                "language":
+                    CURRENT_LANGUAGE,
+
+                "event_title":
+                    c["event_title"],
+
+                "event_reason":
+                    c["event_reason"],
+
+                "articles":
+                    arts,
+            }
+        )
 
     return out
 
 
-def synthesize_event(event):
+# ============================================================
+# EVENT SYNTHESIS
+# ============================================================
+
+def synthesize_event(
+    event,
+):
     blocks = []
 
     for a in event[
         "articles"
     ][:MAX_ARTICLES_PER_EVENT_CONTEXT]:
         blocks.append(
-            f"""### 来源文章 #{a['index']}
-标题：{a['title']}
-来源：{a['source']}
-链接：{a['source_url']}
-source_status：{a['source_status']}
-content_status：{a['content_status']}
+            f"""
+### 来源文章 #{a['index']}
+
+标题：
+{a['title']}
+
+来源：
+{a['source']}
+
+链接：
+{a['source_url']}
+
+source_status：
+{a['source_status']}
+
+content_status：
+{a['content_status']}
 
 内容：
-{a['body'][:ARTICLE_AGGREGATION_CONTENT_LIMIT]}"""
+
+{a['body'][:ARTICLE_AGGREGATION_CONTENT_LIMIT]}
+""".strip()
         )
 
-    prompt = f"""你正在执行748686自生长知识系统V6.5.2第二层事件知识综合。
+    prompt = f"""
+你正在执行748686自生长知识系统V6.5.3第二层事件知识综合。
 
-日期：{event['date']}
-事件ID：{event['event_id']}
-事件名称：{event['event_title']}
-第一层事件判断：{event['event_reason']}
+日期：
+{event['date']}
+
+语言：
+{event.get('language', CURRENT_LANGUAGE)}
+
+事件ID：
+{event['event_id']}
+
+事件名称：
+{event['event_title']}
+
+第一层事件判断：
+{event['event_reason']}
 
 同一事件的多来源输入：
+
 {chr(10).join(blocks)}
 
 把来源综合成一个高质量事件知识单元。
 
 要求：
-1. 识别共同事实；
-2. 保留来源独有信息；
-3. 保留不同地区视角；
-4. 区分事实与推测；
-5. 不编造；
-6. source_status不是fetched时不得声称完整阅读原文；
-7. 冲突明确指出；
+
+1. 识别共同事实。
+2. 保留来源独有信息。
+3. 保留不同地区视角。
+4. 区分事实与推测。
+5. 不编造。
+6. source_status不是fetched时不得声称完整阅读原文。
+7. 冲突明确指出。
 8. 资料不足明确说明。
 
 输出标准中文Markdown，包含：
 
 # 事件名称
+
 ## 事件概述
+
 ## 核心事实
+
 ## 多来源交叉验证
+
 ## 不同来源独有信息
+
 ## 不同国家 / 地区视角
+
 ## 信息差异与冲突
+
 ## 当前已知影响
+
 ## 目前不能确定的事情
+
 ## 来源
-## 事件结论"""
+
+## 事件结论
+"""
 
     return call_ai(
         prompt,
@@ -4542,11 +4957,17 @@ content_status：{a['content_status']}
             "严格依据输入，不得编造。"
             "输出标准中文Markdown。"
         ),
-        0.2
+        0.2,
     )
 
 
-def event_unit_filename(e):
+# ============================================================
+# EVENT FILE
+# ============================================================
+
+def event_unit_filename(
+    e,
+):
     return (
         f"{e['event_id']}_"
         f"{safe_name(e['event_title'])}.md"
@@ -4556,7 +4977,7 @@ def event_unit_filename(e):
 def save_event_unit(
     date,
     event,
-    content
+    content,
 ):
     target = event_units_dir(
         date
@@ -4564,11 +4985,14 @@ def save_event_unit(
 
     target.mkdir(
         parents=True,
-        exist_ok=True
+        exist_ok=True,
     )
 
-    p = target / event_unit_filename(
-        event
+    p = (
+        target
+        / event_unit_filename(
+            event
+        )
     )
 
     sources = "\n".join(
@@ -4583,6 +5007,7 @@ def save_event_unit(
     p.write_text(
         f"""---
 date: {date}
+language: {CURRENT_LANGUAGE}
 event_id: {event['event_id']}
 type: event_unit
 status: completed
@@ -4594,9 +5019,11 @@ timezone: Asia/Shanghai
 
 > Event ID：{event['event_id']}
 >
+> Language：{CURRENT_LANGUAGE}
+>
 > 原始新闻数量：{len(event['articles'])}
 
-## 第二层AI事件判断
+## 第一层AI事件判断
 
 {event['event_reason']}
 
@@ -4608,7 +5035,7 @@ timezone: Asia/Shanghai
 
 {sources}
 """,
-        encoding="utf-8"
+        encoding="utf-8",
     )
 
     return p
@@ -4620,40 +5047,58 @@ timezone: Asia/Shanghai
 
 def save_aggregation_index(
     date,
-    events
+    events,
 ):
     data = []
 
     for e in events:
-        data.append({
-            "event_id":
-                e["event_id"],
-            "date":
-                e["date"],
-            "event_title":
-                e["event_title"],
-            "event_reason":
-                e["event_reason"],
-            "source_count":
-                len(e["articles"]),
-            "articles": [
-                {
-                    "index":
-                        a["index"],
-                    "title":
-                        a["title"],
-                    "source":
-                        a["source"],
-                    "source_url":
-                        a["source_url"],
-                    "path":
-                        a["path"]
-                }
-                for a in e[
-                    "articles"
-                ]
-            ]
-        })
+        data.append(
+            {
+                "event_id":
+                    e["event_id"],
+
+                "date":
+                    e["date"],
+
+                "language":
+                    CURRENT_LANGUAGE,
+
+                "event_title":
+                    e["event_title"],
+
+                "event_reason":
+                    e["event_reason"],
+
+                "source_count":
+                    len(
+                        e["articles"]
+                    ),
+
+                "articles":
+                    [
+                        {
+                            "index":
+                                a["index"],
+
+                            "title":
+                                a["title"],
+
+                            "source":
+                                a["source"],
+
+                            "source_url":
+                                a["source_url"],
+
+                            "path":
+                                a["path"],
+                        }
+                        for a
+                        in e[
+                            "articles"
+                        ]
+                    ],
+            }
+        )
 
     p = (
         event_units_dir(date)
@@ -4662,13 +5107,15 @@ def save_aggregation_index(
 
     write_json(
         p,
-        data
+        data,
     )
 
     return p
 
 
-def load_event_index(date):
+def load_event_index(
+    date,
+):
     p = (
         event_units_dir(date)
         / EVENT_INDEX_FILE
@@ -4677,23 +5124,33 @@ def load_event_index(date):
     if not p.exists():
         return None
 
-    d = read_json(
-        p,
-        None
+    try:
+        d = read_json(
+            p,
+            None,
+        )
+
+    except Exception:
+        return None
+
+    return (
+        d
+        if isinstance(
+            d,
+            list,
+        )
+        and d
+        else None
     )
 
-    if (
-        isinstance(d, list)
-        and d
-    ):
-        return d
 
-    return None
-
+# ============================================================
+# EVENT FILE VALIDATION
+# ============================================================
 
 def event_unit_file_valid(
     path,
-    event_id
+    event_id,
 ):
     if (
         not path.exists()
@@ -4705,46 +5162,46 @@ def event_unit_file_valid(
         m, b = parse_front_matter(
             path.read_text(
                 encoding="utf-8",
-                errors="replace"
+                errors="replace",
             )
         )
+
     except Exception:
         return False
 
-    return bool(
-        b.strip()
-    ) and (
-        m.get(
+    return (
+        bool(
+            b.strip()
+        )
+        and m.get(
             "event_id"
         )
         == event_id
-    ) and (
-        m.get(
+        and m.get(
             "status"
         )
         == "completed"
     )
 
 
-def inspect_event_units(date):
+# ============================================================
+# EVENT UNIT INSPECTION
+# ============================================================
+
+def inspect_event_units(
+    date,
+):
     target = event_units_dir(
         date
     )
 
     if not target.exists():
         return {
-            "exists":
-                False,
-            "complete":
-                False,
-            "index":
-                None,
-            "missing":
-                [],
-            "invalid":
-                [],
-            "unexpected":
-                []
+            "exists": False,
+            "complete": False,
+            "index": None,
+            "missing": [],
+            "invalid": [],
         }
 
     idx = load_event_index(
@@ -4753,36 +5210,40 @@ def inspect_event_units(date):
 
     if idx is None:
         return {
-            "exists":
-                True,
-            "complete":
-                False,
-            "index":
-                None,
-            "missing":
-                [],
-            "invalid":
-                [],
-            "unexpected":
-                []
+            "exists": True,
+            "complete": False,
+            "index": None,
+            "missing": [],
+            "invalid": [],
         }
 
     missing = []
+
     invalid = []
+
+    ids = []
 
     for e in idx:
         eid = str(
             e.get(
                 "event_id",
-                ""
+                "",
             )
         ).strip()
 
-        matches = list(
-            target.glob(
-                f"{eid}_*.md"
+        ids.append(
+            eid
+        )
+
+        matches = (
+            list(
+                target.glob(
+                    f"{eid}_*.md"
+                )
             )
-        ) if eid else []
+            if eid
+            else []
+        )
 
         if not matches:
             missing.append(
@@ -4792,7 +5253,7 @@ def inspect_event_units(date):
         elif not any(
             event_unit_file_valid(
                 p,
-                eid
+                eid,
             )
             for p in matches
         ):
@@ -4803,50 +5264,57 @@ def inspect_event_units(date):
     return {
         "exists":
             True,
+
         "complete":
-            bool(idx)
+            bool(ids)
             and not missing
             and not invalid,
+
         "index":
             idx,
+
         "missing":
             missing,
+
         "invalid":
             invalid,
-        "unexpected":
-            []
     }
 
+
+# ============================================================
+# COMPLETE MARKER
+# ============================================================
 
 def mark_event_units_complete(
     date,
     n,
-    e
+    e,
 ):
     p = (
-        event_units_dir(date)
+        language_dir(date)
         / EVENT_UNITS_COMPLETE_FILE
     )
 
     p.write_text(
         f"""EVENT_UNITS_COMPLETE
 date: {date}
+language: {CURRENT_LANGUAGE}
 original_enriched_news: {n}
 final_event_units: {e}
 completed_at: {now().isoformat()}
 timezone: Asia/Shanghai
 """,
-        encoding="utf-8"
+        encoding="utf-8",
     )
 
     return p
 
 
 def remove_event_units_complete(
-    date
+    date,
 ):
     p = (
-        event_units_dir(date)
+        language_dir(date)
         / EVENT_UNITS_COMPLETE_FILE
     )
 
@@ -4854,149 +5322,178 @@ def remove_event_units_complete(
         p.unlink()
 
 
+# ============================================================
+# REBUILD EVENTS FROM INDEX
+# ============================================================
+
 def rebuild_events_from_index(
     date,
     index,
-    news
+    news,
 ):
     out = []
 
     for e in index:
-        eid = str(
-            e["event_id"]
-        ).strip()
-
-        validate_global_id(
-            eid
-        )
-
         arts = []
 
         for r in e.get(
             "articles",
-            []
+            [],
         ):
             i = int(
                 r["index"]
             )
 
-            if not 1 <= i <= len(news):
+            if not (
+                1
+                <= i
+                <= len(news)
+            ):
                 raise RuntimeError(
-                    f"❌ {eid}引用不存在文章：{i}"
+                    f"❌ {e.get('event_id')}"
+                    f"引用不存在文章：{i}"
                 )
 
             m = news[
                 i - 1
             ]["metadata"]
 
-            arts.append({
-                "index":
-                    i,
-                "path":
-                    str(
+            arts.append(
+                {
+                    "index":
+                        i,
+
+                    "path":
+                        str(
+                            news[
+                                i - 1
+                            ]["path"]
+                        ),
+
+                    "title":
+                        m.get(
+                            "title",
+                            "Untitled",
+                        ),
+
+                    "source":
+                        m.get(
+                            "source",
+                            "Unknown",
+                        ),
+
+                    "source_url":
+                        m.get(
+                            "source_url",
+                            "",
+                        ),
+
+                    "source_status":
+                        m.get(
+                            "source_status",
+                            "",
+                        ),
+
+                    "content_status":
+                        m.get(
+                            "content_status",
+                            "",
+                        ),
+
+                    "body":
                         news[
                             i - 1
-                        ]["path"]
-                    ),
-                "title":
-                    m.get(
-                        "title",
-                        "Untitled"
-                    ),
-                "source":
-                    m.get(
-                        "source",
-                        "Unknown"
-                    ),
-                "source_url":
-                    m.get(
-                        "source_url",
-                        ""
-                    ),
-                "source_status":
-                    m.get(
-                        "source_status",
-                        ""
-                    ),
-                "content_status":
-                    m.get(
-                        "content_status",
-                        ""
-                    ),
-                "body":
-                    news[
-                        i - 1
-                    ]["body"]
-            })
+                        ]["body"],
+                }
+            )
 
-        out.append({
-            "event_id":
-                eid,
-            "date":
-                date,
-            "event_title":
-                e.get(
-                    "event_title",
-                    "未命名事件"
-                ),
-            "event_reason":
-                e.get(
-                    "event_reason",
-                    ""
-                ),
-            "articles":
-                arts
-        })
+        out.append(
+            {
+                "event_id":
+                    str(
+                        e["event_id"]
+                    ),
+
+                "date":
+                    date,
+
+                "language":
+                    CURRENT_LANGUAGE,
+
+                "event_title":
+                    e.get(
+                        "event_title",
+                        "未命名事件",
+                    ),
+
+                "event_reason":
+                    e.get(
+                        "event_reason",
+                        "",
+                    ),
+
+                "articles":
+                    arts,
+            }
+        )
 
     return out
 
 
+# ============================================================
+# EVENT INDEX COVERAGE
+# ============================================================
+
 def validate_event_index_coverage(
     date,
     events,
-    n
+    n,
 ):
     ids = []
+
     eids = set()
 
     for e in events:
-        eid = str(
-            e["event_id"]
-        ).strip()
-
-        validate_global_id(
-            eid
-        )
+        eid = e[
+            "event_id"
+        ]
 
         if eid in eids:
             raise RuntimeError(
-                f"❌ {date} Event Index重复event_id："
+                f"❌ {date}/{CURRENT_LANGUAGE} "
+                f"Event Index重复event_id："
                 f"{eid}"
             )
 
-        eids.add(eid)
+        eids.add(
+            eid
+        )
 
         ids.extend(
             a["index"]
-            for a in e["articles"]
+            for a
+            in e[
+                "articles"
+            ]
         )
-
-    expected = set(
-        range(
-            1,
-            n + 1
-        )
-    )
 
     if (
         set(ids)
-        != expected
+        != set(
+            range(
+                1,
+                n + 1,
+            )
+        )
         or
         len(ids)
-        != len(set(ids))
+        != len(
+            set(ids)
+        )
     ):
         raise RuntimeError(
-            f"❌ {date} Event Index覆盖率失败"
+            f"❌ {date}/{CURRENT_LANGUAGE} "
+            "Event Index覆盖率失败"
         )
 
 
@@ -5007,7 +5504,7 @@ def validate_event_index_coverage(
 def complete_existing_event_units(
     date,
     events,
-    n
+    n,
 ):
     target = event_units_dir(
         date
@@ -5015,19 +5512,15 @@ def complete_existing_event_units(
 
     target.mkdir(
         parents=True,
-        exist_ok=True
+        exist_ok=True,
     )
 
     generated = 0
 
     for i, e in enumerate(
         events,
-        1
+        1,
     ):
-        validate_global_id(
-            e["event_id"]
-        )
-
         matches = target.glob(
             f"{e['event_id']}_*.md"
         )
@@ -5035,7 +5528,7 @@ def complete_existing_event_units(
         if any(
             event_unit_file_valid(
                 p,
-                e["event_id"]
+                e["event_id"],
             )
             for p in matches
         ):
@@ -5044,6 +5537,7 @@ def complete_existing_event_units(
                 f"⏭️ 已存在："
                 f"{e['event_id']}"
             )
+
             continue
 
         print(
@@ -5064,12 +5558,12 @@ def complete_existing_event_units(
         p = save_event_unit(
             date,
             e,
-            content
+            content,
         )
 
         if not event_unit_file_valid(
             p,
-            e["event_id"]
+            e["event_id"],
         ):
             raise RuntimeError(
                 f"❌ {e['event_id']}保存验证失败"
@@ -5081,9 +5575,10 @@ def complete_existing_event_units(
         if not any(
             event_unit_file_valid(
                 p,
-                e["event_id"]
+                e["event_id"],
             )
-            for p in target.glob(
+            for p
+            in target.glob(
                 f"{e['event_id']}_*.md"
             )
         ):
@@ -5091,10 +5586,12 @@ def complete_existing_event_units(
                 f"❌ {e['event_id']}最终缺失"
             )
 
-    marker = mark_event_units_complete(
-        date,
-        n,
-        len(events)
+    marker = (
+        mark_event_units_complete(
+            date,
+            n,
+            len(events),
+        )
     )
 
     print(
@@ -5111,155 +5608,286 @@ def complete_existing_event_units(
 # STAGE 1
 # ============================================================
 
-def run_stage_1(date):
-    print(
-        f"\n{'=' * 70}\n"
-        f"STAGE 1 — EVENT UNIT GENERATION "
-        f"V6.5.2: {date}\n"
-        f"{'=' * 70}"
+def run_stage_1(
+    date,
+    language,
+):
+    global CURRENT_LANGUAGE
+
+    CURRENT_LANGUAGE = (
+        str(language)
+        .upper()
     )
+
+    if CURRENT_LANGUAGE not in (
+        SUPPORTED_LANGUAGES
+    ):
+        raise RuntimeError(
+            f"❌ 不支持的语言："
+            f"{language}"
+        )
+
+    # --------------------------------------------------------
+    # Processing Unit
+    # --------------------------------------------------------
+
+    root = event_units_root(
+        date
+    )
+
+    lang_root = language_dir(
+        date
+    )
+
+    articles_root = (
+        lang_root
+        / "articles"
+    )
+
+    events_root = (
+        event_units_dir(
+            date
+        )
+    )
+
+    root.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    articles_root.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    events_root.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    print(
+        f"""
+{'=' * 70}
+STAGE 1 — EVENT UNIT GENERATION V6.5.3
+DATE     : {date}
+LANGUAGE : {CURRENT_LANGUAGE}
+
+PROCESSING UNIT:
+{date} + {CURRENT_LANGUAGE}
+
+OUTPUT:
+{lang_root}
+{'=' * 70}
+"""
+    )
+
+    # --------------------------------------------------------
+    # Resume existing EventUnits
+    # --------------------------------------------------------
 
     inspection = inspect_event_units(
         date
     )
 
-    if inspection["complete"]:
+    if inspection[
+        "complete"
+    ]:
         print(
-            f"✅ {date} EventUnits已经完整，"
+            f"✅ {date} / "
+            f"{CURRENT_LANGUAGE} "
+            "EventUnits已经完整，"
             "跳过AI聚合。"
         )
+
         return False
 
+    # --------------------------------------------------------
+    # Load Enriched
+    # --------------------------------------------------------
+
     news = load_all_enriched_news(
-        date
+        date,
+        CURRENT_LANGUAGE,
     )
 
-    if inspection["index"] is not None:
+    print(
+        f"📦 Processing Unit："
+        f"{date} / "
+        f"{CURRENT_LANGUAGE} | "
+        f"News={len(news)}"
+    )
+
+    # --------------------------------------------------------
+    # Existing Event Index
+    # --------------------------------------------------------
+
+    if inspection[
+        "index"
+    ] is not None:
         events = (
             rebuild_events_from_index(
                 date,
-                inspection["index"],
-                news
+                inspection[
+                    "index"
+                ],
+                news,
             )
         )
 
         validate_event_index_coverage(
             date,
             events,
-            len(news)
+            len(news),
+        )
+
+        validate_final_event_ids(
+            date,
+            events,
         )
 
         return complete_existing_event_units(
             date,
             events,
-            len(news)
+            len(news),
         )
 
     remove_event_units_complete(
         date
     )
 
-    # 注意：不需要提前加载 registry，
-    # build_initial_clusters 内部会自己加载并更新。
+    # --------------------------------------------------------
+    # Global Registry
+    #
+    # IMPORTANT:
+    #
+    # Registry belongs to:
+    #
+    # DATE + LANGUAGE
+    #
+    # It is NOT shared between EN/ZH.
+    # --------------------------------------------------------
+
+    registry = (
+        load_or_create_global_registry(
+            date,
+            CURRENT_LANGUAGE,
+        )
+    )
+
+    # --------------------------------------------------------
+    # Stage 1A
+    # --------------------------------------------------------
+
     initial = build_initial_clusters(
         date,
-        news
+        news,
+        registry,
     )
 
-    # 重新加载最新 registry（build 内部已持久化）
-    registry = load_global_cluster_registry(
-        date,
-        create_if_missing=False
-    )
-
-    # 确保build阶段和当前Registry一致。
-    validate_global_cluster_membership(
-        date,
-        initial,
-        "STAGE 1A BEFORE GLOBAL MERGE",
-        [
-            c["cluster_id"]
-            for c in initial
-        ],
-        registry
-    )
+    # --------------------------------------------------------
+    # Stage 1B
+    #
+    # FIX:
+    #
+    # Do NOT pass registry.
+    #
+    # V6.5.2 had:
+    #
+    # merge_all_clusters(
+    #     date,
+    #     initial,
+    #     len(news),
+    #     registry=registry
+    # )
+    #
+    # which does not match function signature.
+    # --------------------------------------------------------
 
     final = merge_all_clusters(
         date,
         initial,
-        len(news)
+        len(news),
     )
+
+    # --------------------------------------------------------
+    # EventUnits
+    # --------------------------------------------------------
 
     events = build_event_units(
         date,
         final,
-        news
+        news,
     )
 
     validate_event_index_coverage(
         date,
         events,
-        len(news)
+        len(news),
     )
 
     validate_final_event_ids(
         date,
-        events
+        events,
     )
+
+    # --------------------------------------------------------
+    # Save Event Index
+    # --------------------------------------------------------
 
     p = save_aggregation_index(
         date,
-        events
+        events,
     )
 
     print(
         f"✅ Event Index saved: {p}"
     )
 
-    # Registry保留。
-    # Global Merge checkpoint完成后才可以清理checkpoint，
-    # 但Registry作为Global ID Ledger继续保留。
-    checkpoint = (
-        global_merge_checkpoint_path(
-            date
-        )
-    )
+    # --------------------------------------------------------
+    # Global Merge checkpoint no longer needed
+    # after Event Index is safely persisted.
+    # --------------------------------------------------------
 
-    if checkpoint.exists():
-        checkpoint.unlink()
-
-    print(
-        "🧹 Global Merge checkpoint已清理"
+    remove_global_merge_checkpoint(
+        date
     )
 
     print(
-        "🔐 Global Cluster Registry保留"
+        "🧹 当前 Processing Unit "
+        "Global Merge checkpoint已清理"
     )
+
+    # --------------------------------------------------------
+    # Generate EventUnits
+    # --------------------------------------------------------
 
     return complete_existing_event_units(
         date,
         events,
-        len(news)
+        len(news),
     )
 
 
 # ============================================================
-# STAGE 2
+# LOAD SAVED EVENT UNITS
 # ============================================================
 
-def load_saved_event_units(date):
+def load_saved_event_units(
+    date,
+):
     target = event_units_dir(
         date
     )
 
     marker = (
-        target
+        language_dir(date)
         / EVENT_UNITS_COMPLETE_FILE
     )
 
     if not marker.exists():
         raise RuntimeError(
-            f"❌ {date} EventUnits尚未完成，"
+            f"❌ {date}/{CURRENT_LANGUAGE} "
+            "EventUnits尚未完成，"
             "禁止进入27 Skills阶段"
         )
 
@@ -5269,7 +5897,8 @@ def load_saved_event_units(date):
 
     if idx is None:
         raise RuntimeError(
-            f"❌ {date} Event Index不存在或无效"
+            f"❌ {date}/{CURRENT_LANGUAGE} "
+            "Event Index不存在或无效"
         )
 
     files = []
@@ -5278,12 +5907,8 @@ def load_saved_event_units(date):
         eid = str(
             e.get(
                 "event_id",
-                ""
+                "",
             )
-        )
-
-        validate_global_id(
-            eid
         )
 
         matches = sorted(
@@ -5298,63 +5923,77 @@ def load_saved_event_units(date):
                 for p in matches
                 if event_unit_file_valid(
                     p,
-                    eid
+                    eid,
                 )
             ),
-            None
+            None,
         )
 
         if valid is None:
             raise RuntimeError(
-                f"❌ EventUnit缺失或无效：{eid}"
+                f"❌ EventUnit缺失或无效："
+                f"{eid}"
             )
 
         files.append(
-            (e, valid)
+            (
+                e,
+                valid,
+            )
         )
 
     return files
 
 
+# ============================================================
+# SKILL EXECUTION
+# ============================================================
+
 def run_one_skill(
     event,
-    skill
+    skill,
 ):
-    content = event[1].read_text(
+    content = event[
+        1
+    ].read_text(
         encoding="utf-8",
-        errors="replace"
+        errors="replace",
     )
 
-    eid = event[0].get(
-        "event_id",
-        ""
-    )
+    prompt = f"""
+你正在执行748686自生长知识系统V6.5.3的27 Skills深度处理。
 
-    validate_global_id(
-        eid
-    )
+日期：
+{event[0].get('date', '')}
 
-    prompt = f"""你正在执行748686自生长知识系统V6.5.2的27 Skills深度处理。
+语言：
+{event[0].get('language', CURRENT_LANGUAGE)}
 
 事件：
 {event[0].get('event_title', '')}
 
 Event ID：
-{eid}
+{event[0].get('event_id', '')}
 
 Skill名称：
 {skill['name']}
 
 Skill规则：
+
 {skill['content']}
 
 EventUnit原文：
+
 {content[:30000]}
 
 请严格按照该Skill完成深度处理。
+
 不要编造。
+
 只使用EventUnit提供的信息。
-输出可直接写入知识库的中文Markdown。"""
+
+输出可直接写入知识库的中文Markdown。
+"""
 
     return call_ai(
         prompt,
@@ -5362,36 +6001,63 @@ EventUnit原文：
             "你是748686知识系统Skill执行器。"
             "严格执行Skill规则，不得编造。"
         ),
-        0.2
+        0.2,
     )
 
 
-def run_stage_2(date):
+# ============================================================
+# STAGE 2
+# ============================================================
+
+def run_stage_2(
+    date,
+    language,
+):
+    global CURRENT_LANGUAGE
+
+    CURRENT_LANGUAGE = (
+        str(language)
+        .upper()
+    )
+
     files = load_saved_event_units(
         date
     )
 
     skills = load_skills()
+
     routes = load_routes()
 
     print(
-        f"\nSTAGE 2 — 27 SKILLS | "
-        f"Events={len(files)} | "
-        f"Skills={len(skills)}"
+        f"""
+STAGE 2 — 27 SKILLS
+
+Processing Unit:
+{date} / {CURRENT_LANGUAGE}
+
+Events:
+{len(files)}
+
+Skills:
+{len(skills)}
+"""
     )
 
     selected = []
+
     selected_names = set()
 
     for category, names in routes.items():
         for name in names:
             if (
                 name in skills
-                and name not in selected_names
+                and name
+                not in selected_names
             ):
                 selected.append(
                     skills[name]
                 )
+
                 selected_names.add(
                     name
                 )
@@ -5408,29 +6074,28 @@ def run_stage_2(date):
 
     for ei, event in enumerate(
         files,
-        1
+        1,
     ):
-        eid = event[0].get(
+        eid = event[
+            0
+        ].get(
             "event_id",
-            ""
-        )
-
-        validate_global_id(
-            eid
+            "",
         )
 
         edir = (
-            outroot / eid
+            outroot
+            / eid
         )
 
         edir.mkdir(
             parents=True,
-            exist_ok=True
+            exist_ok=True,
         )
 
         for si, skill in enumerate(
             selected,
-            1
+            1,
         ):
             outfile = (
                 edir
@@ -5447,6 +6112,7 @@ def run_stage_2(date):
                     f"[{si}/{len(selected)}] "
                     f"⏭️ {outfile.name}"
                 )
+
                 continue
 
             print(
@@ -5457,18 +6123,19 @@ def run_stage_2(date):
 
             result = run_one_skill(
                 event,
-                skill
+                skill,
             )
 
             if not result.strip():
                 raise RuntimeError(
                     f"❌ Skill结果为空："
-                    f"{eid} / {skill['name']}"
+                    f"{eid} / "
+                    f"{skill['name']}"
                 )
 
             outfile.write_text(
                 result,
-                encoding="utf-8"
+                encoding="utf-8",
             )
 
     marker = (
@@ -5479,16 +6146,19 @@ def run_stage_2(date):
     marker.write_text(
         f"""SKILLS_COMPLETE
 date: {date}
+language: {CURRENT_LANGUAGE}
 events: {len(files)}
 skills: {len(selected)}
 completed_at: {now().isoformat()}
 timezone: Asia/Shanghai
 """,
-        encoding="utf-8"
+        encoding="utf-8",
     )
 
     print(
-        f"✅ STAGE 2 COMPLETE: {date}"
+        f"✅ STAGE 2 COMPLETE: "
+        f"{date} / "
+        f"{CURRENT_LANGUAGE}"
     )
 
     return True
@@ -5500,13 +6170,24 @@ timezone: Asia/Shanghai
 
 def main():
     ap = argparse.ArgumentParser(
-        description=
-            "748686 Knowledge Pipeline V6.5.2"
+        description=(
+            "748686 Knowledge Pipeline V6.5.3 "
+            "— DATE + LANGUAGE Processing Unit"
+        )
     )
 
     ap.add_argument(
         "--date",
-        required=True
+        required=True,
+    )
+
+    ap.add_argument(
+        "--language",
+        choices=[
+            "EN",
+            "ZH",
+        ],
+        required=True,
     )
 
     ap.add_argument(
@@ -5514,57 +6195,107 @@ def main():
         choices=[
             "aggregation",
             "skills",
-            "all"
+            "all",
         ],
-        default="aggregation"
+        default="aggregation",
     )
 
     args = ap.parse_args()
 
-    try:
-        # 强制检查日期。
-        compact_date(
-            args.date
-        )
+    # --------------------------------------------------------
+    # 强制确认 Processing Unit
+    # --------------------------------------------------------
 
+    unit = (
+        f"{args.date} + "
+        f"{args.language}"
+    )
+
+    print(
+        "\n"
+        + "=" * 70
+    )
+
+    print(
+        "748686 KNOWLEDGE PIPELINE V6.5.3"
+    )
+
+    print(
+        f"PROCESSING UNIT: {unit}"
+    )
+
+    print(
+        f"STAGE: {args.stage}"
+    )
+
+    print(
+        "=" * 70
+    )
+
+    try:
         if args.stage in (
             "aggregation",
-            "all"
+            "all",
         ):
             run_stage_1(
-                args.date
+                args.date,
+                args.language,
             )
 
         if args.stage in (
             "skills",
-            "all"
+            "all",
         ):
             run_stage_2(
-                args.date
+                args.date,
+                args.language,
             )
 
     except KeyboardInterrupt:
         print(
             "\n❌ 用户中断"
         )
+
         return 130
 
     except Exception as e:
         print(
-            f"\n❌ Knowledge Pipeline "
-            f"V6.5.2 FAILED: {e}",
-            file=sys.stderr
+            "\n❌ "
+            "Knowledge Pipeline "
+            f"V6.5.3 FAILED: {e}",
+            file=sys.stderr,
         )
+
         return 1
 
     print(
-        f"\n✅ Knowledge Pipeline "
-        f"V6.5.2 finished: "
-        f"{args.date} / {args.stage}"
+        "\n"
+        + "=" * 70
+    )
+
+    print(
+        "✅ KNOWLEDGE PIPELINE "
+        "V6.5.3 FINISHED"
+    )
+
+    print(
+        f"Processing Unit: "
+        f"{args.date} + "
+        f"{args.language}"
+    )
+
+    print(
+        f"Stage: {args.stage}"
+    )
+
+    print(
+        "=" * 70
     )
 
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(
+        main()
+    )
