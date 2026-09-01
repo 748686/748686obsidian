@@ -415,13 +415,13 @@ jobs:
       # ==========================================================
       # 14. Build Atomic News
       #
-      # 目录契约：
+      # 语言目录契约：
       #
       #     DATE-Atomic/
       #       ├── en/
       #       └── zh/
       #
-      # 全部统一小写。
+      # 语言目录永远使用小写。
       # ==========================================================
 
       - name: Build three-day Atomic News
@@ -606,13 +606,13 @@ jobs:
       # ==========================================================
       # 17. Source Enrichment
       #
-      # 目录契约：
+      # 语言目录契约：
       #
       #     DATE-Enriched/
       #       ├── en/
       #       └── zh/
       #
-      # 全部统一小写。
+      # 永远使用小写。
       # ==========================================================
 
       - name: Build three-day Enriched News
@@ -821,28 +821,31 @@ jobs:
       # ==========================================================
       # 20. KNOWLEDGE PROCESSING UNITS
       #
-      # Processing Unit = DATE + LANGUAGE
+      # ==========================================================
       #
-      # 目录语言契约：
+      # GLOBAL LANGUAGE CONTRACT
       #
-      #     en / zh
+      # 整个 748686 自生长知识系统只允许：
       #
-      # 永远使用小写。
+      #     en
+      #     zh
       #
-      # 注意：
+      # 禁止：
       #
-      # Task 1 / Task 2 的 Python CLI 当前要求：
+      #     EN
+      #     ZH
       #
-      #     EN / ZH
+      # 重要：
       #
-      # 因此这里只在 CLI 参数层转换：
+      # 1. 目录使用小写
+      # 2. Python CLI 使用小写
+      # 3. Python 内部语言值使用小写
+      # 4. Rule / Route / Skill 使用小写
+      # 5. 不进行任何大小写转换
       #
-      #     en -> EN
-      #     zh -> ZH
+      # LANGUAGE = en / zh
       #
-      # 文件夹路径仍然严格使用：
-      #
-      #     en / zh
+      # 永远直接向下传递。
       #
       # ==========================================================
 
@@ -894,34 +897,33 @@ jobs:
             DATE="${UNIT%%|*}"
             LANGUAGE="${UNIT##*|}"
 
-            # ------------------------------------------------------
-            # DIRECTORY LANGUAGE CONTRACT
+            # ======================================================
+            # HARD LANGUAGE CONTRACT
             #
-            # 目录永远使用小写：
+            # ONLY:
             #     en
             #     zh
-            # ------------------------------------------------------
+            #
+            # LANGUAGE 不允许转换。
+            # ======================================================
 
             if [ "$LANGUAGE" != "en" ] && \
                [ "$LANGUAGE" != "zh" ]; then
 
-              echo "❌ Invalid directory language: $LANGUAGE"
-              echo "Expected: en or zh"
+              echo "❌ INVALID LANGUAGE CONTRACT"
+              echo "Language must be exactly: en or zh"
+              echo "Received: [$LANGUAGE]"
               exit 1
 
             fi
 
-            # ------------------------------------------------------
-            # CLI LANGUAGE CONTRACT
+            # ======================================================
+            # DIRECTORY CONTRACT
             #
-            # Task 1 / Task 2 当前要求：
-            #     EN
-            #     ZH
+            # LANGUAGE 已经是标准值。
             #
-            # 这里只转换脚本参数，不改变任何目录名称。
-            # ------------------------------------------------------
-
-            PROCESS_LANGUAGE="${LANGUAGE^^}"
+            # 不执行任何大小写转换。
+            # ======================================================
 
             EVENT_ROOT="$RAW_ROOT/${DATE}-EventUnit"
             LANG_ROOT="$EVENT_ROOT/$LANGUAGE"
@@ -936,12 +938,26 @@ jobs:
             echo "PROCESSING UNIT $UNIT_NO / 6"
             echo "DATE     : $DATE"
             echo "LANGUAGE : $LANGUAGE"
-            echo "CLI LANG : $PROCESS_LANGUAGE"
             echo "######################################################################"
 
-            # ------------------------------------------------------
-            # Recovery
-            # ------------------------------------------------------
+            # ======================================================
+            # HARD PATH CONTRACT
+            # ======================================================
+
+            case "$LANGUAGE" in
+              en)
+                ;;
+              zh)
+                ;;
+              *)
+                echo "❌ LANGUAGE CONTRACT VIOLATION"
+                exit 1
+                ;;
+            esac
+
+            # ======================================================
+            # RECOVERY
+            # ======================================================
 
             if [ -f "$COMPLETE_MARKER" ]; then
 
@@ -953,15 +969,17 @@ jobs:
 
             fi
 
-
-            # ------------------------------------------------------
-            # ZH dependency
+            # ======================================================
+            # ZH DEPENDENCY
             #
-            # 同一天必须先完成 en，再处理 zh。
+            # 同一天：
             #
-            # 注意：
-            # 目录仍然是小写 en。
-            # ------------------------------------------------------
+            #     en
+            #      ↓
+            #     zh
+            #
+            # 目录严格使用小写。
+            # ======================================================
 
             if [ "$LANGUAGE" = "zh" ]; then
 
@@ -974,6 +992,8 @@ jobs:
               if [ ! -f "$PREVIOUS_MARKER" ]; then
 
                 echo "❌ en Unit is not complete"
+                echo "Required:"
+                echo "$PREVIOUS_MARKER"
                 exit 1
 
               fi
@@ -982,10 +1002,9 @@ jobs:
 
             fi
 
-
-            # ------------------------------------------------------
-            # Input verification
-            # ------------------------------------------------------
+            # ======================================================
+            # INPUT VERIFICATION
+            # ======================================================
 
             ATOMIC_ROOT="$RAW_ROOT/${DATE}-Atomic"
             ENRICHED_ROOT="$RAW_ROOT/${DATE}-Enriched"
@@ -1044,28 +1063,22 @@ jobs:
 
             fi
 
-
-            # ------------------------------------------------------
-            # Create Unit directories
-            # ------------------------------------------------------
+            # ======================================================
+            # CREATE EVENTUNIT DIRECTORIES
+            # ======================================================
 
             mkdir -p "$ARTICLES_DIR"
             mkdir -p "$EVENT_UNITS_DIR"
 
-
             # ======================================================
-            # TASK 1
+            # TASK 1 — CLUSTER
             #
-            # Cluster
+            # LANGUAGE 直接传递：
             #
-            # IMPORTANT:
+            #     en → en
+            #     zh → zh
             #
-            # Directory language:
-            #     en / zh
-            #
-            # Python CLI:
-            #     EN / ZH
-            #
+            # 不允许任何大小写转换。
             # ======================================================
 
             echo
@@ -1075,24 +1088,14 @@ jobs:
 
             python "$TASK1" \
               --date "$DATE" \
-              --language "$PROCESS_LANGUAGE"
+              --language "$LANGUAGE"
 
             echo "✅ Task 1 Cluster returned successfully"
 
-
             # ======================================================
-            # TASK 2
+            # TASK 2 — MERGE + EVENTUNIT
             #
-            # Merge + EventUnit
-            #
-            # IMPORTANT:
-            #
-            # Directory language:
-            #     en / zh
-            #
-            # Python CLI:
-            #     EN / ZH
-            #
+            # LANGUAGE 直接传递。
             # ======================================================
 
             echo
@@ -1102,10 +1105,9 @@ jobs:
 
             python "$TASK2" \
               --date "$DATE" \
-              --language "$PROCESS_LANGUAGE"
+              --language "$LANGUAGE"
 
             echo "✅ Task 2 Merge + EventUnit returned successfully"
-
 
             # ======================================================
             # EVENTUNIT VALIDATION
@@ -1159,7 +1161,6 @@ jobs:
 
             fi
 
-
             # ======================================================
             # COMPLETE
             # ======================================================
@@ -1180,10 +1181,8 @@ jobs:
 
             echo "DATE       : $DATE"
             echo "LANGUAGE   : $LANGUAGE"
-            echo "CLI LANG   : $PROCESS_LANGUAGE"
             echo "EventUnits : $EVENT_COUNT"
             echo "COMPLETE   : YES"
-
 
             # ======================================================
             # IMMEDIATE GIT TRANSACTION
@@ -1217,7 +1216,6 @@ jobs:
 
             fi
 
-
             # ======================================================
             # IMMEDIATE PULL
             # ======================================================
@@ -1229,7 +1227,6 @@ jobs:
             git pull --ff-only origin main
 
             echo "✅ PULL COMPLETE"
-
 
             # ======================================================
             # POST-SYNC VALIDATION
@@ -1256,7 +1253,6 @@ jobs:
             echo "▶️ Next Unit is now allowed."
 
           done
-
 
           echo
           echo
@@ -1306,6 +1302,19 @@ jobs:
 
             DATE="${UNIT%%|*}"
             LANGUAGE="${UNIT##*|}"
+
+            # ------------------------------------------------------
+            # HARD LANGUAGE CONTRACT
+            # ------------------------------------------------------
+
+            if [ "$LANGUAGE" != "en" ] && \
+               [ "$LANGUAGE" != "zh" ]; then
+
+              echo "❌ Invalid language: $LANGUAGE"
+              echo "Expected: en or zh"
+              exit 1
+
+            fi
 
             LANG_ROOT="$RAW_ROOT/${DATE}-EventUnit/$LANGUAGE"
             ARTICLES_DIR="$LANG_ROOT/articles"
