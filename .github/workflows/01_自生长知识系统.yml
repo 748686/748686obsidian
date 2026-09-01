@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
   schedule:
-  - cron: "0 0 * * *"
+    - cron: "0 0 * * *"
 
 permissions:
   contents: write
@@ -64,14 +64,13 @@ jobs:
           echo "DAY_BEFORE=$DAY_BEFORE" >> "$GITHUB_ENV"
 
           echo
-          echo "=========================================="
+          echo "============================================================"
           echo "PROCESSING DATES"
-          echo "=========================================="
+          echo "============================================================"
 
           echo "DAY_BEFORE : $DAY_BEFORE"
           echo "YESTERDAY  : $YESTERDAY"
           echo "TODAY      : $TODAY"
-
           echo
           echo "Timezone: UTC"
           echo "Time source: GitHub Actions Runner"
@@ -98,9 +97,9 @@ jobs:
         run: |
           set -e
 
-          echo "=========================================="
+          echo "============================================================"
           echo "INSTALL HORIZON"
-          echo "=========================================="
+          echo "============================================================"
 
           uv sync
 
@@ -175,19 +174,13 @@ jobs:
           do
 
             echo
-            echo "=========================================="
+            echo "============================================================"
             echo "RAW CHECK: $DATE"
-            echo "=========================================="
+            echo "============================================================"
 
             RAW_DIR="$RAW_ROOT/$DATE"
 
-            if [ ! -d "$RAW_DIR" ]; then
-              echo "📁 Raw folder missing"
-              echo "▶️ Creating: $RAW_DIR"
-              mkdir -p "$RAW_DIR"
-            else
-              echo "📁 Raw folder exists"
-            fi
+            mkdir -p "$RAW_DIR"
 
             COUNT=$(find "$RAW_DIR" \
               -maxdepth 1 \
@@ -198,7 +191,7 @@ jobs:
             echo "Local Raw files: $COUNT"
 
             if [ "$COUNT" -ge 2 ]; then
-              echo "✅ Raw News folder and files exist"
+              echo "✅ Raw News exists"
               continue
             fi
 
@@ -253,9 +246,7 @@ jobs:
 
           RAW_DIR="01_自生长知识系统/Raw News/$TODAY"
 
-          if [ ! -d "$RAW_DIR" ]; then
-            mkdir -p "$RAW_DIR"
-          fi
+          mkdir -p "$RAW_DIR"
 
           COUNT=$(find "$RAW_DIR" \
             -maxdepth 1 \
@@ -297,9 +288,9 @@ jobs:
         run: |
           set -e
 
-          echo "=========================================="
+          echo "============================================================"
           echo "RUN HORIZON"
-          echo "=========================================="
+          echo "============================================================"
 
           echo "Date: $TODAY"
           echo "Timezone: UTC"
@@ -327,9 +318,9 @@ jobs:
           for i in {1..10}; do
 
             echo
-            echo "=========================================="
+            echo "============================================================"
             echo "HORIZON OUTPUT CHECK $i / 10"
-            echo "=========================================="
+            echo "============================================================"
 
             git clone \
               --quiet \
@@ -380,9 +371,9 @@ jobs:
 
           RAW_ROOT="01_自生长知识系统/Raw News"
 
-          echo "=========================================="
+          echo "============================================================"
           echo "FINAL THREE-DAY RAW VALIDATION"
-          echo "=========================================="
+          echo "============================================================"
 
           for DATE in \
             "$DAY_BEFORE" \
@@ -422,10 +413,15 @@ jobs:
 
 
       # ==========================================================
-      # 14. Atomic News
+      # 14. Build Atomic News
       #
-      # 上游仍然按照 DATE 处理。
-      # Processing Unit 从 EventUnit 阶段开始拆为 DATE+LANGUAGE。
+      # 目录契约：
+      #
+      #     DATE-Atomic/
+      #       ├── en/
+      #       └── zh/
+      #
+      # 全部统一小写。
       # ==========================================================
 
       - name: Build three-day Atomic News
@@ -455,27 +451,29 @@ jobs:
             ZH_DIR="$ATOMIC_DIR/zh"
             EN_DIR="$ATOMIC_DIR/en"
 
-            if [ -d "$ZH_DIR" ] && [ -d "$EN_DIR" ]; then
+            mkdir -p "$ZH_DIR"
+            mkdir -p "$EN_DIR"
 
-              ZH_COUNT=$(find "$ZH_DIR" \
-                -maxdepth 1 \
-                -type f \
-                -name "*.md" \
-                | wc -l)
+            ZH_COUNT=$(find "$ZH_DIR" \
+              -maxdepth 1 \
+              -type f \
+              -name "*.md" \
+              | wc -l)
 
-              EN_COUNT=$(find "$EN_DIR" \
-                -maxdepth 1 \
-                -type f \
-                -name "*.md" \
-                | wc -l)
+            EN_COUNT=$(find "$EN_DIR" \
+              -maxdepth 1 \
+              -type f \
+              -name "*.md" \
+              | wc -l)
 
-              echo "Existing Atomic ZH: $ZH_COUNT"
-              echo "Existing Atomic EN: $EN_COUNT"
+            echo "Existing Atomic zh: $ZH_COUNT"
+            echo "Existing Atomic en: $EN_COUNT"
 
-              if [ "$ZH_COUNT" -gt 0 ] && [ "$EN_COUNT" -gt 0 ]; then
-                echo "✅ Atomic already complete: $DATE"
-                continue
-              fi
+            if [ "$ZH_COUNT" -gt 0 ] && \
+               [ "$EN_COUNT" -gt 0 ]; then
+
+              echo "✅ Atomic already exists: $DATE"
+              continue
 
             fi
 
@@ -484,12 +482,12 @@ jobs:
               --date "$DATE"
 
             if [ ! -d "$ZH_DIR" ]; then
-              echo "❌ Atomic ZH folder was not generated"
+              echo "❌ Atomic zh folder missing"
               exit 1
             fi
 
             if [ ! -d "$EN_DIR" ]; then
-              echo "❌ Atomic EN folder was not generated"
+              echo "❌ Atomic en folder missing"
               exit 1
             fi
 
@@ -505,17 +503,15 @@ jobs:
               -name "*.md" \
               | wc -l)
 
-            echo "Final Atomic ZH: $ZH_COUNT"
-            echo "Final Atomic EN: $EN_COUNT"
+            echo "Final Atomic zh: $ZH_COUNT"
+            echo "Final Atomic en: $EN_COUNT"
 
-            if [ "$ZH_COUNT" -eq 0 ]; then
-              echo "❌ Atomic ZH generation failed"
-              exit 1
-            fi
+            if [ "$ZH_COUNT" -eq 0 ] || \
+               [ "$EN_COUNT" -eq 0 ]; then
 
-            if [ "$EN_COUNT" -eq 0 ]; then
-              echo "❌ Atomic EN generation failed"
+              echo "❌ Atomic incomplete: $DATE"
               exit 1
+
             fi
 
             echo "✅ Atomic News complete: $DATE"
@@ -524,7 +520,7 @@ jobs:
 
 
       # ==========================================================
-      # 15. Final Atomic validation
+      # 15. Atomic validation
       # ==========================================================
 
       - name: Validate three-day Atomic News
@@ -554,12 +550,15 @@ jobs:
               | wc -l)
 
             echo "$DATE"
-            echo "  Atomic ZH: $ZH_COUNT"
-            echo "  Atomic EN: $EN_COUNT"
+            echo "  Atomic zh: $ZH_COUNT"
+            echo "  Atomic en: $EN_COUNT"
 
-            if [ "$ZH_COUNT" -eq 0 ] || [ "$EN_COUNT" -eq 0 ]; then
+            if [ "$ZH_COUNT" -eq 0 ] || \
+               [ "$EN_COUNT" -eq 0 ]; then
+
               echo "❌ Atomic incomplete: $DATE"
               exit 1
+
             fi
 
           done
@@ -568,7 +567,7 @@ jobs:
 
 
       # ==========================================================
-      # 16. Atomic immediately Push + Pull
+      # 16. Atomic immediate Push + Pull
       # ==========================================================
 
       - name: Sync Atomic News immediately
@@ -606,6 +605,14 @@ jobs:
 
       # ==========================================================
       # 17. Source Enrichment
+      #
+      # 目录契约：
+      #
+      #     DATE-Enriched/
+      #       ├── en/
+      #       └── zh/
+      #
+      # 全部统一小写。
       # ==========================================================
 
       - name: Build three-day Enriched News
@@ -646,12 +653,12 @@ jobs:
             EN="$ATOMIC_ROOT/en"
 
             if [ ! -d "$ZH" ]; then
-              echo "❌ Atomic ZH missing"
+              echo "❌ Atomic zh missing"
               exit 1
             fi
 
             if [ ! -d "$EN" ]; then
-              echo "❌ Atomic EN missing"
+              echo "❌ Atomic en missing"
               exit 1
             fi
 
@@ -667,9 +674,12 @@ jobs:
               -name "*.md" \
               | wc -l)
 
-            if [ "$ATOMIC_ZH" -eq 0 ] || [ "$ATOMIC_EN" -eq 0 ]; then
+            if [ "$ATOMIC_ZH" -eq 0 ] || \
+               [ "$ATOMIC_EN" -eq 0 ]; then
+
               echo "❌ Atomic bilingual content incomplete"
               exit 1
+
             fi
 
             mkdir -p "$OUTPUT/zh"
@@ -725,7 +735,7 @@ jobs:
 
 
       # ==========================================================
-      # 18. Final Enriched validation
+      # 18. Enriched validation
       # ==========================================================
 
       - name: Validate three-day Enriched News
@@ -755,12 +765,15 @@ jobs:
               | wc -l)
 
             echo "$DATE"
-            echo "  Enriched ZH: $ZH_COUNT"
-            echo "  Enriched EN: $EN_COUNT"
+            echo "  Enriched zh: $ZH_COUNT"
+            echo "  Enriched en: $EN_COUNT"
 
-            if [ "$ZH_COUNT" -eq 0 ] || [ "$EN_COUNT" -eq 0 ]; then
+            if [ "$ZH_COUNT" -eq 0 ] || \
+               [ "$EN_COUNT" -eq 0 ]; then
+
               echo "❌ Enriched incomplete: $DATE"
               exit 1
+
             fi
 
           done
@@ -769,7 +782,7 @@ jobs:
 
 
       # ==========================================================
-      # 19. Enriched immediately Push + Pull
+      # 19. Enriched immediate Push + Pull
       # ==========================================================
 
       - name: Sync Enriched News immediately
@@ -806,50 +819,40 @@ jobs:
 
 
       # ==========================================================
-      # 20. KNOWLEDGE PIPELINE
+      # 20. KNOWLEDGE PROCESSING UNITS
       #
-      # ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
-      #
-      # Processing Unit 正式定义：
-      #
-      #     Processing Unit = DATE + LANGUAGE
+      # Processing Unit = DATE + LANGUAGE
       #
       # 固定顺序：
       #
-      #     DAY_BEFORE EN
-      #     DAY_BEFORE ZH
-      #     YESTERDAY  EN
-      #     YESTERDAY  ZH
-      #     TODAY      EN
-      #     TODAY      ZH
+      #     DAY_BEFORE en
+      #     DAY_BEFORE zh
+      #     YESTERDAY  en
+      #     YESTERDAY  zh
+      #     TODAY      en
+      #     TODAY      zh
       #
       # 每一个 Unit：
       #
-      #     Aggregation
+      #     Task 1 — Cluster
       #          ↓
-      #     EventUnit
+      #     Task 2 — Merge + EventUnit
       #          ↓
-      #     articles/
-      #          ↓
-      #     event_units/
+      #     Validation
       #          ↓
       #     _COMPLETE
       #          ↓
-      #     Git commit
+      #     Git Commit
       #          ↓
-      #     Git push
+      #     Git Push
       #          ↓
-      #     Git pull
+      #     Git Pull
       #          ↓
-      #     下一 Unit
+      #     Next Unit
       #
-      # ★ 一个 Unit 失败：
-      #       整个 Job 立即停止
+      # 注意：
       #
-      # ★ 一个 Unit 已 COMPLETE：
-      #       恢复运行时安全跳过
-      #
-      # ★ 不再存在“三天 Aggregation 完成后统一 Push”
+      #     en / zh 全部使用小写
       #
       # ==========================================================
 
@@ -862,11 +865,18 @@ jobs:
         run: |
           set -e
 
-          SCRIPT="01_自生长知识系统/scripts/knowledge_pipeline.py"
           RAW_ROOT="01_自生长知识系统/Raw News"
 
-          if [ ! -f "$SCRIPT" ]; then
-            echo "❌ knowledge_pipeline.py not found"
+          TASK1="01_自生长知识系统/scripts/knowledge_task_1_cluster.py"
+          TASK2="01_自生长知识系统/scripts/knowledge_task_2_merge.py"
+
+          if [ ! -f "$TASK1" ]; then
+            echo "❌ knowledge_task_1_cluster.py not found"
+            exit 1
+          fi
+
+          if [ ! -f "$TASK2" ]; then
+            echo "❌ knowledge_task_2_merge.py not found"
             exit 1
           fi
 
@@ -877,12 +887,12 @@ jobs:
           echo "######################################################################"
 
           UNITS=(
-            "$DAY_BEFORE|EN"
-            "$DAY_BEFORE|ZH"
-            "$YESTERDAY|EN"
-            "$YESTERDAY|ZH"
-            "$TODAY|EN"
-            "$TODAY|ZH"
+            "$DAY_BEFORE|en"
+            "$DAY_BEFORE|zh"
+            "$YESTERDAY|en"
+            "$YESTERDAY|zh"
+            "$TODAY|en"
+            "$TODAY|zh"
           )
 
           UNIT_NO=0
@@ -894,6 +904,13 @@ jobs:
             DATE="${UNIT%%|*}"
             LANGUAGE="${UNIT##*|}"
 
+            EVENT_ROOT="$RAW_ROOT/${DATE}-EventUnit"
+            LANG_ROOT="$EVENT_ROOT/$LANGUAGE"
+
+            ARTICLES_DIR="$LANG_ROOT/articles"
+            EVENT_UNITS_DIR="$LANG_ROOT/event_units"
+            COMPLETE_MARKER="$LANG_ROOT/_COMPLETE"
+
             echo
             echo
             echo "######################################################################"
@@ -901,13 +918,6 @@ jobs:
             echo "DATE     : $DATE"
             echo "LANGUAGE : $LANGUAGE"
             echo "######################################################################"
-
-            EVENT_ROOT="$RAW_ROOT/${DATE}-EventUnit"
-            LANG_ROOT="$EVENT_ROOT/$LANGUAGE"
-
-            ARTICLES_DIR="$LANG_ROOT/articles"
-            EVENT_UNITS_DIR="$LANG_ROOT/event_units"
-            COMPLETE_MARKER="$LANG_ROOT/_COMPLETE"
 
             # ------------------------------------------------------
             # Recovery
@@ -923,26 +933,32 @@ jobs:
 
             fi
 
+
             # ------------------------------------------------------
-            # Previous Unit dependency
+            # ZH dependency
+            #
+            # 同一天必须先完成 en，再处理 zh。
             # ------------------------------------------------------
 
-            if [ "$LANGUAGE" = "ZH" ]; then
+            if [ "$LANGUAGE" = "zh" ]; then
 
-              PREVIOUS_MARKER="$RAW_ROOT/${DATE}-EventUnit/EN/_COMPLETE"
+              PREVIOUS_MARKER="$RAW_ROOT/${DATE}-EventUnit/en/_COMPLETE"
 
               echo
               echo "Checking dependency:"
-              echo "$DATE EN"
+              echo "$DATE en"
 
               if [ ! -f "$PREVIOUS_MARKER" ]; then
-                echo "❌ EN Unit is not complete"
+
+                echo "❌ en Unit is not complete"
                 exit 1
+
               fi
 
-              echo "✅ EN Unit complete"
+              echo "✅ en Unit complete"
 
             fi
+
 
             # ------------------------------------------------------
             # Input verification
@@ -951,24 +967,28 @@ jobs:
             ATOMIC_ROOT="$RAW_ROOT/${DATE}-Atomic"
             ENRICHED_ROOT="$RAW_ROOT/${DATE}-Enriched"
 
-            if [ "$LANGUAGE" = "EN" ]; then
-              ATOMIC_DIR="$ATOMIC_ROOT/en"
-              ENRICHED_DIR="$ENRICHED_ROOT/en"
-            else
-              ATOMIC_DIR="$ATOMIC_ROOT/zh"
-              ENRICHED_DIR="$ENRICHED_ROOT/zh"
-            fi
+            ATOMIC_DIR="$ATOMIC_ROOT/$LANGUAGE"
+            ENRICHED_DIR="$ENRICHED_ROOT/$LANGUAGE"
+
+            echo
+            echo "Input directories:"
+            echo "Atomic   : $ATOMIC_DIR"
+            echo "Enriched : $ENRICHED_DIR"
 
             if [ ! -d "$ATOMIC_DIR" ]; then
+
               echo "❌ Atomic input missing:"
               echo "$ATOMIC_DIR"
               exit 1
+
             fi
 
             if [ ! -d "$ENRICHED_DIR" ]; then
+
               echo "❌ Enriched input missing:"
               echo "$ENRICHED_DIR"
               exit 1
+
             fi
 
             ATOMIC_COUNT=$(find "$ATOMIC_DIR" \
@@ -988,14 +1008,19 @@ jobs:
             echo "Enriched $LANGUAGE : $ENRICHED_COUNT"
 
             if [ "$ATOMIC_COUNT" -eq 0 ]; then
+
               echo "❌ Atomic input empty"
               exit 1
+
             fi
 
             if [ "$ENRICHED_COUNT" -eq 0 ]; then
+
               echo "❌ Enriched input empty"
               exit 1
+
             fi
+
 
             # ------------------------------------------------------
             # Create Unit directories
@@ -1004,26 +1029,46 @@ jobs:
             mkdir -p "$ARTICLES_DIR"
             mkdir -p "$EVENT_UNITS_DIR"
 
-            # ------------------------------------------------------
-            # Aggregation
-            # ------------------------------------------------------
+
+            # ======================================================
+            # TASK 1
+            #
+            # Cluster
+            # ======================================================
 
             echo
             echo "------------------------------------------------------------"
-            echo "AGGREGATION"
+            echo "TASK 1 — CLUSTER"
             echo "------------------------------------------------------------"
 
-            python \
-              "$SCRIPT" \
+            python "$TASK1" \
               --date "$DATE" \
-              --language "$LANGUAGE" \
-              --stage aggregation
+              --language "$LANGUAGE"
 
-            echo "✅ Aggregation returned successfully"
+            echo "✅ Task 1 Cluster returned successfully"
 
-            # ------------------------------------------------------
-            # Validate EventUnit
-            # ------------------------------------------------------
+
+            # ======================================================
+            # TASK 2
+            #
+            # Merge + EventUnit
+            # ======================================================
+
+            echo
+            echo "------------------------------------------------------------"
+            echo "TASK 2 — MERGE + EVENTUNIT"
+            echo "------------------------------------------------------------"
+
+            python "$TASK2" \
+              --date "$DATE" \
+              --language "$LANGUAGE"
+
+            echo "✅ Task 2 Merge + EventUnit returned successfully"
+
+
+            # ======================================================
+            # EVENTUNIT VALIDATION
+            # ======================================================
 
             echo
             echo "------------------------------------------------------------"
@@ -1031,23 +1076,31 @@ jobs:
             echo "------------------------------------------------------------"
 
             if [ ! -d "$EVENT_ROOT" ]; then
+
               echo "❌ EventUnit root missing"
               exit 1
+
             fi
 
             if [ ! -d "$LANG_ROOT" ]; then
+
               echo "❌ Language directory missing"
               exit 1
+
             fi
 
             if [ ! -d "$ARTICLES_DIR" ]; then
+
               echo "❌ articles directory missing"
               exit 1
+
             fi
 
             if [ ! -d "$EVENT_UNITS_DIR" ]; then
+
               echo "❌ event_units directory missing"
               exit 1
+
             fi
 
             EVENT_COUNT=$(find "$EVENT_UNITS_DIR" \
@@ -1059,19 +1112,24 @@ jobs:
             echo "EventUnits: $EVENT_COUNT"
 
             if [ "$EVENT_COUNT" -eq 0 ]; then
+
               echo "❌ No EventUnits generated"
               exit 1
+
             fi
 
-            # ------------------------------------------------------
-            # COMPLETE marker
-            # ------------------------------------------------------
+
+            # ======================================================
+            # COMPLETE
+            # ======================================================
 
             touch "$COMPLETE_MARKER"
 
             if [ ! -f "$COMPLETE_MARKER" ]; then
+
               echo "❌ COMPLETE marker creation failed"
               exit 1
+
             fi
 
             echo
@@ -1084,9 +1142,10 @@ jobs:
             echo "EventUnits : $EVENT_COUNT"
             echo "COMPLETE   : YES"
 
-            # ------------------------------------------------------
-            # Git transaction
-            # ------------------------------------------------------
+
+            # ======================================================
+            # IMMEDIATE GIT TRANSACTION
+            # ======================================================
 
             git config user.name \
               "748686 Knowledge Bot"
@@ -1116,9 +1175,10 @@ jobs:
 
             fi
 
-            # ------------------------------------------------------
-            # Pull immediately
-            # ------------------------------------------------------
+
+            # ======================================================
+            # IMMEDIATE PULL
+            # ======================================================
 
             echo
             echo "▶️ PULL:"
@@ -1128,9 +1188,10 @@ jobs:
 
             echo "✅ PULL COMPLETE"
 
-            # ------------------------------------------------------
-            # Post-sync validation
-            # ------------------------------------------------------
+
+            # ======================================================
+            # POST-SYNC VALIDATION
+            # ======================================================
 
             if [ ! -f "$COMPLETE_MARKER" ]; then
 
@@ -1154,22 +1215,23 @@ jobs:
 
           done
 
+
           echo
           echo
           echo "######################################################################"
           echo "ALL SIX PROCESSING UNITS COMPLETE"
           echo "######################################################################"
 
-          echo "1. $DAY_BEFORE EN  ✅"
-          echo "2. $DAY_BEFORE ZH  ✅"
-          echo "3. $YESTERDAY EN    ✅"
-          echo "4. $YESTERDAY ZH    ✅"
-          echo "5. $TODAY EN        ✅"
-          echo "6. $TODAY ZH        ✅"
+          echo "1. $DAY_BEFORE en  ✅"
+          echo "2. $DAY_BEFORE zh  ✅"
+          echo "3. $YESTERDAY en    ✅"
+          echo "4. $YESTERDAY zh    ✅"
+          echo "5. $TODAY en        ✅"
+          echo "6. $TODAY zh        ✅"
 
 
       # ==========================================================
-      # 21. Final Six Processing Units Validation
+      # 21. Final EventUnit Validation
       #
       # 这里只验证，不生成。
       # ==========================================================
@@ -1181,12 +1243,12 @@ jobs:
           RAW_ROOT="01_自生长知识系统/Raw News"
 
           UNITS=(
-            "$DAY_BEFORE|EN"
-            "$DAY_BEFORE|ZH"
-            "$YESTERDAY|EN"
-            "$YESTERDAY|ZH"
-            "$TODAY|EN"
-            "$TODAY|ZH"
+            "$DAY_BEFORE|en"
+            "$DAY_BEFORE|zh"
+            "$YESTERDAY|en"
+            "$YESTERDAY|zh"
+            "$TODAY|en"
+            "$TODAY|zh"
           )
 
           UNIT_NO=0
@@ -1260,19 +1322,30 @@ jobs:
 
 
       # ==========================================================
-      # 22. KNOWLEDGE PIPELINE - STAGE 2
+      # 22. KNOWLEDGE PIPELINE - 27 SKILLS
       #
-      # 当前先保持 Skills 的 DATE 级入口。
+      # ★ 独立任务
       #
-      # 但执行前强制要求：
+      # EventUnit阶段全部结束之后才进入。
       #
-      #     DATE EN COMPLETE
-      #     DATE ZH COMPLETE
+      # 目录：
       #
-      # 六个 Unit 全部完成之后才允许进入。
+      #     DATE-EventUnit/
+      #       ├── en/
+      #       │   └── event_units/
+      #       └── zh/
+      #           └── event_units/
+      #
+      # 每个日期完成：
+      #
+      #     en Skills
+      #          ↓
+      #     zh Skills
+      #
+      # 每个日期独立恢复。
       # ==========================================================
 
-      - name: Knowledge Pipeline - three-day Skills
+      - name: Knowledge Pipeline - 27 Skills
         env:
           AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
           AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
@@ -1281,17 +1354,18 @@ jobs:
         run: |
           set -e
 
-          SCRIPT="01_自生长知识系统/scripts/knowledge_pipeline.py"
+          SCRIPT="01_自生长知识系统/scripts/knowledge_task_3_skills.py"
+          RAW_ROOT="01_自生长知识系统/Raw News"
 
           if [ ! -f "$SCRIPT" ]; then
-            echo "❌ knowledge_pipeline.py not found"
+            echo "❌ knowledge_task_3_skills.py not found"
             exit 1
           fi
 
           echo
           echo "============================================================"
-          echo "KNOWLEDGE PIPELINE STAGE 2"
-          echo "THREE-DAY SKILLS"
+          echo "KNOWLEDGE PIPELINE"
+          echo "27 SKILLS"
           echo "============================================================"
 
           for DATE in \
@@ -1300,35 +1374,53 @@ jobs:
             "$TODAY"
           do
 
-            EVENT_ROOT="01_自生长知识系统/Raw News/${DATE}-EventUnit"
+            EVENT_ROOT="$RAW_ROOT/${DATE}-EventUnit"
 
             echo
             echo "============================================================"
-            echo "SKILLS: $DATE"
+            echo "SKILLS DATE: $DATE"
             echo "============================================================"
 
-            if [ ! -f "$EVENT_ROOT/EN/_COMPLETE" ]; then
-              echo "❌ EN incomplete"
+            # ------------------------------------------------------
+            # en prerequisite
+            # ------------------------------------------------------
+
+            if [ ! -f "$EVENT_ROOT/en/_COMPLETE" ]; then
+
+              echo "❌ $DATE en EventUnit incomplete"
               exit 1
+
             fi
 
-            if [ ! -f "$EVENT_ROOT/ZH/_COMPLETE" ]; then
-              echo "❌ ZH incomplete"
+            # ------------------------------------------------------
+            # zh prerequisite
+            # ------------------------------------------------------
+
+            if [ ! -f "$EVENT_ROOT/zh/_COMPLETE" ]; then
+
+              echo "❌ $DATE zh EventUnit incomplete"
               exit 1
+
             fi
 
-            python \
-              "$SCRIPT" \
-              --date "$DATE" \
-              --stage skills
+            echo "✅ $DATE en EventUnit complete"
+            echo "✅ $DATE zh EventUnit complete"
 
-            echo "✅ Skills finished: $DATE"
+
+            # ------------------------------------------------------
+            # Skills
+            # ------------------------------------------------------
+
+            python "$SCRIPT" \
+              --date "$DATE"
+
+            echo "✅ 27 Skills finished: $DATE"
 
           done
 
           echo
           echo "============================================================"
-          echo "✅ THREE-DAY SKILLS FINISHED"
+          echo "✅ THREE-DAY 27 SKILLS FINISHED"
           echo "============================================================"
 
 
@@ -1381,6 +1473,7 @@ jobs:
 
             echo
             echo "RAW:"
+
             find \
               "01_自生长知识系统/Raw News/$DATE" \
               -maxdepth 1 \
@@ -1390,6 +1483,7 @@ jobs:
 
             echo
             echo "ATOMIC:"
+
             find \
               "01_自生长知识系统/Raw News/${DATE}-Atomic" \
               -type f \
@@ -1398,6 +1492,7 @@ jobs:
 
             echo
             echo "ENRICHED:"
+
             find \
               "01_自生长知识系统/Raw News/${DATE}-Enriched" \
               -type f \
@@ -1418,10 +1513,14 @@ jobs:
             REPORT="01_自生长知识系统/05_日报/${DATE:0:4}/${DATE:5:2}/${DATE}.md"
 
             if [ -f "$REPORT" ]; then
+
               echo "✅ $REPORT"
+
             else
+
               echo "❌ Missing $REPORT"
               exit 1
+
             fi
 
           done
@@ -1429,8 +1528,6 @@ jobs:
 
       # ==========================================================
       # 25. Final Commit
-      #
-      # Skills / Knowledge / Weekly 等后续产物
       # ==========================================================
 
       - name: Commit Knowledge System
@@ -1463,7 +1560,7 @@ jobs:
 
 
       # ==========================================================
-      # 26. RUN RETURN LOG
+      # 26. Run Return Log
       # ==========================================================
 
       - name: Run Return Log
@@ -1495,12 +1592,12 @@ jobs:
           echo "PROCESSING UNITS"
           echo "============================================================"
 
-          echo "1. $DAY_BEFORE EN"
-          echo "2. $DAY_BEFORE ZH"
-          echo "3. $YESTERDAY EN"
-          echo "4. $YESTERDAY ZH"
-          echo "5. $TODAY EN"
-          echo "6. $TODAY ZH"
+          echo "1. $DAY_BEFORE en"
+          echo "2. $DAY_BEFORE zh"
+          echo "3. $YESTERDAY en"
+          echo "4. $YESTERDAY zh"
+          echo "5. $TODAY en"
+          echo "6. $TODAY zh"
 
           echo
           echo "============================================================"
@@ -1513,7 +1610,7 @@ jobs:
             "$TODAY"
           do
 
-            for LANGUAGE in EN ZH
+            for LANGUAGE in en zh
             do
 
               EVENT_DIR="01_自生长知识系统/Raw News/${DATE}-EventUnit/${LANGUAGE}"
@@ -1525,13 +1622,17 @@ jobs:
               fi
 
               if [ -d "$EVENT_DIR/event_units" ]; then
+
                 EVENT_COUNT=$(find "$EVENT_DIR/event_units" \
                   -maxdepth 1 \
                   -type f \
                   -name "EVT-*.md" \
                   | wc -l)
+
               else
+
                 EVENT_COUNT=0
+
               fi
 
               echo "$DATE $LANGUAGE : $STATUS : EventUnits=$EVENT_COUNT"
@@ -1550,11 +1651,6 @@ jobs:
             --date=iso
 
           echo
-
-          echo
-          echo "============================================================"
-          echo "GITHUB ACTIONS STEP SUMMARY"
-          echo "============================================================"
 
           {
             echo "# 748686 自生长知识系统 — Run Return Log"
@@ -1584,7 +1680,7 @@ jobs:
               "$TODAY"
             do
 
-              for LANGUAGE in EN ZH
+              for LANGUAGE in en zh
               do
 
                 NO=$((NO + 1))
@@ -1598,13 +1694,17 @@ jobs:
                 fi
 
                 if [ -d "$EVENT_DIR/event_units" ]; then
+
                   EVENT_COUNT=$(find "$EVENT_DIR/event_units" \
                     -maxdepth 1 \
                     -type f \
                     -name "EVT-*.md" \
                     | wc -l)
+
                 else
+
                   EVENT_COUNT=0
+
                 fi
 
                 echo "| $NO | $DATE | $LANGUAGE | $STATUS | $EVENT_COUNT |"
@@ -1621,15 +1721,11 @@ jobs:
             echo "- ✅ Atomic push + pull"
             echo "- ✅ Three-day Enriched News"
             echo "- ✅ Enriched push + pull"
-            echo "- ✅ 08-29 EN Processing Unit"
-            echo "- ✅ 08-29 ZH Processing Unit"
-            echo "- ✅ 08-30 EN Processing Unit"
-            echo "- ✅ 08-30 ZH Processing Unit"
-            echo "- ✅ 08-31 EN Processing Unit"
-            echo "- ✅ 08-31 ZH Processing Unit"
+            echo "- ✅ Task 1 Cluster"
+            echo "- ✅ Task 2 Merge + EventUnit"
             echo "- ✅ Per-Unit COMPLETE marker"
             echo "- ✅ Per-Unit push + pull"
-            echo "- ✅ Three-day Skills"
+            echo "- ✅ Three-day 27 Skills"
             echo "- ✅ Weekly Report"
             echo "- ✅ Final Commit"
 
@@ -1670,12 +1766,12 @@ jobs:
           echo "Processing Units:"
           echo
 
-          echo "1. $DAY_BEFORE EN  → COMPLETE"
-          echo "2. $DAY_BEFORE ZH  → COMPLETE"
-          echo "3. $YESTERDAY EN    → COMPLETE"
-          echo "4. $YESTERDAY ZH    → COMPLETE"
-          echo "5. $TODAY EN        → COMPLETE"
-          echo "6. $TODAY ZH        → COMPLETE"
+          echo "1. $DAY_BEFORE en  → COMPLETE"
+          echo "2. $DAY_BEFORE zh  → COMPLETE"
+          echo "3. $YESTERDAY en    → COMPLETE"
+          echo "4. $YESTERDAY zh    → COMPLETE"
+          echo "5. $TODAY en        → COMPLETE"
+          echo "6. $TODAY zh        → COMPLETE"
 
           echo
           echo "============================================================"
@@ -1688,6 +1784,16 @@ jobs:
 
           echo
           echo "============================================================"
+          echo "DIRECTORY LANGUAGE STANDARD"
+          echo "============================================================"
+
+          echo "✅ en"
+          echo "✅ zh"
+          echo "❌ EN"
+          echo "❌ ZH"
+
+          echo
+          echo "============================================================"
           echo "PROCESSING UNIT MODEL"
           echo "============================================================"
 
@@ -1695,22 +1801,33 @@ jobs:
 
           echo
           echo "============================================================"
-          echo "TRANSACTION MODEL"
+          echo "TASK MODEL"
           echo "============================================================"
 
-          echo "Aggregation"
-          echo "    ↓"
-          echo "EventUnits"
-          echo "    ↓"
+          echo "Task 1 — Cluster"
+          echo "        ↓"
+          echo "Task 2 — Merge + EventUnit"
+          echo "        ↓"
           echo "_COMPLETE"
-          echo "    ↓"
+          echo "        ↓"
           echo "Git commit"
-          echo "    ↓"
+          echo "        ↓"
           echo "Git push"
-          echo "    ↓"
+          echo "        ↓"
           echo "Git pull"
-          echo "    ↓"
+          echo "        ↓"
           echo "Next Processing Unit"
+
+          echo
+          echo "============================================================"
+          echo "SKILLS MODEL"
+          echo "============================================================"
+
+          echo "All six Processing Units complete"
+          echo "        ↓"
+          echo "27 Skills Task"
+          echo "        ↓"
+          echo "Knowledge / Daily / Weekly"
 
           echo
           echo "============================================================"
