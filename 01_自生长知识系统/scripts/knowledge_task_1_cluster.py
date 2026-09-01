@@ -67,13 +67,11 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
-
 # ==============================================================
 # ROOT
 # ==============================================================
 
 ROOT = Path(__file__).resolve().parents[1]
-
 
 SYSTEM = ROOT / "00_System"
 SKILLS = ROOT / "Skills"
@@ -87,7 +85,6 @@ KNOWLEDGE = ROOT / "08_知识库"
 LOGS = SYSTEM / "运行日志"
 
 ROUTES_FILE = SYSTEM / "skill_routes.json"
-
 
 # ==============================================================
 # FILE / DIRECTORY CONTRACT
@@ -113,7 +110,6 @@ MERGED_CLUSTERS_FILE = (
     "_merged_clusters.json"
 )
 
-
 # ==============================================================
 # AI CONFIGURATION
 # ==============================================================
@@ -123,39 +119,28 @@ AGNES_BASE_URL = os.getenv(
     "https://api.agnes-ai.cn/v1"
 ).rstrip("/")
 
-
 AGNES_MODEL = os.getenv(
     "AI_MODEL",
     "agnes-2.5-flash"
 )
 
-
 AGNES_API_KEY_ENV = "AGNES_API_KEY"
-
 
 DEFAULT_TEMPERATURE = 0.3
 
-
 AI_TIMEOUT = 180
-
 
 AI_REQUEST_THROTTLE_SECONDS = 1.5
 
-
 AI_MAX_429_RETRIES = 5
-
 
 AI_429_BACKOFF_BASE = 10
 
-
 AI_429_BACKOFF_MAX = 180
-
 
 AI_429_JITTER_MAX = 3
 
-
 _LAST_AI_REQUEST_TIME = 0.0
-
 
 # ==============================================================
 # PIPELINE CONFIGURATION
@@ -163,29 +148,21 @@ _LAST_AI_REQUEST_TIME = 0.0
 
 AGGREGATION_BATCH_SIZE = 30
 
-
 GLOBAL_CLUSTER_REGISTRY_FILE = (
     "_global_cluster_registry.json"
 )
 
-
 GLOBAL_MERGE_WINDOW_SIZE = 30
-
 
 GLOBAL_MERGE_OVERLAP = 0
 
-
 MAX_ARTICLES_PER_EVENT_CONTEXT = 30
-
 
 ARTICLE_CLUSTER_CONTENT_LIMIT = 3500
 
-
 ARTICLE_AGGREGATION_CONTENT_LIMIT = 8000
 
-
 CLUSTER_REPAIR_ATTEMPTS = 2
-
 
 RECOVERY_BATCH_SIZES = (
     30,
@@ -196,7 +173,6 @@ RECOVERY_BATCH_SIZES = (
     1
 )
 
-
 # ==============================================================
 # TIME / LANGUAGE CONTRACT
 # ==============================================================
@@ -204,7 +180,6 @@ RECOVERY_BATCH_SIZES = (
 BEIJING_TZ = ZoneInfo(
     "Asia/Shanghai"
 )
-
 
 # --------------------------------------------------------------
 # LANGUAGE IS PERMANENTLY LOWERCASE
@@ -225,7 +200,6 @@ SUPPORTED_LANGUAGES = (
     "en",
     "zh"
 )
-
 
 CURRENT_LANGUAGE = None
 
@@ -579,6 +553,63 @@ def merged_clusters_path(
             language
         ) /
         MERGED_CLUSTERS_FILE
+    )
+
+
+# ==============================================================
+# GLOBAL CLUSTER REGISTRY PATH
+# ==============================================================
+#
+# V6.5.3 FIX
+#
+# Global Registry 是同一天 en / zh 共用的 Registry。
+#
+# 正确路径：
+#
+# Raw News/
+#     YYYY-MM-DD-EventUnit/
+#         _global_cluster_registry.json
+#
+# 注意：
+#
+# 1. 这里绝对不能加入 en / zh。
+# 2. 这里只负责返回路径。
+# 3. 不在这里创建 Registry。
+# 4. 不在这里写入 Registry。
+# 5. Global Cluster ID 只能由 Python Registry 产生。
+# ==============================================================
+
+def global_cluster_registry_path(
+    date
+):
+    """
+    Return the Global Cluster Registry path
+    for the specified processing date.
+
+    Filesystem contract:
+
+        Raw News/
+            YYYY-MM-DD-EventUnit/
+                _global_cluster_registry.json
+
+    IMPORTANT:
+
+    1. Global Registry is shared by en / zh
+       for the same date.
+
+    2. Therefore language is NOT part of this path.
+
+    3. Global Cluster ID must be generated only
+       by the Python Global Registry.
+
+    4. This function only returns the path.
+       It does not create or modify the registry.
+    """
+
+    return (
+        event_units_root(date)
+        /
+        GLOBAL_CLUSTER_REGISTRY_FILE
     )
 
 
