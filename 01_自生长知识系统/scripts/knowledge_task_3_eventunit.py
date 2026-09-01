@@ -22,7 +22,25 @@ from zoneinfo import ZoneInfo
 
 # ==============================================================
 # PATH CONTRACT
-# 所有实际文件系统目录统一使用小写
+#
+# 所有实际文件系统目录统一锁死为小写。
+#
+# 00_system/
+# skills/
+# raw news/
+#
+# YYYY-MM-DD-eventunit/
+# ├── en/
+# │   ├── articles/
+# │   └── event_units/
+# │
+# └── zh/
+#     ├── articles/
+#     └── event_units/
+#
+# 注意：
+# 这里不再进行任何 EN/ZH -> en/zh 的大小写转换。
+# CLI、内部变量、目录协议全部直接使用 en / zh。
 # ==============================================================
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -70,7 +88,6 @@ AGNES_MODEL = os.getenv(
 )
 
 AGNES_API_KEY_ENV = "AGNES_API_KEY"
-
 
 DEFAULT_TEMPERATURE = 0.3
 
@@ -122,36 +139,53 @@ RECOVERY_BATCH_SIZES = (
 # ==============================================================
 # TIME / LANGUAGE
 # ==============================================================
+#
+# 语言协议正式锁死：
+#
+#     en
+#     zh
+#
+# 不再接受 EN / ZH。
+# 不再调用 upper() / lower() 做转换。
+# ==============================================================
 
 BEIJING_TZ = ZoneInfo("Asia/Shanghai")
 
 SUPPORTED_LANGUAGES = (
-    "EN",
-    "ZH"
+    "en",
+    "zh"
 )
 
 CURRENT_LANGUAGE = None
 
 
 # ==============================================================
-# LANGUAGE NORMALIZATION
+# LANGUAGE CONTRACT
+# ==============================================================
+#
+# 这里故意不做任何大小写转换。
+#
+# 正确：
+#     normalize_language("en") -> "en"
+#     normalize_language("zh") -> "zh"
+#
+# 错误：
+#     EN
+#     ZH
+#
+# 如果上游传入错误大小写，直接失败。
+# 这样可以尽早发现路径协议不一致。
 # ==============================================================
 
 def normalize_language(language):
-    """
-    语言协议统一使用 EN / ZH。
-    实际目录通过 language_dir() 自动转换为小写：
-        EN -> en
-        ZH -> zh
-    """
-
     value = str(
         language or ""
-    ).strip().upper()
+    ).strip()
 
     if value not in SUPPORTED_LANGUAGES:
         raise RuntimeError(
-            f"❌ 不支持的语言：{language}"
+            f"❌ 不支持的语言：{language} "
+            f"；语言协议必须是 en 或 zh"
         )
 
     return value
@@ -174,6 +208,7 @@ def now():
 def event_units_root(date):
     """
     统一目录：
+
         raw news/
         └── YYYY-MM-DD-eventunit/
     """
@@ -190,8 +225,12 @@ def language_dir(
 ):
     """
     统一语言目录：
+
         en
         zh
+
+    注意：
+    不再进行任何大小写转换。
     """
 
     if language is None:
@@ -203,7 +242,7 @@ def language_dir(
 
     lang = normalize_language(
         language
-    ).lower()
+    )
 
     return (
         event_units_root(date)
@@ -322,6 +361,14 @@ def write_text_atomic(
 
 # ==============================================================
 # FINAL EVENT ID VALIDATION
+#
+# 注意：
+# Global Event ID 正式协议仍然是：
+#
+# EVT-YYYYMMDD-NNNNNN
+#
+# 这里的大写 EVT 是 ID 协议，
+# 不是目录大小写问题，因此保留。
 # ==============================================================
 
 def validate_final_event_ids(
@@ -592,6 +639,7 @@ event_id: {event['event_id']}
 type: event_unit
 status: completed
 source_count: {len(event['articles'])}
+language: {CURRENT_LANGUAGE}
 timezone: Asia/Shanghai
 ---
 
@@ -638,6 +686,9 @@ def save_aggregation_index(
 
             "date":
                 e["date"],
+
+            "language":
+                CURRENT_LANGUAGE,
 
             "event_title":
                 e["event_title"],
@@ -835,8 +886,11 @@ def inspect_event_units(date):
 # ==============================================================
 #
 # 注意：
-# _COMPLETE 是当前系统的完成标记协议。
-# 不改成 _complete，避免破坏上下游契约。
+# _COMPLETE 是当前系统已有完成标记协议。
+#
+# 虽然目录统一小写，
+# 但这里不擅自修改为 _complete，
+# 因为这属于上下游文件名契约。
 # ==============================================================
 
 def mark_event_units_complete(
@@ -853,6 +907,7 @@ def mark_event_units_complete(
     p.write_text(
         f"""EVENT_UNITS_COMPLETE
 date: {date}
+language: {CURRENT_LANGUAGE}
 original_enriched_news: {n}
 final_event_units: {e}
 completed_at: {now().isoformat()}
@@ -1175,6 +1230,15 @@ def run_task_3(
 
     global CURRENT_LANGUAGE
 
+    # ----------------------------------------------------------
+    # 语言直接锁死为小写：
+    #
+    #     en
+    #     zh
+    #
+    # 不再做 upper/lower 转换。
+    # ----------------------------------------------------------
+
     CURRENT_LANGUAGE = normalize_language(
         language
     )
@@ -1413,11 +1477,23 @@ def main():
         required=True
     )
 
+    # ----------------------------------------------------------
+    # 语言参数正式锁死为小写。
+    #
+    # 正确：
+    #     --language en
+    #     --language zh
+    #
+    # 不再接受：
+    #     EN
+    #     ZH
+    # ----------------------------------------------------------
+
     ap.add_argument(
         "--language",
         choices=[
-            "EN",
-            "ZH"
+            "en",
+            "zh"
         ],
         required=True
     )
