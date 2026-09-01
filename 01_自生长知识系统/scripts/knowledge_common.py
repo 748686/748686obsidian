@@ -16,12 +16,13 @@ Knowledge Common V6.5.3
     5. JSON读写
     6. 原子文件写入
     7. Front Matter解析
-    8. AI请求
-    9. AI JSON解析
-    10. Conflict Log
-    11. Global Cluster Registry
-    12. Global Cluster基本验证
-    13. 公共EventUnit路径
+    8. Enriched News读取
+    9. AI请求
+    10. AI JSON解析
+    11. Conflict Log
+    12. Global Cluster Registry
+    13. Global Cluster基本验证
+    14. 公共EventUnit路径
 
 本文件不负责：
 
@@ -29,6 +30,7 @@ Knowledge Common V6.5.3
     Task 2 — Global Merge
     Task 3 — EventUnit
     Task 4 — 27 Skills
+
 
 LANGUAGE CONTRACT
 =================
@@ -49,29 +51,45 @@ LANGUAGE CONTRACT
 
 禁止任何大小写转换。
 
-Filesystem：
+
+FILESYSTEM CONTRACT
+===================
+
+Enriched输入：
+
+    Raw News/
+        YYYY-MM-DD-Enriched/
+            en/
+            zh/
+
+EventUnit输出：
 
     Raw News/
         YYYY-MM-DD-EventUnit/
             _global_cluster_registry.json
             en/
+                articles/
+                event_units/
             zh/
+                articles/
+                event_units/
+
 
 GLOBAL CLUSTER ID CONTRACT
 ==========================
 
 Global Cluster ID唯一格式：
 
-    EVT-YYYY-MM-DD-000001
+    EVT-YYYYMMDD-000001
 
 例如：
 
-    EVT-2026-08-30-000001
-    EVT-2026-08-30-000002
+    EVT-20260830-000001
+    EVT-20260830-000002
 
 注意：
 
-    日期中的横杠属于Global ID正式格式的一部分。
+    Global ID日期部分不带横杠。
 
 AI只能产生Local Cluster ID：
 
@@ -182,35 +200,35 @@ RECOVERY_BATCH_SIZES = (
 # ============================================================
 
 GLOBAL_CLUSTER_ID_PATTERN = re.compile(
-    r"^EVT-\d{4}-\d{2}-\d{2}-\d{6}$"
+    r"^EVT-\d{8}-\d{6}$"
 )
 
 FORBIDDEN_AI_GLOBAL_ID_PATTERN = re.compile(
     r"^(EVT|REC|GM)-.*",
-    flags=re.I
+    flags=re.I,
 )
 
 
 def make_global_cluster_id(
     date,
-    sequence
+    sequence,
 ):
     """
     统一生成Global Cluster ID。
 
     正式格式：
 
-        EVT-YYYY-MM-DD-000001
+        EVT-YYYYMMDD-000001
     """
 
     date_text = str(date).strip()
 
     if not re.fullmatch(
         r"\d{4}-\d{2}-\d{2}",
-        date_text
+        date_text,
     ):
         raise RuntimeError(
-            f"❌ 非法日期格式，无法生成Global Cluster ID："
+            "❌ 非法日期格式，无法生成Global Cluster ID："
             f"{date_text}"
         )
 
@@ -218,17 +236,18 @@ def make_global_cluster_id(
 
     if sequence < 1:
         raise RuntimeError(
-            f"❌ 非法Global Cluster sequence："
-            f"{sequence}"
+            f"❌ 非法Global Cluster sequence：{sequence}"
         )
 
     return (
-        f"EVT-{date_text}-{sequence:06d}"
+        f"EVT-"
+        f"{date_text.replace('-', '')}-"
+        f"{sequence:06d}"
     )
 
 
 def is_valid_global_cluster_id(
-    value
+    value,
 ):
     return bool(
         GLOBAL_CLUSTER_ID_PATTERN.fullmatch(
@@ -238,7 +257,7 @@ def is_valid_global_cluster_id(
 
 
 def is_forbidden_ai_global_id(
-    value
+    value,
 ):
     return bool(
         FORBIDDEN_AI_GLOBAL_ID_PATTERN.fullmatch(
@@ -253,12 +272,12 @@ def is_forbidden_ai_global_id(
 
 AGNES_BASE_URL = os.getenv(
     "AI_BASE_URL",
-    "https://api.agnes-ai.cn/v1"
+    "https://api.agnes-ai.cn/v1",
 ).rstrip("/")
 
 AGNES_MODEL = os.getenv(
     "AI_MODEL",
-    "agnes-2.5-flash"
+    "agnes-2.5-flash",
 )
 
 AGNES_API_KEY_ENV = "AGNES_API_KEY"
@@ -301,14 +320,14 @@ def now():
 
 SUPPORTED_LANGUAGES = (
     "en",
-    "zh"
+    "zh",
 )
 
 CURRENT_LANGUAGE = None
 
 
 def validate_language(
-    language
+    language,
 ):
     """
     严格验证language。
@@ -318,10 +337,10 @@ def validate_language(
 
     if not isinstance(
         language,
-        str
+        str,
     ):
         raise RuntimeError(
-            f"❌ language必须是小写字符串："
+            "❌ language必须是小写字符串："
             f"{language!r}"
         )
 
@@ -340,7 +359,7 @@ def validate_language(
 # ============================================================
 
 def event_units_root(
-    date
+    date,
 ):
     return (
         RAW_NEWS /
@@ -348,9 +367,32 @@ def event_units_root(
     )
 
 
+def enriched_news_root(
+    date,
+):
+    return (
+        RAW_NEWS /
+        f"{date}-Enriched"
+    )
+
+
+def enriched_language_dir(
+    date,
+    language,
+):
+    lang = validate_language(
+        language
+    )
+
+    return (
+        enriched_news_root(date) /
+        lang
+    )
+
+
 def language_dir(
     date,
-    language
+    language,
 ):
     lang = validate_language(
         language
@@ -364,12 +406,12 @@ def language_dir(
 
 def event_units_dir(
     date,
-    language
+    language,
 ):
     return (
         language_dir(
             date,
-            language
+            language,
         ) /
         "event_units"
     )
@@ -377,12 +419,12 @@ def event_units_dir(
 
 def articles_dir(
     date,
-    language
+    language,
 ):
     return (
         language_dir(
             date,
-            language
+            language,
         ) /
         "articles"
     )
@@ -390,12 +432,12 @@ def articles_dir(
 
 def initial_clusters_path(
     date,
-    language
+    language,
 ):
     return (
         language_dir(
             date,
-            language
+            language,
         ) /
         INITIAL_CLUSTERS_FILE
     )
@@ -403,12 +445,12 @@ def initial_clusters_path(
 
 def merged_clusters_path(
     date,
-    language
+    language,
 ):
     return (
         language_dir(
             date,
-            language
+            language,
         ) /
         MERGED_CLUSTERS_FILE
     )
@@ -416,19 +458,19 @@ def merged_clusters_path(
 
 def global_merge_checkpoint_path(
     date,
-    language
+    language,
 ):
     return (
         event_units_dir(
             date,
-            language
+            language,
         ) /
         GLOBAL_MERGE_CHECKPOINT_FILE
     )
 
 
 def conflict_log_path(
-    date
+    date,
 ):
     return (
         LOGS /
@@ -436,30 +478,202 @@ def conflict_log_path(
     )
 
 
-# ============================================================
-# GLOBAL REGISTRY PATH
-# ============================================================
-
 def global_cluster_registry_path(
-    date
+    date,
 ):
     """
     Global Registry由en / zh共同使用。
 
-    正确：
+    正确结构：
 
         Raw News/
             YYYY-MM-DD-EventUnit/
                 _global_cluster_registry.json
-
-    language不参与路径。
     """
 
     return (
-        event_units_root(date)
-        /
+        event_units_root(date) /
         GLOBAL_CLUSTER_REGISTRY_FILE
     )
+
+
+# ============================================================
+# ENRICHED NEWS LOADER
+# ============================================================
+
+def _front_matter_value(
+    metadata,
+    *keys,
+):
+    for key in keys:
+        value = metadata.get(key)
+        if value is not None:
+            return value
+    return ""
+
+
+def load_all_enriched_news(
+    date,
+    language,
+):
+    """
+    读取当天指定语言的全部Enriched Markdown新闻。
+
+    输入：
+
+        Raw News/
+            YYYY-MM-DD-Enriched/
+                en/
+                zh/
+
+    返回：
+
+        [
+            {
+                "metadata": {...},
+                "body": "..."
+            },
+            ...
+        ]
+
+    文件排序必须稳定。
+    ARTICLE INDEX将按照这里的顺序产生。
+    """
+
+    lang = validate_language(
+        language
+    )
+
+    root = enriched_language_dir(
+        date,
+        lang,
+    )
+
+    if not root.exists():
+        raise RuntimeError(
+            f"❌ Enriched目录不存在：{root}"
+        )
+
+    if not root.is_dir():
+        raise RuntimeError(
+            f"❌ Enriched路径不是目录：{root}"
+        )
+
+    files = sorted(
+        [
+            path
+            for path in root.rglob("*.md")
+            if (
+                path.is_file()
+                and not path.name.startswith(".")
+                and not path.name.endswith(".tmp")
+            )
+        ],
+        key=lambda path: str(
+            path.relative_to(root)
+        ),
+    )
+
+    if not files:
+        raise RuntimeError(
+            f"❌ Enriched目录没有Markdown文件：{root}"
+        )
+
+    news = []
+
+    for path in files:
+
+        try:
+            content = path.read_text(
+                encoding="utf-8"
+            )
+
+        except Exception as e:
+            raise RuntimeError(
+                "❌ Enriched文件读取失败："
+                f"{path}\n{e}"
+            ) from e
+
+        metadata, body = parse_front_matter(
+            content
+        )
+
+        if not isinstance(
+            metadata,
+            dict,
+        ):
+            metadata = {}
+
+        if not isinstance(
+            body,
+            str,
+        ):
+            body = str(
+                body or ""
+            )
+
+        metadata = dict(
+            metadata
+        )
+
+        relative_path = str(
+            path.relative_to(root)
+        )
+
+        metadata.setdefault(
+            "source_file",
+            relative_path,
+        )
+
+        metadata.setdefault(
+            "date",
+            str(date),
+        )
+
+        metadata.setdefault(
+            "language",
+            lang,
+        )
+
+        title = _front_matter_value(
+            metadata,
+            "title",
+            "Title",
+        )
+
+        source = _front_matter_value(
+            metadata,
+            "source",
+            "publisher",
+            "site",
+        )
+
+        source_url = _front_matter_value(
+            metadata,
+            "source_url",
+            "url",
+            "link",
+        )
+
+        if title:
+            metadata["title"] = str(title)
+
+        if source:
+            metadata["source"] = str(source)
+
+        if source_url:
+            metadata["source_url"] = str(
+                source_url
+            )
+
+        news.append(
+            {
+                "metadata": metadata,
+                "body": body,
+            }
+        )
+
+    return news
 
 
 # ============================================================
@@ -468,11 +682,11 @@ def global_cluster_registry_path(
 
 def write_text_atomic(
     path,
-    text
+    text,
 ):
     path.parent.mkdir(
         parents=True,
-        exist_ok=True
+        exist_ok=True,
     )
 
     tmp = path.with_name(
@@ -483,7 +697,7 @@ def write_text_atomic(
 
         tmp.write_text(
             text,
-            encoding="utf-8"
+            encoding="utf-8",
         )
 
         tmp.replace(
@@ -493,10 +707,8 @@ def write_text_atomic(
     except Exception:
 
         try:
-
             if tmp.exists():
                 tmp.unlink()
-
         except Exception:
             pass
 
@@ -509,8 +721,10 @@ def write_text_atomic(
 
 def read_json(
     path,
-    default=None
+    default=None,
 ):
+    path = Path(path)
+
     if not path.exists():
         return default
 
@@ -531,30 +745,34 @@ def read_json(
 
 def write_json(
     path,
-    data
+    data,
 ):
+    path = Path(path)
+
     path.parent.mkdir(
         parents=True,
-        exist_ok=True
+        exist_ok=True,
     )
 
     path.write_text(
         json.dumps(
             data,
             ensure_ascii=False,
-            indent=2
+            indent=2,
         ),
-        encoding="utf-8"
+        encoding="utf-8",
     )
 
 
 def write_json_atomic(
     path,
-    data
+    data,
 ):
+    path = Path(path)
+
     path.parent.mkdir(
         parents=True,
-        exist_ok=True
+        exist_ok=True,
     )
 
     tmp = path.with_name(
@@ -566,12 +784,12 @@ def write_json_atomic(
         payload = json.dumps(
             data,
             ensure_ascii=False,
-            indent=2
+            indent=2,
         )
 
         tmp.write_text(
             payload,
-            encoding="utf-8"
+            encoding="utf-8",
         )
 
         json.loads(
@@ -592,10 +810,8 @@ def write_json_atomic(
     except Exception:
 
         try:
-
             if tmp.exists():
                 tmp.unlink()
-
         except Exception:
             pass
 
@@ -607,9 +823,19 @@ def write_json_atomic(
 # ============================================================
 
 def parse_front_matter(
-    content
+    content,
 ):
-    if not content.startswith("---"):
+    if not isinstance(
+        content,
+        str,
+    ):
+        return {}, str(
+            content or ""
+        )
+
+    if not content.startswith(
+        "---"
+    ):
         return {}, content
 
     parts = content.split(
@@ -655,9 +881,8 @@ def parse_front_matter(
 # ============================================================
 
 def safe_name(
-    text
+    text,
 ):
-
     text = re.sub(
         r'[\\/:*?"<>|]',
         "_",
@@ -684,11 +909,11 @@ def log_conflict(
     date,
     stage,
     message,
-    details=None
+    details=None,
 ):
     LOGS.mkdir(
         parents=True,
-        exist_ok=True
+        exist_ok=True,
     )
 
     lines = [
@@ -708,12 +933,12 @@ def log_conflict(
                 details
                 if isinstance(
                     details,
-                    str
+                    str,
                 )
                 else json.dumps(
                     details,
                     ensure_ascii=False,
-                    indent=2
+                    indent=2,
                 )
             )
 
@@ -737,7 +962,7 @@ def log_conflict(
         date
     ).open(
         "a",
-        encoding="utf-8"
+        encoding="utf-8",
     ) as f:
 
         f.write(
@@ -749,7 +974,7 @@ def log_conflict(
     )
 
     print(
-        f"   Conflict log: "
+        "   Conflict log: "
         f"{conflict_log_path(date)}"
     )
 
@@ -760,25 +985,27 @@ def log_conflict(
 
 def parse_ai_json(
     result,
-    context
+    context,
 ):
     text = str(
         result
     ).strip()
 
-    if text.startswith("```"):
+    if text.startswith(
+        "```"
+    ):
 
         text = re.sub(
             r"^```(?:json)?\s*",
             "",
             text,
-            flags=re.I
+            flags=re.I,
         )
 
         text = re.sub(
             r"\s*```$",
             "",
-            text
+            text,
         ).strip()
 
     try:
@@ -816,7 +1043,8 @@ def parse_ai_json(
                 pass
 
         raise RuntimeError(
-            f"❌ AI JSON解析失败：{context}\n\n"
+            "❌ AI JSON解析失败："
+            f"{context}\n\n"
             f"{text[:5000]}"
         )
 
@@ -844,7 +1072,7 @@ def wait_for_ai_throttle():
     if remaining > 0:
 
         print(
-            f"   ⏳ AI请求节流等待 "
+            "   ⏳ AI请求节流等待 "
             f"{remaining:.1f}s"
         )
 
@@ -862,7 +1090,7 @@ def wait_for_ai_throttle():
 # ============================================================
 
 def parse_retry_after(
-    headers
+    headers,
 ):
     if headers is None:
         return None
@@ -896,7 +1124,7 @@ def parse_retry_after(
 # ============================================================
 
 def calculate_429_backoff(
-    retry_number
+    retry_number,
 ):
     base = min(
         AI_429_BACKOFF_BASE
@@ -907,7 +1135,7 @@ def calculate_429_backoff(
                 retry_number - 1
             )
         ),
-        AI_429_BACKOFF_MAX
+        AI_429_BACKOFF_MAX,
     )
 
     return min(
@@ -915,9 +1143,9 @@ def calculate_429_backoff(
         +
         random.uniform(
             0,
-            AI_429_JITTER_MAX
+            AI_429_JITTER_MAX,
         ),
-        AI_429_BACKOFF_MAX
+        AI_429_BACKOFF_MAX,
     )
 
 
@@ -928,7 +1156,7 @@ def calculate_429_backoff(
 def call_ai(
     prompt,
     system_prompt=None,
-    temperature=DEFAULT_TEMPERATURE
+    temperature=DEFAULT_TEMPERATURE,
 ):
     key = os.getenv(
         AGNES_API_KEY_ENV,
@@ -954,16 +1182,16 @@ def call_ai(
             "messages": [
                 {
                     "role": "system",
-                    "content": system_prompt
+                    "content": system_prompt,
                 },
                 {
                     "role": "user",
-                    "content": prompt
-                }
+                    "content": prompt,
+                },
             ],
-            "temperature": temperature
+            "temperature": temperature,
         },
-        ensure_ascii=False
+        ensure_ascii=False,
     ).encode()
 
     req = Request(
@@ -982,9 +1210,9 @@ def call_ai(
                 "application/json",
 
             "User-Agent":
-                "748686-Knowledge-Pipeline/6.5.3"
+                "748686-Knowledge-Pipeline/6.5.3",
         },
-        method="POST"
+        method="POST",
     )
 
     for attempt in range(
@@ -997,7 +1225,7 @@ def call_ai(
 
             with urlopen(
                 req,
-                timeout=AI_TIMEOUT
+                timeout=AI_TIMEOUT,
             ) as response:
 
                 raw = (
@@ -1041,7 +1269,7 @@ def call_ai(
                     +
                     json.dumps(
                         data,
-                        ensure_ascii=False
+                        ensure_ascii=False,
                     )[:5000]
                 ) from e
 
@@ -1067,7 +1295,7 @@ def call_ai(
                     e.read()
                     .decode(
                         "utf-8",
-                        errors="replace"
+                        errors="replace",
                     )
                 )
 
@@ -1104,7 +1332,7 @@ def call_ai(
 
                     wait_seconds = min(
                         retry_after,
-                        AI_429_BACKOFF_MAX
+                        AI_429_BACKOFF_MAX,
                     )
 
                     source = (
@@ -1124,7 +1352,7 @@ def call_ai(
                     )
 
                 print(
-                    f"⚠️ AGNES.ai HTTP 429 — "
+                    "⚠️ AGNES.ai HTTP 429 — "
                     f"Retry "
                     f"{retry_number}/"
                     f"{AI_MAX_429_RETRIES}, "
@@ -1140,7 +1368,7 @@ def call_ai(
                         re.sub(
                             r"\s+",
                             " ",
-                            body
+                            body,
                         ).strip()[:1000]
                     )
 
@@ -1185,7 +1413,7 @@ def call_ai(
 # ============================================================
 
 def create_global_cluster_registry(
-    date
+    date,
 ):
     """
     创建当天Global Cluster Registry。
@@ -1199,31 +1427,30 @@ def create_global_cluster_registry(
 
     if not re.fullmatch(
         r"\d{4}-\d{2}-\d{2}",
-        date_text
+        date_text,
     ):
         raise RuntimeError(
-            f"❌ Registry日期格式异常："
-            f"{date_text}"
+            f"❌ Registry日期格式异常：{date_text}"
         )
 
     return {
         "version": "6.5.3",
         "date": date_text,
         "next_sequence": 1,
-        "registered": []
+        "registered": [],
     }
 
 
 def validate_registry_basic(
     date,
-    registry
+    registry,
 ):
     """
     验证Global Registry基础结构。
 
     Global ID正式格式：
 
-        EVT-YYYY-MM-DD-000001
+        EVT-YYYYMMDD-000001
     """
 
     date_text = str(
@@ -1233,7 +1460,7 @@ def validate_registry_basic(
     if (
         not isinstance(
             registry,
-            dict
+            dict,
         )
         or registry.get(
             "date"
@@ -1249,7 +1476,7 @@ def validate_registry_basic(
             registry.get(
                 "next_sequence"
             ),
-            int
+            int,
         )
         or registry[
             "next_sequence"
@@ -1267,7 +1494,7 @@ def validate_registry_basic(
 
     if not isinstance(
         registered,
-        list
+        list,
     ):
 
         raise RuntimeError(
@@ -1277,6 +1504,8 @@ def validate_registry_basic(
 
     seen_global_ids = set()
 
+    max_sequence = 0
+
     for pos, item in enumerate(
         registered,
         1
@@ -1284,7 +1513,7 @@ def validate_registry_basic(
 
         if not isinstance(
             item,
-            dict
+            dict,
         ):
 
             raise RuntimeError(
@@ -1319,6 +1548,17 @@ def validate_registry_basic(
             global_id
         )
 
+        match = re.fullmatch(
+            r"EVT-\d{8}-(\d{6})",
+            global_id
+        )
+
+        if match:
+            max_sequence = max(
+                max_sequence,
+                int(match.group(1))
+            )
+
         local_id = str(
             item.get(
                 "local_cluster_id",
@@ -1349,7 +1589,7 @@ def validate_registry_basic(
 
         if not isinstance(
             indexes,
-            list
+            list,
         ):
 
             raise RuntimeError(
@@ -1371,14 +1611,25 @@ def validate_registry_basic(
                     f"{index}"
                 )
 
+    next_sequence = int(
+        registry["next_sequence"]
+    )
+
+    if next_sequence <= max_sequence:
+        raise RuntimeError(
+            f"❌ {date} Registry next_sequence="
+            f"{next_sequence} 不大于当前最大sequence="
+            f"{max_sequence}"
+        )
+
 
 def persist_global_cluster_registry(
     date,
-    registry
+    registry,
 ):
     validate_registry_basic(
         date,
-        registry
+        registry,
     )
 
     write_json_atomic(
@@ -1387,25 +1638,21 @@ def persist_global_cluster_registry(
         ),
         {
             "version": "6.5.3",
-
             "date":
                 registry["date"],
-
             "next_sequence":
                 int(
                     registry[
                         "next_sequence"
                     ]
                 ),
-
             "registered":
                 registry[
                     "registered"
                 ],
-
             "saved_at":
-                now().isoformat()
-        }
+                now().isoformat(),
+        },
     )
 
 
@@ -1413,7 +1660,7 @@ def register_global_cluster_ids(
     date,
     clusters,
     registry,
-    source
+    source,
 ):
     """
     唯一Global Cluster ID生成入口。
@@ -1425,12 +1672,12 @@ def register_global_cluster_ids(
 
     Python Registry产生：
 
-        EVT-2026-08-30-000001
+        EVT-20260830-000001
     """
 
     validate_registry_basic(
         date,
-        registry
+        registry,
     )
 
     out = []
@@ -1439,7 +1686,7 @@ def register_global_cluster_ids(
 
         if not isinstance(
             cluster,
-            dict
+            dict,
         ):
             raise RuntimeError(
                 f"❌ {date} Registry收到非对象Cluster"
@@ -1464,10 +1711,6 @@ def register_global_cluster_ids(
             raise RuntimeError(
                 f"❌ {date} Registry收到空Local Cluster ID"
             )
-
-        # ------------------------------------------------------
-        # AI绝不能产生Global ID
-        # ------------------------------------------------------
 
         if is_forbidden_ai_global_id(
             local_id
@@ -1517,29 +1760,30 @@ def register_global_cluster_ids(
             "global_registry_source"
         ] = source
 
+        indexes = []
+
+        for value in d.get(
+            "article_indexes",
+            []
+        ):
+            indexes.append(
+                int(value)
+            )
+
         registry[
             "registered"
         ].append(
             {
                 "global_cluster_id":
                     global_id,
-
                 "local_cluster_id":
                     local_id,
-
                 "source":
                     source,
-
                 "article_indexes":
                     sorted(
-                        set(
-                            int(x)
-                            for x in d.get(
-                                "article_indexes",
-                                []
-                            )
-                        )
-                    )
+                        set(indexes)
+                    ),
             }
         )
 
@@ -1549,7 +1793,7 @@ def register_global_cluster_ids(
 
     persist_global_cluster_registry(
         date,
-        registry
+        registry,
     )
 
     return out
@@ -1563,12 +1807,12 @@ def validate_global_cluster_membership(
     date,
     clusters,
     context,
-    expected_original_ids=None
+    expected_original_ids=None,
 ):
     """
     验证Cluster结构。
 
-    当前Stage 1A的Initial Cluster：
+    Stage 1A：
 
         cluster_id
             =
@@ -1742,18 +1986,14 @@ def validate_global_cluster_membership(
             {
                 "malformed":
                     malformed,
-
                 "duplicate_current":
                     duplicate_current,
-
                 "duplicate_original":
                     duplicate_original,
-
                 "missing_original":
                     missing,
-
                 "extra_original":
-                    extra
+                    extra,
             }
         )
 
@@ -1770,7 +2010,7 @@ def validate_global_article_coverage(
     date,
     clusters,
     news_count,
-    context
+    context,
 ):
     all_indexes = []
 
@@ -1860,15 +2100,12 @@ def validate_global_article_coverage(
             {
                 "duplicate":
                     duplicate,
-
                 "missing":
                     missing,
-
                 "extra":
                     extra,
-
                 "malformed":
-                    malformed
+                    malformed,
             }
         )
 
