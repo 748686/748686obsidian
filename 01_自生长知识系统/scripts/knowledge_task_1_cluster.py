@@ -18,7 +18,9 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
+
 ROOT = Path(__file__).resolve().parents[1]
+
 SYSTEM = ROOT / "00_System"
 SKILLS = ROOT / "Skills"
 RAW_NEWS = ROOT / "Raw News"
@@ -27,124 +29,352 @@ WEEKLY = ROOT / "06_周报"
 TOPICS = ROOT / "07_专题报告"
 KNOWLEDGE = ROOT / "08_知识库"
 LOGS = SYSTEM / "运行日志"
+
 ROUTES_FILE = SYSTEM / "skill_routes.json"
+
+
+# ==============================================================
+# FILE / DIRECTORY CONTRACT
+# ==============================================================
 
 EVENT_UNITS_SUFFIX = "EventUnit"
 EVENT_INDEX_FILE = "_event_index.json"
 EVENT_UNITS_COMPLETE_FILE = "_COMPLETE"
 SKILLS_COMPLETE_FILE = "_SKILLS_COMPLETE"
+
 GLOBAL_MERGE_CHECKPOINT_FILE = "_global_merge_checkpoint.json"
 INITIAL_CLUSTERS_FILE = "_initial_clusters.json"
 MERGED_CLUSTERS_FILE = "_merged_clusters.json"
 
-AGNES_BASE_URL = os.getenv("AI_BASE_URL", "https://api.agnes-ai.cn/v1").rstrip("/")
-AGNES_MODEL = os.getenv("AI_MODEL", "agnes-2.5-flash")
+
+# ==============================================================
+# AI CONFIGURATION
+# ==============================================================
+
+AGNES_BASE_URL = os.getenv(
+    "AI_BASE_URL",
+    "https://api.agnes-ai.cn/v1"
+).rstrip("/")
+
+AGNES_MODEL = os.getenv(
+    "AI_MODEL",
+    "agnes-2.5-flash"
+)
+
 AGNES_API_KEY_ENV = "AGNES_API_KEY"
 
 DEFAULT_TEMPERATURE = 0.3
+
 AI_TIMEOUT = 180
+
 AI_REQUEST_THROTTLE_SECONDS = 1.5
+
 AI_MAX_429_RETRIES = 5
+
 AI_429_BACKOFF_BASE = 10
+
 AI_429_BACKOFF_MAX = 180
+
 AI_429_JITTER_MAX = 3
+
 _LAST_AI_REQUEST_TIME = 0.0
 
+
+# ==============================================================
+# PIPELINE CONFIGURATION
+# ==============================================================
+
 AGGREGATION_BATCH_SIZE = 30
+
 GLOBAL_CLUSTER_REGISTRY_FILE = "_global_cluster_registry.json"
+
 GLOBAL_MERGE_WINDOW_SIZE = 30
+
 GLOBAL_MERGE_OVERLAP = 0
+
 MAX_ARTICLES_PER_EVENT_CONTEXT = 30
+
 ARTICLE_CLUSTER_CONTENT_LIMIT = 3500
+
 ARTICLE_AGGREGATION_CONTENT_LIMIT = 8000
+
 CLUSTER_REPAIR_ATTEMPTS = 2
-RECOVERY_BATCH_SIZES = (30, 15, 8, 4, 2, 1)
+
+RECOVERY_BATCH_SIZES = (
+    30,
+    15,
+    8,
+    4,
+    2,
+    1
+)
+
+
+# ==============================================================
+# TIME / LANGUAGE
+# ==============================================================
+
 BEIJING_TZ = ZoneInfo("Asia/Shanghai")
-SUPPORTED_LANGUAGES = ("EN", "ZH")
+
+# --------------------------------------------------------------
+# IMPORTANT:
+# Actual directory names are lowercase:
+#
+#   en
+#   zh
+#
+# Do NOT change these back to EN / ZH.
+# --------------------------------------------------------------
+
+SUPPORTED_LANGUAGES = (
+    "en",
+    "zh"
+)
+
 CURRENT_LANGUAGE = None
 
+
 def normalize_language(language):
-    value = str(language or "").strip().upper()
+    """
+    Normalize language to the filesystem / pipeline contract.
+
+    ONLY:
+        en
+        zh
+
+    are valid.
+    """
+
+    value = str(
+        language or ""
+    ).strip().lower()
+
     if value not in SUPPORTED_LANGUAGES:
-        raise RuntimeError(f"❌ 不支持的语言：{language}")
+        raise RuntimeError(
+            f"❌ 不支持的语言：{language}"
+        )
+
     return value
 
+
 def now():
-    return datetime.now(BEIJING_TZ)
+    return datetime.now(
+        BEIJING_TZ
+    )
+
+
+# ==============================================================
+# PATH FUNCTIONS
+# ==============================================================
 
 def event_units_root(date):
-    return RAW_NEWS / f"{date}-EventUnit"
+    return (
+        RAW_NEWS /
+        f"{date}-EventUnit"
+    )
 
-def language_dir(date, language=None):
+
+def language_dir(
+    date,
+    language=None
+):
     if language is None:
-        language = getattr(sys.modules[__name__], "CURRENT_LANGUAGE", None)
-    lang = normalize_language(language).lower()
-    return event_units_root(date) / lang
+        language = getattr(
+            sys.modules[__name__],
+            "CURRENT_LANGUAGE",
+            None
+        )
 
-def event_units_dir(date, language=None):
-    return language_dir(date, language) / "event_units"
+    lang = normalize_language(
+        language
+    )
 
-def articles_dir(date, language=None):
-    return language_dir(date, language) / "articles"
+    return (
+        event_units_root(date) /
+        lang
+    )
+
+
+def event_units_dir(
+    date,
+    language=None
+):
+    return (
+        language_dir(
+            date,
+            language
+        ) /
+        "event_units"
+    )
+
+
+def articles_dir(
+    date,
+    language=None
+):
+    return (
+        language_dir(
+            date,
+            language
+        ) /
+        "articles"
+    )
+
 
 def conflict_log_path(date):
-    return LOGS / f"{date}_event_aggregation_conflicts.log"
+    return (
+        LOGS /
+        f"{date}_event_aggregation_conflicts.log"
+    )
 
-def global_merge_checkpoint_path(date, language=None):
-    return event_units_dir(date, language) / GLOBAL_MERGE_CHECKPOINT_FILE
 
-def initial_clusters_path(date, language=None):
-    return language_dir(date, language) / INITIAL_CLUSTERS_FILE
+def global_merge_checkpoint_path(
+    date,
+    language=None
+):
+    return (
+        event_units_dir(
+            date,
+            language
+        ) /
+        GLOBAL_MERGE_CHECKPOINT_FILE
+    )
 
-def merged_clusters_path(date, language=None):
-    return language_dir(date, language) / MERGED_CLUSTERS_FILE
 
-def write_text_atomic(path, text):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + ".tmp")
+def initial_clusters_path(
+    date,
+    language=None
+):
+    return (
+        language_dir(
+            date,
+            language
+        ) /
+        INITIAL_CLUSTERS_FILE
+    )
+
+
+def merged_clusters_path(
+    date,
+    language=None
+):
+    return (
+        language_dir(
+            date,
+            language
+        ) /
+        MERGED_CLUSTERS_FILE
+    )
+
+
+# ==============================================================
+# ATOMIC FILE WRITER
+# ==============================================================
+
+def write_text_atomic(
+    path,
+    text
+):
+    path.parent.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    tmp = path.with_name(
+        path.name + ".tmp"
+    )
+
     try:
-        tmp.write_text(text, encoding="utf-8")
+        tmp.write_text(
+            text,
+            encoding="utf-8"
+        )
+
         tmp.replace(path)
+
     except Exception:
+
         try:
             if tmp.exists():
                 tmp.unlink()
+
         except Exception:
             pass
+
         raise
 
 
-def build_article_digest(item, index):
+# ==============================================================
+# ARTICLE DIGEST
+# ==============================================================
+
+def build_article_digest(
+    item,
+    index
+):
     m = item["metadata"]
+
     return f"""[ARTICLE {index}]
 标题：
 {m.get("title", "Untitled")}
+
 来源：
 {m.get("source", "Unknown")}
+
 原文链接：
 {m.get("source_url", "")}
+
 来源状态：
 {m.get("source_status", "")}
+
 内容状态：
 {m.get("content_status", "")}
+
 内容：
 {item["body"][:ARTICLE_CLUSTER_CONTENT_LIMIT]}"""
 
 
-def inspect_cluster_assignment(clusters, expected_indexes):
-    expected = set(map(int, expected_indexes))
-    occ, malformed = {}, []
+# ==============================================================
+# CLUSTER ASSIGNMENT INSPECTION
+# ==============================================================
 
-    for pos, c in enumerate(clusters, 1):
-        if not isinstance(c, dict):
+def inspect_cluster_assignment(
+    clusters,
+    expected_indexes
+):
+    expected = set(
+        map(
+            int,
+            expected_indexes
+        )
+    )
+
+    occ = {}
+
+    malformed = []
+
+    for pos, c in enumerate(
+        clusters,
+        1
+    ):
+
+        if not isinstance(
+            c,
+            dict
+        ):
             malformed.append(
                 f"cluster[{pos}]不是对象"
             )
             continue
 
-        ids = c.get("article_indexes")
+        ids = c.get(
+            "article_indexes"
+        )
 
-        if not isinstance(ids, list):
+        if not isinstance(
+            ids,
+            list
+        ):
             malformed.append(
                 f"cluster[{pos}] article_indexes不是数组"
             )
@@ -157,25 +387,37 @@ def inspect_cluster_assignment(clusters, expected_indexes):
             continue
 
         for v in ids:
+
             try:
                 i = int(v)
+
             except Exception:
                 malformed.append(
                     f"cluster[{pos}]非法ARTICLE ID：{v}"
                 )
                 continue
-            occ.setdefault(i, []).append(pos)
+
+            occ.setdefault(
+                i,
+                []
+            ).append(pos)
 
     duplicate = {
-        i: p for i, p in occ.items()
+        i: p
+        for i, p in occ.items()
         if len(p) > 1
     }
+
     actual = set(occ)
 
     return {
         "duplicate": duplicate,
-        "missing": sorted(expected - actual),
-        "extra": sorted(actual - expected),
+        "missing": sorted(
+            expected - actual
+        ),
+        "extra": sorted(
+            actual - expected
+        ),
         "malformed": malformed
     }
 
@@ -189,17 +431,35 @@ def valid_issues(i):
     ])
 
 
+# ==============================================================
+# NORMALIZE CLUSTERS
+# ==============================================================
+
 def normalize_clusters(cs):
+
     out = []
+
     for c in cs:
-        if not isinstance(c, dict):
+
+        if not isinstance(
+            c,
+            dict
+        ):
             out.append(c)
             continue
 
         d = dict(c)
-        ids = d.get("article_indexes", [])
 
-        if isinstance(ids, list):
+        ids = d.get(
+            "article_indexes",
+            []
+        )
+
+        if isinstance(
+            ids,
+            list
+        ):
+
             d["article_indexes"] = [
                 int(x)
                 if str(x).lstrip("-").isdigit()
@@ -212,8 +472,20 @@ def normalize_clusters(cs):
     return out
 
 
-def cluster_news_batch(date, items, indexes):
-    expected = [int(x) for x in indexes]
+# ==============================================================
+# AI NEWS CLUSTERING
+# ==============================================================
+
+def cluster_news_batch(
+    date,
+    items,
+    indexes
+):
+
+    expected = [
+        int(x)
+        for x in indexes
+    ]
 
     joined = "\n\n".join(
         build_article_digest(
@@ -258,6 +530,7 @@ def cluster_news_batch(date, items, indexes):
 }}"""
 
     try:
+
         result = call_ai(
             prompt,
             "你是全球新闻事件聚类专家。"
@@ -272,6 +545,7 @@ def cluster_news_batch(date, items, indexes):
         )
 
     except RuntimeError as first_error:
+
         compact_prompt = f"""748686 V6.5.3 新闻事件聚类JSON修复。
 日期：{date}
 ARTICLE范围：{json.dumps(expected)}
@@ -311,15 +585,26 @@ ARTICLE范围：{json.dumps(expected)}
             f"{date} 第一轮新闻聚类紧凑重试"
         )
 
-    clusters = data.get("clusters")
+    clusters = data.get(
+        "clusters"
+    )
 
-    if not isinstance(clusters, list):
+    if not isinstance(
+        clusters,
+        list
+    ):
         raise RuntimeError(
             f"❌ {date} 第一轮聚类结果缺少clusters"
         )
 
-    return normalize_clusters(clusters)
+    return normalize_clusters(
+        clusters
+    )
 
+
+# ==============================================================
+# CLUSTER REPAIR
+# ==============================================================
 
 def repair_cluster_news_batch(
     date,
@@ -329,7 +614,11 @@ def repair_cluster_news_batch(
     issues,
     attempt
 ):
-    expected = [int(x) for x in indexes]
+
+    expected = [
+        int(x)
+        for x in indexes
+    ]
 
     joined = "\n\n".join(
         build_article_digest(
@@ -359,11 +648,11 @@ def repair_cluster_news_batch(
 1. cluster_id只能是Local Cluster ID（如C001），不得生成EVT-/REC-/GM- ID；
 2. 同事件合并；不同事件分开；
 3. 每篇ARTICLE恰好一次；
-3. Missing=0；
-4. Duplicate=0；
-5. Extra=0；
-6. 不得遗漏任何ARTICLE；
-7. 只输出JSON，不要解释。
+4. Missing=0；
+5. Duplicate=0；
+6. Extra=0；
+7. 不得遗漏任何ARTICLE；
+8. 只输出JSON，不要解释。
 
 只输出：
 {{
@@ -387,15 +676,26 @@ def repair_cluster_news_batch(
         f"{date} 聚类冲突修复 #{attempt}"
     )
 
-    clusters = data.get("clusters")
+    clusters = data.get(
+        "clusters"
+    )
 
-    if not isinstance(clusters, list):
+    if not isinstance(
+        clusters,
+        list
+    ):
         raise RuntimeError(
             "❌ 聚类修复结果缺少clusters"
         )
 
-    return normalize_clusters(clusters)
+    return normalize_clusters(
+        clusters
+    )
 
+
+# ==============================================================
+# CLUSTER COVERAGE VALIDATION
+# ==============================================================
 
 def validate_cluster_coverage(
     clusters,
@@ -403,6 +703,7 @@ def validate_cluster_coverage(
     context,
     date=None
 ):
+
     issues = inspect_cluster_assignment(
         clusters,
         expected
@@ -412,6 +713,7 @@ def validate_cluster_coverage(
         return
 
     if date:
+
         log_conflict(
             date,
             context,
@@ -424,6 +726,10 @@ def validate_cluster_coverage(
     )
 
 
+# ==============================================================
+# SAFE COVERAGE
+# ==============================================================
+
 def _safe_covered_indexes(
     clusters,
     expected_indexes
@@ -432,6 +738,7 @@ def _safe_covered_indexes(
     只有不存在 Duplicate / Extra / Malformed 时，
     才允许保留已唯一覆盖的ARTICLE。
     """
+
     issues = inspect_cluster_assignment(
         clusters,
         expected_indexes
@@ -445,21 +752,31 @@ def _safe_covered_indexes(
         return []
 
     expected = {
-        int(x) for x in expected_indexes
+        int(x)
+        for x in expected_indexes
     }
+
     actual = set()
 
     for cluster in clusters:
+
         for value in cluster.get(
             "article_indexes",
             []
         ):
-            actual.add(int(value))
+
+            actual.add(
+                int(value)
+            )
 
     return sorted(
         actual & expected
     )
 
+
+# ==============================================================
+# CLUSTER WITH REPAIR
+# ==============================================================
 
 def cluster_news_batch_with_repair(
     date,
@@ -478,13 +795,16 @@ def cluster_news_batch_with_repair(
     Duplicate/Extra/Malformed必须整批隔离。
     AI异常不再直接终止整个任务。
     """
+
     expected = [
-        int(x) for x in indexes
+        int(x)
+        for x in indexes
     ]
 
     clusters = None
 
     try:
+
         clusters = cluster_news_batch(
             date,
             items,
@@ -497,6 +817,7 @@ def cluster_news_batch_with_repair(
         )
 
         if valid_issues(issues):
+
             return (
                 "complete",
                 clusters,
@@ -518,7 +839,9 @@ def cluster_news_batch_with_repair(
             1,
             CLUSTER_REPAIR_ATTEMPTS + 1
         ):
+
             try:
+
                 clusters = (
                     repair_cluster_news_batch(
                         date,
@@ -536,10 +859,12 @@ def cluster_news_batch_with_repair(
                 )
 
                 if valid_issues(issues):
+
                     print(
                         "   ✅ Cluster conflict "
                         "repaired successfully."
                     )
+
                     return (
                         "complete",
                         clusters,
@@ -557,6 +882,7 @@ def cluster_news_batch_with_repair(
                 )
 
             except Exception as repair_error:
+
                 log_conflict(
                     date,
                     f"STAGE 1A / {batch_label}",
@@ -569,13 +895,17 @@ def cluster_news_batch_with_repair(
             expected
         )
 
-        # Missing-only：安全保留已经唯一出现的文章。
+        # ------------------------------------------------------
+        # Missing-only
+        # ------------------------------------------------------
+
         if (
             final_issues["missing"]
             and not final_issues["duplicate"]
             and not final_issues["extra"]
             and not final_issues["malformed"]
         ):
+
             safe = _safe_covered_indexes(
                 clusters,
                 expected
@@ -586,6 +916,7 @@ def cluster_news_batch_with_repair(
             )
 
             if safe and unresolved:
+
                 print(
                     f"   🟡 Missing-only：安全保留 "
                     f"{len(safe)} 篇，隔离 "
@@ -611,8 +942,10 @@ def cluster_news_batch_with_repair(
                     unresolved
                 )
 
-        # Duplicate / Extra / Malformed：
-        # 这一批整体隔离。
+        # ------------------------------------------------------
+        # Duplicate / Extra / Malformed
+        # ------------------------------------------------------
+
         print(
             f"   🔴 Batch结果不安全，"
             f"整批进入Recovery Queue：{expected}"
@@ -636,8 +969,12 @@ def cluster_news_batch_with_repair(
         )
 
     except Exception as e:
-        # 429耗尽、网络、JSON等异常：
-        # 本批隔离，不让整天任务结束。
+
+        # ------------------------------------------------------
+        # 429 / 网络 / JSON 等异常
+        # 本批隔离，不让整天任务结束
+        # ------------------------------------------------------
+
         log_conflict(
             date,
             f"STAGE 1A / {batch_label}",
@@ -658,24 +995,64 @@ def cluster_news_batch_with_repair(
         )
 
 
-def _make_cluster_records(batch_identifier, clusters):
-    """只建立 Local Cluster；绝不在这里生成 Global ID。"""
+# ==============================================================
+# LOCAL CLUSTER RECORDS
+# ==============================================================
+
+def _make_cluster_records(
+    batch_identifier,
+    clusters
+):
+    """
+    只建立 Local Cluster；
+    绝不在这里生成 Global ID。
+    """
+
     out = []
+
     for c in clusters:
-        indexes = sorted(set(int(x) for x in c.get("article_indexes", [])))
+
+        indexes = sorted(
+            set(
+                int(x)
+                for x in c.get(
+                    "article_indexes",
+                    []
+                )
+            )
+        )
+
         if not indexes:
             continue
-        local_id = str(c.get("cluster_id", "C001")).strip()
+
+        local_id = str(
+            c.get(
+                "cluster_id",
+                "C001"
+            )
+        ).strip()
+
         out.append({
             "cluster_id": local_id,
             "local_cluster_id": local_id,
-            "event_title": c.get("event_title", "未命名事件"),
-            "event_reason": c.get("event_reason", ""),
+            "event_title": c.get(
+                "event_title",
+                "未命名事件"
+            ),
+            "event_reason": c.get(
+                "event_reason",
+                ""
+            ),
             "article_indexes": indexes,
             "batch_identifier": batch_identifier
         })
+
     return out
 
+
+# ==============================================================
+# APPEND SAFE CLUSTERS
+# ==============================================================
 
 def _append_safe_clusters(
     allc,
@@ -686,6 +1063,7 @@ def _append_safe_clusters(
     context,
     registry
 ):
+
     validate_cluster_coverage(
         clusters,
         expected_indexes,
@@ -693,9 +1071,24 @@ def _append_safe_clusters(
         date
     )
 
-    local_records = _make_cluster_records(batch_no, clusters)
-    allc.extend(register_global_cluster_ids(date, local_records, registry, context))
+    local_records = _make_cluster_records(
+        batch_no,
+        clusters
+    )
 
+    allc.extend(
+        register_global_cluster_ids(
+            date,
+            local_records,
+            registry,
+            context
+        )
+    )
+
+
+# ==============================================================
+# RECOVERY PASS
+# ==============================================================
 
 def _recovery_pass(
     date,
@@ -705,6 +1098,7 @@ def _recovery_pass(
     batch_size,
     registry
 ):
+
     indexes = sorted(
         set(
             int(x)
@@ -722,6 +1116,7 @@ def _recovery_pass(
     ]
 
     recovered = []
+
     pending = []
 
     print(
@@ -735,6 +1130,7 @@ def _recovery_pass(
         sub_batches,
         1
     ):
+
         items = [
             news[index - 1]
             for index in sub_indexes
@@ -750,9 +1146,14 @@ def _recovery_pass(
             f"{sub_indexes}"
         )
 
-        # 单篇最终安全降级为singleton。
+        # ------------------------------------------------------
+        # 单篇最终安全降级为 singleton
+        # ------------------------------------------------------
+
         if len(sub_indexes) == 1:
+
             index = sub_indexes[0]
+
             title = (
                 news[index - 1]["metadata"]
                 .get(
@@ -764,7 +1165,9 @@ def _recovery_pass(
 
             recovered.append({
                 "cluster_id": f"C{index:03d}",
-                "article_indexes": [index],
+                "article_indexes": [
+                    index
+                ],
                 "event_title": (
                     title[:120]
                     if title
@@ -778,6 +1181,7 @@ def _recovery_pass(
                 f"      🟢 Singleton安全保留："
                 f"ARTICLE {index}"
             )
+
             continue
 
         status, clusters, unresolved = (
@@ -790,18 +1194,24 @@ def _recovery_pass(
         )
 
         if status == "complete":
-            recovered.extend(clusters)
+
+            recovered.extend(
+                clusters
+            )
 
         elif status == "partial":
+
             safe = _safe_covered_indexes(
                 clusters,
                 sub_indexes
             )
 
             safe_set = set(safe)
+
             safe_clusters = []
 
             for cluster in clusters:
+
                 ids = [
                     int(x)
                     for x in cluster.get(
@@ -812,13 +1222,23 @@ def _recovery_pass(
                 ]
 
                 if ids:
-                    item = dict(cluster)
-                    item["article_indexes"] = (
-                        sorted(set(ids))
+
+                    item = dict(
+                        cluster
                     )
-                    safe_clusters.append(item)
+
+                    item["article_indexes"] = (
+                        sorted(
+                            set(ids)
+                        )
+                    )
+
+                    safe_clusters.append(
+                        item
+                    )
 
             if safe_clusters:
+
                 validate_cluster_coverage(
                     safe_clusters,
                     safe,
@@ -835,51 +1255,96 @@ def _recovery_pass(
             )
 
         else:
+
             pending.extend(
                 sub_indexes
             )
 
     return (
         recovered,
-        sorted(set(pending))
+        sorted(
+            set(pending)
+        )
     )
 
 
-def build_initial_clusters(date, news, registry=None):
-    allc = []
-    total = len(news)
-    if registry is None:
-        registry = read_json(global_cluster_registry_path(date), None)
-        if not isinstance(registry, dict):
-            registry = create_global_cluster_registry(date)
-            persist_global_cluster_registry(date, registry)
+# ==============================================================
+# BUILD INITIAL CLUSTERS
+# ==============================================================
 
-    print("\n" + "=" * 70)
+def build_initial_clusters(
+    date,
+    news,
+    registry=None
+):
+
+    allc = []
+
+    total = len(news)
+
+    if registry is None:
+
+        registry = read_json(
+            global_cluster_registry_path(date),
+            None
+        )
+
+        if not isinstance(
+            registry,
+            dict
+        ):
+
+            registry = (
+                create_global_cluster_registry(
+                    date
+                )
+            )
+
+            persist_global_cluster_registry(
+                date,
+                registry
+            )
+
+    print(
+        "\n" + "=" * 70
+    )
+
     print(
         "STAGE 1A — AI EVENT CLUSTERING V6.5.3"
     )
-    print("=" * 70)
-    print(f"Input Enriched News: {total}")
+
+    print(
+        "=" * 70
+    )
+
+    print(
+        f"Input Enriched News: {total}"
+    )
+
     print(
         f"Normal Batch Size: "
         f"{AGGREGATION_BATCH_SIZE}"
     )
+
     print(
         "Failure Policy: isolate -> "
         "recovery queue -> 30/15/8/4/2/1 -> singleton"
     )
 
     pending = []
+
     normal_batch_no = 0
 
-    # ==============================================================
+    # ==========================================================
     # 第一阶段：正常30篇连续处理
-    # ==============================================================
+    # ==========================================================
+
     for start in range(
         0,
         total,
         AGGREGATION_BATCH_SIZE
     ):
+
         normal_batch_no += 1
 
         end = min(
@@ -912,6 +1377,7 @@ def build_initial_clusters(date, news, registry=None):
         )
 
         if status == "complete":
+
             _append_safe_clusters(
                 allc,
                 clusters,
@@ -928,15 +1394,18 @@ def build_initial_clusters(date, news, registry=None):
             )
 
         elif status == "partial":
+
             safe = _safe_covered_indexes(
                 clusters,
                 indexes
             )
 
             safe_set = set(safe)
+
             safe_clusters = []
 
             for cluster in clusters:
+
                 ids = [
                     int(x)
                     for x in cluster.get(
@@ -947,13 +1416,23 @@ def build_initial_clusters(date, news, registry=None):
                 ]
 
                 if ids:
-                    item = dict(cluster)
-                    item["article_indexes"] = (
-                        sorted(set(ids))
+
+                    item = dict(
+                        cluster
                     )
-                    safe_clusters.append(item)
+
+                    item["article_indexes"] = (
+                        sorted(
+                            set(ids)
+                        )
+                    )
+
+                    safe_clusters.append(
+                        item
+                    )
 
             if safe_clusters:
+
                 validate_cluster_coverage(
                     safe_clusters,
                     safe,
@@ -962,11 +1441,21 @@ def build_initial_clusters(date, news, registry=None):
                     date
                 )
 
-                local_records = _make_cluster_records(normal_batch_no, safe_clusters)
-                allc.extend(register_global_cluster_ids(
-                    date, local_records, registry,
-                    f"Batch {normal_batch_no} SAFE PART"
-                ))
+                local_records = (
+                    _make_cluster_records(
+                        normal_batch_no,
+                        safe_clusters
+                    )
+                )
+
+                allc.extend(
+                    register_global_cluster_ids(
+                        date,
+                        local_records,
+                        registry,
+                        f"Batch {normal_batch_no} SAFE PART"
+                    )
+                )
 
             pending.extend(
                 unresolved
@@ -979,6 +1468,7 @@ def build_initial_clusters(date, news, registry=None):
             )
 
         else:
+
             pending.extend(
                 unresolved
             )
@@ -988,19 +1478,22 @@ def build_initial_clusters(date, news, registry=None):
                 f"Pending={len(pending)}"
             )
 
-    # ==============================================================
+    # ==========================================================
     # 第二阶段：Recovery Queue
-    # ==============================================================
+    # ==========================================================
+
     for pass_no, batch_size in enumerate(
         RECOVERY_BATCH_SIZES,
         1
     ):
+
         if not pending:
             break
 
         current_pending = sorted(
             set(pending)
         )
+
         pending = []
 
         recovered, unresolved = (
@@ -1014,12 +1507,21 @@ def build_initial_clusters(date, news, registry=None):
             )
         )
 
-        local_records = _make_cluster_records(
-            f"RECOVERY PASS {pass_no}", recovered
+        local_records = (
+            _make_cluster_records(
+                f"RECOVERY PASS {pass_no}",
+                recovered
+            )
         )
-        allc.extend(register_global_cluster_ids(
-            date, local_records, registry, f"Recovery Pass {pass_no}"
-        ))
+
+        allc.extend(
+            register_global_cluster_ids(
+                date,
+                local_records,
+                registry,
+                f"Recovery Pass {pass_no}"
+            )
+        )
 
         pending.extend(
             unresolved
@@ -1031,10 +1533,12 @@ def build_initial_clusters(date, news, registry=None):
             f"still_pending={len(pending)}"
         )
 
-    # ==============================================================
+    # ==========================================================
     # 最终安全闸
-    # ==============================================================
+    # ==========================================================
+
     if pending:
+
         log_conflict(
             date,
             "STAGE 1A / FINAL RECOVERY",
@@ -1042,7 +1546,9 @@ def build_initial_clusters(date, news, registry=None):
             "禁止进入Global Merge。",
             {
                 "pending_articles":
-                    sorted(set(pending))
+                    sorted(
+                        set(pending)
+                    )
             }
         )
 
@@ -1053,7 +1559,10 @@ def build_initial_clusters(date, news, registry=None):
 
     validate_cluster_coverage(
         allc,
-        range(1, total + 1),
+        range(
+            1,
+            total + 1
+        ),
         f"{date} Stage 1A GLOBAL",
         date
     )
@@ -1068,6 +1577,7 @@ def build_initial_clusters(date, news, registry=None):
         f"\n✅ Initial Clusters: "
         f"{len(allc)}"
     )
+
     print(
         f"✅ ARTICLE Coverage: "
         f"{total}/{total}"
@@ -1075,109 +1585,638 @@ def build_initial_clusters(date, news, registry=None):
 
     return allc
 
-def validate_initial_clusters_file(date, clusters, news_count, language):
-    if not isinstance(clusters,list) or not clusters:
+
+# ==============================================================
+# INITIAL CLUSTER FILE VALIDATION
+# ==============================================================
+
+def validate_initial_clusters_file(
+    date,
+    clusters,
+    news_count,
+    language
+):
+
+    if (
+        not isinstance(
+            clusters,
+            list
+        )
+        or not clusters
+    ):
         return False
+
     try:
-        validate_cluster_coverage(clusters, range(1,news_count+1), f"{date} {language} INITIAL FILE", date)
-        validate_global_cluster_membership(date, clusters, "INITIAL CLUSTERS", [c["cluster_id"] for c in clusters])
+
+        validate_cluster_coverage(
+            clusters,
+            range(
+                1,
+                news_count + 1
+            ),
+            f"{date} {language} INITIAL FILE",
+            date
+        )
+
+        validate_global_cluster_membership(
+            date,
+            clusters,
+            "INITIAL CLUSTERS",
+            [
+                c["cluster_id"]
+                for c in clusters
+            ]
+        )
+
     except Exception:
+
         return False
+
     return True
 
 
-def save_initial_clusters(date, language, clusters):
-    write_json_atomic(initial_clusters_path(date, language), {
-        "version":"6.5.3", "date":str(date), "language":normalize_language(language), "clusters":clusters, "saved_at":now().isoformat()
-    })
+# ==============================================================
+# SAVE INITIAL CLUSTERS
+# ==============================================================
+
+def save_initial_clusters(
+    date,
+    language,
+    clusters
+):
+
+    write_json_atomic(
+        initial_clusters_path(
+            date,
+            language
+        ),
+        {
+            "version": "6.5.3",
+            "date": str(date),
+            "language": normalize_language(
+                language
+            ),
+            "clusters": clusters,
+            "saved_at": now().isoformat()
+        }
+    )
 
 
-def load_initial_clusters(date, language, news_count):
-    p=initial_clusters_path(date, language)
+# ==============================================================
+# LOAD INITIAL CLUSTERS
+# ==============================================================
+
+def load_initial_clusters(
+    date,
+    language,
+    news_count
+):
+
+    p = initial_clusters_path(
+        date,
+        language
+    )
+
     if not p.exists():
         return None
-    data=read_json(p,None)
-    clusters=data.get("clusters") if isinstance(data,dict) else None
-    if not validate_initial_clusters_file(date,clusters,news_count,language):
+
+    data = read_json(
+        p,
+        None
+    )
+
+    clusters = (
+        data.get("clusters")
+        if isinstance(
+            data,
+            dict
+        )
+        else None
+    )
+
+    if not validate_initial_clusters_file(
+        date,
+        clusters,
+        news_count,
+        language
+    ):
         return None
+
     return clusters
 
 
-def run_task_1(date, language):
-    lang=normalize_language(language)
-    root=language_dir(date,lang); root.mkdir(parents=True,exist_ok=True)
-    articles_dir(date,lang).mkdir(parents=True,exist_ok=True)
-    event_units_dir(date,lang).mkdir(parents=True,exist_ok=True)
-    news=load_all_enriched_news(date,lang)
-    existing=load_initial_clusters(date,lang,len(news))
+# ==============================================================
+# TASK 1
+# ==============================================================
+
+def run_task_1(
+    date,
+    language
+):
+
+    # ----------------------------------------------------------
+    # IMPORTANT:
+    # language is now always lowercase:
+    #
+    #   en
+    #   zh
+    # ----------------------------------------------------------
+
+    lang = normalize_language(
+        language
+    )
+
+    root = language_dir(
+        date,
+        lang
+    )
+
+    root.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    articles_dir(
+        date,
+        lang
+    ).mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    event_units_dir(
+        date,
+        lang
+    ).mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    news = load_all_enriched_news(
+        date,
+        lang
+    )
+
+    existing = load_initial_clusters(
+        date,
+        lang,
+        len(news)
+    )
+
     if existing is not None:
-        print(f"♻️ TASK 1: reuse valid initial clusters | {date}/{lang} | clusters={len(existing)}")
+
+        print(
+            f"♻️ TASK 1: reuse valid initial clusters | "
+            f"{date}/{lang} | "
+            f"clusters={len(existing)}"
+        )
+
         return existing
-    registry_file=global_cluster_registry_path(date)
-    registry=read_json(registry_file,None) if registry_file.exists() else None
-    if not isinstance(registry,dict) or registry.get("date")!=str(date):
-        registry=create_global_cluster_registry(date)
-        persist_global_cluster_registry(date,registry)
+
+    registry_file = (
+        global_cluster_registry_path(
+            date
+        )
+    )
+
+    registry = (
+        read_json(
+            registry_file,
+            None
+        )
+        if registry_file.exists()
+        else None
+    )
+
+    if (
+        not isinstance(
+            registry,
+            dict
+        )
+        or registry.get("date") != str(date)
+    ):
+
+        registry = (
+            create_global_cluster_registry(
+                date
+            )
+        )
+
+        persist_global_cluster_registry(
+            date,
+            registry
+        )
+
     else:
-        validate_registry_basic(date,registry)
-    clusters=build_initial_clusters(date,news,registry=registry)
-    validate_global_cluster_membership(date,clusters,"TASK 1 FINAL",[c["cluster_id"] for c in clusters])
-    validate_global_article_coverage(date,clusters,len(news),"TASK 1 FINAL")
-    save_initial_clusters(date,lang,clusters)
-    print(f"✅ TASK 1 COMPLETE | {date}/{lang} | articles={len(news)} | clusters={len(clusters)}")
+
+        validate_registry_basic(
+            date,
+            registry
+        )
+
+    clusters = build_initial_clusters(
+        date,
+        news,
+        registry=registry
+    )
+
+    validate_global_cluster_membership(
+        date,
+        clusters,
+        "TASK 1 FINAL",
+        [
+            c["cluster_id"]
+            for c in clusters
+        ]
+    )
+
+    validate_global_article_coverage(
+        date,
+        clusters,
+        len(news),
+        "TASK 1 FINAL"
+    )
+
+    save_initial_clusters(
+        date,
+        lang,
+        clusters
+    )
+
+    print(
+        f"✅ TASK 1 COMPLETE | "
+        f"{date}/{lang} | "
+        f"articles={len(news)} | "
+        f"clusters={len(clusters)}"
+    )
+
     return clusters
 
 
-def validate_registry_basic(date,registry):
-    if not isinstance(registry,dict) or registry.get("date")!=str(date):
-        raise RuntimeError(f"❌ {date} Global Cluster Registry异常")
-    if not isinstance(registry.get("next_sequence"),int) or registry["next_sequence"]<1:
-        raise RuntimeError(f"❌ {date} Global Cluster Registry next_sequence异常")
-    if not isinstance(registry.get("registered"),list):
-        raise RuntimeError(f"❌ {date} Global Cluster Registry registered异常")
+# ==============================================================
+# GLOBAL REGISTRY VALIDATION
+# ==============================================================
+
+def validate_registry_basic(
+    date,
+    registry
+):
+
+    if (
+        not isinstance(
+            registry,
+            dict
+        )
+        or registry.get("date") != str(date)
+    ):
+
+        raise RuntimeError(
+            f"❌ {date} Global Cluster Registry异常"
+        )
+
+    if (
+        not isinstance(
+            registry.get(
+                "next_sequence"
+            ),
+            int
+        )
+        or registry[
+            "next_sequence"
+        ] < 1
+    ):
+
+        raise RuntimeError(
+            f"❌ {date} Global Cluster Registry next_sequence异常"
+        )
+
+    if not isinstance(
+        registry.get(
+            "registered"
+        ),
+        list
+    ):
+
+        raise RuntimeError(
+            f"❌ {date} Global Cluster Registry registered异常"
+        )
 
 
-def validate_global_cluster_membership(date,clusters,context,expected_original_ids=None):
-    seen_current=set(); seen_original=set(); malformed=[]; dupc=[]; dupo=[]
-    for pos,c in enumerate(clusters,1):
-        if not isinstance(c,dict): malformed.append(f"cluster[{pos}]不是对象"); continue
-        cid=str(c.get("cluster_id","")).strip()
-        if not cid or not re.fullmatch(r"EVT-\d{8}-\d{6}",cid): malformed.append(f"cluster[{pos}]非法Global cluster_id：{cid}")
-        elif cid in seen_current: dupc.append(cid)
-        else: seen_current.add(cid)
-        members=c.get("member_cluster_ids")
-        if not isinstance(members,list) or not members: malformed.append(f"cluster[{pos}]member_cluster_ids无效"); continue
+# ==============================================================
+# GLOBAL CLUSTER MEMBERSHIP VALIDATION
+# ==============================================================
+
+def validate_global_cluster_membership(
+    date,
+    clusters,
+    context,
+    expected_original_ids=None
+):
+
+    seen_current = set()
+
+    seen_original = set()
+
+    malformed = []
+
+    dupc = []
+
+    dupo = []
+
+    for pos, c in enumerate(
+        clusters,
+        1
+    ):
+
+        if not isinstance(
+            c,
+            dict
+        ):
+
+            malformed.append(
+                f"cluster[{pos}]不是对象"
+            )
+
+            continue
+
+        cid = str(
+            c.get(
+                "cluster_id",
+                ""
+            )
+        ).strip()
+
+        if not cid or not re.fullmatch(
+            r"EVT-\d{8}-\d{6}",
+            cid
+        ):
+
+            malformed.append(
+                f"cluster[{pos}]非法Global cluster_id：{cid}"
+            )
+
+        elif cid in seen_current:
+
+            dupc.append(cid)
+
+        else:
+
+            seen_current.add(
+                cid
+            )
+
+        members = c.get(
+            "member_cluster_ids"
+        )
+
+        if (
+            not isinstance(
+                members,
+                list
+            )
+            or not members
+        ):
+
+            malformed.append(
+                f"cluster[{pos}]member_cluster_ids无效"
+            )
+
+            continue
+
         for member in members:
-            member=str(member).strip()
-            if not member: malformed.append(f"cluster[{pos}]存在空member_cluster_id"); continue
-            if member in seen_original: dupo.append(member)
-            else: seen_original.add(member)
-    expected=set(map(str,expected_original_ids or []))
-    missing=sorted(expected-seen_original) if expected_original_ids is not None else []
-    extra=sorted(seen_original-expected) if expected_original_ids is not None else []
-    if malformed or dupc or dupo or missing or extra:
-        log_conflict(date,context,"Global Cluster membership验证失败。",{"malformed":malformed,"duplicate_current":dupc,"duplicate_original":dupo,"missing_original":missing,"extra_original":extra})
-        raise RuntimeError(f"❌ {context} Global Cluster membership异常")
+
+            member = str(
+                member
+            ).strip()
+
+            if not member:
+
+                malformed.append(
+                    f"cluster[{pos}]存在空member_cluster_id"
+                )
+
+                continue
+
+            if member in seen_original:
+
+                dupo.append(
+                    member
+                )
+
+            else:
+
+                seen_original.add(
+                    member
+                )
+
+    expected = set(
+        map(
+            str,
+            expected_original_ids or []
+        )
+    )
+
+    missing = (
+        sorted(
+            expected -
+            seen_original
+        )
+        if expected_original_ids is not None
+        else []
+    )
+
+    extra = (
+        sorted(
+            seen_original -
+            expected
+        )
+        if expected_original_ids is not None
+        else []
+    )
+
+    if (
+        malformed
+        or dupc
+        or dupo
+        or missing
+        or extra
+    ):
+
+        log_conflict(
+            date,
+            context,
+            "Global Cluster membership验证失败。",
+            {
+                "malformed": malformed,
+                "duplicate_current": dupc,
+                "duplicate_original": dupo,
+                "missing_original": missing,
+                "extra_original": extra
+            }
+        )
+
+        raise RuntimeError(
+            f"❌ {context} Global Cluster membership异常"
+        )
 
 
-def validate_global_article_coverage(date,clusters,news_count,context):
-    allidx=[]; malformed=[]
-    for pos,c in enumerate(clusters,1):
-        ids=c.get("article_indexes") if isinstance(c,dict) else None
-        if not isinstance(ids,list): malformed.append(f"cluster[{pos}] article_indexes不是数组"); continue
+# ==============================================================
+# GLOBAL ARTICLE COVERAGE VALIDATION
+# ==============================================================
+
+def validate_global_article_coverage(
+    date,
+    clusters,
+    news_count,
+    context
+):
+
+    allidx = []
+
+    malformed = []
+
+    for pos, c in enumerate(
+        clusters,
+        1
+    ):
+
+        ids = (
+            c.get(
+                "article_indexes"
+            )
+            if isinstance(
+                c,
+                dict
+            )
+            else None
+        )
+
+        if not isinstance(
+            ids,
+            list
+        ):
+
+            malformed.append(
+                f"cluster[{pos}] article_indexes不是数组"
+            )
+
+            continue
+
         for x in ids:
-            try: allidx.append(int(x))
-            except Exception: malformed.append(f"cluster[{pos}]非法ARTICLE：{x}")
-    expected=set(range(1,news_count+1)); actual=set(allidx)
-    dup=sorted({x for x in allidx if allidx.count(x)>1}); missing=sorted(expected-actual); extra=sorted(actual-expected)
-    if dup or missing or extra or malformed:
-        log_conflict(date,context,"Global Article coverage异常。",{"duplicate":dup,"missing":missing,"extra":extra,"malformed":malformed})
-        raise RuntimeError(f"❌ {context} Article覆盖异常 Duplicate={dup} Missing={missing} Extra={extra} Malformed={malformed}")
 
+            try:
+
+                allidx.append(
+                    int(x)
+                )
+
+            except Exception:
+
+                malformed.append(
+                    f"cluster[{pos}]非法ARTICLE：{x}"
+                )
+
+    expected = set(
+        range(
+            1,
+            news_count + 1
+        )
+    )
+
+    actual = set(
+        allidx
+    )
+
+    dup = sorted(
+        {
+            x
+            for x in allidx
+            if allidx.count(x) > 1
+        }
+    )
+
+    missing = sorted(
+        expected - actual
+    )
+
+    extra = sorted(
+        actual - expected
+    )
+
+    if (
+        dup
+        or missing
+        or extra
+        or malformed
+    ):
+
+        log_conflict(
+            date,
+            context,
+            "Global Article coverage异常。",
+            {
+                "duplicate": dup,
+                "missing": missing,
+                "extra": extra,
+                "malformed": malformed
+            }
+        )
+
+        raise RuntimeError(
+            f"❌ {context} Article覆盖异常 "
+            f"Duplicate={dup} "
+            f"Missing={missing} "
+            f"Extra={extra} "
+            f"Malformed={malformed}"
+        )
+
+
+# ==============================================================
+# MAIN
+# ==============================================================
 
 def main():
-    ap=argparse.ArgumentParser(description="748686 Knowledge Task 1 - Cluster V6.5.3")
-    ap.add_argument("--date",required=True); ap.add_argument("--language",choices=["EN","ZH"],required=True)
-    args=ap.parse_args(); run_task_1(args.date,args.language); return 0
 
-if __name__=="__main__": sys.exit(main())
+    ap = argparse.ArgumentParser(
+        description=(
+            "748686 Knowledge Task 1 - "
+            "Cluster V6.5.3"
+        )
+    )
+
+    ap.add_argument(
+        "--date",
+        required=True
+    )
+
+    # ----------------------------------------------------------
+    # IMPORTANT:
+    # CLI language contract is lowercase.
+    #
+    #   --language en
+    #   --language zh
+    # ----------------------------------------------------------
+
+    ap.add_argument(
+        "--language",
+        choices=[
+            "en",
+            "zh"
+        ],
+        required=True
+    )
+
+    args = ap.parse_args()
+
+    run_task_1(
+        args.date,
+        args.language
+    )
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(
+        main()
+    )
