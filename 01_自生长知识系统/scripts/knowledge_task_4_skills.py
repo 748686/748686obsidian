@@ -17,7 +17,7 @@ V6.5.3
 
 EventUnit目录：
     Raw News/
-        YYYY-MM-DD-EventUnit/
+        YYYY-MM-DD-eventunit/
             en/
                 articles/
                 event_units/
@@ -26,7 +26,7 @@ EventUnit目录：
                 event_units/
 
 Task 4输出：
-    YYYY-MM-DD-EventUnit/
+    YYYY-MM-DD-eventunit/
         en/
             event_units/
                 EVT-YYYYMMDD-NNNNNN/
@@ -45,15 +45,24 @@ Task 4输出：
 重要：
 ------------------------------------------------------------
 1. EN / ZH 是程序接口标准值。
-2. 磁盘目录永远使用小写 en / zh。
-3. Event ID 永远使用：
+2. 磁盘目录永远固定为小写 en / zh。
+3. EventUnit根目录永远固定为 eventunit。
+4. EventUnit子目录永远固定为 event_units。
+5. Event ID 永远使用：
        EVT-YYYYMMDD-NNNNNN
-4. 不允许因为大小写不同产生第二套目录。
-5. Task 4 只读取 Task 3 已完成的 EventUnit。
-6. 已存在且非空的 Skill 文件直接跳过。
-7. 缺失 Skill 自动补生成。
-8. 最终只有全部 Event × Skill 完成后，
-   才写入 _SKILLS_COMPLETE。
+6. 不允许因为大小写不同产生第二套目录。
+7. 不使用 lower() / upper() / casefold()
+   进行目录或语言转换。
+8. EN / ZH 到磁盘目录使用固定映射：
+       EN -> en
+       ZH -> zh
+9. Task 4 只读取 Task 3 已完成的 EventUnit。
+10. 已存在且非空的 Skill 文件直接跳过。
+11. 缺失 Skill 自动补生成。
+12. 最终只有全部 Event × Skill 完成后，
+    才写入 _SKILLS_COMPLETE。
+13. Global Event ID 的 EVT 前缀必须保持大写，
+    因为它是正式 Global ID 协议，不属于目录大小写。
 """
 
 from __future__ import annotations
@@ -83,7 +92,23 @@ from knowledge_common import (
 
 MAX_SKILL_CONTEXT = 30000
 
-SUPPORTED_LANGUAGES = ("EN", "ZH")
+SUPPORTED_LANGUAGES = (
+    "EN",
+    "ZH",
+)
+
+# ------------------------------------------------------------
+# 固定磁盘语言目录映射
+#
+# 注意：
+# 这里不是大小写转换。
+# 是正式的、锁死的路径协议。
+# ------------------------------------------------------------
+
+LANGUAGE_DISK_DIRS = {
+    "EN": "en",
+    "ZH": "zh",
+}
 
 EVENT_ID_PATTERN = re.compile(
     r"^EVT-\d{8}-\d{6}$"
@@ -98,20 +123,22 @@ TIMEZONE_NAME = "Asia/Shanghai"
 
 def normalize_task_language(language: str) -> str:
     """
-    Task 4统一语言入口。
+    Task 4语言入口。
 
-    外部：
-        EN / ZH
+    程序接口只允许：
+        EN
+        ZH
 
-    内部：
-        EN / ZH
+    注意：
+        这里仍调用 knowledge_common 的语言验证，
+        但绝不使用它的结果进行路径大小写转换。
 
-    磁盘目录：
-        en / zh
-
-    绝不直接把用户输入拼接到路径中。
+    路径目录由 LANGUAGE_DISK_DIRS 明确锁死。
     """
-    lang = normalize_language(language)
+
+    lang = normalize_language(
+        language
+    )
 
     if lang not in SUPPORTED_LANGUAGES:
         raise RuntimeError(
@@ -123,20 +150,44 @@ def normalize_task_language(language: str) -> str:
 
 def language_disk_name(language: str) -> str:
     """
-    获取磁盘目录语言名称。
+    获取固定磁盘语言目录。
 
-    EN -> en
-    ZH -> zh
+    正式契约：
+
+        EN -> en
+        ZH -> zh
+
+    注意：
+        不使用 lower()。
+        不使用 upper()。
+        不根据输入大小写动态推导。
+
+    只有固定映射才允许进入文件系统。
     """
-    lang = normalize_task_language(language)
-    return lang.lower()
+
+    lang = normalize_task_language(
+        language
+    )
+
+    try:
+        return LANGUAGE_DISK_DIRS[
+            lang
+        ]
+
+    except KeyError as e:
+        raise RuntimeError(
+            f"❌ Task 4没有定义语言磁盘目录：{lang}"
+        ) from e
 
 
 # ============================================================
 # EVENT ID VALIDATION
 # ============================================================
 
-def validate_event_id(event_id: str, date: str) -> str:
+def validate_event_id(
+    event_id: str,
+    date: str
+) -> str:
     """
     验证 Event ID。
 
@@ -144,17 +195,25 @@ def validate_event_id(event_id: str, date: str) -> str:
         EVT-YYYYMMDD-NNNNNN
 
     注意：
-        Event ID 是大小写敏感的正式 Global ID。
+        Event ID 是正式 Global ID。
         EVT 必须保持大写。
+
+        这里不是目录大小写，
+        因此不能为了“小写统一”而修改。
     """
-    eid = str(event_id or "").strip()
+
+    eid = str(
+        event_id or ""
+    ).strip()
 
     if not eid:
         raise RuntimeError(
             f"❌ {date} Task 4发现空event_id"
         )
 
-    if not EVENT_ID_PATTERN.fullmatch(eid):
+    if not EVENT_ID_PATTERN.fullmatch(
+        eid
+    ):
         raise RuntimeError(
             f"❌ {date} Task 4发现非法Global Event ID：{eid}"
         )
@@ -163,7 +222,9 @@ def validate_event_id(event_id: str, date: str) -> str:
         f"EVT-{date.replace('-', '')}-"
     )
 
-    if not eid.startswith(expected_prefix):
+    if not eid.startswith(
+        expected_prefix
+    ):
         raise RuntimeError(
             f"❌ {date} Task 4 Event ID日期不匹配：{eid}"
         )
@@ -175,35 +236,51 @@ def validate_event_id(event_id: str, date: str) -> str:
 # SKILL FILE NAME
 # ============================================================
 
-def skill_output_filename(skill_name: str) -> str:
+def skill_output_filename(
+    skill_name: str
+) -> str:
     """
-    将Skill名称转换成稳定的Markdown文件名。
+    将Skill名称转换成稳定Markdown文件名。
 
     注意：
-        不修改Skill本身的业务名称。
-        只负责文件系统安全化。
+        不主动修改Skill名称大小写。
+
+        safe_name()只负责文件系统安全字符处理。
+        不在这里执行 lower / upper / casefold。
 
     最终：
         xxx -> xxx.md
         xxx.md -> xxx.md
     """
-    name = str(skill_name or "").strip()
+
+    name = str(
+        skill_name or ""
+    ).strip()
 
     if not name:
         raise RuntimeError(
             "❌ Skill名称为空"
         )
 
-    filename = safe_name(name).strip()
+    filename = safe_name(
+        name
+    ).strip()
 
     if not filename:
         raise RuntimeError(
             f"❌ Skill名称无法生成安全文件名：{name}"
         )
 
-    # 只移除末尾重复的 .md，
-    # 避免出现 xxx.md.md
-    while filename.lower().endswith(".md"):
+    # --------------------------------------------------------
+    # 去掉末尾重复 .md
+    #
+    # 这里不进行大小写转换。
+    # 只接受正式的小写扩展名 .md。
+    # --------------------------------------------------------
+
+    while filename.endswith(
+        ".md"
+    ):
         filename = filename[:-3]
 
     filename = filename.rstrip(".")
@@ -213,7 +290,9 @@ def skill_output_filename(skill_name: str) -> str:
             f"❌ Skill文件名无效：{name}"
         )
 
-    return f"{filename}.md"
+    return (
+        f"{filename}.md"
+    )
 
 
 # ============================================================
@@ -228,34 +307,57 @@ def skill_event_dir(
     """
     Task 4单个Event的Skill输出目录。
 
-    统一通过 knowledge_common.event_units_dir()
-    获取 event_units 根目录。
+    标准：
 
-    语言目录最终必须是：
-        en
-        zh
+        YYYY-MM-DD-eventunit/
+            en/
+                event_units/
+                    EVT-YYYYMMDD-NNNNNN/
+
+    或：
+
+        YYYY-MM-DD-eventunit/
+            zh/
+                event_units/
+                    EVT-YYYYMMDD-NNNNNN/
+
+    所有目录名称都是固定协议。
     """
-    lang = normalize_task_language(language)
-    eid = validate_event_id(event_id, date)
+
+    lang = normalize_task_language(
+        language
+    )
+
+    eid = validate_event_id(
+        event_id,
+        date
+    )
 
     root = event_units_dir(
         date,
         lang
     )
 
-    # 防止公共函数发生大小写契约漂移。
     expected_language_dir = (
-        root.parent.name
+        language_disk_name(
+            lang
+        )
     )
 
-    expected = language_disk_name(lang)
+    # --------------------------------------------------------
+    # 验证语言目录
+    # --------------------------------------------------------
 
-    if expected_language_dir != expected:
+    if root.parent.name != expected_language_dir:
         raise RuntimeError(
             "❌ Task 4语言目录大小写契约异常："
-            f"实际={expected_language_dir} "
-            f"期望={expected}"
+            f"实际={root.parent.name} "
+            f"期望={expected_language_dir}"
         )
+
+    # --------------------------------------------------------
+    # event_units必须固定小写
+    # --------------------------------------------------------
 
     if root.name != "event_units":
         raise RuntimeError(
@@ -264,30 +366,43 @@ def skill_event_dir(
             "期望=event_units"
         )
 
-    return root / eid
+    return (
+        root
+        / eid
+    )
 
 
 # ============================================================
 # SKILL OUTPUT VALIDATION
 # ============================================================
 
-def skill_output_valid(path: Path) -> bool:
+def skill_output_valid(
+    path: Path
+) -> bool:
     """
     Skill输出文件有效性检查。
 
     只接受：
+
         文件存在
-        且文件大小 > 0
+        文件是普通文件
+        文件大小 > 0
     """
+
     try:
         return (
             path.exists()
             and path.is_file()
             and path.stat().st_size > 0
         )
+
     except OSError:
         return False
 
+
+# ============================================================
+# EVENT × SKILL OUTPUT PATH
+# ============================================================
 
 def event_skill_output_path(
     date: str,
@@ -298,6 +413,7 @@ def event_skill_output_path(
     """
     返回单个 Event × Skill 的标准输出路径。
     """
+
     edir = skill_event_dir(
         date,
         language,
@@ -308,7 +424,10 @@ def event_skill_output_path(
         skill_name
     )
 
-    return edir / filename
+    return (
+        edir
+        / filename
+    )
 
 
 # ============================================================
@@ -416,7 +535,9 @@ EventUnit原文：
     if result is None:
         return ""
 
-    return str(result)
+    return str(
+        result
+    )
 
 
 # ============================================================
@@ -501,9 +622,13 @@ def select_skills(
                 skill_name
             )
 
+    # --------------------------------------------------------
     # 如果routes没有有效选择，
     # 使用全部Skill。
+    # --------------------------------------------------------
+
     if not selected:
+
         for name in sorted(
             skills.keys()
         ):
@@ -529,7 +654,7 @@ def validate_selected_skills(
     """
     检查最终Skill列表。
 
-    同时检查：
+    检查：
     - Skill对象
     - name
     - content
@@ -569,7 +694,9 @@ def validate_selected_skills(
                 f"❌ Task 4存在重复Skill：{name}"
             )
 
-        seen_names.add(name)
+        seen_names.add(
+            name
+        )
 
         content = str(
             skill.get(
@@ -587,16 +714,21 @@ def validate_selected_skills(
             name
         )
 
-        filename_key = filename.casefold()
+        # ----------------------------------------------------
+        # 不再使用 casefold()
+        #
+        # 文件名契约是精确匹配。
+        # 不做大小写归一化。
+        # ----------------------------------------------------
 
-        if filename_key in seen_files:
+        if filename in seen_files:
             raise RuntimeError(
                 "❌ Task 4存在Skill文件名冲突："
                 f"{filename}"
             )
 
         seen_files.add(
-            filename_key
+            filename
         )
 
 
@@ -611,14 +743,16 @@ def find_missing_skill_outputs(
     selected
 ):
     """
-    扫描所有 Event × Skill，
-    返回缺失或空文件。
+    扫描所有 Event × Skill。
 
     返回：
+
         [
             "EVT-.../SkillA.md",
             ...
         ]
+
+    只把不存在或空文件认定为缺失。
     """
 
     missing = []
@@ -654,6 +788,7 @@ def find_missing_skill_outputs(
             if not skill_output_valid(
                 path
             ):
+
                 missing.append(
                     f"{event_id}/{path.name}"
                 )
@@ -662,7 +797,7 @@ def find_missing_skill_outputs(
 
 
 # ============================================================
-# COMPLETION MARKER VALIDATION
+# COMPLETION MARKER
 # ============================================================
 
 def skills_marker_path(
@@ -672,9 +807,11 @@ def skills_marker_path(
     """
     Task 4完成标记。
 
-    必须位于：
+    固定位置：
+
         event_units/_SKILLS_COMPLETE
     """
+
     lang = normalize_task_language(
         language
     )
@@ -686,11 +823,27 @@ def skills_marker_path(
 
     if root.name != "event_units":
         raise RuntimeError(
-            f"❌ Task 4 event_units目录大小写错误：{root}"
+            "❌ Task 4 event_units目录大小写错误："
+            f"{root}"
         )
 
-    return root / SKILLS_COMPLETE_FILE
+    if root.parent.name != language_disk_name(
+        lang
+    ):
+        raise RuntimeError(
+            "❌ Task 4语言目录大小写错误："
+            f"{root.parent}"
+        )
 
+    return (
+        root
+        / SKILLS_COMPLETE_FILE
+    )
+
+
+# ============================================================
+# WRITE COMPLETION MARKER
+# ============================================================
 
 def write_skills_complete_marker(
     date: str,
@@ -704,6 +857,10 @@ def write_skills_complete_marker(
 
     lang = normalize_task_language(
         language
+    )
+
+    disk_lang = language_disk_name(
+        lang
     )
 
     path = skills_marker_path(
@@ -720,11 +877,11 @@ def write_skills_complete_marker(
         "SKILLS_COMPLETE\n"
         f"date: {date}\n"
         f"language: {lang}\n"
-        f"disk_language: {lang.lower()}\n"
+        f"disk_language: {disk_lang}\n"
         f"events: {event_count}\n"
         f"skills: {skill_count}\n"
         "directory_contract: "
-        "language_lowercase_event_units_lowercase\n"
+        "language_lowercase_eventunit_lowercase_event_units_lowercase\n"
         f"completed_at: {now().isoformat()}\n"
         f"timezone: {TIMEZONE_NAME}\n"
     )
@@ -780,33 +937,53 @@ def run_task_4(
     """
 
     # --------------------------------------------------------
-    # 1. 标准化语言
+    # 1. 标准化程序接口语言
     # --------------------------------------------------------
 
     lang = normalize_task_language(
         language
     )
 
+    # --------------------------------------------------------
+    # 2. 获取固定磁盘语言目录
+    #
+    # 不做大小写转换。
+    # --------------------------------------------------------
+
     disk_lang = language_disk_name(
         lang
     )
 
-    print("\n" + "=" * 70)
-    print("TASK 4 — 27 SKILLS")
-    print("=" * 70)
+    print(
+        "\n" + "=" * 70
+    )
+
+    print(
+        "TASK 4 — 27 SKILLS"
+    )
+
+    print(
+        "=" * 70
+    )
+
     print(
         f"DATE          : {date}"
     )
+
     print(
         f"LANGUAGE      : {lang}"
     )
+
     print(
         f"DISK LANGUAGE : {disk_lang}"
     )
-    print("=" * 70)
+
+    print(
+        "=" * 70
+    )
 
     # --------------------------------------------------------
-    # 2. 加载Task 3 EventUnits
+    # 3. 加载Task 3 EventUnits
     # --------------------------------------------------------
 
     files = load_saved_event_units(
@@ -830,7 +1007,7 @@ def run_task_4(
         )
 
     # --------------------------------------------------------
-    # 3. 验证所有Event ID
+    # 4. 验证所有Event ID
     # --------------------------------------------------------
 
     event_ids = []
@@ -873,7 +1050,7 @@ def run_task_4(
             )
 
     # --------------------------------------------------------
-    # 4. 加载Skills与Routes
+    # 5. 加载Skills与Routes
     # --------------------------------------------------------
 
     skills = load_skills()
@@ -906,7 +1083,7 @@ def run_task_4(
     )
 
     # --------------------------------------------------------
-    # 5. 基本信息
+    # 6. 基本信息
     # --------------------------------------------------------
 
     print(
@@ -929,7 +1106,7 @@ def run_task_4(
     )
 
     # --------------------------------------------------------
-    # 6. 创建标准目录
+    # 7. 创建标准目录
     # --------------------------------------------------------
 
     outroot = event_units_dir(
@@ -942,7 +1119,10 @@ def run_task_4(
         exist_ok=True
     )
 
-    # 严格验证磁盘目录大小写。
+    # --------------------------------------------------------
+    # 严格验证目录契约
+    # --------------------------------------------------------
+
     if outroot.name != "event_units":
         raise RuntimeError(
             "❌ TASK 4目录契约失败："
@@ -957,10 +1137,9 @@ def run_task_4(
         )
 
     # --------------------------------------------------------
-    # 7. 先检查完成标记
+    # 8. 先检查完成标记
     #
-    # 注意：
-    # 不能因为marker存在就直接跳过。
+    # marker存在不能直接跳过。
     # 必须再次验证所有 Event × Skill。
     # --------------------------------------------------------
 
@@ -982,6 +1161,7 @@ def run_task_4(
         marker.exists()
         and not existing_missing
     ):
+
         print(
             "\n♻️ TASK 4已经完整完成"
         )
@@ -1013,11 +1193,14 @@ def run_task_4(
         return True
 
     # --------------------------------------------------------
-    # 8. 如果marker存在但文件缺失，
+    # 9. marker存在但文件缺失
     #    删除旧marker，进入修复。
     # --------------------------------------------------------
 
-    if marker.exists() and existing_missing:
+    if (
+        marker.exists()
+        and existing_missing
+    ):
 
         print(
             "\n⚠️ 检测到旧的"
@@ -1037,6 +1220,7 @@ def run_task_4(
 
         try:
             marker.unlink()
+
         except OSError as e:
             raise RuntimeError(
                 f"❌ 无法删除旧完成标记："
@@ -1044,14 +1228,19 @@ def run_task_4(
             ) from e
 
     # --------------------------------------------------------
-    # 9. Event × Skill执行
+    # 10. Event × Skill执行
     # --------------------------------------------------------
 
     generated = 0
     skipped = 0
 
-    total_events = len(files)
-    total_skills = len(selected)
+    total_events = len(
+        files
+    )
+
+    total_skills = len(
+        selected
+    )
 
     for event_index, event in enumerate(
         files,
@@ -1087,23 +1276,33 @@ def run_task_4(
             exist_ok=True
         )
 
-        print("\n" + "-" * 70)
+        print(
+            "\n" + "-" * 70
+        )
+
         print(
             f"EVENT {event_index}/{total_events}"
         )
+
         print(
             f"EVENT ID : {event_id}"
         )
+
         print(
             f"TITLE    : {event_title}"
         )
+
         print(
             f"INPUT    : {event_path}"
         )
+
         print(
             f"OUTPUT   : {edir}"
         )
-        print("-" * 70)
+
+        print(
+            "-" * 70
+        )
 
         for skill_index, skill in enumerate(
             selected,
@@ -1133,6 +1332,7 @@ def run_task_4(
             if skill_output_valid(
                 outfile
             ):
+
                 skipped += 1
 
                 print(
@@ -1185,6 +1385,7 @@ def run_task_4(
             )
 
             try:
+
                 tmp.write_text(
                     result + "\n",
                     encoding="utf-8"
@@ -1195,9 +1396,11 @@ def run_task_4(
                 )
 
             except Exception:
+
                 try:
                     if tmp.exists():
                         tmp.unlink()
+
                 except Exception:
                     pass
 
@@ -1223,12 +1426,20 @@ def run_task_4(
             )
 
     # --------------------------------------------------------
-    # 10. 最终完整性检查
+    # 11. 最终完整性检查
     # --------------------------------------------------------
 
-    print("\n" + "=" * 70)
-    print("TASK 4 FINAL COMPLETENESS CHECK")
-    print("=" * 70)
+    print(
+        "\n" + "=" * 70
+    )
+
+    print(
+        "TASK 4 FINAL COMPLETENESS CHECK"
+    )
+
+    print(
+        "=" * 70
+    )
 
     missing = (
         find_missing_skill_outputs(
@@ -1261,7 +1472,7 @@ def run_task_4(
         )
 
     # --------------------------------------------------------
-    # 11. 最终检查数量
+    # 12. 最终检查数量
     # --------------------------------------------------------
 
     expected_outputs = (
@@ -1312,7 +1523,7 @@ def run_task_4(
         )
 
     # --------------------------------------------------------
-    # 12. 写入最终完成标记
+    # 13. 写入最终完成标记
     # --------------------------------------------------------
 
     marker = write_skills_complete_marker(
@@ -1323,25 +1534,34 @@ def run_task_4(
     )
 
     # --------------------------------------------------------
-    # 13. 再次验证marker
+    # 14. 再次验证marker
     # --------------------------------------------------------
 
     if (
         not marker.exists()
         or marker.stat().st_size <= 0
     ):
+
         raise RuntimeError(
             f"❌ TASK 4完成标记写入失败："
             f"{marker}"
         )
 
     # --------------------------------------------------------
-    # 14. 最终输出
+    # 15. 最终输出
     # --------------------------------------------------------
 
-    print("\n" + "=" * 70)
-    print("✅ TASK 4 COMPLETE")
-    print("=" * 70)
+    print(
+        "\n" + "=" * 70
+    )
+
+    print(
+        "✅ TASK 4 COMPLETE"
+    )
+
+    print(
+        "=" * 70
+    )
 
     print(
         f"DATE             : {date}"
@@ -1383,7 +1603,9 @@ def run_task_4(
         f"MARKER           : {marker}"
     )
 
-    print("=" * 70)
+    print(
+        "=" * 70
+    )
 
     return True
 
@@ -1393,6 +1615,7 @@ def run_task_4(
 # ============================================================
 
 def main():
+
     parser = argparse.ArgumentParser(
         description=(
             "748686 Knowledge Task 4 "
@@ -1409,13 +1632,17 @@ def main():
     parser.add_argument(
         "--language",
         required=True,
-        choices=["EN", "ZH"],
+        choices=[
+            "EN",
+            "ZH",
+        ],
         help="语言：EN 或 ZH"
     )
 
     args = parser.parse_args()
 
     try:
+
         run_task_4(
             args.date,
             args.language
@@ -1424,15 +1651,19 @@ def main():
         return 0
 
     except KeyboardInterrupt:
+
         print(
             "\n❌ TASK 4被用户中断"
         )
+
         return 130
 
     except Exception as e:
+
         print(
             f"\n❌ TASK 4 FAILED: {e}"
         )
+
         return 1
 
 
