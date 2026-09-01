@@ -66,7 +66,6 @@ import json
 import os
 import random
 import re
-import sys
 import time
 
 from datetime import datetime
@@ -140,6 +139,27 @@ MAX_ARTICLES_PER_EVENT_CONTEXT = 30
 ARTICLE_CLUSTER_CONTENT_LIMIT = 3500
 
 ARTICLE_AGGREGATION_CONTENT_LIMIT = 8000
+
+
+# ------------------------------------------------------------
+# Recovery policy
+# ------------------------------------------------------------
+
+# 正常：
+#
+#     30
+#
+# 失败：
+#
+#     30
+#     15
+#     8
+#     4
+#     2
+#     1
+#
+# 最终Singleton安全落地。
+
 RECOVERY_BATCH_SIZES = (
     30,
     15,
@@ -148,6 +168,7 @@ RECOVERY_BATCH_SIZES = (
     2,
     1,
 )
+
 
 # ============================================================
 # AI CONFIGURATION
@@ -339,7 +360,7 @@ def global_cluster_registry_path(
     date
 ):
     """
-    Global Registry是同一天en / zh共用。
+    Global Registry由en / zh共同使用。
 
     正确：
 
@@ -347,9 +368,7 @@ def global_cluster_registry_path(
             YYYY-MM-DD-EventUnit/
                 _global_cluster_registry.json
 
-    注意：
-
-        language不参与路径。
+    language不参与路径。
     """
 
     return (
@@ -1111,30 +1130,37 @@ def validate_registry_basic(
     date,
     registry
 ):
-    if (
-        not isinstance(
-            registry,
-            dict
-        )
-        or registry.get(
-            "date"
-        ) != str(date)
+    if not isinstance(
+        registry,
+        dict
     ):
 
         raise RuntimeError(
-            f"❌ {date} Global Cluster Registry异常"
+            f"❌ {date} Global Cluster Registry不是对象"
         )
+
+    if registry.get(
+        "date"
+    ) != str(date):
+
+        raise RuntimeError(
+            f"❌ {date} Global Cluster Registry日期异常"
+        )
+
+    next_sequence = registry.get(
+        "next_sequence"
+    )
 
     if (
         not isinstance(
-            registry.get(
-                "next_sequence"
-            ),
+            next_sequence,
             int
         )
-        or registry[
-            "next_sequence"
-        ] < 1
+        or isinstance(
+            next_sequence,
+            bool
+        )
+        or next_sequence < 1
     ):
 
         raise RuntimeError(
@@ -1142,10 +1168,12 @@ def validate_registry_basic(
             "next_sequence异常"
         )
 
+    registered = registry.get(
+        "registered"
+    )
+
     if not isinstance(
-        registry.get(
-            "registered"
-        ),
+        registered,
         list
     ):
 
@@ -1153,6 +1181,91 @@ def validate_registry_basic(
             f"❌ {date} Global Cluster Registry "
             "registered异常"
         )
+
+    # ----------------------------------------------------------
+    # Registry内部唯一性检查
+    # ----------------------------------------------------------
+
+    global_ids = set()
+    local_source_pairs = set()
+
+    for pos, item in enumerate(
+        registered,
+        1
+    ):
+
+        if not isinstance(
+            item,
+            dict
+        ):
+
+            raise RuntimeError(
+                f"❌ {date} Registry "
+                f"registered[{pos}]不是对象"
+            )
+
+        gid = str(
+            item.get(
+                "global_cluster_id",
+                ""
+            )
+        ).strip()
+
+        if not re.fullmatch(
+            r"EVT-\d{8}-\d{6}",
+            gid
+        ):
+
+            raise RuntimeError(
+                f"❌ {date} Registry存在非法Global ID："
+                f"{gid}"
+            )
+
+        if gid in global_ids:
+
+            raise RuntimeError(
+                f"❌ {date} Registry存在重复Global ID："
+                f"{gid}"
+            )
+
+        global_ids.add(
+            gid
+        )
+
+        local_id = str(
+            item.get(
+                "local_cluster_id",
+                ""
+            )
+        ).strip()
+
+        source = str(
+            item.get(
+                "source",
+                ""
+            )
+        ).strip()
+
+        if local_id and source:
+
+            pair = (
+                source,
+                local_id
+            )
+
+            if pair in local_source_pairs:
+
+                # 同一个source下相同Local ID重复注册
+                # 通常说明同一批数据被重复提交。
+                raise RuntimeError(
+                    f"❌ {date} Registry存在重复Local ID："
+                    f"source={source}, "
+                    f"local={local_id}"
+                )
+
+            local_source_pairs.add(
+                pair
+            )
 
 
 def persist_global_cluster_registry(
@@ -1208,6 +1321,14 @@ def register_global_cluster_ids(
     Global ID：
 
         EVT-YYYYMMDD-000001
+
+    注意：
+
+        source + local_cluster_id
+        必须唯一。
+
+    不允许同一来源的同一个Local ID
+    被重复注册。
     """
 
     validate_registry_basic(
@@ -1215,9 +1336,54 @@ def register_global_cluster_ids(
         registry
     )
 
+    source = str(
+        source
+    ).strip()
+
+    if not source:
+
+        raise RuntimeError(
+            f"❌ {date} Registry source不能为空"
+        )
+
     out = []
 
+    existing_pairs = {
+        (
+            str(
+                item.get(
+                    "source",
+                    ""
+                )
+            ).strip(),
+            str(
+                item.get(
+                    "local_cluster_id",
+                    ""
+                )
+            ).strip()
+        )
+        for item in registry[
+            "registered"
+        ]
+        if isinstance(
+            item,
+            dict
+        )
+    }
+
+    batch_pairs = set()
+
     for cluster in clusters:
+
+        if not isinstance(
+            cluster,
+            dict
+        ):
+
+            raise RuntimeError(
+                f"❌ {date} Registry收到非对象Cluster"
+            )
 
         d = dict(
             cluster
@@ -1240,6 +1406,20 @@ def register_global_cluster_ids(
             )
 
         # ------------------------------------------------------
+        # Local ID格式
+        # ------------------------------------------------------
+
+        if not re.fullmatch(
+            r"C\d{3,}",
+            local_id
+        ):
+
+            raise RuntimeError(
+                f"❌ AI Local Cluster ID非法："
+                f"{local_id}"
+            )
+
+        # ------------------------------------------------------
         # AI绝不能产生Global ID
         # ------------------------------------------------------
 
@@ -1253,6 +1433,35 @@ def register_global_cluster_ids(
                 f"❌ AI Local Cluster ID非法："
                 f"{local_id}"
             )
+
+        pair = (
+            source,
+            local_id
+        )
+
+        if pair in existing_pairs:
+
+            raise RuntimeError(
+                f"❌ Global Registry重复注册："
+                f"source={source}, "
+                f"local_cluster_id={local_id}"
+            )
+
+        if pair in batch_pairs:
+
+            raise RuntimeError(
+                f"❌ 当前批次存在重复Local Cluster ID："
+                f"source={source}, "
+                f"local_cluster_id={local_id}"
+            )
+
+        batch_pairs.add(
+            pair
+        )
+
+        # ------------------------------------------------------
+        # Global ID
+        # ------------------------------------------------------
 
         seq = int(
             registry[
@@ -1268,6 +1477,10 @@ def register_global_cluster_ids(
             "next_sequence"
         ] = seq + 1
 
+        # ------------------------------------------------------
+        # 输出Cluster
+        # ------------------------------------------------------
+
         d[
             "local_cluster_id"
         ] = local_id
@@ -1275,6 +1488,19 @@ def register_global_cluster_ids(
         d[
             "cluster_id"
         ] = global_id
+
+        # Stage 1A：
+        #
+        # 每个Initial Cluster自己的成员
+        # 就是自己。
+        #
+        # 后续Global Merge才会形成：
+        #
+        # member_cluster_ids:
+        # [
+        #     EVT-...
+        #     EVT-...
+        # ]
 
         d[
             "member_cluster_ids"
@@ -1292,6 +1518,30 @@ def register_global_cluster_ids(
             "global_registry_source"
         ] = source
 
+        # ------------------------------------------------------
+        # Registry record
+        # ------------------------------------------------------
+
+        article_indexes = []
+
+        for value in d.get(
+            "article_indexes",
+            []
+        ):
+
+            try:
+
+                article_indexes.append(
+                    int(value)
+                )
+
+            except Exception:
+
+                raise RuntimeError(
+                    f"❌ {date} Registry收到非法ARTICLE："
+                    f"{value}"
+                )
+
         registry[
             "registered"
         ].append(
@@ -1308,14 +1558,14 @@ def register_global_cluster_ids(
                 "article_indexes":
                     sorted(
                         set(
-                            int(x)
-                            for x in d.get(
-                                "article_indexes",
-                                []
-                            )
+                            article_indexes
                         )
                     )
             }
+        )
+
+        existing_pairs.add(
+            pair
         )
 
         out.append(
@@ -1340,6 +1590,33 @@ def validate_global_cluster_membership(
     context,
     expected_original_ids=None
 ):
+    """
+    Global Cluster Membership基础验证。
+
+    重要：
+
+    Stage 1A INITIAL：
+
+        cluster_id = EVT-...
+        member_cluster_ids = [自己的EVT-...]
+
+    Global Merge之后：
+
+        cluster_id = EVT-...
+        member_cluster_ids = [
+            原始EVT-...,
+            原始EVT-...,
+            ...
+        ]
+
+    因此这里不要求：
+        member_cluster_ids必须属于
+        expected_original_ids
+
+    expected_original_ids如果传入，
+    才进行严格成员集合检查。
+    """
+
     seen_current = set()
 
     seen_original = set()
@@ -1349,6 +1626,8 @@ def validate_global_cluster_membership(
     duplicate_current = []
 
     duplicate_original = []
+
+    self_membership_errors = []
 
     for pos, cluster in enumerate(
         clusters,
@@ -1373,6 +1652,10 @@ def validate_global_cluster_membership(
             )
         ).strip()
 
+        # ------------------------------------------------------
+        # Current Global ID
+        # ------------------------------------------------------
+
         if not cid or not re.fullmatch(
             r"EVT-\d{8}-\d{6}",
             cid
@@ -1395,6 +1678,10 @@ def validate_global_cluster_membership(
                 cid
             )
 
+        # ------------------------------------------------------
+        # Member Cluster IDs
+        # ------------------------------------------------------
+
         members = cluster.get(
             "member_cluster_ids"
         )
@@ -1414,6 +1701,8 @@ def validate_global_cluster_membership(
 
             continue
 
+        local_seen = set()
+
         for member in members:
 
             member = str(
@@ -1429,6 +1718,29 @@ def validate_global_cluster_membership(
 
                 continue
 
+            if not re.fullmatch(
+                r"EVT-\d{8}-\d{6}",
+                member
+            ):
+
+                malformed.append(
+                    f"cluster[{pos}]"
+                    f"非法member_cluster_id：{member}"
+                )
+
+                continue
+
+            if member in local_seen:
+
+                malformed.append(
+                    f"cluster[{pos}]"
+                    f"member_cluster_ids内部重复：{member}"
+                )
+
+            local_seen.add(
+                member
+            )
+
             if member in seen_original:
 
                 duplicate_original.append(
@@ -1440,6 +1752,31 @@ def validate_global_cluster_membership(
                 seen_original.add(
                     member
                 )
+
+        # ------------------------------------------------------
+        # Stage 1A Initial Cluster必须自包含
+        # ------------------------------------------------------
+
+        if (
+            len(members) == 1
+            and str(
+                members[0]
+            ).strip() != cid
+        ):
+
+            self_membership_errors.append(
+                {
+                    "cluster_id":
+                        cid,
+
+                    "member_cluster_ids":
+                        members
+                }
+            )
+
+    # ==========================================================
+    # expected_original_ids
+    # ==========================================================
 
     expected = set(
         map(
@@ -1466,10 +1803,29 @@ def validate_global_cluster_membership(
         else []
     )
 
+    # ==========================================================
+    # IMPORTANT:
+    #
+    # Stage 1A INITIAL调用时：
+    #
+    # expected_original_ids = None
+    #
+    # 因此这里只检查：
+    #
+    # 1. Global ID合法
+    # 2. Global ID不重复
+    # 3. member ID合法
+    # 4. member不重复
+    # 5. Initial singleton/self-membership正确
+    #
+    # 不把Registry历史记录混入当前Cluster验证。
+    # ==========================================================
+
     if (
         malformed
         or duplicate_current
         or duplicate_original
+        or self_membership_errors
         or missing
         or extra
     ):
@@ -1487,6 +1843,9 @@ def validate_global_cluster_membership(
 
                 "duplicate_original":
                     duplicate_original,
+
+                "self_membership_errors":
+                    self_membership_errors,
 
                 "missing_original":
                     missing,
@@ -1618,8 +1977,3 @@ def validate_global_article_coverage(
             f"Extra={extra} "
             f"Malformed={malformed}"
         )
-
-
-# ============================================================
-# END
-# ============================================================
