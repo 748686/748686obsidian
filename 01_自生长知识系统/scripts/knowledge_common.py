@@ -140,7 +140,14 @@ MAX_ARTICLES_PER_EVENT_CONTEXT = 30
 ARTICLE_CLUSTER_CONTENT_LIMIT = 3500
 
 ARTICLE_AGGREGATION_CONTENT_LIMIT = 8000
-
+RECOVERY_BATCH_SIZES = (
+    30,
+    15,
+    8,
+    4,
+    2,
+    1,
+)
 
 # ============================================================
 # AI CONFIGURATION
