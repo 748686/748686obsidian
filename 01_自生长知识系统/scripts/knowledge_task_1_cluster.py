@@ -278,6 +278,202 @@ def now():
 
 
 # ==============================================================
+# LOAD ALL ENRICHED NEWS
+# ==============================================================
+
+def load_all_enriched_news(
+    date,
+    language
+):
+    """
+    TASK 1专用：
+
+    从：
+
+        Raw News/
+        YYYY-MM-DD-Enriched/
+            en/
+            zh/
+
+    读取指定日期、指定语言的全部Enriched新闻。
+
+    本函数只负责：
+
+        1. 定位Enriched目录
+        2. 读取Markdown
+        3. 解析Front Matter
+        4. 筛选有效文章
+        5. 按horizon_score从高到低排序
+
+    不负责：
+
+        Task 2聚合
+        Global Merge
+        Recovery
+        EventUnit生成
+        27 Skills
+        文章生成
+
+    这些属于后续Task，不能在这里加入。
+    """
+
+    # ----------------------------------------------------------
+    # 严格语言契约
+    # ----------------------------------------------------------
+
+    lang = validate_language(
+        language
+    )
+
+    root = (
+        RAW_NEWS
+        / f"{date}-Enriched"
+        / lang
+    )
+
+    if not root.exists():
+
+        raise FileNotFoundError(
+            f"没有找到 "
+            f"{date} / {lang} "
+            f"Enriched目录：{root}"
+        )
+
+    # ----------------------------------------------------------
+    # 找到全部Markdown
+    # ----------------------------------------------------------
+
+    files = sorted(
+        root.rglob("*.md")
+    )
+
+    print(
+        f"Enriched files: "
+        f"{len(files)}"
+    )
+
+    if not files:
+
+        raise RuntimeError(
+            f"❌ {date}/{lang} 没有Enriched新闻"
+        )
+
+    # ----------------------------------------------------------
+    # 读取新闻
+    # ----------------------------------------------------------
+
+    items = []
+
+    for path in files:
+
+        content = path.read_text(
+            encoding="utf-8",
+            errors="replace"
+        )
+
+        # ------------------------------------------------------
+        # Front Matter解析
+        # ------------------------------------------------------
+
+        metadata = {}
+        body = content
+
+        if content.startswith("---"):
+
+            parts = content.split(
+                "---",
+                2
+            )
+
+            if len(parts) >= 3:
+
+                for line in (
+                    parts[1]
+                    .strip()
+                    .splitlines()
+                ):
+
+                    if ":" not in line:
+                        continue
+
+                    key, value = line.split(
+                        ":",
+                        1
+                    )
+
+                    metadata[
+                        key.strip()
+                    ] = (
+                        value.strip()
+                        .strip('"')
+                        .strip("'")
+                    )
+
+                body = (
+                    parts[2]
+                    .lstrip()
+                )
+
+        # ------------------------------------------------------
+        # 只保留有title的有效新闻
+        # ------------------------------------------------------
+
+        title = str(
+            metadata.get(
+                "title",
+                ""
+            )
+        ).strip()
+
+        if not title:
+            continue
+
+        items.append({
+            "path": path,
+            "metadata": metadata,
+            "body": body,
+            "content": content
+        })
+
+    if not items:
+
+        raise RuntimeError(
+            f"❌ {date}/{lang} 没有有效Enriched新闻"
+        )
+
+    # ----------------------------------------------------------
+    # 按horizon_score排序
+    # ----------------------------------------------------------
+
+    def score(item):
+
+        try:
+
+            return float(
+                item["metadata"].get(
+                    "horizon_score",
+                    0
+                )
+            )
+
+        except Exception:
+
+            return 0
+
+    items.sort(
+        key=score,
+        reverse=True
+    )
+
+    print(
+        f"Valid news: "
+        f"{len(items)}"
+    )
+
+    return items
+
+
+# ==============================================================
 # PATH FUNCTIONS
 # ==============================================================
 
