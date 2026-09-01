@@ -43,19 +43,6 @@ GLOBAL_MERGE_CHECKPOINT_FILE = "_global_merge_checkpoint.json"
 INITIAL_CLUSTERS_FILE = "_initial_clusters.json"
 MERGED_CLUSTERS_FILE = "_merged_clusters.json"
 
-AGNES_BASE_URL = os.getenv("AI_BASE_URL", "https://api.agnes-ai.cn/v1").rstrip("/")
-AGNES_MODEL = os.getenv("AI_MODEL", "agnes-2.5-flash")
-AGNES_API_KEY_ENV = "AGNES_API_KEY"
-
-DEFAULT_TEMPERATURE = 0.3
-AI_TIMEOUT = 180
-AI_REQUEST_THROTTLE_SECONDS = 1.5
-AI_MAX_429_RETRIES = 5
-AI_429_BACKOFF_BASE = 10
-AI_429_BACKOFF_MAX = 180
-AI_429_JITTER_MAX = 3
-_LAST_AI_REQUEST_TIME = 0.0
-
 AGGREGATION_BATCH_SIZE = 30
 GLOBAL_CLUSTER_REGISTRY_FILE = "_global_cluster_registry.json"
 GLOBAL_MERGE_WINDOW_SIZE = 30
@@ -69,54 +56,97 @@ BEIJING_TZ = ZoneInfo("Asia/Shanghai")
 SUPPORTED_LANGUAGES = ("en", "zh")
 CURRENT_LANGUAGE = None
 
+
 def normalize_language(language):
     value = str(language or "").strip()
+
     if value not in SUPPORTED_LANGUAGES:
-        raise RuntimeError(f"❌ 不支持的语言：{language}")
+        raise RuntimeError(
+            f"❌ 不支持的语言：{language}"
+        )
+
     return value
+
 
 def now():
     return datetime.now(BEIJING_TZ)
 
+
 def event_units_root(date):
     return RAW_NEWS / f"{date}-EventUnit"
 
+
 def language_dir(date, language=None):
     if language is None:
-        language = getattr(sys.modules[__name__], "CURRENT_LANGUAGE", None)
+        language = getattr(
+            sys.modules[__name__],
+            "CURRENT_LANGUAGE",
+            None
+        )
+
     lang = normalize_language(language)
+
     return event_units_root(date) / lang
+
 
 def event_units_dir(date, language=None):
     return language_dir(date, language) / "event_units"
 
+
 def articles_dir(date, language=None):
     return language_dir(date, language) / "articles"
+
 
 def conflict_log_path(date):
     return LOGS / f"{date}_event_aggregation_conflicts.log"
 
+
 def global_merge_checkpoint_path(date, language=None):
-    return event_units_dir(date, language) / GLOBAL_MERGE_CHECKPOINT_FILE
+    return (
+        event_units_dir(date, language)
+        / GLOBAL_MERGE_CHECKPOINT_FILE
+    )
+
 
 def initial_clusters_path(date, language=None):
-    return language_dir(date, language) / INITIAL_CLUSTERS_FILE
+    return (
+        language_dir(date, language)
+        / INITIAL_CLUSTERS_FILE
+    )
+
 
 def merged_clusters_path(date, language=None):
-    return language_dir(date, language) / MERGED_CLUSTERS_FILE
+    return (
+        language_dir(date, language)
+        / MERGED_CLUSTERS_FILE
+    )
+
 
 def write_text_atomic(path, text):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + ".tmp")
+    path.parent.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    tmp = path.with_name(
+        path.name + ".tmp"
+    )
+
     try:
-        tmp.write_text(text, encoding="utf-8")
+        tmp.write_text(
+            text,
+            encoding="utf-8"
+        )
+
         tmp.replace(path)
+
     except Exception:
         try:
             if tmp.exists():
                 tmp.unlink()
         except Exception:
             pass
+
         raise
 
 
@@ -141,13 +171,15 @@ def build_merge_windows(clusters):
 
 
 def _windows(clusters, step):
-    out, s = [], 0
+    out = []
+    s = 0
 
     while s < len(clusters):
         e = min(
             s + GLOBAL_MERGE_WINDOW_SIZE,
             len(clusters)
         )
+
         out.append(
             clusters[s:e]
         )
@@ -238,8 +270,10 @@ Cluster ID：
             "这是具体事件合并，不是主题分类。",
             0
         ),
-        f"{date} Global Merge Round "
-        f"{round_no} Window {window_no}"
+        (
+            f"{date} Global Merge Round "
+            f"{round_no} Window {window_no}"
+        )
     )
 
     groups = data.get("groups")
@@ -281,7 +315,8 @@ Cluster ID：
                 )
 
     dup = sorted({
-        x for x in actual
+        x
+        for x in actual
         if actual.count(x) > 1
     })
 
@@ -296,7 +331,10 @@ Cluster ID：
     if dup or miss or extra or malformed:
         log_conflict(
             date,
-            f"STAGE 1B / ROUND {round_no} / WINDOW {window_no}",
+            (
+                f"STAGE 1B / ROUND {round_no} / "
+                f"WINDOW {window_no}"
+            ),
             "V6.5.3 Global Merge窗口AI输出覆盖异常。",
             {
                 "duplicate": dup,
@@ -535,7 +573,8 @@ def choose_component_metadata(
             pass
 
     actual = [
-        r for r in entries
+        r
+        for r in entries
         if r.get("merged")
         and len(
             r.get(
@@ -547,7 +586,8 @@ def choose_component_metadata(
     ]
 
     multi = [
-        r for r in entries
+        r
+        for r in entries
         if len(
             r.get(
                 "cluster_ids",
@@ -558,7 +598,8 @@ def choose_component_metadata(
     ]
 
     singleton = [
-        r for r in entries
+        r
+        for r in entries
         if len(
             r.get(
                 "cluster_ids",
@@ -790,7 +831,10 @@ def validate_global_cluster_membership(
                 f"cluster[{pos}]缺少cluster_id"
             )
 
-        elif not re.fullmatch(r"EVT-\d{8}-\d{6}", cid):
+        elif not re.fullmatch(
+            r"EVT-\d{8}-\d{6}",
+            cid
+        ):
             malformed.append(
                 f"cluster[{pos}]非法Global cluster_id：{cid}"
             )
@@ -944,7 +988,8 @@ def validate_global_article_coverage(
     actual = set(allidx)
 
     duplicate = sorted({
-        x for x in allidx
+        x
+        for x in allidx
         if allidx.count(x) > 1
     })
 
@@ -989,11 +1034,15 @@ class UnionFind:
             str(x)
             for x in values
         ]
+
         self.parent = {
-            v: v for v in values
+            v: v
+            for v in values
         }
+
         self.rank = {
-            v: 0 for v in values
+            v: 0
+            for v in values
         }
 
     def find(self, value):
@@ -1035,6 +1084,7 @@ class UnionFind:
 
         for value in self.parent:
             root = self.find(value)
+
             result.setdefault(
                 root,
                 []
@@ -1074,6 +1124,7 @@ class UnionFind:
         parent = data.get(
             "parent"
         )
+
         rank = data.get(
             "rank"
         )
@@ -1151,7 +1202,7 @@ def save_global_merge_checkpoint(
         completed_windows = []
 
     data = {
-        "version": "6.5.2",
+        "version": "6.5.3",
         "date": date,
         "language": CURRENT_LANGUAGE,
         "status": status,
@@ -1166,14 +1217,17 @@ def save_global_merge_checkpoint(
             int(window_count)
             if window_count is not None
             else None,
-        "window_size": GLOBAL_MERGE_WINDOW_SIZE,
-        "window_overlap": 0,
+        "window_size":
+            GLOBAL_MERGE_WINDOW_SIZE,
+        "window_overlap":
+            0,
         "original_cluster_ids":
             sorted(
                 str(x)
                 for x in original_cluster_ids
             ),
-        "current_clusters": current,
+        "current_clusters":
+            current,
         "union_find":
             uf.to_checkpoint()
             if uf is not None
@@ -1190,7 +1244,10 @@ def save_global_merge_checkpoint(
     }
 
     write_json_atomic(
-        global_merge_checkpoint_path(date, CURRENT_LANGUAGE),
+        global_merge_checkpoint_path(
+            date,
+            CURRENT_LANGUAGE
+        ),
         data
     )
 
@@ -1208,6 +1265,7 @@ def load_global_merge_checkpoint(date):
             p,
             None
         )
+
     except Exception as e:
         log_conflict(
             date,
@@ -1215,6 +1273,7 @@ def load_global_merge_checkpoint(date):
             "Checkpoint JSON读取失败，将忽略checkpoint。",
             str(e)
         )
+
         return None
 
     if not isinstance(
@@ -1229,21 +1288,41 @@ def load_global_merge_checkpoint(date):
         or
         data.get("date") != date
         or
-        data.get("language") not in (None, CURRENT_LANGUAGE)
+        data.get("language")
+        not in (None, CURRENT_LANGUAGE)
     ):
         return None
 
-    saved_overlap=data.get("window_overlap")
-    if saved_overlap is not None and int(saved_overlap) != 0:
-        log_conflict(date,"GLOBAL MERGE CHECKPOINT","检测到旧版Overlap checkpoint，禁止恢复。",{"window_overlap":saved_overlap})
+    saved_overlap = data.get(
+        "window_overlap"
+    )
+
+    if (
+        saved_overlap is not None
+        and int(saved_overlap) != 0
+    ):
+        log_conflict(
+            date,
+            "GLOBAL MERGE CHECKPOINT",
+            "检测到旧版Overlap checkpoint，禁止恢复。",
+            {
+                "window_overlap":
+                    saved_overlap
+            }
+        )
+
         return None
 
     return data
 
 
-def remove_global_merge_checkpoint(date):
+def remove_global_merge_checkpoint(
+    date,
+    language=None
+):
     p = global_merge_checkpoint_path(
-        date
+        date,
+        language
     )
 
     if p.exists():
@@ -1297,6 +1376,7 @@ def validate_checkpoint(
                     sorted(expected_original)
             }
         )
+
         return False
 
     try:
@@ -1346,6 +1426,7 @@ def validate_checkpoint(
             "GLOBAL MERGE CHECKPOINT",
             "running checkpoint缺少完整Union-Find状态。"
         )
+
         return False
 
     try:
@@ -1368,6 +1449,7 @@ def validate_checkpoint(
             "Union-Find checkpoint验证失败。",
             str(e)
         )
+
         return False
 
     completed = checkpoint.get(
@@ -1386,6 +1468,7 @@ def validate_checkpoint(
             int(x)
             for x in completed
         ]
+
     except Exception:
         return False
 
@@ -1439,11 +1522,17 @@ def merge_all_clusters(
         for c in clusters
     )
 
-    print("\n" + "=" * 70)
+    print(
+        "\n" + "=" * 70
+    )
+
     print(
         "STAGE 1B — V6.5.3 GLOBAL EVENT MERGING"
     )
-    print("=" * 70)
+
+    print(
+        "=" * 70
+    )
 
     validate_global_cluster_membership(
         date,
@@ -1502,6 +1591,7 @@ def merge_all_clusters(
             start_round = int(
                 checkpoint["round"]
             )
+
             completed_windows = []
             uf = None
             metadata_history = {}
@@ -1626,6 +1716,7 @@ def merge_all_clusters(
                 uf = UnionFind(
                     current_ids
                 )
+
                 completed_windows = []
                 metadata_history = {}
                 next_window = 1
@@ -1729,6 +1820,7 @@ def merge_all_clusters(
                 )
 
             components = uf.components()
+
             after = len(
                 components
             )
@@ -1839,6 +1931,7 @@ def merge_all_clusters(
             current = merged
             rnd += 1
             checkpoint_valid = True
+
             checkpoint = (
                 load_global_merge_checkpoint(
                     date
@@ -1875,16 +1968,19 @@ def merge_all_clusters(
         final.append({
             "event_id":
                 str(c["cluster_id"]),
+
             "event_title":
                 c.get(
                     "event_title",
                     "未命名事件"
                 ),
+
             "event_reason":
                 c.get(
                     "event_reason",
                     ""
                 ),
+
             "article_indexes":
                 sorted(
                     set(
@@ -1927,47 +2023,216 @@ def merge_all_clusters(
 
     return final
 
-def save_merged_clusters(date,language,clusters):
-    write_json_atomic(merged_clusters_path(date,language), {"version":"6.5.3","date":str(date),"language":normalize_language(language),"clusters":clusters,"saved_at":now().isoformat()})
+
+def save_merged_clusters(
+    date,
+    language,
+    clusters
+):
+    write_json_atomic(
+        merged_clusters_path(
+            date,
+            language
+        ),
+        {
+            "version":
+                "6.5.3",
+
+            "date":
+                str(date),
+
+            "language":
+                normalize_language(
+                    language
+                ),
+
+            "clusters":
+                clusters,
+
+            "saved_at":
+                now().isoformat()
+        }
+    )
 
 
-def load_merged_clusters(date,language,news_count):
-    p=merged_clusters_path(date,language)
-    if not p.exists(): return None
-    data=read_json(p,None); clusters=data.get("clusters") if isinstance(data,dict) else None
-    if not isinstance(clusters,list) or not clusters: return None
+def load_merged_clusters(
+    date,
+    language,
+    news_count
+):
+    p = merged_clusters_path(
+        date,
+        language
+    )
+
+    if not p.exists():
+        return None
+
+    data = read_json(
+        p,
+        None
+    )
+
+    clusters = (
+        data.get("clusters")
+        if isinstance(data, dict)
+        else None
+    )
+
+    if (
+        not isinstance(
+            clusters,
+            list
+        )
+        or not clusters
+    ):
+        return None
+
     try:
-        validate_global_cluster_membership(date,clusters,"TASK 2 SAVED",None)
-        validate_global_article_coverage(date,clusters,news_count,"TASK 2 SAVED")
-    except Exception: return None
+        validate_global_cluster_membership(
+            date,
+            clusters,
+            "TASK 2 SAVED",
+            None
+        )
+
+        validate_global_article_coverage(
+            date,
+            clusters,
+            news_count,
+            "TASK 2 SAVED"
+        )
+
+    except Exception:
+        return None
+
     return clusters
 
 
-def run_task_2(date,language):
+def run_task_2(
+    date,
+    language
+):
     global CURRENT_LANGUAGE
-    CURRENT_LANGUAGE=normalize_language(language)
-    initial_path=initial_clusters_path(date,CURRENT_LANGUAGE)
+
+    CURRENT_LANGUAGE = normalize_language(
+        language
+    )
+
+    initial_path = initial_clusters_path(
+        date,
+        CURRENT_LANGUAGE
+    )
+
     if not initial_path.exists():
-        raise RuntimeError(f"❌ TASK 2找不到TASK 1结果：{initial_path}")
-    news=load_all_enriched_news(date,CURRENT_LANGUAGE)
-    existing=load_merged_clusters(date,CURRENT_LANGUAGE,len(news))
+        raise RuntimeError(
+            f"❌ TASK 2找不到TASK 1结果："
+            f"{initial_path}"
+        )
+
+    news = load_all_enriched_news(
+        date,
+        CURRENT_LANGUAGE
+    )
+
+    existing = load_merged_clusters(
+        date,
+        CURRENT_LANGUAGE,
+        len(news)
+    )
+
     if existing is not None:
-        print(f"♻️ TASK 2: reuse valid merged clusters | {date}/{CURRENT_LANGUAGE} | clusters={len(existing)}")
+        print(
+            f"♻️ TASK 2: reuse valid merged clusters | "
+            f"{date}/{CURRENT_LANGUAGE} | "
+            f"clusters={len(existing)}"
+        )
+
         return existing
-    data=read_json(initial_path,None)
-    initial=data.get("clusters") if isinstance(data,dict) else None
-    if not isinstance(initial,list) or not initial: raise RuntimeError("❌ TASK 1结果无效")
-    validate_global_article_coverage(date,initial,len(news),"TASK 2 INITIAL")
-    final=merge_all_clusters(date,initial,len(news))
-    save_merged_clusters(date,CURRENT_LANGUAGE,final)
-    remove_global_merge_checkpoint(date,CURRENT_LANGUAGE)
-    print(f"✅ TASK 2 COMPLETE | {date}/{CURRENT_LANGUAGE} | clusters={len(final)}")
+
+    data = read_json(
+        initial_path,
+        None
+    )
+
+    initial = (
+        data.get("clusters")
+        if isinstance(data, dict)
+        else None
+    )
+
+    if (
+        not isinstance(
+            initial,
+            list
+        )
+        or not initial
+    ):
+        raise RuntimeError(
+            "❌ TASK 1结果无效"
+        )
+
+    validate_global_article_coverage(
+        date,
+        initial,
+        len(news),
+        "TASK 2 INITIAL"
+    )
+
+    final = merge_all_clusters(
+        date,
+        initial,
+        len(news)
+    )
+
+    save_merged_clusters(
+        date,
+        CURRENT_LANGUAGE,
+        final
+    )
+
+    remove_global_merge_checkpoint(
+        date,
+        CURRENT_LANGUAGE
+    )
+
+    print(
+        f"✅ TASK 2 COMPLETE | "
+        f"{date}/{CURRENT_LANGUAGE} | "
+        f"clusters={len(final)}"
+    )
+
     return final
 
 
 def main():
-    ap=argparse.ArgumentParser(description="748686 Knowledge Task 2 - Global Merge V6.5.3")
-    ap.add_argument("--date",required=True); ap.add_argument("--language",choices=["en","zh"],required=True)
-    args=ap.parse_args(); run_task_2(args.date,args.language); return 0
+    ap = argparse.ArgumentParser(
+        description=(
+            "748686 Knowledge Task 2 - "
+            "Global Merge V6.5.3"
+        )
+    )
 
-if __name__=="__main__": sys.exit(main())
+    ap.add_argument(
+        "--date",
+        required=True
+    )
+
+    ap.add_argument(
+        "--language",
+        choices=["en", "zh"],
+        required=True
+    )
+
+    args = ap.parse_args()
+
+    run_task_2(
+        args.date,
+        args.language
+    )
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
