@@ -71,7 +71,6 @@ import argparse
 import json
 import re
 import sys
-from pathlib import Path
 
 
 # ============================================================
@@ -1118,7 +1117,18 @@ def make_cluster_records(
 ):
     output = []
 
+    local_ids_seen = set()
+
     for cluster in clusters:
+
+        if not isinstance(
+            cluster,
+            dict
+        ):
+
+            raise RuntimeError(
+                "❌ Cluster记录不是对象"
+            )
 
         indexes = sorted(
             set(
@@ -1146,6 +1156,16 @@ def make_cluster_records(
                 "❌ AI返回空Local Cluster ID"
             )
 
+        if not re.fullmatch(
+            r"C\d{3,}",
+            local_id
+        ):
+
+            raise RuntimeError(
+                f"❌ AI Local Cluster ID非法："
+                f"{local_id}"
+            )
+
         if re.fullmatch(
             r"(EVT|REC|GM)-.*",
             local_id,
@@ -1156,6 +1176,17 @@ def make_cluster_records(
                 f"❌ AI生成了禁止的Global ID："
                 f"{local_id}"
             )
+
+        if local_id in local_ids_seen:
+
+            raise RuntimeError(
+                f"❌ 当前批次Local Cluster ID重复："
+                f"{local_id}"
+            )
+
+        local_ids_seen.add(
+            local_id
+        )
 
         output.append(
             {
@@ -1724,7 +1755,7 @@ def build_initial_clusters(
         )
 
     # ==========================================================
-    # GLOBAL VALIDATION
+    # GLOBAL ARTICLE VALIDATION
     # ==========================================================
 
     validate_global_article_coverage(
@@ -1733,6 +1764,15 @@ def build_initial_clusters(
         total,
         "STAGE 1A GLOBAL"
     )
+
+    # ==========================================================
+    # GLOBAL CLUSTER VALIDATION
+    #
+    # 这里不再把Registry历史成员、
+    # 其他语言或过去运行记录拿来参与验证。
+    #
+    # 只验证当前all_clusters。
+    # ==========================================================
 
     validate_global_cluster_membership(
         date,
@@ -1785,14 +1825,7 @@ def validate_initial_clusters_file(
         validate_global_cluster_membership(
             date,
             clusters,
-            "INITIAL CLUSTERS",
-            [
-                cluster[
-                    "cluster_id"
-                ]
-                for cluster
-                in clusters
-            ]
+            "INITIAL CLUSTERS"
         )
 
     except Exception:
