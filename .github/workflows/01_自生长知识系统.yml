@@ -823,36 +823,26 @@ jobs:
       #
       # Processing Unit = DATE + LANGUAGE
       #
-      # 固定顺序：
+      # 目录语言契约：
       #
-      #     DAY_BEFORE en
-      #     DAY_BEFORE zh
-      #     YESTERDAY  en
-      #     YESTERDAY  zh
-      #     TODAY      en
-      #     TODAY      zh
+      #     en / zh
       #
-      # 每一个 Unit：
-      #
-      #     Task 1 — Cluster
-      #          ↓
-      #     Task 2 — Merge + EventUnit
-      #          ↓
-      #     Validation
-      #          ↓
-      #     _COMPLETE
-      #          ↓
-      #     Git Commit
-      #          ↓
-      #     Git Push
-      #          ↓
-      #     Git Pull
-      #          ↓
-      #     Next Unit
+      # 永远使用小写。
       #
       # 注意：
       #
-      #     en / zh 全部使用小写
+      # Task 1 / Task 2 的 Python CLI 当前要求：
+      #
+      #     EN / ZH
+      #
+      # 因此这里只在 CLI 参数层转换：
+      #
+      #     en -> EN
+      #     zh -> ZH
+      #
+      # 文件夹路径仍然严格使用：
+      #
+      #     en / zh
       #
       # ==========================================================
 
@@ -904,6 +894,35 @@ jobs:
             DATE="${UNIT%%|*}"
             LANGUAGE="${UNIT##*|}"
 
+            # ------------------------------------------------------
+            # DIRECTORY LANGUAGE CONTRACT
+            #
+            # 目录永远使用小写：
+            #     en
+            #     zh
+            # ------------------------------------------------------
+
+            if [ "$LANGUAGE" != "en" ] && \
+               [ "$LANGUAGE" != "zh" ]; then
+
+              echo "❌ Invalid directory language: $LANGUAGE"
+              echo "Expected: en or zh"
+              exit 1
+
+            fi
+
+            # ------------------------------------------------------
+            # CLI LANGUAGE CONTRACT
+            #
+            # Task 1 / Task 2 当前要求：
+            #     EN
+            #     ZH
+            #
+            # 这里只转换脚本参数，不改变任何目录名称。
+            # ------------------------------------------------------
+
+            PROCESS_LANGUAGE="${LANGUAGE^^}"
+
             EVENT_ROOT="$RAW_ROOT/${DATE}-EventUnit"
             LANG_ROOT="$EVENT_ROOT/$LANGUAGE"
 
@@ -917,6 +936,7 @@ jobs:
             echo "PROCESSING UNIT $UNIT_NO / 6"
             echo "DATE     : $DATE"
             echo "LANGUAGE : $LANGUAGE"
+            echo "CLI LANG : $PROCESS_LANGUAGE"
             echo "######################################################################"
 
             # ------------------------------------------------------
@@ -938,6 +958,9 @@ jobs:
             # ZH dependency
             #
             # 同一天必须先完成 en，再处理 zh。
+            #
+            # 注意：
+            # 目录仍然是小写 en。
             # ------------------------------------------------------
 
             if [ "$LANGUAGE" = "zh" ]; then
@@ -1034,6 +1057,15 @@ jobs:
             # TASK 1
             #
             # Cluster
+            #
+            # IMPORTANT:
+            #
+            # Directory language:
+            #     en / zh
+            #
+            # Python CLI:
+            #     EN / ZH
+            #
             # ======================================================
 
             echo
@@ -1043,7 +1075,7 @@ jobs:
 
             python "$TASK1" \
               --date "$DATE" \
-              --language "$LANGUAGE"
+              --language "$PROCESS_LANGUAGE"
 
             echo "✅ Task 1 Cluster returned successfully"
 
@@ -1052,6 +1084,15 @@ jobs:
             # TASK 2
             #
             # Merge + EventUnit
+            #
+            # IMPORTANT:
+            #
+            # Directory language:
+            #     en / zh
+            #
+            # Python CLI:
+            #     EN / ZH
+            #
             # ======================================================
 
             echo
@@ -1061,7 +1102,7 @@ jobs:
 
             python "$TASK2" \
               --date "$DATE" \
-              --language "$LANGUAGE"
+              --language "$PROCESS_LANGUAGE"
 
             echo "✅ Task 2 Merge + EventUnit returned successfully"
 
@@ -1139,6 +1180,7 @@ jobs:
 
             echo "DATE       : $DATE"
             echo "LANGUAGE   : $LANGUAGE"
+            echo "CLI LANG   : $PROCESS_LANGUAGE"
             echo "EventUnits : $EVENT_COUNT"
             echo "COMPLETE   : YES"
 
@@ -1323,26 +1365,6 @@ jobs:
 
       # ==========================================================
       # 22. KNOWLEDGE PIPELINE - 27 SKILLS
-      #
-      # ★ 独立任务
-      #
-      # EventUnit阶段全部结束之后才进入。
-      #
-      # 目录：
-      #
-      #     DATE-EventUnit/
-      #       ├── en/
-      #       │   └── event_units/
-      #       └── zh/
-      #           └── event_units/
-      #
-      # 每个日期完成：
-      #
-      #     en Skills
-      #          ↓
-      #     zh Skills
-      #
-      # 每个日期独立恢复。
       # ==========================================================
 
       - name: Knowledge Pipeline - 27 Skills
@@ -1381,35 +1403,18 @@ jobs:
             echo "SKILLS DATE: $DATE"
             echo "============================================================"
 
-            # ------------------------------------------------------
-            # en prerequisite
-            # ------------------------------------------------------
-
             if [ ! -f "$EVENT_ROOT/en/_COMPLETE" ]; then
-
               echo "❌ $DATE en EventUnit incomplete"
               exit 1
-
             fi
 
-            # ------------------------------------------------------
-            # zh prerequisite
-            # ------------------------------------------------------
-
             if [ ! -f "$EVENT_ROOT/zh/_COMPLETE" ]; then
-
               echo "❌ $DATE zh EventUnit incomplete"
               exit 1
-
             fi
 
             echo "✅ $DATE en EventUnit complete"
             echo "✅ $DATE zh EventUnit complete"
-
-
-            # ------------------------------------------------------
-            # Skills
-            # ------------------------------------------------------
 
             python "$SCRIPT" \
               --date "$DATE"
