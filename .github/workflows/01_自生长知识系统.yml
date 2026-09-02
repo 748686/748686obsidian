@@ -44,6 +44,7 @@ jobs:
       - name: "03 - Install uv"
         run: |
           set -e
+
           python -m pip install --upgrade pip
           pip install uv
 
@@ -326,7 +327,13 @@ jobs:
             git push origin HEAD
           fi
 
-          git pull --rebase origin "$(git branch --show-current)"
+          CURRENT_BRANCH=$(git branch --show-current)
+
+          if [ -n "$CURRENT_BRANCH" ]; then
+            git pull --rebase origin "$CURRENT_BRANCH"
+          else
+            echo "Detached HEAD detected; skipping branch pull."
+          fi
 
 
       ######################################################################
@@ -391,7 +398,13 @@ jobs:
             git push origin HEAD
           fi
 
-          git pull --rebase origin "$(git branch --show-current)"
+          CURRENT_BRANCH=$(git branch --show-current)
+
+          if [ -n "$CURRENT_BRANCH" ]; then
+            git pull --rebase origin "$CURRENT_BRANCH"
+          else
+            echo "Detached HEAD detected; skipping branch pull."
+          fi
 
 
       ######################################################################
@@ -700,9 +713,22 @@ jobs:
 
             ##################################################################
             # TASK 2 OUTPUT CHECK
+            #
+            # IMPORTANT:
+            #
+            # knowledge_common.py defines:
+            #
+            #   merged_clusters_path(date, language)
+            #
+            # as:
+            #
+            #   Raw News/YYYY-MM-DD-EventUnit/en/_merged_clusters.json
+            #   Raw News/YYYY-MM-DD-EventUnit/zh/_merged_clusters.json
+            #
+            # Therefore _merged_clusters.json is NOT inside event_units/.
             ##################################################################
 
-            MERGED_FILE="$EVENT_UNITS_DIR/_merged_clusters.json"
+            MERGED_FILE="$LANG_ROOT/_merged_clusters.json"
 
             if [ ! -f "$MERGED_FILE" ]; then
 
@@ -741,7 +767,7 @@ jobs:
             #
             # YAML DOES NOT TOUCH THIS FILE.
             #
-            # The authoritative owner of _COMPLETE is Task 3.
+            # Task 3 is the authoritative owner.
             ##################################################################
 
             if [ ! -f "$COMPLETE_MARKER" ]; then
@@ -774,10 +800,12 @@ jobs:
             #
             # VALIDATION ONLY
             #
-            # IMPORTANT:
-            #   This step MUST NOT generate EventUnits.
-            #   This step MUST NOT touch _COMPLETE.
-            # ================================================================
+            # This step:
+            #
+            #   DOES NOT generate EventUnits
+            #   DOES NOT modify EventUnits
+            #   DOES NOT create _COMPLETE
+            #
             ##################################################################
 
             echo
@@ -879,6 +907,11 @@ PY
               exit 1
             fi
 
+
+            ##################################################################
+            # PROCESSING UNIT COMPLETE
+            ##################################################################
+
             echo
             echo "======================================================================"
             echo "PROCESSING UNIT COMPLETE"
@@ -936,7 +969,15 @@ PY
 
             CURRENT_BRANCH=$(git branch --show-current)
 
-            git pull --rebase origin "$CURRENT_BRANCH"
+            if [ -n "$CURRENT_BRANCH" ]; then
+
+              git pull --rebase origin "$CURRENT_BRANCH"
+
+            else
+
+              echo "Detached HEAD detected; skipping branch pull."
+
+            fi
 
             echo
             echo "✅ Immediate Push + Pull completed"
