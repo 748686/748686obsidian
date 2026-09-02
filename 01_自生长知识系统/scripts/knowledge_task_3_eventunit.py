@@ -19,7 +19,7 @@ TASK 3职责
     8. 验证所有 EventUnit 文件
     9. 所有 EventUnit 完整后生成 _COMPLETE
 
-重要架构：
+完整架构：
 
     Task 1 Cluster
         ↓
@@ -27,9 +27,10 @@ TASK 3职责
         ↓
     Task 3 EventUnit Synthesis
         ↓
-    EventUnit Validator
+    EventUnit Validation
         ↓
     Task 4 Skills
+
 
 语言协议
 ========
@@ -46,23 +47,49 @@ TASK 3职责
         En
         Zh
 
-本文件绝不执行 upper() / lower() 自动转换。
+本文件绝不执行：
+
+    upper()
+    lower()
+
+自动大小写转换。
+
+
+重要原则
+========
+
+    _COMPLETE 只能由 Task 3 生成。
+
+    YAML 不得 touch _COMPLETE。
+
+    EventUnit Validator 不得生成 EventUnit。
+
+    EventUnit Validator 不得创建 _COMPLETE。
+
+    只有在：
+
+        ARTICLE Coverage 100%
+        +
+        Event ID 全部合法
+        +
+        Event Index Coverage 100%
+        +
+        所有 EventUnit Markdown 有效
+
+    全部成立之后，
+
+        才允许生成 _COMPLETE。
 """
 
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from pathlib import Path
 
 from knowledge_common import (
-    ROOT,
     RAW_NEWS,
-    EVENT_INDEX_FILE,
-    EVENT_UNITS_COMPLETE_FILE,
-    MERGED_CLUSTERS_FILE,
-    MAX_ARTICLES_PER_EVENT_CONTEXT,
-    ARTICLE_AGGREGATION_CONTENT_LIMIT,
     call_ai,
     load_all_enriched_news,
     normalize_language,
@@ -81,17 +108,29 @@ from knowledge_common import (
 CURRENT_LANGUAGE = None
 
 
+SUPPORTED_LANGUAGES = (
+    "en",
+    "zh",
+)
+
+
 # ==============================================================
-# PATH CONTRACT
+# PATH / FILE CONTRACT
 # ==============================================================
 
-EVENT_UNITS_SUFFIX = "eventunit"
+EVENT_UNITS_SUFFIX = "EventUnit"
+
+EVENT_INDEX_FILE = "_event_index.json"
+
+EVENT_UNITS_COMPLETE_FILE = "_COMPLETE"
+
+MERGED_CLUSTERS_FILE = "_merged_clusters.json"
 
 
 def event_units_root(date):
     """
     raw news/
-    └── YYYY-MM-DD-eventunit/
+    └── YYYY-MM-DD-EventUnit/
     """
 
     return (
@@ -102,7 +141,7 @@ def event_units_root(date):
 
 def language_dir(
     date,
-    language=None
+    language=None,
 ):
     if language is None:
         language = CURRENT_LANGUAGE
@@ -119,12 +158,12 @@ def language_dir(
 
 def event_units_dir(
     date,
-    language=None
+    language=None,
 ):
     return (
         language_dir(
             date,
-            language
+            language,
         )
         / "event_units"
     )
@@ -132,12 +171,12 @@ def event_units_dir(
 
 def articles_dir(
     date,
-    language=None
+    language=None,
 ):
     return (
         language_dir(
             date,
-            language
+            language,
         )
         / "articles"
     )
@@ -145,28 +184,44 @@ def articles_dir(
 
 def merged_clusters_path(
     date,
-    language=None
+    language=None,
 ):
+    """
+    Task 2 Global Merge output contract：
+
+    raw news/
+    └── YYYY-MM-DD-EventUnit/
+        └── en/
+            └── _merged_clusters.json
+
+    或：
+
+        zh/
+            └── _merged_clusters.json
+    """
+
     return (
         language_dir(
             date,
-            language
+            language,
         )
         / MERGED_CLUSTERS_FILE
     )
 
 
 # ==============================================================
-# ATOMIC TEXT
+# ATOMIC TEXT WRITE
 # ==============================================================
 
 def write_text_atomic(
     path,
-    text
+    text,
 ):
+    path = Path(path)
+
     path.parent.mkdir(
         parents=True,
-        exist_ok=True
+        exist_ok=True,
     )
 
     tmp = path.with_name(
@@ -174,9 +229,10 @@ def write_text_atomic(
     )
 
     try:
+
         tmp.write_text(
             text,
-            encoding="utf-8"
+            encoding="utf-8",
         )
 
         tmp.replace(
@@ -184,6 +240,7 @@ def write_text_atomic(
         )
 
     except Exception:
+
         try:
             if tmp.exists():
                 tmp.unlink()
@@ -197,83 +254,110 @@ def write_text_atomic(
 # GLOBAL EVENT ID VALIDATION
 # ==============================================================
 
+EVENT_ID_PATTERN = re.compile(
+    r"EVT-\d{8}-\d{6}"
+)
+
+
 def validate_final_event_ids(
     date,
-    events
+    events,
 ):
-    if not isinstance(events, list):
+    if not isinstance(
+        events,
+        list,
+    ):
         raise RuntimeError(
             f"❌ {date} Final Event Components 不是数组"
         )
 
     ids = []
 
-    for e in events:
+    for position, event in enumerate(
+        events,
+        1,
+    ):
 
-        if not isinstance(e, dict):
+        if not isinstance(
+            event,
+            dict,
+        ):
             raise RuntimeError(
-                f"❌ {date} Final Event Components 存在非法对象"
+                f"❌ {date} Final Event Components "
+                f"component[{position}]不是对象"
             )
 
         event_id = str(
-            e.get(
+            event.get(
                 "event_id",
-                ""
+                "",
             )
         ).strip()
 
         if not event_id:
             raise RuntimeError(
-                f"❌ {date} Final Event Components 存在空 event_id"
+                f"❌ {date} Final Event Components "
+                f"component[{position}]缺少event_id"
             )
 
         ids.append(
             event_id
         )
 
-    if len(ids) != len(set(ids)):
-        raise RuntimeError(
-            f"❌ {date} Final Event Components 存在重复 event_id"
-        )
+    duplicates = sorted(
+        {
+            event_id
+            for event_id in ids
+            if ids.count(event_id) > 1
+        }
+    )
 
-    import re
+    if duplicates:
+        raise RuntimeError(
+            f"❌ {date} Final Event Components "
+            f"存在重复 event_id："
+            f"{duplicates[:20]}"
+        )
 
     bad = [
         event_id
         for event_id in ids
-        if not re.fullmatch(
-            r"EVT-\d{8}-\d{6}",
+        if not EVENT_ID_PATTERN.fullmatch(
             event_id
         )
     ]
 
     if bad:
         raise RuntimeError(
-            f"❌ {date} Final Event Components 存在非法 Global Event ID："
+            f"❌ {date} Final Event Components "
+            f"存在非法 Global Event ID："
             f"{bad[:20]}"
         )
 
+    print(
+        f"✅ FINAL EVENT ID VALIDATION | "
+        f"count={len(ids)}"
+    )
+
 
 # ==============================================================
-# TASK 2 ARTICLE COVERAGE
+# ARTICLE COVERAGE
 # ==============================================================
 
 def validate_global_article_coverage(
     date,
     clusters,
     news_count,
-    stage
+    stage,
 ):
     """
-    Task 2 最终结果必须：
+    最终 Global Merge Component 必须：
 
         ARTICLE 1..N
-        每篇恰好出现一次
 
-    注意：
+    每篇：
 
-    这里验证的是最终 Global Merge Component
-    的 ARTICLE 归属。
+        恰好一次
 
     不允许：
 
@@ -281,80 +365,101 @@ def validate_global_article_coverage(
         duplicate
         extra
         malformed
-
     """
 
     if not isinstance(
         clusters,
-        list
+        list,
     ):
         raise RuntimeError(
-            f"❌ {stage}：clusters 不是数组"
+            f"❌ {stage}：clusters不是数组"
+        )
+
+    if news_count < 0:
+        raise RuntimeError(
+            f"❌ {stage}：news_count非法："
+            f"{news_count}"
         )
 
     expected = set(
         range(
             1,
-            news_count + 1
+            news_count + 1,
         )
     )
 
     occurrences = {}
+
     malformed = []
 
-    for pos, cluster in enumerate(
+    for component_position, component in enumerate(
         clusters,
-        1
+        1,
     ):
 
         if not isinstance(
-            cluster,
-            dict
+            component,
+            dict,
         ):
             malformed.append(
-                f"component[{pos}]不是对象"
+                f"component[{component_position}]不是对象"
             )
             continue
 
-        article_indexes = cluster.get(
+        article_indexes = component.get(
             "article_indexes"
         )
 
         if not isinstance(
             article_indexes,
-            list
+            list,
         ):
             malformed.append(
-                f"component[{pos}] article_indexes不是数组"
+                f"component[{component_position}] "
+                f"article_indexes不是数组"
             )
             continue
 
         if not article_indexes:
             malformed.append(
-                f"component[{pos}] article_indexes为空"
+                f"component[{component_position}] "
+                f"article_indexes为空"
             )
             continue
 
-        for value in article_indexes:
+        for raw_index in article_indexes:
+
+            if isinstance(
+                raw_index,
+                bool,
+            ):
+                malformed.append(
+                    f"component[{component_position}] "
+                    f"非法ARTICLE ID：{raw_index}"
+                )
+                continue
 
             try:
-                index = int(value)
+                index = int(
+                    raw_index
+                )
 
             except Exception:
                 malformed.append(
-                    f"component[{pos}]非法ARTICLE ID：{value}"
+                    f"component[{component_position}] "
+                    f"非法ARTICLE ID：{raw_index}"
                 )
                 continue
 
             occurrences.setdefault(
                 index,
-                []
+                [],
             ).append(
-                pos
+                component_position
             )
 
     actual = set(
-        occurrences
+        occurrences.keys()
     )
 
     missing = sorted(
@@ -418,35 +523,50 @@ def validate_global_article_coverage(
 def build_event_units(
     date,
     clusters,
-    news
+    news,
 ):
     events = []
 
-    for cluster in clusters:
+    for component_position, cluster in enumerate(
+        clusters,
+        1,
+    ):
+
+        if not isinstance(
+            cluster,
+            dict,
+        ):
+            raise RuntimeError(
+                f"❌ component[{component_position}]不是对象"
+            )
 
         event_id = str(
             cluster.get(
                 "event_id",
-                ""
+                "",
             )
         ).strip()
 
         if not event_id:
             raise RuntimeError(
-                f"❌ {date} Final Component 缺少 event_id"
+                f"❌ component[{component_position}] "
+                f"缺少event_id"
             )
 
         event_title = str(
             cluster.get(
                 "event_title",
-                "未命名事件"
+                "",
             )
         ).strip()
+
+        if not event_title:
+            event_title = "Untitled Event"
 
         event_reason = str(
             cluster.get(
                 "event_reason",
-                ""
+                "",
             )
         ).strip()
 
@@ -456,25 +576,37 @@ def build_event_units(
 
         if not isinstance(
             article_indexes,
-            list
+            list,
         ):
             raise RuntimeError(
-                f"❌ {event_id} article_indexes不是数组"
+                f"❌ {event_id} "
+                f"article_indexes不是数组"
             )
 
         if not article_indexes:
             raise RuntimeError(
-                f"❌ {event_id} article_indexes为空"
+                f"❌ {event_id} "
+                f"article_indexes为空"
             )
 
         articles = []
 
         for raw_index in article_indexes:
 
+            if isinstance(
+                raw_index,
+                bool,
+            ):
+                raise RuntimeError(
+                    f"❌ {event_id}存在非法ARTICLE ID："
+                    f"{raw_index}"
+                )
+
             try:
                 index = int(
                     raw_index
                 )
+
             except Exception:
                 raise RuntimeError(
                     f"❌ {event_id}存在非法ARTICLE ID："
@@ -493,46 +625,83 @@ def build_event_units(
                 index - 1
             ]
 
-            metadata = item[
-                "metadata"
-            ]
+            if not isinstance(
+                item,
+                dict,
+            ):
+                raise RuntimeError(
+                    f"❌ {event_id} ARTICLE {index} "
+                    f"新闻对象非法"
+                )
+
+            metadata = item.get(
+                "metadata",
+                {},
+            )
+
+            if not isinstance(
+                metadata,
+                dict,
+            ):
+                metadata = {}
 
             articles.append({
                 "index": index,
 
                 "path": str(
-                    item["path"]
+                    item.get(
+                        "path",
+                        "",
+                    )
                 ),
 
-                "title": metadata.get(
-                    "title",
-                    "Untitled"
+                "title": str(
+                    metadata.get(
+                        "title",
+                        "Untitled",
+                    )
+                    or "Untitled"
                 ),
 
-                "source": metadata.get(
-                    "source",
-                    "Unknown"
+                "source": str(
+                    metadata.get(
+                        "source",
+                        "Unknown",
+                    )
+                    or "Unknown"
                 ),
 
-                "source_url": metadata.get(
-                    "source_url",
-                    ""
+                "source_url": str(
+                    metadata.get(
+                        "source_url",
+                        "",
+                    )
+                    or ""
                 ),
 
-                "source_status": metadata.get(
-                    "source_status",
-                    ""
+                "source_status": str(
+                    metadata.get(
+                        "source_status",
+                        "",
+                    )
+                    or ""
                 ),
 
-                "content_status": metadata.get(
-                    "content_status",
-                    ""
+                "content_status": str(
+                    metadata.get(
+                        "content_status",
+                        "",
+                    )
+                    or ""
                 ),
 
-                "body": item.get(
-                    "body",
-                    ""
-                )
+                "body": str(
+                    item.get(
+                        "body",
+                        "",
+                    )
+                    or ""
+                ),
             })
 
         events.append({
@@ -540,16 +709,11 @@ def build_event_units(
 
             "date": date,
 
-            "event_title": (
-                event_title
-                or "未命名事件"
-            ),
+            "event_title": event_title,
 
-            "event_reason":
-                event_reason,
+            "event_reason": event_reason,
 
-            "articles":
-                articles
+            "articles": articles,
         })
 
     return events
@@ -562,16 +726,36 @@ def build_event_units(
 def validate_event_index_coverage(
     date,
     events,
-    news_count
+    news_count,
 ):
-    ids = []
+    if not isinstance(
+        events,
+        list,
+    ):
+        raise RuntimeError(
+            f"❌ {date} Event Index输入不是数组"
+        )
+
     event_ids = set()
 
-    for event in events:
+    article_occurrences = {}
 
-        event_id = event[
-            "event_id"
-        ]
+    for event_position, event in enumerate(
+        events,
+        1,
+    ):
+
+        event_id = str(
+            event.get(
+                "event_id",
+                "",
+            )
+        ).strip()
+
+        if not event_id:
+            raise RuntimeError(
+                f"❌ Event[{event_position}]缺少event_id"
+            )
 
         if event_id in event_ids:
             raise RuntimeError(
@@ -583,24 +767,58 @@ def validate_event_index_coverage(
             event_id
         )
 
-        for article in event[
+        articles = event.get(
             "articles"
-        ]:
-            ids.append(
-                int(
+        )
+
+        if not isinstance(
+            articles,
+            list,
+        ):
+            raise RuntimeError(
+                f"❌ {event_id} articles不是数组"
+            )
+
+        if not articles:
+            raise RuntimeError(
+                f"❌ {event_id} articles为空"
+            )
+
+        for article in articles:
+
+            if not isinstance(
+                article,
+                dict,
+            ):
+                raise RuntimeError(
+                    f"❌ {event_id}存在非法ARTICLE对象"
+                )
+
+            try:
+                index = int(
                     article["index"]
                 )
+            except Exception:
+                raise RuntimeError(
+                    f"❌ {event_id}存在非法ARTICLE index"
+                )
+
+            article_occurrences.setdefault(
+                index,
+                [],
+            ).append(
+                event_id
             )
 
     expected = set(
         range(
             1,
-            news_count + 1
+            news_count + 1,
         )
     )
 
     actual = set(
-        ids
+        article_occurrences.keys()
     )
 
     missing = sorted(
@@ -611,11 +829,12 @@ def validate_event_index_coverage(
         actual - expected
     )
 
-    duplicate = sorted(
-        index
-        for index in actual
-        if ids.count(index) > 1
-    )
+    duplicate = {
+        index: event_ids_for_article
+        for index, event_ids_for_article
+        in article_occurrences.items()
+        if len(event_ids_for_article) > 1
+    }
 
     if missing:
         raise RuntimeError(
@@ -632,12 +851,13 @@ def validate_event_index_coverage(
     if duplicate:
         raise RuntimeError(
             f"❌ {date} Event Index存在重复ARTICLE："
-            f"{duplicate[:50]}"
+            f"{dict(list(duplicate.items())[:20])}"
         )
 
     if actual != expected:
         raise RuntimeError(
-            f"❌ {date} Event Index覆盖率失败"
+            f"❌ {date} Event Index覆盖率失败："
+            f"{len(actual)}/{news_count}"
         )
 
     print(
@@ -647,11 +867,50 @@ def validate_event_index_coverage(
 
 
 # ==============================================================
+# LANGUAGE-SPECIFIC AI INSTRUCTIONS
+# ==============================================================
+
+def synthesis_language_instruction():
+    if CURRENT_LANGUAGE == "en":
+
+        return """
+Output language:
+
+    English
+
+Use clear professional English Markdown.
+
+Do NOT translate the source material mechanically.
+
+Preserve factual distinctions between sources.
+"""
+
+    if CURRENT_LANGUAGE == "zh":
+
+        return """
+输出语言：
+
+    中文
+
+使用清晰、专业、自然的中文 Markdown。
+
+不要机械翻译来源。
+
+必须保留不同来源之间的事实差异。
+"""
+
+    raise RuntimeError(
+        f"❌ Invalid CURRENT_LANGUAGE："
+        f"{CURRENT_LANGUAGE}"
+    )
+
+
+# ==============================================================
 # AI EVENT SYNTHESIS
 # ==============================================================
 
 def synthesize_event(
-    event
+    event,
 ):
     blocks = []
 
@@ -664,14 +923,14 @@ def synthesize_event(
     for article in articles:
 
         blocks.append(
-            f"""### 来源文章 #{article['index']}
-标题：{article['title']}
-来源：{article['source']}
-链接：{article['source_url']}
-source_status：{article['source_status']}
-content_status：{article['content_status']}
+            f"""### ARTICLE #{article['index']}
+Title: {article['title']}
+Source: {article['source']}
+URL: {article['source_url']}
+source_status: {article['source_status']}
+content_status: {article['content_status']}
 
-内容：
+Content:
 {article['body'][:ARTICLE_AGGREGATION_CONTENT_LIMIT]}"""
         )
 
@@ -679,72 +938,153 @@ content_status：{article['content_status']}
         blocks
     )
 
-    prompt = f"""你正在执行748686自生长知识系统V6.5.3第二层事件知识综合。
+    language_instruction = (
+        synthesis_language_instruction()
+    )
 
-日期：{event['date']}
-事件ID：{event['event_id']}
-事件名称：{event['event_title']}
+    prompt = f"""
+You are performing the second-layer EventUnit synthesis
+for the 748686 Self-Growing Knowledge System V6.5.3.
 
-第一层事件判断：
+Date:
+{event['date']}
+
+Event ID:
+{event['event_id']}
+
+Event Title:
+{event['event_title']}
+
+First-layer Global Merge Event Reason:
 {event['event_reason']}
 
-同一事件的多来源输入：
+Source Articles:
 
 {joined}
 
-请将这些来源综合为一个高质量事件知识单元。
 
-严格要求：
+YOUR TASK
+=========
 
-1. 识别不同来源共同确认的核心事实。
-2. 保留来源独有信息。
-3. 保留不同国家 / 地区视角。
-4. 严格区分事实、判断和推测。
-5. 不得编造输入中没有的信息。
-6. source_status 不是 fetched 时，不得声称完整阅读了原文。
-7. 如果不同来源存在冲突，必须明确指出。
-8. 如果资料不足，必须明确说明。
-9. 不要因为多个来源重复描述就虚构新的事实。
-10. 不要输出与输入来源无关的背景知识。
+Transform these source articles into one high-quality
+EventUnit knowledge document.
 
-输出标准中文 Markdown。
 
-必须包含：
+STRICT RULES
+============
 
-# 事件名称
-## 事件概述
-## 核心事实
-## 多来源交叉验证
-## 不同来源独有信息
-## 不同国家 / 地区视角
-## 信息差异与冲突
-## 当前已知影响
-## 目前不能确定的事情
-## 来源
-## 事件结论
+1. Only use information contained in the supplied material.
+
+2. Never invent facts.
+
+3. Never fabricate quotations.
+
+4. Never fabricate numbers, dates, people, organizations,
+   locations, causes, consequences or relationships.
+
+5. Identify facts independently supported by multiple sources.
+
+6. Preserve information that is unique to a single source.
+
+7. Identify differences between sources.
+
+8. If sources contradict each other, explicitly state the conflict.
+
+9. Do not silently resolve factual conflicts.
+
+10. If information is insufficient, explicitly state that
+    the matter cannot currently be determined.
+
+11. source_status and content_status must be respected.
+
+12. If a source was not successfully fetched, do not claim
+    that its complete original article was reviewed.
+
+13. Do not treat repeated reporting as independent proof
+    when the sources appear to reproduce the same information.
+
+14. Distinguish clearly between:
+       confirmed fact
+       source-reported claim
+       analysis
+       uncertainty
+
+15. Do not introduce unrelated background information.
+
+16. Do not generate fictional context.
+
+17. The final EventUnit must remain traceable to the
+    supplied ARTICLE sources.
+
+
+REQUIRED SECTIONS
+=================
+
+# Event Name
+
+## Event Overview
+
+## Core Facts
+
+## Cross-Source Verification
+
+## Unique Information by Source
+
+## Different Country / Regional Perspectives
+
+## Information Differences and Conflicts
+
+## Known Current Impact
+
+## What Cannot Currently Be Determined
+
+## Sources
+
+## Event Conclusion
+
+
+{language_instruction}
+"""
+
+    system_prompt = """
+You are the second-layer multi-source event synthesis engine
+of the 748686 Self-Growing Knowledge System.
+
+Your primary objectives are:
+
+    factual accuracy
+    source traceability
+    conflict detection
+    uncertainty preservation
+    cross-source synthesis
+
+You must never fabricate information.
+
+You must not turn speculation into fact.
 """
 
     result = call_ai(
         prompt,
-        (
-            "你是748686自生长知识系统的"
-            "跨来源新闻事件综合专家。"
-            "严格依据输入资料。"
-            "不得编造。"
-            "输出标准中文Markdown。"
-        ),
-        0.2
+        system_prompt,
+        0.2,
     )
 
     if not isinstance(
         result,
-        str
+        str,
     ):
         result = str(
             result or ""
         )
 
-    return result.strip()
+    result = result.strip()
+
+    if not result:
+        raise RuntimeError(
+            f"❌ {event['event_id']} AI综合结果为空"
+        )
+
+    return result
 
 
 # ==============================================================
@@ -752,11 +1092,18 @@ content_status：{article['content_status']}
 # ==============================================================
 
 def event_unit_filename(
-    event
+    event,
 ):
+    title = safe_name(
+        event["event_title"]
+    )
+
+    if not title:
+        title = "event"
+
     return (
         f"{event['event_id']}_"
-        f"{safe_name(event['event_title'])}.md"
+        f"{title}.md"
     )
 
 
@@ -767,32 +1114,34 @@ def event_unit_filename(
 def save_event_unit(
     date,
     event,
-    content
+    content,
 ):
     target = event_units_dir(
         date,
-        CURRENT_LANGUAGE
+        CURRENT_LANGUAGE,
     )
 
     target.mkdir(
         parents=True,
-        exist_ok=True
+        exist_ok=True,
     )
 
     path = (
         target
-        / event_unit_filename(event)
+        / event_unit_filename(
+            event
+        )
     )
 
     sources = "\n".join(
         (
-            f"- {article['source']} | "
+            f"- ARTICLE {article['index']} | "
+            f"{article['source']} | "
             f"{article['title']} | "
             f"{article['source_url']}"
         )
-        for article in event[
-            "articles"
-        ]
+        for article
+        in event["articles"]
     )
 
     text = f"""---
@@ -811,11 +1160,11 @@ timezone: Asia/Shanghai
 >
 > 原始新闻数量：{len(event['articles'])}
 
-## 第二层AI事件判断
+## 第一层 Global Merge 事件判断
 
 {event['event_reason']}
 
-## 第二层AI多来源综合
+## 第二层 AI 多来源综合
 
 {content}
 
@@ -826,7 +1175,7 @@ timezone: Asia/Shanghai
 
     write_text_atomic(
         path,
-        text
+        text,
     )
 
     return path
@@ -838,26 +1187,51 @@ timezone: Asia/Shanghai
 
 def event_unit_file_valid(
     path,
-    event_id
+    event_id,
 ):
+    path = Path(
+        path
+    )
+
     if (
         not path.exists()
+        or not path.is_file()
         or path.stat().st_size <= 0
     ):
         return False
 
     try:
-        metadata, body = parse_front_matter(
-            path.read_text(
-                encoding="utf-8",
-                errors="replace"
-            )
+
+        text = path.read_text(
+            encoding="utf-8",
+            errors="replace",
         )
+
+        metadata, body = parse_front_matter(
+            text
+        )
+
     except Exception:
         return False
 
+    if not isinstance(
+        metadata,
+        dict,
+    ):
+        return False
+
+    if not isinstance(
+        body,
+        str,
+    ):
+        body = str(
+            body or ""
+        )
+
     return (
-        bool(body.strip())
+        bool(
+            body.strip()
+        )
         and metadata.get(
             "event_id"
         ) == event_id
@@ -867,6 +1241,9 @@ def event_unit_file_valid(
         and metadata.get(
             "type"
         ) == "event_unit"
+        and metadata.get(
+            "language"
+        ) == CURRENT_LANGUAGE
     )
 
 
@@ -876,7 +1253,7 @@ def event_unit_file_valid(
 
 def save_event_index(
     date,
-    events
+    events,
 ):
     data = []
 
@@ -918,37 +1295,37 @@ def save_event_index(
                         article["source_url"],
 
                     "path":
-                        article["path"]
+                        article["path"],
                 }
 
                 for article
                 in event["articles"]
-            ]
+            ],
         })
 
     path = (
-        event_units_dir(
+        language_dir(
             date,
-            CURRENT_LANGUAGE
+            CURRENT_LANGUAGE,
         )
         / EVENT_INDEX_FILE
     )
 
     write_json(
         path,
-        data
+        data,
     )
 
     return path
 
 
 def load_event_index(
-    date
+    date,
 ):
     path = (
-        event_units_dir(
+        language_dir(
             date,
-            CURRENT_LANGUAGE
+            CURRENT_LANGUAGE,
         )
         / EVENT_INDEX_FILE
     )
@@ -957,20 +1334,22 @@ def load_event_index(
         return None
 
     try:
+
         data = read_json(
             path,
-            None
+            None,
         )
+
     except Exception:
         return None
 
-    if (
-        not isinstance(
-            data,
-            list
-        )
-        or not data
+    if not isinstance(
+        data,
+        list,
     ):
+        return None
+
+    if not data:
         return None
 
     return data
@@ -981,11 +1360,11 @@ def load_event_index(
 # ==============================================================
 
 def inspect_event_units(
-    date
+    date,
 ):
     target = event_units_dir(
         date,
-        CURRENT_LANGUAGE
+        CURRENT_LANGUAGE,
     )
 
     if not target.exists():
@@ -995,7 +1374,6 @@ def inspect_event_units(
             "index": None,
             "missing": [],
             "invalid": [],
-            "unexpected": []
         }
 
     index = load_event_index(
@@ -1009,7 +1387,6 @@ def inspect_event_units(
             "index": None,
             "missing": [],
             "invalid": [],
-            "unexpected": []
         }
 
     missing = []
@@ -1018,17 +1395,28 @@ def inspect_event_units(
 
     for event in index:
 
+        if not isinstance(
+            event,
+            dict,
+        ):
+            invalid.append(
+                "<malformed>"
+            )
+            continue
+
         event_id = str(
             event.get(
                 "event_id",
-                ""
+                "",
             )
         ).strip()
 
         if not event_id:
+
             invalid.append(
-                event_id
+                "<empty-event-id>"
             )
+
             continue
 
         ids.append(
@@ -1050,7 +1438,7 @@ def inspect_event_units(
         elif not any(
             event_unit_file_valid(
                 path,
-                event_id
+                event_id,
             )
             for path in matches
         ):
@@ -1061,6 +1449,7 @@ def inspect_event_units(
 
     complete = (
         bool(ids)
+        and len(ids) == len(set(ids))
         and not missing
         and not invalid
     )
@@ -1071,7 +1460,6 @@ def inspect_event_units(
         "index": index,
         "missing": missing,
         "invalid": invalid,
-        "unexpected": []
     }
 
 
@@ -1082,12 +1470,12 @@ def inspect_event_units(
 def mark_event_units_complete(
     date,
     article_count,
-    event_count
+    event_count,
 ):
     path = (
         language_dir(
             date,
-            CURRENT_LANGUAGE
+            CURRENT_LANGUAGE,
         )
         / EVENT_UNITS_COMPLETE_FILE
     )
@@ -1103,47 +1491,54 @@ timezone: Asia/Shanghai
 
     write_text_atomic(
         path,
-        text
+        text,
     )
 
     return path
 
 
 def remove_event_units_complete(
-    date
+    date,
 ):
     path = (
         language_dir(
             date,
-            CURRENT_LANGUAGE
+            CURRENT_LANGUAGE,
         )
         / EVENT_UNITS_COMPLETE_FILE
     )
 
     if path.exists():
+
         path.unlink()
+
+        print(
+            f"⚠️ Removed stale _COMPLETE: "
+            f"{path}"
+        )
 
 
 # ==============================================================
-# COMPLETE EVENT UNITS
+# FINAL EVENTUNIT MATERIALIZATION
 # ==============================================================
 
 def complete_existing_event_units(
     date,
     events,
-    article_count
+    article_count,
 ):
     target = event_units_dir(
         date,
-        CURRENT_LANGUAGE
+        CURRENT_LANGUAGE,
     )
 
     target.mkdir(
         parents=True,
-        exist_ok=True
+        exist_ok=True,
     )
 
     generated = 0
+    skipped = 0
 
     total = len(
         events
@@ -1151,7 +1546,7 @@ def complete_existing_event_units(
 
     for position, event in enumerate(
         events,
-        1
+        1,
     ):
 
         event_id = event[
@@ -1164,24 +1559,30 @@ def complete_existing_event_units(
             )
         )
 
-        if any(
+        valid_existing = any(
             event_unit_file_valid(
                 path,
-                event_id
+                event_id,
             )
             for path in matches
-        ):
+        )
+
+        if valid_existing:
 
             print(
                 f"[{position}/{total}] "
-                f"⏭️ 已存在：{event_id}"
+                f"⏭️ EXISTING VALID EVENTUNIT | "
+                f"{event_id}"
             )
+
+            skipped += 1
 
             continue
 
         print(
             f"[{position}/{total}] "
-            f"🔨 生成：{event_id}"
+            f"🔨 SYNTHESIZING EVENTUNIT | "
+            f"{event_id}"
         )
 
         content = synthesize_event(
@@ -1189,31 +1590,52 @@ def complete_existing_event_units(
         )
 
         if not content.strip():
+
             raise RuntimeError(
-                f"❌ {event_id}综合结果为空"
+                f"❌ {event_id} "
+                f"综合结果为空"
             )
 
         path = save_event_unit(
             date,
             event,
-            content
+            content,
         )
 
         if not event_unit_file_valid(
             path,
-            event_id
+            event_id,
         ):
+
             raise RuntimeError(
-                f"❌ {event_id}保存验证失败"
+                f"❌ {event_id} "
+                f"保存后验证失败："
+                f"{path}"
             )
+
+        print(
+            f"   ✅ SAVED | {path}"
+        )
 
         generated += 1
 
-    # ----------------------------------------------------------
-    # 最终完整性验证
-    # ----------------------------------------------------------
+    # ==========================================================
+    # FINAL EVENTUNIT FILE CHECK
+    # ==========================================================
+
+    print()
+    print(
+        "------------------------------------------------------------"
+    )
+    print(
+        "FINAL EVENTUNIT FILE VALIDATION"
+    )
+    print(
+        "------------------------------------------------------------"
+    )
 
     missing = []
+    invalid = []
 
     for event in events:
 
@@ -1227,40 +1649,102 @@ def complete_existing_event_units(
             )
         )
 
-        if not any(
-            event_unit_file_valid(
-                path,
-                event_id
-            )
-            for path in matches
-        ):
+        if not matches:
+
             missing.append(
                 event_id
             )
 
+            continue
+
+        if not any(
+            event_unit_file_valid(
+                path,
+                event_id,
+            )
+            for path in matches
+        ):
+
+            invalid.append(
+                event_id
+            )
+
     if missing:
+
         raise RuntimeError(
-            f"❌ EventUnit最终仍然缺失："
+            f"❌ EventUnit最终缺失："
             f"{missing[:50]}"
         )
 
-    # ----------------------------------------------------------
-    # 所有 EventUnit 都验证通过
-    # 此时才允许生成 _COMPLETE
-    # ----------------------------------------------------------
+    if invalid:
+
+        raise RuntimeError(
+            f"❌ EventUnit最终验证失败："
+            f"{invalid[:50]}"
+        )
+
+    # ==========================================================
+    # EVENT INDEX MUST STILL MATCH
+    # ==========================================================
+
+    index = load_event_index(
+        date
+    )
+
+    if index is None:
+
+        raise RuntimeError(
+            "❌ 最终 EventUnit 验证时 "
+            "_event_index.json 不存在或无效"
+        )
+
+    if len(index) != len(events):
+
+        raise RuntimeError(
+            f"❌ Event Index数量与Final Event Components不一致："
+            f"index={len(index)} "
+            f"events={len(events)}"
+        )
+
+    # ==========================================================
+    # ONLY NOW CREATE _COMPLETE
+    # ==========================================================
 
     marker = mark_event_units_complete(
         date,
         article_count,
-        len(events)
+        len(events),
+    )
+
+    print()
+    print(
+        "------------------------------------------------------------"
+    )
+    print(
+        "EVENTUNIT MATERIALIZATION COMPLETE"
+    )
+    print(
+        "------------------------------------------------------------"
     )
 
     print(
-        f"✅ EVENT UNITS COMPLETE | "
-        f"new={generated} | "
-        f"total={len(events)} | "
-        f"articles={article_count} | "
-        f"{marker}"
+        f"Generated : {generated}"
+    )
+
+    print(
+        f"Existing  : {skipped}"
+    )
+
+    print(
+        f"Total     : {len(events)}"
+    )
+
+    print(
+        f"Articles  : {article_count}"
+    )
+
+    print(
+        f"_COMPLETE : {marker}"
     )
 
     return True
@@ -1272,12 +1756,12 @@ def complete_existing_event_units(
 
 def run_task_3(
     date,
-    language
+    language,
 ):
     global CURRENT_LANGUAGE
 
     # ----------------------------------------------------------
-    # 严格语言协议
+    # STRICT LANGUAGE CONTRACT
     # ----------------------------------------------------------
 
     CURRENT_LANGUAGE = normalize_language(
@@ -1287,48 +1771,68 @@ def run_task_3(
     lang = CURRENT_LANGUAGE
 
     # ----------------------------------------------------------
-    # 建立目录
+    # BUILD DIRECTORIES
     # ----------------------------------------------------------
 
     root = language_dir(
         date,
-        lang
+        lang,
     )
 
     root.mkdir(
         parents=True,
-        exist_ok=True
+        exist_ok=True,
     )
 
     articles_dir(
         date,
-        lang
+        lang,
     ).mkdir(
         parents=True,
-        exist_ok=True
+        exist_ok=True,
     )
 
     event_units_dir(
         date,
-        lang
+        lang,
     ).mkdir(
         parents=True,
-        exist_ok=True
+        exist_ok=True,
     )
 
     # ----------------------------------------------------------
-    # 读取 Enriched News
+    # LOAD ENRICHED NEWS
     # ----------------------------------------------------------
 
     news = load_all_enriched_news(
         date,
-        lang
+        lang,
     )
+
+    if not isinstance(
+        news,
+        list,
+    ):
+        raise RuntimeError(
+            f"❌ load_all_enriched_news返回非法结果："
+            f"{type(news).__name__}"
+        )
+
+    if not news:
+
+        raise RuntimeError(
+            f"❌ {date}/{lang} "
+            f"没有Enriched News"
+        )
+
+    # ----------------------------------------------------------
+    # HEADER
+    # ----------------------------------------------------------
 
     print()
     print("=" * 70)
     print(
-        "TASK 3 — EVENT UNIT SYNTHESIS V6.5.3"
+        "TASK 3 — EVENTUNIT SYNTHESIS V6.5.3"
     )
     print("=" * 70)
 
@@ -1350,7 +1854,7 @@ def run_task_3(
     )
 
     # ----------------------------------------------------------
-    # 已完成则直接恢复
+    # EXISTING COMPLETE RECOVERY
     # ----------------------------------------------------------
 
     inspection = inspect_event_units(
@@ -1361,16 +1865,21 @@ def run_task_3(
         "complete"
     ]:
 
+        print()
         print(
-            f"♻️ TASK 3: EventUnits already complete "
-            f"| {date}/{lang}"
+            f"♻️ TASK 3 EXISTING COMPLETE | "
+            f"{date}/{lang}"
+        )
+
+        print(
+            f"Event Index : "
+            f"{len(inspection['index'])}"
         )
 
         return True
 
     # ----------------------------------------------------------
-    # 如果存在 _COMPLETE 但实际检查失败
-    # 删除错误完成标记
+    # STALE COMPLETE MARKER
     # ----------------------------------------------------------
 
     remove_event_units_complete(
@@ -1378,18 +1887,18 @@ def run_task_3(
     )
 
     # ----------------------------------------------------------
-    # Task 2结果
+    # TASK 2 OUTPUT
     # ----------------------------------------------------------
 
     merged_path = merged_clusters_path(
         date,
-        lang
+        lang,
     )
 
     if not merged_path.exists():
 
         raise RuntimeError(
-            f"❌ TASK 3找不到TASK 2结果："
+            f"❌ TASK 3找不到TASK 2 Global Merge结果："
             f"{merged_path}"
         )
 
@@ -1398,7 +1907,7 @@ def run_task_3(
         "------------------------------------------------------------"
     )
     print(
-        "TASK 2 RESULT"
+        "TASK 2 GLOBAL MERGE RESULT"
     )
     print(
         "------------------------------------------------------------"
@@ -1409,35 +1918,40 @@ def run_task_3(
     )
 
     # ----------------------------------------------------------
-    # 读取 Task 2
+    # READ TASK 2
     # ----------------------------------------------------------
 
     data = read_json(
         merged_path,
-        None
+        None,
     )
 
-    final = (
-        data.get(
-            "clusters"
-        )
-        if isinstance(
-            data,
-            dict
-        )
-        else None
-    )
-
-    if (
-        not isinstance(
-            final,
-            list
-        )
-        or not final
+    if not isinstance(
+        data,
+        dict,
     ):
+
         raise RuntimeError(
-            "❌ TASK 2结果无效："
-            "clusters为空或不存在"
+            "❌ TASK 2结果不是JSON对象"
+        )
+
+    final = data.get(
+        "clusters"
+    )
+
+    if not isinstance(
+        final,
+        list,
+    ):
+
+        raise RuntimeError(
+            "❌ TASK 2结果clusters不存在或不是数组"
+        )
+
+    if not final:
+
+        raise RuntimeError(
+            "❌ TASK 2结果clusters为空"
         )
 
     print(
@@ -1446,41 +1960,37 @@ def run_task_3(
     )
 
     # ----------------------------------------------------------
-    # Task 2 ARTICLE 100% Coverage
+    # TASK 2 ARTICLE COVERAGE
     # ----------------------------------------------------------
 
     validate_global_article_coverage(
         date,
         final,
         len(news),
-        "TASK 3 / TASK 2 RESULT"
+        "TASK 3 / TASK 2 RESULT",
     )
 
     # ----------------------------------------------------------
-    # Global Event ID
+    # FINAL GLOBAL EVENT IDS
     # ----------------------------------------------------------
 
     validate_final_event_ids(
         date,
-        final
-    )
-
-    print(
-        f"✅ FINAL EVENT COMPONENT ID VALIDATION | "
-        f"count={len(final)}"
+        final,
     )
 
     # ----------------------------------------------------------
-    # 构建 EventUnit
+    # BUILD EVENT UNITS
     # ----------------------------------------------------------
 
     events = build_event_units(
         date,
         final,
-        news
+        news,
     )
 
     if len(events) != len(final):
+
         raise RuntimeError(
             f"❌ EventUnit数量异常："
             f"components={len(final)} "
@@ -1493,59 +2003,63 @@ def run_task_3(
     )
 
     # ----------------------------------------------------------
-    # Event Index Coverage
+    # EVENT INDEX ARTICLE COVERAGE
     # ----------------------------------------------------------
 
     validate_event_index_coverage(
         date,
         events,
-        len(news)
+        len(news),
     )
 
     # ----------------------------------------------------------
-    # 再次验证 Event ID
+    # EVENT ID SECOND VALIDATION
     # ----------------------------------------------------------
 
     validate_final_event_ids(
         date,
-        events
+        events,
     )
 
     # ----------------------------------------------------------
-    # 保存 Event Index
+    # SAVE EVENT INDEX
     # ----------------------------------------------------------
 
     index_path = save_event_index(
         date,
-        events
+        events,
     )
 
     print(
-        f"✅ Event Index saved: "
+        f"✅ EVENT INDEX SAVED | "
         f"{index_path}"
     )
 
     # ----------------------------------------------------------
-    # 第二层 AI EventUnit Materialization
+    # SECOND-LAYER AI MATERIALIZATION
     # ----------------------------------------------------------
 
     complete_existing_event_units(
         date,
         events,
-        len(news)
+        len(news),
     )
 
     # ----------------------------------------------------------
-    # 最终
+    # FINAL
     # ----------------------------------------------------------
 
     print()
+    print("=" * 70)
+
     print(
         f"✅ TASK 3 COMPLETE | "
         f"{date}/{lang} | "
         f"events={len(events)} | "
         f"articles={len(news)}"
     )
+
+    print("=" * 70)
 
     return True
 
@@ -1559,36 +2073,50 @@ def main():
     parser = argparse.ArgumentParser(
         description=(
             "748686 Knowledge Task 3 "
-            "EventUnit V6.5.3"
+            "EventUnit Synthesis V6.5.3"
         )
     )
 
     parser.add_argument(
         "--date",
-        required=True
+        required=True,
+        help="YYYY-MM-DD",
     )
 
     parser.add_argument(
         "--language",
-        choices=[
+        choices=(
             "en",
-            "zh"
-        ],
-        required=True
+            "zh",
+        ),
+        required=True,
+        help="Only en or zh",
     )
 
     args = parser.parse_args()
 
+    # ----------------------------------------------------------
+    # 额外严格检查
+    #
+    # argparse已经限制choices，
+    # 这里再次明确执行normalize_language，
+    # 但绝不自动大小写转换。
+    # ----------------------------------------------------------
+
+    language = normalize_language(
+        args.language
+    )
+
     run_task_3(
         args.date,
-        args.language
+        language,
     )
 
     return 0
 
 
 # ==============================================================
-# ENTRY
+# ENTRY POINT
 # ==============================================================
 
 if __name__ == "__main__":
