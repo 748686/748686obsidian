@@ -112,9 +112,6 @@ jobs:
       ######################################################################
       # 07
       # CHECK AGNES API
-      #
-      # FIX:
-      # AGNES_API_KEY 必须显式从 GitHub Secrets 注入。
       ######################################################################
 
       - name: "07 - Check Agnes API"
@@ -429,43 +426,6 @@ jobs:
       ######################################################################
       # 20
       # KNOWLEDGE PIPELINE
-      #
-      # SIX PROCESSING UNITS
-      #
-      # 1. DAY_BEFORE / en
-      # 2. DAY_BEFORE / zh
-      # 3. YESTERDAY  / en
-      # 4. YESTERDAY  / zh
-      # 5. TODAY      / en
-      # 6. TODAY      / zh
-      #
-      # EACH UNIT:
-      #
-      # TASK 1
-      #     Cluster
-      #
-      #      ↓
-      #
-      # TASK 2
-      #     Global Merge
-      #
-      #      ↓
-      #
-      # TASK 3
-      #     EventUnit Synthesis / Materialization
-      #
-      #      ↓
-      #
-      # EVENTUNIT VALIDATION
-      #
-      #      ↓
-      #
-      # _COMPLETE
-      #
-      #      ↓
-      #
-      # IMMEDIATE GIT PUSH + PULL
-      #
       ######################################################################
 
       - name: "20 - Knowledge Pipeline - Six Processing Units"
@@ -590,8 +550,6 @@ jobs:
 
             ##################################################################
             # ZH DEPENDENCY
-            #
-            # Same-day ZH MUST wait for same-day EN.
             ##################################################################
 
             if [ "$LANGUAGE" = "zh" ]; then
@@ -689,10 +647,7 @@ jobs:
 
 
             ##################################################################
-            # ================================================================
             # TASK 1
-            # CLUSTER
-            # ================================================================
             ##################################################################
 
             echo
@@ -727,10 +682,7 @@ jobs:
 
 
             ##################################################################
-            # ================================================================
             # TASK 2
-            # GLOBAL MERGE
-            # ================================================================
             ##################################################################
 
             echo
@@ -746,11 +698,6 @@ jobs:
 
             ##################################################################
             # TASK 2 OUTPUT CHECK
-            #
-            # CORRECT AUTHORITATIVE PATH:
-            #
-            # Raw News/YYYY-MM-DD-EventUnit/en/_merged_clusters.json
-            # Raw News/YYYY-MM-DD-EventUnit/zh/_merged_clusters.json
             ##################################################################
 
             MERGED_FILE="$LANG_ROOT/_merged_clusters.json"
@@ -770,10 +717,7 @@ jobs:
 
 
             ##################################################################
-            # ================================================================
             # TASK 3
-            # EVENTUNIT SYNTHESIS / MATERIALIZATION
-            # ================================================================
             ##################################################################
 
             echo
@@ -788,10 +732,7 @@ jobs:
 
 
             ##################################################################
-            # TASK 3 MUST CREATE _COMPLETE
-            #
-            # YAML DOES NOT CREATE _COMPLETE.
-            # Task 3 is the authoritative owner.
+            # TASK 3 COMPLETE CHECK
             ##################################################################
 
             if [ ! -f "$COMPLETE_MARKER" ]; then
@@ -819,17 +760,7 @@ jobs:
 
 
             ##################################################################
-            # ================================================================
             # EVENTUNIT VALIDATION
-            #
-            # VALIDATION ONLY
-            #
-            # This step:
-            #
-            #   DOES NOT generate EventUnits
-            #   DOES NOT modify EventUnits
-            #   DOES NOT create _COMPLETE
-            #
             ##################################################################
 
             echo
@@ -838,12 +769,16 @@ jobs:
             echo "EVENTUNIT VALIDATION"
             echo "======================================================================"
 
-            python - <<PY
+            export KNOWLEDGE_DATE="$DATE"
+            export KNOWLEDGE_LANGUAGE="$LANGUAGE"
+
+            python - <<'PY'
+import os
 import sys
 from pathlib import Path
 
-date = "$DATE"
-language = "$LANGUAGE"
+date = os.environ["KNOWLEDGE_DATE"]
+language = os.environ["KNOWLEDGE_LANGUAGE"]
 
 root = Path("01_自生长知识系统/Raw News")
 event_root = root / f"{date}-EventUnit"
@@ -866,7 +801,8 @@ if not event_units_dir.is_dir():
     sys.exit(1)
 
 event_files = sorted(
-    p for p in event_units_dir.glob("*.md")
+    p
+    for p in event_units_dir.glob("*.md")
     if p.name != "_COMPLETE"
 )
 
@@ -955,9 +891,7 @@ PY
 
 
             ##################################################################
-            # ================================================================
             # IMMEDIATE GIT PUSH + PULL
-            # ================================================================
             ##################################################################
 
             echo
@@ -1079,8 +1013,6 @@ PY
       ######################################################################
       # 21
       # FINAL EVENTUNIT VALIDATION
-      #
-      # ALL SIX UNITS MUST BE COMPLETE
       ######################################################################
 
       - name: "21 - Final EventUnit Validation"
@@ -1124,9 +1056,6 @@ PY
       # 22
       # TASK 4
       # 27 SKILLS
-      #
-      # CONCEPTUALLY THIS IS TASK 4.
-      # KEEP EXISTING SCRIPT NAME TO AVOID BREAKING REPOSITORY PATHS.
       ######################################################################
 
       - name: "22 - Task 4 — 27 Skills"
