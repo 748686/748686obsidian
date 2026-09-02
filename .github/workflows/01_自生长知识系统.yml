@@ -426,6 +426,43 @@ jobs:
       ######################################################################
       # 20
       # KNOWLEDGE PIPELINE
+      #
+      # SIX PROCESSING UNITS
+      #
+      # 1. DAY_BEFORE / en
+      # 2. DAY_BEFORE / zh
+      # 3. YESTERDAY  / en
+      # 4. YESTERDAY  / zh
+      # 5. TODAY      / en
+      # 6. TODAY      / zh
+      #
+      # EACH UNIT:
+      #
+      # TASK 1
+      #     Cluster
+      #
+      #      ↓
+      #
+      # TASK 2
+      #     Global Merge
+      #
+      #      ↓
+      #
+      # TASK 3
+      #     EventUnit Synthesis / Materialization
+      #
+      #      ↓
+      #
+      # EVENTUNIT VALIDATION
+      #
+      #      ↓
+      #
+      # _COMPLETE
+      #
+      #      ↓
+      #
+      # IMMEDIATE GIT PUSH + PULL
+      #
       ######################################################################
 
       - name: "20 - Knowledge Pipeline - Six Processing Units"
@@ -478,8 +515,7 @@ jobs:
 
 
           ####################################################################
-          # FUNCTION
-          # PROCESS ONE DATE + LANGUAGE UNIT
+          # PROCESS ONE DATE + LANGUAGE
           ####################################################################
 
           process_unit() {
@@ -761,6 +797,12 @@ jobs:
 
             ##################################################################
             # EVENTUNIT VALIDATION
+            #
+            # PURE BASH
+            #
+            # NO EMBEDDED PYTHON
+            # NO HEREDOC
+            # NO PYTHON INDENTATION PROBLEM
             ##################################################################
 
             echo
@@ -769,103 +811,139 @@ jobs:
             echo "EVENTUNIT VALIDATION"
             echo "======================================================================"
 
-            export KNOWLEDGE_DATE="$DATE"
-            export KNOWLEDGE_LANGUAGE="$LANGUAGE"
-
-            python - <<'PY'
-import os
-import sys
-from pathlib import Path
-
-date = os.environ["KNOWLEDGE_DATE"]
-language = os.environ["KNOWLEDGE_LANGUAGE"]
-
-root = Path("01_自生长知识系统/Raw News")
-event_root = root / f"{date}-EventUnit"
-lang_root = event_root / language
-
-event_units_dir = lang_root / "event_units"
-complete_marker = lang_root / "_COMPLETE"
-
-print(f"Date          : {date}")
-print(f"Language      : {language}")
-print(f"EventUnit dir : {event_units_dir}")
-print(f"Complete      : {complete_marker}")
-
-if not lang_root.is_dir():
-    print("❌ EventUnit language directory missing")
-    sys.exit(1)
-
-if not event_units_dir.is_dir():
-    print("❌ EventUnit directory missing")
-    sys.exit(1)
-
-event_files = sorted(
-    p
-    for p in event_units_dir.glob("*.md")
-    if p.name != "_COMPLETE"
-)
-
-print(f"EventUnits    : {len(event_files)}")
-
-if len(event_files) == 0:
-    print("❌ No EventUnits generated")
-    sys.exit(1)
-
-invalid = []
-
-for path in event_files:
-
-    try:
-        text = path.read_text(encoding="utf-8")
-    except Exception as exc:
-        invalid.append((path.name, f"read error: {exc}"))
-        continue
-
-    if not text.strip():
-        invalid.append((path.name, "empty file"))
-        continue
-
-    if "type: event_unit" not in text:
-        invalid.append((path.name, "missing type: event_unit"))
-
-    if "status: completed" not in text:
-        invalid.append((path.name, "missing status: completed"))
-
-    if "event_id:" not in text:
-        invalid.append((path.name, "missing event_id"))
-
-if invalid:
-
-    print()
-    print("❌ INVALID EVENTUNITS")
-
-    for filename, reason in invalid:
-        print(f"  - {filename}: {reason}")
-
-    sys.exit(1)
-
-if not complete_marker.is_file():
-    print("❌ _COMPLETE missing after validation")
-    sys.exit(1)
-
-print()
-print("✅ EventUnit files structurally valid")
-print("✅ _COMPLETE exists")
-print()
-print(f"EVENTUNIT VALIDATION COMPLETE | {date}/{language}")
-print(f"EventUnits: {len(event_files)}")
-PY
+            echo "Date          : $DATE"
+            echo "Language      : $LANGUAGE"
+            echo "EventUnit dir : $EVENT_UNITS_DIR"
+            echo "Complete      : $COMPLETE_MARKER"
 
 
             ##################################################################
-            # COMPLETE MARKER FINAL CHECK
+            # EVENTUNIT DIRECTORY CHECK
+            ##################################################################
+
+            if [ ! -d "$LANG_ROOT" ]; then
+              echo "❌ EventUnit language directory missing:"
+              echo "   $LANG_ROOT"
+              exit 1
+            fi
+
+            if [ ! -d "$EVENT_UNITS_DIR" ]; then
+              echo "❌ EventUnit directory missing:"
+              echo "   $EVENT_UNITS_DIR"
+              exit 1
+            fi
+
+
+            ##################################################################
+            # EVENTUNIT FILE COUNT
+            ##################################################################
+
+            EVENTUNIT_COUNT=$(
+              find "$EVENT_UNITS_DIR" \
+                -maxdepth 1 \
+                -type f \
+                -name "*.md" \
+                | wc -l \
+                | tr -d ' '
+            )
+
+            echo
+            echo "EventUnits    : $EVENTUNIT_COUNT"
+
+
+            ##################################################################
+            # EMPTY EVENTUNIT PROTECTION
+            ##################################################################
+
+            if [ "$EVENTUNIT_COUNT" -eq 0 ]; then
+              echo "❌ No EventUnits generated"
+              exit 1
+            fi
+
+
+            ##################################################################
+            # EVENTUNIT STRUCTURAL VALIDATION
+            ##################################################################
+
+            INVALID_EVENTUNIT=0
+
+            while IFS= read -r EVENT_FILE; do
+
+              echo
+              echo "Validating:"
+              echo "  $EVENT_FILE"
+
+              if [ ! -s "$EVENT_FILE" ]; then
+                echo "❌ Empty EventUnit:"
+                echo "   $EVENT_FILE"
+                INVALID_EVENTUNIT=1
+                continue
+              fi
+
+              if ! grep -Fq "type: event_unit" "$EVENT_FILE"; then
+                echo "❌ Missing type: event_unit"
+                echo "   $EVENT_FILE"
+                INVALID_EVENTUNIT=1
+              fi
+
+              if ! grep -Fq "status: completed" "$EVENT_FILE"; then
+                echo "❌ Missing status: completed"
+                echo "   $EVENT_FILE"
+                INVALID_EVENTUNIT=1
+              fi
+
+              if ! grep -Fq "event_id:" "$EVENT_FILE"; then
+                echo "❌ Missing event_id"
+                echo "   $EVENT_FILE"
+                INVALID_EVENTUNIT=1
+              fi
+
+            done < <(
+              find "$EVENT_UNITS_DIR" \
+                -maxdepth 1 \
+                -type f \
+                -name "*.md" \
+                -print \
+                | sort
+            )
+
+
+            ##################################################################
+            # STRUCTURAL VALIDATION RESULT
+            ##################################################################
+
+            if [ "$INVALID_EVENTUNIT" -ne 0 ]; then
+
+              echo
+              echo "❌ INVALID EVENTUNITS DETECTED"
+              exit 1
+
+            fi
+
+
+            ##################################################################
+            # _COMPLETE CHECK
             ##################################################################
 
             if [ ! -f "$COMPLETE_MARKER" ]; then
-              echo "❌ Final _COMPLETE check failed"
+              echo "❌ _COMPLETE missing after EventUnit validation"
               exit 1
             fi
+
+
+            ##################################################################
+            # EVENTUNIT VALIDATION COMPLETE
+            ##################################################################
+
+            echo
+            echo "======================================================================"
+            echo "EVENTUNIT VALIDATION COMPLETE"
+            echo "======================================================================"
+
+            echo "Date       : $DATE"
+            echo "Language   : $LANGUAGE"
+            echo "EventUnits : $EVENTUNIT_COUNT"
+            echo "_COMPLETE  : ✅"
 
 
             ##################################################################
