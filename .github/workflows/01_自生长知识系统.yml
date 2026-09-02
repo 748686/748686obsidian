@@ -1,277 +1,402 @@
 name: 748686 自生长知识系统
-
 on:
   workflow_dispatch:
+
   schedule:
-    - cron: "0 * * * *"
+    - cron: "0 0 * * *"
 
 permissions:
   contents: write
 
-# 防止多个 Knowledge Pipeline 同时运行造成 Push / Pull 冲突
-concurrency:
-  group: 748686-knowledge-system
-  cancel-in-progress: false
-
 jobs:
+
   knowledge-system:
+
     runs-on: ubuntu-latest
 
     steps:
 
-      ######################################################################
-      # 01
-      # CHECKOUT MAIN REPOSITORY
-      ######################################################################
+      # ==========================================================
+      # 1. Checkout 748686obsidian
+      # ==========================================================
 
-      - name: "01 - Checkout Main Repository"
+      - name: Checkout 748686obsidian
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ github.ref_name }}
 
+      # ==========================================================
+      # 2. Setup Python
+      # ==========================================================
 
-      ######################################################################
-      # 02
-      # PYTHON
-      ######################################################################
-
-      - name: "02 - Setup Python 3.12"
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
+      # ==========================================================
+      # 3. Install uv
+      # ==========================================================
 
-      ######################################################################
-      # 03
-      # UV
-      ######################################################################
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
 
-      - name: "03 - Install uv"
+      # ==========================================================
+      # 4. Calculate three processing dates
+      #
+      # GitHub Actions UTC = 唯一业务时间基准
+      # ==========================================================
+
+      - name: Calculate three processing dates
         run: |
           set -e
 
-          python -m pip install --upgrade pip
-          pip install uv
-
-
-      ######################################################################
-      # 04
-      # CALCULATE THREE UTC DATES
-      ######################################################################
-
-      - name: "04 - Calculate UTC Dates"
-        id: dates
-        run: |
-          set -e
-
-          TODAY=$(date -u -d "0 day" +%Y-%m-%d)
-          YESTERDAY=$(date -u -d "-1 day" +%Y-%m-%d)
-          DAY_BEFORE=$(date -u -d "-2 day" +%Y-%m-%d)
+          TODAY=$(date -u +%Y-%m-%d)
+          YESTERDAY=$(date -u -d "$TODAY -1 day" +%Y-%m-%d)
+          DAY_BEFORE=$(date -u -d "$TODAY -2 days" +%Y-%m-%d)
 
           echo "TODAY=$TODAY" >> "$GITHUB_ENV"
           echo "YESTERDAY=$YESTERDAY" >> "$GITHUB_ENV"
           echo "DAY_BEFORE=$DAY_BEFORE" >> "$GITHUB_ENV"
 
-          echo "TODAY      : $TODAY"
-          echo "YESTERDAY  : $YESTERDAY"
+          echo
+          echo "============================================================"
+          echo "PROCESSING DATES"
+          echo "============================================================"
+
           echo "DAY_BEFORE : $DAY_BEFORE"
+          echo "YESTERDAY  : $YESTERDAY"
+          echo "TODAY      : $TODAY"
+          echo
+          echo "Timezone: UTC"
+          echo "Time source: GitHub Actions Runner"
 
+      # ==========================================================
+      # 5. Checkout Horizon
+      # ==========================================================
 
-      ######################################################################
-      # 05
-      # CHECKOUT HORIZON
-      ######################################################################
-
-      - name: "05 - Checkout Horizon"
+      - name: Checkout Horizon main
         uses: actions/checkout@v4
         with:
-          repository: 748686/horizon
+          repository: 748686/Horizon
+          ref: main
           path: horizon
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
 
+      # ==========================================================
+      # 6. Install Horizon
+      # ==========================================================
 
-      ######################################################################
-      # 06
-      # INSTALL HORIZON
-      ######################################################################
-
-      - name: "06 - Install Horizon"
+      - name: Install Horizon
         working-directory: horizon
         run: |
           set -e
 
-          if [ -f pyproject.toml ]; then
-            uv sync
-          elif [ -f requirements.txt ]; then
-            uv pip install -r requirements.txt
-          fi
+          echo "============================================================"
+          echo "INSTALL HORIZON"
+          echo "============================================================"
 
+          uv sync
 
-      ######################################################################
-      # 07
-      # CHECK AGNES API
-      ######################################################################
-
-      - name: "07 - Check Agnes API"
-        env:
-          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
-        run: |
-          set -e
-
-          if [ -z "${AGNES_API_KEY:-}" ]; then
-            echo "❌ AGNES_API_KEY is not configured"
+          if [ ! -f "data/config.github.json" ]; then
+            echo "❌ Horizon native config not found"
             exit 1
           fi
 
-          echo "✅ AGNES_API_KEY detected"
+          echo "✅ Horizon installed"
+          echo "✅ Native config found"
 
+      # ==========================================================
+      # 7. Check AGNES
+      # ==========================================================
 
-      ######################################################################
-      # 08
-      # CLONE HORIZON GH-PAGES
-      ######################################################################
-
-      - name: "08 - Clone Horizon gh-pages"
-        run: |
-          set -e
-
-          rm -rf horizon-gh-pages
-
-          git clone \
-            --branch gh-pages \
-            --single-branch \
-            https://github.com/748686/horizon.git \
-            horizon-gh-pages
-
-
-      ######################################################################
-      # 09
-      # CHECK / IMPORT RAW NEWS
-      ######################################################################
-
-      - name: "09 - Check and Import 3-Day Raw News"
-        run: |
-          set -e
-
-          echo
-          echo "######################################################################"
-          echo "CHECK RAW NEWS"
-          echo "######################################################################"
-
-          RAW_ROOT="01_自生长知识系统/Raw News"
-
-          for DATE in "$DAY_BEFORE" "$YESTERDAY" "$TODAY"; do
-
-            echo
-            echo "DATE : $DATE"
-
-            if [ ! -d "$RAW_ROOT/$DATE" ]; then
-              echo "⚠️ Raw News directory does not exist:"
-              echo "   $RAW_ROOT/$DATE"
-            else
-              echo "✅ Raw News directory exists:"
-              echo "   $RAW_ROOT/$DATE"
-            fi
-
-          done
-
-
-      ######################################################################
-      # 10
-      # DETERMINE WHETHER TODAY HORIZON MUST RUN
-      ######################################################################
-
-      - name: "10 - Determine Horizon Run"
-        run: |
-          set -e
-
-          echo
-          echo "######################################################################"
-          echo "HORIZON RUN CHECK"
-          echo "######################################################################"
-
-          echo "Today      : $TODAY"
-          echo "Yesterday  : $YESTERDAY"
-          echo "Day Before : $DAY_BEFORE"
-
-          echo "Horizon execution decision completed."
-
-
-      ######################################################################
-      # 11
-      # RUN HORIZON
-      ######################################################################
-
-      - name: "11 - Run Horizon"
-        working-directory: horizon
+      - name: Check Agnes API configuration
         env:
           AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
         run: |
           set -e
 
-          echo
-          echo "######################################################################"
-          echo "RUN HORIZON"
-          echo "######################################################################"
-
-          if [ -f pyproject.toml ]; then
-            uv run python -m horizon
-          elif [ -f main.py ]; then
-            uv run python main.py
-          else
-            echo "⚠️ Horizon entrypoint not detected."
-            echo "Please keep the existing Horizon execution command here if different."
+          if [ -z "$AGNES_API_KEY" ]; then
+            echo "❌ AGNES_API_KEY is missing"
+            exit 1
           fi
 
+          echo "✅ AGNES_API_KEY exists"
 
-      ######################################################################
-      # 12
-      # REFRESH GH-PAGES
-      ######################################################################
+      # ==========================================================
+      # 8. Get Horizon gh-pages
+      # ==========================================================
 
-      - name: "12 - Refresh Horizon gh-pages"
+      - name: Get Horizon gh-pages
         run: |
           set -e
 
-          cd horizon-gh-pages
+          rm -rf horizon-pages
 
-          git fetch origin gh-pages
-          git reset --hard origin/gh-pages
+          git clone \
+            --quiet \
+            --depth 1 \
+            --branch gh-pages \
+            "https://github.com/748686/Horizon.git" \
+            horizon-pages
 
-          cd ..
+          if [ ! -d "horizon-pages/_posts" ]; then
+            echo "❌ Horizon _posts directory not found"
+            exit 1
+          fi
 
+          echo "✅ Horizon gh-pages downloaded"
 
-      ######################################################################
-      # 13
-      # VALIDATE RAW NEWS
-      ######################################################################
+      # ==========================================================
+      # 9. Check / Import three-day Raw News
+      # ==========================================================
 
-      - name: "13 - Validate 3-Day Raw News"
+      - name: Check three-day Raw News
         run: |
           set -e
-
-          echo
-          echo "######################################################################"
-          echo "VALIDATE RAW NEWS"
-          echo "######################################################################"
 
           RAW_ROOT="01_自生长知识系统/Raw News"
 
-          for DATE in "$DAY_BEFORE" "$YESTERDAY" "$TODAY"; do
+          mkdir -p "$RAW_ROOT"
+
+          for DATE in \
+            "$DAY_BEFORE" \
+            "$YESTERDAY" \
+            "$TODAY"
+          do
 
             echo
-            echo "DATE : $DATE"
+            echo "============================================================"
+            echo "RAW CHECK: $DATE"
+            echo "============================================================"
 
-            if [ -d "$RAW_ROOT/$DATE" ]; then
-              echo "✅ $DATE Raw News directory exists"
+            RAW_DIR="$RAW_ROOT/$DATE"
+
+            mkdir -p "$RAW_DIR"
+
+            COUNT=$(find "$RAW_DIR" \
+              -maxdepth 1 \
+              -type f \
+              -name "*.md" \
+              | wc -l)
+
+            echo "Local Raw files: $COUNT"
+
+            if [ "$COUNT" -ge 2 ]; then
+              echo "✅ Raw News exists"
+              continue
+            fi
+
+            echo "⚠️ Raw News incomplete"
+            echo "Searching Horizon..."
+
+            HCOUNT=$(find "horizon-pages/_posts" \
+              -maxdepth 1 \
+              -type f \
+              -name "$DATE*.md" \
+              | wc -l)
+
+            echo "Horizon files: $HCOUNT"
+
+            if [ "$HCOUNT" -gt 0 ]; then
+
+              while IFS= read -r file; do
+                cp "$file" "$RAW_DIR/"
+              done < <(
+                find "horizon-pages/_posts" \
+                  -maxdepth 1 \
+                  -type f \
+                  -name "$DATE*.md" \
+                  | sort
+              )
+
+              echo "✅ Imported $DATE from Horizon"
+
             else
-              echo "⚠️ $DATE Raw News directory missing"
+
+              echo "⚠️ Horizon has no $DATE output"
+
+              if [ "$DATE" != "$TODAY" ]; then
+                echo "❌ Historical Raw News missing: $DATE"
+                exit 1
+              fi
+
+              echo "▶️ Today's Horizon output must be generated"
+
             fi
 
           done
 
+      # ==========================================================
+      # 10. Determine whether today's Horizon must run
+      # ==========================================================
+
+      - name: Check whether Horizon must run
+        run: |
+          set -e
+
+          RAW_DIR="01_自生长知识系统/Raw News/$TODAY"
+
+          mkdir -p "$RAW_DIR"
+
+          COUNT=$(find "$RAW_DIR" \
+            -maxdepth 1 \
+            -type f \
+            -name "*.md" \
+            | wc -l)
+
+          echo "Today's Raw files: $COUNT"
+
+          if [ "$COUNT" -ge 2 ]; then
+
+            echo "HORIZON_TODAY_READY=true" >> "$GITHUB_ENV"
+
+            echo "✅ Today's Raw News exists"
+            echo "⏭️ Horizon will not run"
+
+          else
+
+            echo "HORIZON_TODAY_READY=false" >> "$GITHUB_ENV"
+
+            echo "❌ Today's Raw News incomplete"
+            echo "▶️ Horizon must run"
+
+          fi
+
+      # ==========================================================
+      # 11. Run Horizon
+      # ==========================================================
+
+      - name: Run Horizon
+        if: env.HORIZON_TODAY_READY != 'true'
+        working-directory: horizon
+        env:
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_BASE_URL: https://api.agnes-ai.cn/v1
+          AI_MODEL: agnes-2.5-flash
+        run: |
+          set -e
+
+          echo "============================================================"
+          echo "RUN HORIZON"
+          echo "============================================================"
+
+          echo "Date: $TODAY"
+          echo "Timezone: UTC"
+
+          uv run horizon \
+            --hours 24 \
+            --config data/config.github.json
+
+          echo "✅ Horizon process finished"
+
+      # ==========================================================
+      # 12. Refresh Horizon gh-pages
+      # ==========================================================
+
+      - name: Refresh Horizon gh-pages
+        if: env.HORIZON_TODAY_READY != 'true'
+        run: |
+          set -e
+
+          rm -rf horizon-pages
+
+          FOUND=false
+
+          for i in {1..10}; do
+
+            echo
+            echo "============================================================"
+            echo "HORIZON OUTPUT CHECK $i / 10"
+            echo "============================================================"
+
+            git clone \
+              --quiet \
+              --depth 1 \
+              --branch gh-pages \
+              "https://github.com/748686/Horizon.git" \
+              horizon-pages
+
+            COUNT=$(find \
+              "horizon-pages/_posts" \
+              -maxdepth 1 \
+              -type f \
+              -name "$TODAY*.md" \
+              | wc -l)
+
+            echo "Today's Horizon files: $COUNT"
+
+            if [ "$COUNT" -ge 2 ]; then
+
+              FOUND=true
+
+              echo "✅ Today's bilingual Horizon output found"
+              break
+
+            fi
+
+            rm -rf horizon-pages
+
+            if [ "$i" -lt 10 ]; then
+              sleep 30
+            fi
+
+          done
+
+          if [ "$FOUND" != "true" ]; then
+            echo "❌ Today's bilingual Horizon output not found"
+            exit 1
+          fi
+
+      # ==========================================================
+      # 13. Validate three-day Raw News
+      # ==========================================================
+
+      - name: Validate three-day Raw News
+        run: |
+          set -e
+
+          RAW_ROOT="01_自生长知识系统/Raw News"
+
+          echo "============================================================"
+          echo "FINAL THREE-DAY RAW VALIDATION"
+          echo "============================================================"
+
+          for DATE in \
+            "$DAY_BEFORE" \
+            "$YESTERDAY" \
+            "$TODAY"
+          do
+
+            RAW_DIR="$RAW_ROOT/$DATE"
+
+            echo
+            echo "DATE: $DATE"
+
+            if [ ! -d "$RAW_DIR" ]; then
+              echo "❌ Raw folder does not exist"
+              exit 1
+            fi
+
+            COUNT=$(find "$RAW_DIR" \
+              -maxdepth 1 \
+              -type f \
+              -name "*.md" \
+              | wc -l)
+
+            echo "Raw files: $COUNT"
+
+            if [ "$COUNT" -lt 2 ]; then
+              echo "❌ Raw News incomplete: $DATE"
+              exit 1
+            fi
+
+            echo "✅ Raw folder complete"
+
+          done
+
+          echo
+          echo "✅ THREE-DAY RAW NEWS COMPLETE"
 
       ######################################################################
       # 14
