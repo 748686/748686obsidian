@@ -19,6 +19,7 @@ TASK 3职责
     8. 验证所有 EventUnit 文件
     9. 所有 EventUnit 完整后生成 _COMPLETE
 
+
 完整架构：
 
     Task 1 Cluster
@@ -46,6 +47,8 @@ TASK 3职责
         ZH
         En
         Zh
+        eN
+        zH
 
 本文件绝不执行：
 
@@ -90,9 +93,15 @@ from pathlib import Path
 
 from knowledge_common import (
     RAW_NEWS,
+    EVENT_INDEX_FILE,
+    EVENT_UNITS_COMPLETE_FILE,
+    MERGED_CLUSTERS_FILE,
+    MAX_ARTICLES_PER_EVENT_CONTEXT,
+    ARTICLE_AGGREGATION_CONTENT_LIMIT,
     call_ai,
     load_all_enriched_news,
-    normalize_language,
+    validate_language,
+    validate_global_article_coverage,
     now,
     parse_front_matter,
     read_json,
@@ -108,28 +117,16 @@ from knowledge_common import (
 CURRENT_LANGUAGE = None
 
 
-SUPPORTED_LANGUAGES = (
-    "en",
-    "zh",
-)
-
-
 # ==============================================================
 # PATH / FILE CONTRACT
 # ==============================================================
 
 EVENT_UNITS_SUFFIX = "EventUnit"
 
-EVENT_INDEX_FILE = "_event_index.json"
-
-EVENT_UNITS_COMPLETE_FILE = "_COMPLETE"
-
-MERGED_CLUSTERS_FILE = "_merged_clusters.json"
-
 
 def event_units_root(date):
     """
-    raw news/
+    Raw News/
     └── YYYY-MM-DD-EventUnit/
     """
 
@@ -146,7 +143,7 @@ def language_dir(
     if language is None:
         language = CURRENT_LANGUAGE
 
-    lang = normalize_language(
+    lang = validate_language(
         language
     )
 
@@ -189,14 +186,12 @@ def merged_clusters_path(
     """
     Task 2 Global Merge output contract：
 
-    raw news/
+    Raw News/
     └── YYYY-MM-DD-EventUnit/
-        └── en/
-            └── _merged_clusters.json
-
-    或：
-
-        zh/
+        ├── en/
+        │   └── _merged_clusters.json
+        │
+        └── zh/
             └── _merged_clusters.json
     """
 
@@ -337,182 +332,6 @@ def validate_final_event_ids(
     print(
         f"✅ FINAL EVENT ID VALIDATION | "
         f"count={len(ids)}"
-    )
-
-
-# ==============================================================
-# ARTICLE COVERAGE
-# ==============================================================
-
-def validate_global_article_coverage(
-    date,
-    clusters,
-    news_count,
-    stage,
-):
-    """
-    最终 Global Merge Component 必须：
-
-        ARTICLE 1..N
-
-    每篇：
-
-        恰好一次
-
-    不允许：
-
-        missing
-        duplicate
-        extra
-        malformed
-    """
-
-    if not isinstance(
-        clusters,
-        list,
-    ):
-        raise RuntimeError(
-            f"❌ {stage}：clusters不是数组"
-        )
-
-    if news_count < 0:
-        raise RuntimeError(
-            f"❌ {stage}：news_count非法："
-            f"{news_count}"
-        )
-
-    expected = set(
-        range(
-            1,
-            news_count + 1,
-        )
-    )
-
-    occurrences = {}
-
-    malformed = []
-
-    for component_position, component in enumerate(
-        clusters,
-        1,
-    ):
-
-        if not isinstance(
-            component,
-            dict,
-        ):
-            malformed.append(
-                f"component[{component_position}]不是对象"
-            )
-            continue
-
-        article_indexes = component.get(
-            "article_indexes"
-        )
-
-        if not isinstance(
-            article_indexes,
-            list,
-        ):
-            malformed.append(
-                f"component[{component_position}] "
-                f"article_indexes不是数组"
-            )
-            continue
-
-        if not article_indexes:
-            malformed.append(
-                f"component[{component_position}] "
-                f"article_indexes为空"
-            )
-            continue
-
-        for raw_index in article_indexes:
-
-            if isinstance(
-                raw_index,
-                bool,
-            ):
-                malformed.append(
-                    f"component[{component_position}] "
-                    f"非法ARTICLE ID：{raw_index}"
-                )
-                continue
-
-            try:
-                index = int(
-                    raw_index
-                )
-
-            except Exception:
-                malformed.append(
-                    f"component[{component_position}] "
-                    f"非法ARTICLE ID：{raw_index}"
-                )
-                continue
-
-            occurrences.setdefault(
-                index,
-                [],
-            ).append(
-                component_position
-            )
-
-    actual = set(
-        occurrences.keys()
-    )
-
-    missing = sorted(
-        expected - actual
-    )
-
-    extra = sorted(
-        actual - expected
-    )
-
-    duplicate = {
-        index: positions
-        for index, positions
-        in occurrences.items()
-        if len(positions) > 1
-    }
-
-    if malformed:
-        raise RuntimeError(
-            f"❌ {stage} ARTICLE覆盖验证失败："
-            f"malformed={malformed[:20]}"
-        )
-
-    if missing:
-        raise RuntimeError(
-            f"❌ {stage} ARTICLE覆盖验证失败："
-            f"missing={missing[:50]}"
-        )
-
-    if extra:
-        raise RuntimeError(
-            f"❌ {stage} ARTICLE覆盖验证失败："
-            f"extra={extra[:50]}"
-        )
-
-    if duplicate:
-        raise RuntimeError(
-            f"❌ {stage} ARTICLE重复归属："
-            f"{dict(list(duplicate.items())[:20])}"
-        )
-
-    if (
-        actual != expected
-        or len(occurrences) != news_count
-    ):
-        raise RuntimeError(
-            f"❌ {stage} ARTICLE覆盖数量异常："
-            f"{len(occurrences)}/{news_count}"
-        )
-
-    print(
-        f"✅ {stage} ARTICLE Coverage: "
-        f"{news_count}/{news_count}"
     )
 
 
@@ -745,6 +564,14 @@ def validate_event_index_coverage(
         1,
     ):
 
+        if not isinstance(
+            event,
+            dict,
+        ):
+            raise RuntimeError(
+                f"❌ Event[{event_position}]不是对象"
+            )
+
         event_id = str(
             event.get(
                 "event_id",
@@ -798,7 +625,16 @@ def validate_event_index_coverage(
                 index = int(
                     article["index"]
                 )
+
             except Exception:
+                raise RuntimeError(
+                    f"❌ {event_id}存在非法ARTICLE index"
+                )
+
+            if isinstance(
+                article.get("index"),
+                bool,
+            ):
                 raise RuntimeError(
                     f"❌ {event_id}存在非法ARTICLE index"
                 )
@@ -871,6 +707,7 @@ def validate_event_index_coverage(
 # ==============================================================
 
 def synthesis_language_instruction():
+
     if CURRENT_LANGUAGE == "en":
 
         return """
@@ -878,7 +715,7 @@ Output language:
 
     English
 
-Use clear professional English Markdown.
+Use clear, professional English Markdown.
 
 Do NOT translate the source material mechanically.
 
@@ -1762,9 +1599,18 @@ def run_task_3(
 
     # ----------------------------------------------------------
     # STRICT LANGUAGE CONTRACT
+    #
+    # IMPORTANT:
+    #
+    # validate_language() ONLY accepts:
+    #
+    #     en
+    #     zh
+    #
+    # No upper/lower conversion is performed.
     # ----------------------------------------------------------
 
-    CURRENT_LANGUAGE = normalize_language(
+    CURRENT_LANGUAGE = validate_language(
         language
     )
 
@@ -2096,14 +1942,14 @@ def main():
     args = parser.parse_args()
 
     # ----------------------------------------------------------
-    # 额外严格检查
+    # STRICT LANGUAGE VALIDATION
     #
-    # argparse已经限制choices，
-    # 这里再次明确执行normalize_language，
-    # 但绝不自动大小写转换。
+    # argparse choices + validate_language 双重保护。
+    #
+    # 绝不自动转换大小写。
     # ----------------------------------------------------------
 
-    language = normalize_language(
+    language = validate_language(
         args.language
     )
 
