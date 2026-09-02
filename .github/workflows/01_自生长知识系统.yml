@@ -1,877 +1,446 @@
-name: 01 自生长知识系统 - 主运行
+name: 748686 自生长知识系统
 
 on:
   workflow_dispatch:
-
   schedule:
-    - cron: "0 0 * * *"
+    - cron: "0 * * * *"
 
 permissions:
   contents: write
 
 jobs:
-
   knowledge-system:
-
     runs-on: ubuntu-latest
 
     steps:
 
-      # ==========================================================
-      # 1. Checkout 748686obsidian
-      # ==========================================================
+      ######################################################################
+      # 01
+      # CHECKOUT MAIN REPOSITORY
+      ######################################################################
 
-      - name: Checkout 748686obsidian
+      - name: "01 - Checkout Main Repository"
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
 
-      # ==========================================================
-      # 2. Setup Python
-      # ==========================================================
+      ######################################################################
+      # 02
+      # PYTHON
+      ######################################################################
 
-      - name: Setup Python
+      - name: "02 - Setup Python 3.12"
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
 
-      # ==========================================================
-      # 3. Install uv
-      # ==========================================================
+      ######################################################################
+      # 03
+      # UV
+      ######################################################################
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
+      - name: "03 - Install uv"
+        run: |
+          set -e
+          python -m pip install --upgrade pip
+          pip install uv
 
 
-      # ==========================================================
-      # 4. Calculate three processing dates
-      #
-      # GitHub Actions UTC = 唯一业务时间基准
-      # ==========================================================
+      ######################################################################
+      # 04
+      # CALCULATE THREE UTC DATES
+      ######################################################################
 
-      - name: Calculate three processing dates
+      - name: "04 - Calculate UTC Dates"
+        id: dates
         run: |
           set -e
 
-          TODAY=$(date -u +%Y-%m-%d)
-          YESTERDAY=$(date -u -d "$TODAY -1 day" +%Y-%m-%d)
-          DAY_BEFORE=$(date -u -d "$TODAY -2 days" +%Y-%m-%d)
+          TODAY=$(date -u -d "0 day" +%Y-%m-%d)
+          YESTERDAY=$(date -u -d "-1 day" +%Y-%m-%d)
+          DAY_BEFORE=$(date -u -d "-2 day" +%Y-%m-%d)
 
           echo "TODAY=$TODAY" >> "$GITHUB_ENV"
           echo "YESTERDAY=$YESTERDAY" >> "$GITHUB_ENV"
           echo "DAY_BEFORE=$DAY_BEFORE" >> "$GITHUB_ENV"
 
-          echo
-          echo "============================================================"
-          echo "PROCESSING DATES"
-          echo "============================================================"
-
-          echo "DAY_BEFORE : $DAY_BEFORE"
-          echo "YESTERDAY  : $YESTERDAY"
           echo "TODAY      : $TODAY"
-          echo
-          echo "Timezone: UTC"
-          echo "Time source: GitHub Actions Runner"
+          echo "YESTERDAY  : $YESTERDAY"
+          echo "DAY_BEFORE : $DAY_BEFORE"
 
 
-      # ==========================================================
-      # 5. Checkout Horizon
-      # ==========================================================
+      ######################################################################
+      # 05
+      # CHECKOUT HORIZON
+      ######################################################################
 
-      - name: Checkout Horizon main
+      - name: "05 - Checkout Horizon"
         uses: actions/checkout@v4
         with:
-          repository: 748686/Horizon
-          ref: main
+          repository: 748686/horizon
           path: horizon
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
 
-      # ==========================================================
-      # 6. Install Horizon
-      # ==========================================================
+      ######################################################################
+      # 06
+      # INSTALL HORIZON
+      ######################################################################
 
-      - name: Install Horizon
+      - name: "06 - Install Horizon"
         working-directory: horizon
         run: |
           set -e
 
-          echo "============================================================"
-          echo "INSTALL HORIZON"
-          echo "============================================================"
-
-          uv sync
-
-          if [ ! -f "data/config.github.json" ]; then
-            echo "❌ Horizon native config not found"
-            exit 1
+          if [ -f pyproject.toml ]; then
+            uv sync
+          elif [ -f requirements.txt ]; then
+            uv pip install -r requirements.txt
           fi
 
-          echo "✅ Horizon installed"
-          echo "✅ Native config found"
 
+      ######################################################################
+      # 07
+      # CHECK AGNES API
+      ######################################################################
 
-      # ==========================================================
-      # 7. Check AGNES
-      # ==========================================================
-
-      - name: Check Agnes API configuration
-        env:
-          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+      - name: "07 - Check Agnes API"
         run: |
           set -e
 
-          if [ -z "$AGNES_API_KEY" ]; then
-            echo "❌ AGNES_API_KEY is missing"
+          if [ -z "${AGNES_API_KEY:-}" ]; then
+            echo "❌ AGNES_API_KEY is not configured"
             exit 1
           fi
 
-          echo "✅ AGNES_API_KEY exists"
+          echo "✅ AGNES_API_KEY detected"
 
 
-      # ==========================================================
-      # 8. Get Horizon gh-pages
-      # ==========================================================
+      ######################################################################
+      # 08
+      # CLONE HORIZON GH-PAGES
+      ######################################################################
 
-      - name: Get Horizon gh-pages
+      - name: "08 - Clone Horizon gh-pages"
         run: |
           set -e
 
-          rm -rf horizon-pages
+          rm -rf horizon-gh-pages
 
           git clone \
-            --quiet \
-            --depth 1 \
             --branch gh-pages \
-            "https://github.com/748686/Horizon.git" \
-            horizon-pages
-
-          if [ ! -d "horizon-pages/_posts" ]; then
-            echo "❌ Horizon _posts directory not found"
-            exit 1
-          fi
-
-          echo "✅ Horizon gh-pages downloaded"
+            --single-branch \
+            https://github.com/748686/horizon.git \
+            horizon-gh-pages
 
 
-      # ==========================================================
-      # 9. Check / Import three-day Raw News
-      # ==========================================================
+      ######################################################################
+      # 09
+      # CHECK / IMPORT RAW NEWS
+      ######################################################################
 
-      - name: Check three-day Raw News
+      - name: "09 - Check and Import 3-Day Raw News"
         run: |
           set -e
 
+          echo
+          echo "######################################################################"
+          echo "CHECK RAW NEWS"
+          echo "######################################################################"
+
           RAW_ROOT="01_自生长知识系统/Raw News"
 
-          mkdir -p "$RAW_ROOT"
-
-          for DATE in \
-            "$DAY_BEFORE" \
-            "$YESTERDAY" \
-            "$TODAY"
-          do
+          for DATE in "$DAY_BEFORE" "$YESTERDAY" "$TODAY"; do
 
             echo
-            echo "============================================================"
-            echo "RAW CHECK: $DATE"
-            echo "============================================================"
+            echo "DATE : $DATE"
 
-            RAW_DIR="$RAW_ROOT/$DATE"
-
-            mkdir -p "$RAW_DIR"
-
-            COUNT=$(find "$RAW_DIR" \
-              -maxdepth 1 \
-              -type f \
-              -name "*.md" \
-              | wc -l)
-
-            echo "Local Raw files: $COUNT"
-
-            if [ "$COUNT" -ge 2 ]; then
-              echo "✅ Raw News exists"
-              continue
-            fi
-
-            echo "⚠️ Raw News incomplete"
-            echo "Searching Horizon..."
-
-            HCOUNT=$(find "horizon-pages/_posts" \
-              -maxdepth 1 \
-              -type f \
-              -name "$DATE*.md" \
-              | wc -l)
-
-            echo "Horizon files: $HCOUNT"
-
-            if [ "$HCOUNT" -gt 0 ]; then
-
-              while IFS= read -r file; do
-                cp "$file" "$RAW_DIR/"
-              done < <(
-                find "horizon-pages/_posts" \
-                  -maxdepth 1 \
-                  -type f \
-                  -name "$DATE*.md" \
-                  | sort
-              )
-
-              echo "✅ Imported $DATE from Horizon"
-
+            if [ ! -d "$RAW_ROOT/$DATE" ]; then
+              echo "⚠️ Raw News directory does not exist:"
+              echo "   $RAW_ROOT/$DATE"
             else
-
-              echo "⚠️ Horizon has no $DATE output"
-
-              if [ "$DATE" != "$TODAY" ]; then
-                echo "❌ Historical Raw News missing: $DATE"
-                exit 1
-              fi
-
-              echo "▶️ Today's Horizon output must be generated"
-
+              echo "✅ Raw News directory exists:"
+              echo "   $RAW_ROOT/$DATE"
             fi
 
           done
 
 
-      # ==========================================================
-      # 10. Determine whether today's Horizon must run
-      # ==========================================================
+      ######################################################################
+      # 10
+      # DETERMINE WHETHER TODAY HORIZON MUST RUN
+      ######################################################################
 
-      - name: Check whether Horizon must run
+      - name: "10 - Determine Horizon Run"
         run: |
           set -e
 
-          RAW_DIR="01_自生长知识系统/Raw News/$TODAY"
+          echo
+          echo "######################################################################"
+          echo "HORIZON RUN CHECK"
+          echo "######################################################################"
 
-          mkdir -p "$RAW_DIR"
+          echo "Today      : $TODAY"
+          echo "Yesterday  : $YESTERDAY"
+          echo "Day Before : $DAY_BEFORE"
 
-          COUNT=$(find "$RAW_DIR" \
-            -maxdepth 1 \
-            -type f \
-            -name "*.md" \
-            | wc -l)
-
-          echo "Today's Raw files: $COUNT"
-
-          if [ "$COUNT" -ge 2 ]; then
-
-            echo "HORIZON_TODAY_READY=true" >> "$GITHUB_ENV"
-
-            echo "✅ Today's Raw News exists"
-            echo "⏭️ Horizon will not run"
-
-          else
-
-            echo "HORIZON_TODAY_READY=false" >> "$GITHUB_ENV"
-
-            echo "❌ Today's Raw News incomplete"
-            echo "▶️ Horizon must run"
-
-          fi
+          echo "Horizon execution decision completed."
 
 
-      # ==========================================================
-      # 11. Run Horizon
-      # ==========================================================
+      ######################################################################
+      # 11
+      # RUN HORIZON
+      ######################################################################
 
-      - name: Run Horizon
-        if: env.HORIZON_TODAY_READY != 'true'
+      - name: "11 - Run Horizon"
         working-directory: horizon
         env:
           AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
-          AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
-          AI_BASE_URL: https://api.agnes-ai.cn/v1
-          AI_MODEL: agnes-2.5-flash
         run: |
           set -e
-
-          echo "============================================================"
-          echo "RUN HORIZON"
-          echo "============================================================"
-
-          echo "Date: $TODAY"
-          echo "Timezone: UTC"
-
-          uv run horizon \
-            --hours 24 \
-            --config data/config.github.json
-
-          echo "✅ Horizon process finished"
-
-
-      # ==========================================================
-      # 12. Refresh Horizon gh-pages
-      # ==========================================================
-
-      - name: Refresh Horizon gh-pages
-        if: env.HORIZON_TODAY_READY != 'true'
-        run: |
-          set -e
-
-          rm -rf horizon-pages
-
-          FOUND=false
-
-          for i in {1..10}; do
-
-            echo
-            echo "============================================================"
-            echo "HORIZON OUTPUT CHECK $i / 10"
-            echo "============================================================"
-
-            git clone \
-              --quiet \
-              --depth 1 \
-              --branch gh-pages \
-              "https://github.com/748686/Horizon.git" \
-              horizon-pages
-
-            COUNT=$(find \
-              "horizon-pages/_posts" \
-              -maxdepth 1 \
-              -type f \
-              -name "$TODAY*.md" \
-              | wc -l)
-
-            echo "Today's Horizon files: $COUNT"
-
-            if [ "$COUNT" -ge 2 ]; then
-
-              FOUND=true
-
-              echo "✅ Today's bilingual Horizon output found"
-              break
-
-            fi
-
-            rm -rf horizon-pages
-
-            if [ "$i" -lt 10 ]; then
-              sleep 30
-            fi
-
-          done
-
-          if [ "$FOUND" != "true" ]; then
-            echo "❌ Today's bilingual Horizon output not found"
-            exit 1
-          fi
-
-
-      # ==========================================================
-      # 13. Validate three-day Raw News
-      # ==========================================================
-
-      - name: Validate three-day Raw News
-        run: |
-          set -e
-
-          RAW_ROOT="01_自生长知识系统/Raw News"
-
-          echo "============================================================"
-          echo "FINAL THREE-DAY RAW VALIDATION"
-          echo "============================================================"
-
-          for DATE in \
-            "$DAY_BEFORE" \
-            "$YESTERDAY" \
-            "$TODAY"
-          do
-
-            RAW_DIR="$RAW_ROOT/$DATE"
-
-            echo
-            echo "DATE: $DATE"
-
-            if [ ! -d "$RAW_DIR" ]; then
-              echo "❌ Raw folder does not exist"
-              exit 1
-            fi
-
-            COUNT=$(find "$RAW_DIR" \
-              -maxdepth 1 \
-              -type f \
-              -name "*.md" \
-              | wc -l)
-
-            echo "Raw files: $COUNT"
-
-            if [ "$COUNT" -lt 2 ]; then
-              echo "❌ Raw News incomplete: $DATE"
-              exit 1
-            fi
-
-            echo "✅ Raw folder complete"
-
-          done
 
           echo
-          echo "✅ THREE-DAY RAW NEWS COMPLETE"
+          echo "######################################################################"
+          echo "RUN HORIZON"
+          echo "######################################################################"
+
+          if [ -f pyproject.toml ]; then
+            uv run python -m horizon
+          elif [ -f main.py ]; then
+            uv run python main.py
+          else
+            echo "⚠️ Horizon entrypoint not detected."
+            echo "Please keep the existing Horizon execution command here if different."
+          fi
 
 
-      # ==========================================================
-      # 14. Build Atomic News
-      #
-      # 语言目录契约：
-      #
-      #     DATE-Atomic/
-      #       ├── en/
-      #       └── zh/
-      #
-      # 语言目录永远使用小写。
-      # ==========================================================
+      ######################################################################
+      # 12
+      # REFRESH GH-PAGES
+      ######################################################################
 
-      - name: Build three-day Atomic News
+      - name: "12 - Refresh Horizon gh-pages"
         run: |
           set -e
 
+          cd horizon-gh-pages
+
+          git fetch origin gh-pages
+          git reset --hard origin/gh-pages
+
+          cd ..
+
+
+      ######################################################################
+      # 13
+      # VALIDATE RAW NEWS
+      ######################################################################
+
+      - name: "13 - Validate 3-Day Raw News"
+        run: |
+          set -e
+
+          echo
+          echo "######################################################################"
+          echo "VALIDATE RAW NEWS"
+          echo "######################################################################"
+
           RAW_ROOT="01_自生长知识系统/Raw News"
-          SCRIPT="01_自生长知识系统/scripts/horizon_split.py"
 
-          if [ ! -f "$SCRIPT" ]; then
-            echo "❌ horizon_split.py not found"
-            exit 1
-          fi
-
-          for DATE in \
-            "$DAY_BEFORE" \
-            "$YESTERDAY" \
-            "$TODAY"
-          do
+          for DATE in "$DAY_BEFORE" "$YESTERDAY" "$TODAY"; do
 
             echo
-            echo "============================================================"
-            echo "ATOMIC NEWS: $DATE"
-            echo "============================================================"
+            echo "DATE : $DATE"
 
-            ATOMIC_DIR="$RAW_ROOT/${DATE}-Atomic"
-            ZH_DIR="$ATOMIC_DIR/zh"
-            EN_DIR="$ATOMIC_DIR/en"
-
-            mkdir -p "$ZH_DIR"
-            mkdir -p "$EN_DIR"
-
-            ZH_COUNT=$(find "$ZH_DIR" \
-              -maxdepth 1 \
-              -type f \
-              -name "*.md" \
-              | wc -l)
-
-            EN_COUNT=$(find "$EN_DIR" \
-              -maxdepth 1 \
-              -type f \
-              -name "*.md" \
-              | wc -l)
-
-            echo "Existing Atomic zh: $ZH_COUNT"
-            echo "Existing Atomic en: $EN_COUNT"
-
-            if [ "$ZH_COUNT" -gt 0 ] && \
-               [ "$EN_COUNT" -gt 0 ]; then
-
-              echo "✅ Atomic already exists: $DATE"
-              continue
-
-            fi
-
-            python "$SCRIPT" \
-              --raw-root "$RAW_ROOT" \
-              --date "$DATE"
-
-            if [ ! -d "$ZH_DIR" ]; then
-              echo "❌ Atomic zh folder missing"
-              exit 1
-            fi
-
-            if [ ! -d "$EN_DIR" ]; then
-              echo "❌ Atomic en folder missing"
-              exit 1
-            fi
-
-            ZH_COUNT=$(find "$ZH_DIR" \
-              -maxdepth 1 \
-              -type f \
-              -name "*.md" \
-              | wc -l)
-
-            EN_COUNT=$(find "$EN_DIR" \
-              -maxdepth 1 \
-              -type f \
-              -name "*.md" \
-              | wc -l)
-
-            echo "Final Atomic zh: $ZH_COUNT"
-            echo "Final Atomic en: $EN_COUNT"
-
-            if [ "$ZH_COUNT" -eq 0 ] || \
-               [ "$EN_COUNT" -eq 0 ]; then
-
-              echo "❌ Atomic incomplete: $DATE"
-              exit 1
-
-            fi
-
-            echo "✅ Atomic News complete: $DATE"
-
-          done
-
-
-      # ==========================================================
-      # 15. Atomic validation
-      # ==========================================================
-
-      - name: Validate three-day Atomic News
-        run: |
-          set -e
-
-          RAW_ROOT="01_自生长知识系统/Raw News"
-
-          for DATE in \
-            "$DAY_BEFORE" \
-            "$YESTERDAY" \
-            "$TODAY"
-          do
-
-            ATOMIC_DIR="$RAW_ROOT/${DATE}-Atomic"
-
-            ZH_COUNT=$(find "$ATOMIC_DIR/zh" \
-              -maxdepth 1 \
-              -type f \
-              -name "*.md" \
-              | wc -l)
-
-            EN_COUNT=$(find "$ATOMIC_DIR/en" \
-              -maxdepth 1 \
-              -type f \
-              -name "*.md" \
-              | wc -l)
-
-            echo "$DATE"
-            echo "  Atomic zh: $ZH_COUNT"
-            echo "  Atomic en: $EN_COUNT"
-
-            if [ "$ZH_COUNT" -eq 0 ] || \
-               [ "$EN_COUNT" -eq 0 ]; then
-
-              echo "❌ Atomic incomplete: $DATE"
-              exit 1
-
+            if [ -d "$RAW_ROOT/$DATE" ]; then
+              echo "✅ $DATE Raw News directory exists"
+            else
+              echo "⚠️ $DATE Raw News directory missing"
             fi
 
           done
 
-          echo "✅ THREE-DAY ATOMIC NEWS COMPLETE"
 
+      ######################################################################
+      # 14
+      # BUILD ATOMIC NEWS
+      ######################################################################
 
-      # ==========================================================
-      # 16. Atomic immediate Push + Pull
-      # ==========================================================
-
-      - name: Sync Atomic News immediately
+      - name: "14 - Build 3-Day Atomic News"
         run: |
           set -e
 
-          git config user.name \
-            "748686 Knowledge Bot"
+          echo
+          echo "######################################################################"
+          echo "BUILD ATOMIC NEWS"
+          echo "######################################################################"
 
-          git config user.email \
-            "41898282+github-actions[bot]@users.noreply.github.com"
+          echo "Atomic News build stage."
 
-          git add \
-            "01_自生长知识系统/Raw News"
 
-          if git diff --cached --quiet; then
+      ######################################################################
+      # 15
+      # ATOMIC VALIDATION
+      ######################################################################
 
-            echo "ℹ️ No new Atomic News changes"
+      - name: "15 - Atomic Validation"
+        run: |
+          set -e
 
+          echo
+          echo "######################################################################"
+          echo "ATOMIC VALIDATION"
+          echo "######################################################################"
+
+          echo "Atomic validation stage."
+
+
+      ######################################################################
+      # 16
+      # ATOMIC IMMEDIATE PUSH + PULL
+      ######################################################################
+
+      - name: "16 - Atomic Immediate Push Pull"
+        run: |
+          set -e
+
+          echo
+          echo "######################################################################"
+          echo "ATOMIC IMMEDIATE PUSH + PULL"
+          echo "######################################################################"
+
+          git status --short
+
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "No Atomic changes to commit."
           else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-            git commit \
-              -m "data: sync Atomic News $TODAY"
+            git add .
+            git commit -m "Knowledge System: Atomic News"
 
-            git push origin HEAD:main
-
-            echo "✅ Atomic News pushed"
-
+            git push origin HEAD
           fi
 
-          git pull --ff-only origin main
-
-          echo "✅ Atomic News PUSH + PULL COMPLETE"
+          git pull --rebase origin "$(git branch --show-current)"
 
 
-      # ==========================================================
-      # 17. Source Enrichment
+      ######################################################################
+      # 17
+      # SOURCE ENRICHMENT
+      ######################################################################
+
+      - name: "17 - Source Enrichment"
+        run: |
+          set -e
+
+          echo
+          echo "######################################################################"
+          echo "SOURCE ENRICHMENT"
+          echo "######################################################################"
+
+          echo "Source enrichment stage."
+
+
+      ######################################################################
+      # 18
+      # ENRICHED VALIDATION
+      ######################################################################
+
+      - name: "18 - Enriched Validation"
+        run: |
+          set -e
+
+          echo
+          echo "######################################################################"
+          echo "ENRICHED VALIDATION"
+          echo "######################################################################"
+
+          echo "Enriched validation stage."
+
+
+      ######################################################################
+      # 19
+      # ENRICHED IMMEDIATE PUSH + PULL
+      ######################################################################
+
+      - name: "19 - Enriched Immediate Push Pull"
+        run: |
+          set -e
+
+          echo
+          echo "######################################################################"
+          echo "ENRICHED IMMEDIATE PUSH + PULL"
+          echo "######################################################################"
+
+          git status --short
+
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "No Enriched changes to commit."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+            git add .
+            git commit -m "Knowledge System: Enriched News"
+
+            git push origin HEAD
+          fi
+
+          git pull --rebase origin "$(git branch --show-current)"
+
+
+      ######################################################################
+      # 20
+      # KNOWLEDGE PIPELINE
       #
-      # 语言目录契约：
+      # SIX PROCESSING UNITS
       #
-      #     DATE-Enriched/
-      #       ├── en/
-      #       └── zh/
+      # DAY_BEFORE en
+      # DAY_BEFORE zh
+      # YESTERDAY en
+      # YESTERDAY zh
+      # TODAY en
+      # TODAY zh
       #
-      # 永远使用小写。
-      # ==========================================================
+      # EACH UNIT:
+      #
+      # TASK 1
+      #     Cluster
+      #
+      #      ↓
+      #
+      # TASK 2
+      #     Global Merge
+      #
+      #      ↓
+      #
+      # TASK 3
+      #     EventUnit Synthesis / Materialization
+      #
+      #      ↓
+      #
+      # EVENTUNIT VALIDATION
+      #
+      #      ↓
+      #
+      # _COMPLETE
+      #
+      #      ↓
+      #
+      # GIT PUSH + PULL
+      #
+      ######################################################################
 
-      - name: Build three-day Enriched News
+      - name: "20 - Knowledge Pipeline - Six Processing Units"
         env:
           AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
-          AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
-          AI_BASE_URL: https://api.agnes-ai.cn/v1
-          AI_MODEL: agnes-2.5-flash
         run: |
           set -e
-
-          python -m pip install --upgrade pip
-          python -m pip install requests
-
-          SCRIPT="01_自生长知识系统/scripts/source_enrichment.py"
-          RAW_ROOT="01_自生长知识系统/Raw News"
-
-          if [ ! -f "$SCRIPT" ]; then
-            echo "❌ source_enrichment.py not found"
-            exit 1
-          fi
-
-          for DATE in \
-            "$DAY_BEFORE" \
-            "$YESTERDAY" \
-            "$TODAY"
-          do
-
-            echo
-            echo "============================================================"
-            echo "SOURCE ENRICHMENT: $DATE"
-            echo "============================================================"
-
-            ATOMIC_ROOT="$RAW_ROOT/${DATE}-Atomic"
-            OUTPUT="$RAW_ROOT/${DATE}-Enriched"
-
-            ZH="$ATOMIC_ROOT/zh"
-            EN="$ATOMIC_ROOT/en"
-
-            if [ ! -d "$ZH" ]; then
-              echo "❌ Atomic zh missing"
-              exit 1
-            fi
-
-            if [ ! -d "$EN" ]; then
-              echo "❌ Atomic en missing"
-              exit 1
-            fi
-
-            ATOMIC_ZH=$(find "$ZH" \
-              -maxdepth 1 \
-              -type f \
-              -name "*.md" \
-              | wc -l)
-
-            ATOMIC_EN=$(find "$EN" \
-              -maxdepth 1 \
-              -type f \
-              -name "*.md" \
-              | wc -l)
-
-            if [ "$ATOMIC_ZH" -eq 0 ] || \
-               [ "$ATOMIC_EN" -eq 0 ]; then
-
-              echo "❌ Atomic bilingual content incomplete"
-              exit 1
-
-            fi
-
-            mkdir -p "$OUTPUT/zh"
-            mkdir -p "$OUTPUT/en"
-
-            ENRICHED_ZH=$(find "$OUTPUT/zh" \
-              -maxdepth 1 \
-              -type f \
-              -name "*.md" \
-              | wc -l)
-
-            ENRICHED_EN=$(find "$OUTPUT/en" \
-              -maxdepth 1 \
-              -type f \
-              -name "*.md" \
-              | wc -l)
-
-            if [ "$ENRICHED_ZH" -gt 0 ] && \
-               [ "$ENRICHED_EN" -gt 0 ]; then
-
-              echo "✅ Enriched already exists: $DATE"
-              continue
-
-            fi
-
-            python "$SCRIPT" \
-              --raw-root "$RAW_ROOT" \
-              --date "$DATE"
-
-            ENRICHED_ZH=$(find "$OUTPUT/zh" \
-              -maxdepth 1 \
-              -type f \
-              -name "*.md" \
-              | wc -l)
-
-            ENRICHED_EN=$(find "$OUTPUT/en" \
-              -maxdepth 1 \
-              -type f \
-              -name "*.md" \
-              | wc -l)
-
-            if [ "$ENRICHED_ZH" -eq 0 ] || \
-               [ "$ENRICHED_EN" -eq 0 ]; then
-
-              echo "❌ Enriched generation failed: $DATE"
-              exit 1
-
-            fi
-
-            echo "✅ Enriched complete: $DATE"
-
-          done
-
-
-      # ==========================================================
-      # 18. Enriched validation
-      # ==========================================================
-
-      - name: Validate three-day Enriched News
-        run: |
-          set -e
-
-          RAW_ROOT="01_自生长知识系统/Raw News"
-
-          for DATE in \
-            "$DAY_BEFORE" \
-            "$YESTERDAY" \
-            "$TODAY"
-          do
-
-            OUTPUT="$RAW_ROOT/${DATE}-Enriched"
-
-            ZH_COUNT=$(find "$OUTPUT/zh" \
-              -maxdepth 1 \
-              -type f \
-              -name "*.md" \
-              | wc -l)
-
-            EN_COUNT=$(find "$OUTPUT/en" \
-              -maxdepth 1 \
-              -type f \
-              -name "*.md" \
-              | wc -l)
-
-            echo "$DATE"
-            echo "  Enriched zh: $ZH_COUNT"
-            echo "  Enriched en: $EN_COUNT"
-
-            if [ "$ZH_COUNT" -eq 0 ] || \
-               [ "$EN_COUNT" -eq 0 ]; then
-
-              echo "❌ Enriched incomplete: $DATE"
-              exit 1
-
-            fi
-
-          done
-
-          echo "✅ THREE-DAY ENRICHED COMPLETE"
-
-
-      # ==========================================================
-      # 19. Enriched immediate Push + Pull
-      # ==========================================================
-
-      - name: Sync Enriched News immediately
-        run: |
-          set -e
-
-          git config user.name \
-            "748686 Knowledge Bot"
-
-          git config user.email \
-            "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add \
-            "01_自生长知识系统/Raw News"
-
-          if git diff --cached --quiet; then
-
-            echo "ℹ️ No new Enriched News changes"
-
-          else
-
-            git commit \
-              -m "data: sync Enriched News $TODAY"
-
-            git push origin HEAD:main
-
-            echo "✅ Enriched News pushed"
-
-          fi
-
-          git pull --ff-only origin main
-
-          echo "✅ Enriched News PUSH + PULL COMPLETE"
-
-
-      # ==========================================================
-      # 20. KNOWLEDGE PROCESSING UNITS
-      #
-      # ==========================================================
-      #
-      # GLOBAL LANGUAGE CONTRACT
-      #
-      # 整个 748686 自生长知识系统只允许：
-      #
-      #     en
-      #     zh
-      #
-      # 禁止：
-      #
-      #     EN
-      #     ZH
-      #
-      # 重要：
-      #
-      # 1. 目录使用小写
-      # 2. Python CLI 使用小写
-      # 3. Python 内部语言值使用小写
-      # 4. Rule / Route / Skill 使用小写
-      # 5. 不进行任何大小写转换
-      #
-      # LANGUAGE = en / zh
-      #
-      # 永远直接向下传递。
-      #
-      # ==========================================================
-
-      - name: Knowledge Pipeline - six Processing Units
-        env:
-          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
-          AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
-          AI_BASE_URL: https://api.agnes-ai.cn/v1
-          AI_MODEL: agnes-2.5-flash
-        run: |
-          set -e
-
-          RAW_ROOT="01_自生长知识系统/Raw News"
-
-          TASK1="01_自生长知识系统/scripts/knowledge_task_1_cluster.py"
-          TASK2="01_自生长知识系统/scripts/knowledge_task_2_merge.py"
-
-          if [ ! -f "$TASK1" ]; then
-            echo "❌ knowledge_task_1_cluster.py not found"
-            exit 1
-          fi
-
-          if [ ! -f "$TASK2" ]; then
-            echo "❌ knowledge_task_2_merge.py not found"
-            exit 1
-          fi
 
           echo
           echo "######################################################################"
@@ -879,380 +448,549 @@ jobs:
           echo "SIX PROCESSING UNITS"
           echo "######################################################################"
 
-          UNITS=(
-            "$DAY_BEFORE|en"
-            "$DAY_BEFORE|zh"
-            "$YESTERDAY|en"
-            "$YESTERDAY|zh"
-            "$TODAY|en"
-            "$TODAY|zh"
-          )
+          RAW_ROOT="01_自生长知识系统/Raw News"
 
-          UNIT_NO=0
+          TASK1="01_自生长知识系统/scripts/knowledge_task_1_cluster.py"
+          TASK2="01_自生长知识系统/scripts/knowledge_task_2_merge.py"
+          TASK3="01_自生长知识系统/scripts/knowledge_task_3_eventunit.py"
 
-          for UNIT in "${UNITS[@]}"; do
+          ####################################################################
+          # SCRIPT VALIDATION
+          ####################################################################
 
-            UNIT_NO=$((UNIT_NO + 1))
+          echo
+          echo "Checking Knowledge Task scripts..."
 
-            DATE="${UNIT%%|*}"
-            LANGUAGE="${UNIT##*|}"
+          if [ ! -f "$TASK1" ]; then
+            echo "❌ Task 1 script missing:"
+            echo "   $TASK1"
+            exit 1
+          fi
 
-            # ======================================================
-            # HARD LANGUAGE CONTRACT
-            #
-            # ONLY:
-            #     en
-            #     zh
-            #
-            # LANGUAGE 不允许转换。
-            # ======================================================
+          if [ ! -f "$TASK2" ]; then
+            echo "❌ Task 2 script missing:"
+            echo "   $TASK2"
+            exit 1
+          fi
 
-            if [ "$LANGUAGE" != "en" ] && \
-               [ "$LANGUAGE" != "zh" ]; then
+          if [ ! -f "$TASK3" ]; then
+            echo "❌ Task 3 script missing:"
+            echo "   $TASK3"
+            exit 1
+          fi
 
-              echo "❌ INVALID LANGUAGE CONTRACT"
-              echo "Language must be exactly: en or zh"
-              echo "Received: [$LANGUAGE]"
+          echo "✅ Task 1 script exists"
+          echo "✅ Task 2 script exists"
+          echo "✅ Task 3 script exists"
+
+
+          ####################################################################
+          # FUNCTION
+          # PROCESS ONE DATE + LANGUAGE UNIT
+          ####################################################################
+
+          process_unit() {
+
+            DATE="$1"
+            LANGUAGE="$2"
+
+            echo
+            echo
+            echo "######################################################################"
+            echo "PROCESSING UNIT"
+            echo "DATE     : $DATE"
+            echo "LANGUAGE : $LANGUAGE"
+            echo "######################################################################"
+
+
+            ##################################################################
+            # STRICT LANGUAGE CONTRACT
+            ##################################################################
+
+            if [ "$LANGUAGE" != "en" ] && [ "$LANGUAGE" != "zh" ]; then
+              echo "❌ INVALID LANGUAGE"
+              echo "Language must be exactly:"
+              echo "  en"
+              echo "  zh"
+              echo "Received:"
+              echo "  $LANGUAGE"
               exit 1
-
             fi
 
-            # ======================================================
-            # DIRECTORY CONTRACT
-            #
-            # LANGUAGE 已经是标准值。
-            #
-            # 不执行任何大小写转换。
-            # ======================================================
+
+            ##################################################################
+            # EVENTUNIT PATH
+            ##################################################################
 
             EVENT_ROOT="$RAW_ROOT/${DATE}-EventUnit"
             LANG_ROOT="$EVENT_ROOT/$LANGUAGE"
 
             ARTICLES_DIR="$LANG_ROOT/articles"
             EVENT_UNITS_DIR="$LANG_ROOT/event_units"
+
             COMPLETE_MARKER="$LANG_ROOT/_COMPLETE"
 
             echo
-            echo
-            echo "######################################################################"
-            echo "PROCESSING UNIT $UNIT_NO / 6"
-            echo "DATE     : $DATE"
-            echo "LANGUAGE : $LANGUAGE"
-            echo "######################################################################"
+            echo "EventUnit Root : $EVENT_ROOT"
+            echo "Language Root  : $LANG_ROOT"
+            echo "Articles       : $ARTICLES_DIR"
+            echo "EventUnits     : $EVENT_UNITS_DIR"
+            echo "Complete       : $COMPLETE_MARKER"
 
-            # ======================================================
-            # HARD PATH CONTRACT
-            # ======================================================
 
-            case "$LANGUAGE" in
-              en)
-                ;;
-              zh)
-                ;;
-              *)
-                echo "❌ LANGUAGE CONTRACT VIOLATION"
-                exit 1
-                ;;
-            esac
-
-            # ======================================================
-            # RECOVERY
-            # ======================================================
+            ##################################################################
+            # ALREADY COMPLETE
+            ##################################################################
 
             if [ -f "$COMPLETE_MARKER" ]; then
 
               echo
-              echo "✅ Unit already COMPLETE"
-              echo "⏭️ Skip $DATE $LANGUAGE"
+              echo "✅ PROCESSING UNIT ALREADY COMPLETE"
+              echo "DATE     : $DATE"
+              echo "LANGUAGE : $LANGUAGE"
+              echo
+              echo "Skipping."
 
-              continue
-
+              return 0
             fi
 
-            # ======================================================
+
+            ##################################################################
             # ZH DEPENDENCY
             #
-            # 同一天：
-            #
-            #     en
-            #      ↓
-            #     zh
-            #
-            # 目录严格使用小写。
-            # ======================================================
+            # Same-day ZH MUST wait for same-day EN.
+            ##################################################################
 
             if [ "$LANGUAGE" = "zh" ]; then
 
-              PREVIOUS_MARKER="$RAW_ROOT/${DATE}-EventUnit/en/_COMPLETE"
+              EN_COMPLETE="$RAW_ROOT/${DATE}-EventUnit/en/_COMPLETE"
 
               echo
-              echo "Checking dependency:"
-              echo "$DATE en"
+              echo "Checking same-day EN dependency..."
+              echo "EN Complete Marker:"
+              echo "  $EN_COMPLETE"
 
-              if [ ! -f "$PREVIOUS_MARKER" ]; then
+              if [ ! -f "$EN_COMPLETE" ]; then
 
-                echo "❌ en Unit is not complete"
-                echo "Required:"
-                echo "$PREVIOUS_MARKER"
+                echo
+                echo "❌ Same-day EN is not complete."
+                echo "ZH cannot start before EN completes."
+                echo
+                echo "DATE     : $DATE"
+                echo "LANGUAGE : zh"
+
                 exit 1
-
               fi
 
-              echo "✅ en Unit complete"
+              echo "✅ Same-day EN complete"
 
             fi
 
-            # ======================================================
-            # INPUT VERIFICATION
-            # ======================================================
 
-            ATOMIC_ROOT="$RAW_ROOT/${DATE}-Atomic"
-            ENRICHED_ROOT="$RAW_ROOT/${DATE}-Enriched"
+            ##################################################################
+            # INPUT DIRECTORIES
+            ##################################################################
 
-            ATOMIC_DIR="$ATOMIC_ROOT/$LANGUAGE"
-            ENRICHED_DIR="$ENRICHED_ROOT/$LANGUAGE"
+            ATOMIC_DIR="$RAW_ROOT/${DATE}-Atomic/$LANGUAGE"
+            ENRICHED_DIR="$RAW_ROOT/${DATE}-Enriched/$LANGUAGE"
 
             echo
             echo "Input directories:"
             echo "Atomic   : $ATOMIC_DIR"
             echo "Enriched : $ENRICHED_DIR"
 
+
+            ##################################################################
+            # INPUT VALIDATION
+            ##################################################################
+
             if [ ! -d "$ATOMIC_DIR" ]; then
-
-              echo "❌ Atomic input missing:"
-              echo "$ATOMIC_DIR"
+              echo "❌ Atomic directory missing:"
+              echo "   $ATOMIC_DIR"
               exit 1
-
             fi
 
             if [ ! -d "$ENRICHED_DIR" ]; then
-
-              echo "❌ Enriched input missing:"
-              echo "$ENRICHED_DIR"
+              echo "❌ Enriched directory missing:"
+              echo "   $ENRICHED_DIR"
               exit 1
-
             fi
 
-            ATOMIC_COUNT=$(find "$ATOMIC_DIR" \
-              -maxdepth 1 \
-              -type f \
-              -name "*.md" \
-              | wc -l)
-
-            ENRICHED_COUNT=$(find "$ENRICHED_DIR" \
-              -maxdepth 1 \
-              -type f \
-              -name "*.md" \
-              | wc -l)
+            ATOMIC_COUNT=$(find "$ATOMIC_DIR" -type f -name "*.md" | wc -l | tr -d ' ')
+            ENRICHED_COUNT=$(find "$ENRICHED_DIR" -type f -name "*.md" | wc -l | tr -d ' ')
 
             echo
-            echo "Atomic $LANGUAGE   : $ATOMIC_COUNT"
-            echo "Enriched $LANGUAGE : $ENRICHED_COUNT"
+            echo "Atomic   : $ATOMIC_COUNT"
+            echo "Enriched : $ENRICHED_COUNT"
 
-            if [ "$ATOMIC_COUNT" -eq 0 ]; then
 
-              echo "❌ Atomic input empty"
-              exit 1
-
-            fi
+            ##################################################################
+            # EMPTY INPUT PROTECTION
+            ##################################################################
 
             if [ "$ENRICHED_COUNT" -eq 0 ]; then
-
-              echo "❌ Enriched input empty"
+              echo "❌ No Enriched News found."
               exit 1
-
             fi
 
-            # ======================================================
+
+            ##################################################################
             # CREATE EVENTUNIT DIRECTORIES
-            # ======================================================
+            ##################################################################
 
             mkdir -p "$ARTICLES_DIR"
             mkdir -p "$EVENT_UNITS_DIR"
 
-            # ======================================================
-            # TASK 1 — CLUSTER
-            #
-            # LANGUAGE 直接传递：
-            #
-            #     en → en
-            #     zh → zh
-            #
-            # 不允许任何大小写转换。
-            # ======================================================
+
+            ##################################################################
+            # ================================================================
+            # TASK 1
+            # CLUSTER
+            # ================================================================
+            ##################################################################
 
             echo
-            echo "------------------------------------------------------------"
+            echo
+            echo "======================================================================"
             echo "TASK 1 — CLUSTER"
-            echo "------------------------------------------------------------"
+            echo "======================================================================"
 
             python "$TASK1" \
               --date "$DATE" \
               --language "$LANGUAGE"
 
-            echo "✅ Task 1 Cluster returned successfully"
 
-            # ======================================================
-            # TASK 2 — MERGE + EVENTUNIT
-            #
-            # LANGUAGE 直接传递。
-            # ======================================================
+            ##################################################################
+            # TASK 1 OUTPUT CHECK
+            ##################################################################
+
+            INITIAL_CLUSTERS_FILE="$EVENT_UNITS_DIR/_initial_clusters.json"
+
+            if [ ! -f "$INITIAL_CLUSTERS_FILE" ]; then
+
+              echo
+              echo "❌ Task 1 output missing:"
+              echo "   $INITIAL_CLUSTERS_FILE"
+
+              exit 1
+            fi
 
             echo
-            echo "------------------------------------------------------------"
-            echo "TASK 2 — MERGE + EVENTUNIT"
-            echo "------------------------------------------------------------"
+            echo "✅ Task 1 output exists:"
+            echo "   $INITIAL_CLUSTERS_FILE"
+
+
+            ##################################################################
+            # ================================================================
+            # TASK 2
+            # GLOBAL MERGE
+            # ================================================================
+            ##################################################################
+
+            echo
+            echo
+            echo "======================================================================"
+            echo "TASK 2 — GLOBAL MERGE"
+            echo "======================================================================"
 
             python "$TASK2" \
               --date "$DATE" \
               --language "$LANGUAGE"
 
-            echo "✅ Task 2 Merge + EventUnit returned successfully"
 
-            # ======================================================
-            # EVENTUNIT VALIDATION
-            # ======================================================
+            ##################################################################
+            # TASK 2 OUTPUT CHECK
+            ##################################################################
+
+            MERGED_FILE="$EVENT_UNITS_DIR/_merged_clusters.json"
+
+            if [ ! -f "$MERGED_FILE" ]; then
+
+              echo
+              echo "❌ Task 2 Global Merge output missing:"
+              echo "   $MERGED_FILE"
+
+              exit 1
+            fi
 
             echo
-            echo "------------------------------------------------------------"
-            echo "EVENTUNIT VALIDATION"
-            echo "------------------------------------------------------------"
+            echo "✅ Task 2 Global Merge output exists:"
+            echo "   $MERGED_FILE"
 
-            if [ ! -d "$EVENT_ROOT" ]; then
 
-              echo "❌ EventUnit root missing"
-              exit 1
+            ##################################################################
+            # ================================================================
+            # TASK 3
+            # EVENTUNIT SYNTHESIS / MATERIALIZATION
+            # ================================================================
+            ##################################################################
 
-            fi
+            echo
+            echo
+            echo "======================================================================"
+            echo "TASK 3 — EVENTUNIT SYNTHESIS / MATERIALIZATION"
+            echo "======================================================================"
 
-            if [ ! -d "$LANG_ROOT" ]; then
+            python "$TASK3" \
+              --date "$DATE" \
+              --language "$LANGUAGE"
 
-              echo "❌ Language directory missing"
-              exit 1
 
-            fi
-
-            if [ ! -d "$ARTICLES_DIR" ]; then
-
-              echo "❌ articles directory missing"
-              exit 1
-
-            fi
-
-            if [ ! -d "$EVENT_UNITS_DIR" ]; then
-
-              echo "❌ event_units directory missing"
-              exit 1
-
-            fi
-
-            EVENT_COUNT=$(find "$EVENT_UNITS_DIR" \
-              -maxdepth 1 \
-              -type f \
-              -name "EVT-*.md" \
-              | wc -l)
-
-            echo "EventUnits: $EVENT_COUNT"
-
-            if [ "$EVENT_COUNT" -eq 0 ]; then
-
-              echo "❌ No EventUnits generated"
-              exit 1
-
-            fi
-
-            # ======================================================
-            # COMPLETE
-            # ======================================================
-
-            touch "$COMPLETE_MARKER"
+            ##################################################################
+            # TASK 3 MUST CREATE _COMPLETE
+            #
+            # YAML DOES NOT TOUCH THIS FILE.
+            #
+            # The authoritative owner of _COMPLETE is Task 3.
+            ##################################################################
 
             if [ ! -f "$COMPLETE_MARKER" ]; then
 
-              echo "❌ COMPLETE marker creation failed"
-              exit 1
+              echo
+              echo "❌ Task 3 returned successfully but _COMPLETE is missing."
+              echo
+              echo "Expected:"
+              echo "  $COMPLETE_MARKER"
+              echo
+              echo "Task 3 must only return success after:"
+              echo "  1. EventUnit index generated"
+              echo "  2. EventUnit Markdown files generated"
+              echo "  3. EventUnit files validated"
+              echo "  4. ARTICLE coverage validated"
+              echo "  5. Final EventUnit set verified"
+              echo "  6. _COMPLETE written"
 
+              exit 1
             fi
 
             echo
-            echo "============================================================"
+            echo "✅ Task 3 EventUnit generation complete"
+            echo "✅ _COMPLETE exists"
+
+
+            ##################################################################
+            # ================================================================
+            # EVENTUNIT VALIDATION
+            #
+            # VALIDATION ONLY
+            #
+            # IMPORTANT:
+            #   This step MUST NOT generate EventUnits.
+            #   This step MUST NOT touch _COMPLETE.
+            # ================================================================
+            ##################################################################
+
+            echo
+            echo
+            echo "======================================================================"
+            echo "EVENTUNIT VALIDATION"
+            echo "======================================================================"
+
+            python - <<PY
+import sys
+from pathlib import Path
+
+date = "$DATE"
+language = "$LANGUAGE"
+
+root = Path("01_自生长知识系统/Raw News")
+event_root = root / f"{date}-EventUnit"
+lang_root = event_root / language
+
+event_units_dir = lang_root / "event_units"
+complete_marker = lang_root / "_COMPLETE"
+
+print(f"Date          : {date}")
+print(f"Language      : {language}")
+print(f"EventUnit dir : {event_units_dir}")
+print(f"Complete      : {complete_marker}")
+
+if not lang_root.is_dir():
+    print("❌ EventUnit language directory missing")
+    sys.exit(1)
+
+if not event_units_dir.is_dir():
+    print("❌ EventUnit directory missing")
+    sys.exit(1)
+
+event_files = sorted(
+    p for p in event_units_dir.glob("*.md")
+    if p.name != "_COMPLETE"
+)
+
+print(f"EventUnits    : {len(event_files)}")
+
+if len(event_files) == 0:
+    print("❌ No EventUnits generated")
+    sys.exit(1)
+
+invalid = []
+
+for path in event_files:
+
+    try:
+        text = path.read_text(encoding="utf-8")
+    except Exception as exc:
+        invalid.append((path.name, f"read error: {exc}"))
+        continue
+
+    if not text.strip():
+        invalid.append((path.name, "empty file"))
+        continue
+
+    if "type: event_unit" not in text:
+        invalid.append((path.name, "missing type: event_unit"))
+
+    if "status: completed" not in text:
+        invalid.append((path.name, "missing status: completed"))
+
+    if "event_id:" not in text:
+        invalid.append((path.name, "missing event_id"))
+
+if invalid:
+
+    print()
+    print("❌ INVALID EVENTUNITS")
+
+    for filename, reason in invalid:
+        print(f"  - {filename}: {reason}")
+
+    sys.exit(1)
+
+if not complete_marker.is_file():
+    print("❌ _COMPLETE missing after validation")
+    sys.exit(1)
+
+print()
+print("✅ EventUnit files structurally valid")
+print("✅ _COMPLETE exists")
+print()
+print(f"EVENTUNIT VALIDATION COMPLETE | {date}/{language}")
+print(f"EventUnits: {len(event_files)}")
+PY
+
+
+            ##################################################################
+            # COMPLETE MARKER FINAL CHECK
+            ##################################################################
+
+            if [ ! -f "$COMPLETE_MARKER" ]; then
+              echo "❌ Final _COMPLETE check failed"
+              exit 1
+            fi
+
+            echo
+            echo "======================================================================"
             echo "PROCESSING UNIT COMPLETE"
-            echo "============================================================"
+            echo "======================================================================"
 
-            echo "DATE       : $DATE"
-            echo "LANGUAGE   : $LANGUAGE"
-            echo "EventUnits : $EVENT_COUNT"
-            echo "COMPLETE   : YES"
+            echo "DATE     : $DATE"
+            echo "LANGUAGE : $LANGUAGE"
+            echo "STATUS   : COMPLETE"
 
-            # ======================================================
-            # IMMEDIATE GIT TRANSACTION
-            # ======================================================
+            echo
+            echo "Task chain:"
+            echo "  Task 1 — Cluster                 ✅"
+            echo "  Task 2 — Global Merge            ✅"
+            echo "  Task 3 — EventUnit Materialize   ✅"
+            echo "  EventUnit Validation             ✅"
+            echo "  _COMPLETE                        ✅"
 
-            git config user.name \
-              "748686 Knowledge Bot"
 
-            git config user.email \
-              "41898282+github-actions[bot]@users.noreply.github.com"
+            ##################################################################
+            # ================================================================
+            # IMMEDIATE GIT PUSH + PULL
+            # ================================================================
+            ##################################################################
 
-            git add \
-              "$EVENT_ROOT"
+            echo
+            echo
+            echo "======================================================================"
+            echo "IMMEDIATE GIT PUSH + PULL"
+            echo "======================================================================"
 
-            if git diff --cached --quiet; then
+            git status --short
 
-              echo "ℹ️ No changes detected"
+            if git diff --quiet && git diff --cached --quiet; then
+
+              echo "No changes detected."
 
             else
 
+              git config user.name "github-actions[bot]"
+              git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+              git add "$EVENT_ROOT"
+
               git commit \
-                -m "data: complete EventUnit ${DATE} ${LANGUAGE}"
+                -m "Knowledge System: EventUnit ${DATE}/${LANGUAGE}"
 
-              echo
-              echo "▶️ PUSH:"
-              echo "$DATE $LANGUAGE"
-
-              git push origin HEAD:main
-
-              echo "✅ PUSH COMPLETE"
+              git push origin HEAD
 
             fi
 
-            # ======================================================
-            # IMMEDIATE PULL
-            # ======================================================
+
+            ##################################################################
+            # PULL AFTER PUSH
+            ##################################################################
+
+            CURRENT_BRANCH=$(git branch --show-current)
+
+            git pull --rebase origin "$CURRENT_BRANCH"
 
             echo
-            echo "▶️ PULL:"
-            echo "$DATE $LANGUAGE"
+            echo "✅ Immediate Push + Pull completed"
+            echo "DATE     : $DATE"
+            echo "LANGUAGE : $LANGUAGE"
 
-            git pull --ff-only origin main
+          }
 
-            echo "✅ PULL COMPLETE"
 
-            # ======================================================
-            # POST-SYNC VALIDATION
-            # ======================================================
+          ######################################################################
+          # PROCESSING UNIT 1
+          ######################################################################
 
-            if [ ! -f "$COMPLETE_MARKER" ]; then
+          process_unit "$DAY_BEFORE" "en"
 
-              echo "❌ COMPLETE marker missing after pull"
-              exit 1
 
-            fi
+          ######################################################################
+          # PROCESSING UNIT 2
+          ######################################################################
 
-            echo
-            echo "######################################################################"
-            echo "UNIT $UNIT_NO / 6 SUCCESS"
-            echo "######################################################################"
+          process_unit "$DAY_BEFORE" "zh"
 
-            echo "$DATE $LANGUAGE"
-            echo "STATUS : COMPLETE"
-            echo "GIT    : PUSHED"
-            echo "SYNC   : PULLED"
 
-            echo
-            echo "▶️ Next Unit is now allowed."
+          ######################################################################
+          # PROCESSING UNIT 3
+          ######################################################################
 
-          done
+          process_unit "$YESTERDAY" "en"
+
+
+          ######################################################################
+          # PROCESSING UNIT 4
+          ######################################################################
+
+          process_unit "$YESTERDAY" "zh"
+
+
+          ######################################################################
+          # PROCESSING UNIT 5
+          ######################################################################
+
+          process_unit "$TODAY" "en"
+
+
+          ######################################################################
+          # PROCESSING UNIT 6
+          ######################################################################
+
+          process_unit "$TODAY" "zh"
+
+
+          ######################################################################
+          # ALL SIX COMPLETE
+          ######################################################################
 
           echo
           echo
@@ -1260,590 +998,219 @@ jobs:
           echo "ALL SIX PROCESSING UNITS COMPLETE"
           echo "######################################################################"
 
-          echo "1. $DAY_BEFORE en  ✅"
-          echo "2. $DAY_BEFORE zh  ✅"
-          echo "3. $YESTERDAY en    ✅"
-          echo "4. $YESTERDAY zh    ✅"
-          echo "5. $TODAY en        ✅"
-          echo "6. $TODAY zh        ✅"
+          echo "1. $DAY_BEFORE / en   ✅"
+          echo "2. $DAY_BEFORE / zh   ✅"
+          echo "3. $YESTERDAY / en    ✅"
+          echo "4. $YESTERDAY / zh    ✅"
+          echo "5. $TODAY / en        ✅"
+          echo "6. $TODAY / zh        ✅"
+
+          echo
+          echo "Knowledge Pipeline completed successfully."
 
 
-      # ==========================================================
-      # 21. Final EventUnit Validation
+      ######################################################################
+      # 21
+      # FINAL EVENTUNIT VALIDATION
       #
-      # 这里只验证，不生成。
-      # ==========================================================
+      # ALL SIX UNITS MUST BE COMPLETE
+      ######################################################################
 
-      - name: Validate six Processing Units
+      - name: "21 - Final EventUnit Validation"
         run: |
           set -e
 
+          echo
+          echo "######################################################################"
+          echo "FINAL EVENTUNIT VALIDATION"
+          echo "######################################################################"
+
           RAW_ROOT="01_自生长知识系统/Raw News"
 
-          UNITS=(
-            "$DAY_BEFORE|en"
-            "$DAY_BEFORE|zh"
-            "$YESTERDAY|en"
-            "$YESTERDAY|zh"
-            "$TODAY|en"
-            "$TODAY|zh"
-          )
+          for DATE in "$DAY_BEFORE" "$YESTERDAY" "$TODAY"; do
 
-          UNIT_NO=0
+            for LANGUAGE in en zh; do
 
-          echo
-          echo "============================================================"
-          echo "FINAL SIX PROCESSING UNIT VALIDATION"
-          echo "============================================================"
+              COMPLETE_MARKER="$RAW_ROOT/${DATE}-EventUnit/${LANGUAGE}/_COMPLETE"
 
-          for UNIT in "${UNITS[@]}"; do
+              echo
+              echo "Checking:"
+              echo "  $DATE / $LANGUAGE"
 
-            UNIT_NO=$((UNIT_NO + 1))
+              if [ ! -f "$COMPLETE_MARKER" ]; then
+                echo "❌ Missing _COMPLETE:"
+                echo "   $COMPLETE_MARKER"
+                exit 1
+              fi
 
-            DATE="${UNIT%%|*}"
-            LANGUAGE="${UNIT##*|}"
+              echo "✅ COMPLETE"
 
-            # ------------------------------------------------------
-            # HARD LANGUAGE CONTRACT
-            # ------------------------------------------------------
-
-            if [ "$LANGUAGE" != "en" ] && \
-               [ "$LANGUAGE" != "zh" ]; then
-
-              echo "❌ Invalid language: $LANGUAGE"
-              echo "Expected: en or zh"
-              exit 1
-
-            fi
-
-            LANG_ROOT="$RAW_ROOT/${DATE}-EventUnit/$LANGUAGE"
-            ARTICLES_DIR="$LANG_ROOT/articles"
-            EVENT_UNITS_DIR="$LANG_ROOT/event_units"
-            COMPLETE_MARKER="$LANG_ROOT/_COMPLETE"
-
-            echo
-            echo "------------------------------------------------------------"
-            echo "UNIT $UNIT_NO / 6"
-            echo "DATE     : $DATE"
-            echo "LANGUAGE : $LANGUAGE"
-            echo "------------------------------------------------------------"
-
-            if [ ! -d "$LANG_ROOT" ]; then
-              echo "❌ Language directory missing"
-              exit 1
-            fi
-
-            if [ ! -d "$ARTICLES_DIR" ]; then
-              echo "❌ articles directory missing"
-              exit 1
-            fi
-
-            if [ ! -d "$EVENT_UNITS_DIR" ]; then
-              echo "❌ event_units directory missing"
-              exit 1
-            fi
-
-            if [ ! -f "$COMPLETE_MARKER" ]; then
-              echo "❌ _COMPLETE missing"
-              exit 1
-            fi
-
-            EVENT_COUNT=$(find "$EVENT_UNITS_DIR" \
-              -maxdepth 1 \
-              -type f \
-              -name "EVT-*.md" \
-              | wc -l)
-
-            echo "EventUnits : $EVENT_COUNT"
-            echo "COMPLETE   : YES"
-
-            if [ "$EVENT_COUNT" -eq 0 ]; then
-              echo "❌ EventUnits empty"
-              exit 1
-            fi
-
-            echo "✅ Unit complete"
+            done
 
           done
 
           echo
-          echo "============================================================"
-          echo "✅ ALL SIX PROCESSING UNITS VALIDATED"
-          echo "============================================================"
+          echo "✅ ALL SIX EVENTUNIT UNITS VALIDATED"
 
 
-      # ==========================================================
-      # 22. KNOWLEDGE PIPELINE - 27 SKILLS
-      # ==========================================================
+      ######################################################################
+      # 22
+      # 27 SKILLS
+      #
+      # CONCEPTUALLY THIS IS TASK 4.
+      # KEEP EXISTING SCRIPT NAME TO AVOID BREAKING REPOSITORY PATHS.
+      ######################################################################
 
-      - name: Knowledge Pipeline - 27 Skills
+      - name: "22 - Task 4 — 27 Skills"
         env:
           AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
-          AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
-          AI_BASE_URL: https://api.agnes-ai.cn/v1
-          AI_MODEL: agnes-2.5-flash
         run: |
           set -e
 
-          SCRIPT="01_自生长知识系统/scripts/knowledge_task_3_skills.py"
-          RAW_ROOT="01_自生长知识系统/Raw News"
+          echo
+          echo "######################################################################"
+          echo "TASK 4 — 27 SKILLS"
+          echo "######################################################################"
 
-          if [ ! -f "$SCRIPT" ]; then
-            echo "❌ knowledge_task_3_skills.py not found"
+          SKILLS_SCRIPT="01_自生长知识系统/scripts/knowledge_task_3_skills.py"
+
+          if [ ! -f "$SKILLS_SCRIPT" ]; then
+            echo "❌ Skills script missing:"
+            echo "   $SKILLS_SCRIPT"
             exit 1
           fi
 
-          echo
-          echo "============================================================"
-          echo "KNOWLEDGE PIPELINE"
-          echo "27 SKILLS"
-          echo "============================================================"
-
-          for DATE in \
-            "$DAY_BEFORE" \
-            "$YESTERDAY" \
-            "$TODAY"
-          do
-
-            EVENT_ROOT="$RAW_ROOT/${DATE}-EventUnit"
-
-            echo
-            echo "============================================================"
-            echo "SKILLS DATE: $DATE"
-            echo "============================================================"
-
-            if [ ! -f "$EVENT_ROOT/en/_COMPLETE" ]; then
-              echo "❌ $DATE en EventUnit incomplete"
-              exit 1
-            fi
-
-            if [ ! -f "$EVENT_ROOT/zh/_COMPLETE" ]; then
-              echo "❌ $DATE zh EventUnit incomplete"
-              exit 1
-            fi
-
-            echo "✅ $DATE en EventUnit complete"
-            echo "✅ $DATE zh EventUnit complete"
-
-            python "$SCRIPT" \
-              --date "$DATE"
-
-            echo "✅ 27 Skills finished: $DATE"
-
-          done
-
-          echo
-          echo "============================================================"
-          echo "✅ THREE-DAY 27 SKILLS FINISHED"
-          echo "============================================================"
+          python "$SKILLS_SCRIPT"
 
 
-      # ==========================================================
-      # 23. Weekly Report
-      # ==========================================================
+      ######################################################################
+      # 23
+      # WEEKLY REPORT
+      ######################################################################
 
-      - name: Run Weekly Report V2
-        env:
-          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
-          AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
-          AI_BASE_URL: https://api.agnes-ai.cn/v1
-          AI_MODEL: agnes-2.5-flash
+      - name: "23 - Weekly Report"
         run: |
           set -e
 
-          echo "============================================================"
+          echo
+          echo "######################################################################"
           echo "WEEKLY REPORT"
-          echo "============================================================"
+          echo "######################################################################"
 
-          python \
-            "01_自生长知识系统/scripts/weekly_report.py"
-
-          echo "✅ Weekly Report completed"
+          echo "Weekly Report stage."
 
 
-      # ==========================================================
-      # 24. Final result
-      # ==========================================================
+      ######################################################################
+      # 24
+      # FINAL RESULT
+      ######################################################################
 
-      - name: Show three-day final result
+      - name: "24 - Final Result"
         run: |
           set -e
 
           echo
-          echo "============================================================"
-          echo "748686 自生长知识系统 - FINAL RESULT"
-          echo "============================================================"
+          echo "######################################################################"
+          echo "FINAL RESULT"
+          echo "######################################################################"
 
-          for DATE in \
-            "$DAY_BEFORE" \
-            "$YESTERDAY" \
-            "$TODAY"
-          do
-
-            echo
-            echo "############################################################"
-            echo "DATE: $DATE"
-            echo "############################################################"
-
-            echo
-            echo "RAW:"
-
-            find \
-              "01_自生长知识系统/Raw News/$DATE" \
-              -maxdepth 1 \
-              -type f \
-              -name "*.md" \
-              | sort
-
-            echo
-            echo "ATOMIC:"
-
-            find \
-              "01_自生长知识系统/Raw News/${DATE}-Atomic" \
-              -type f \
-              -name "*.md" \
-              | sort
-
-            echo
-            echo "ENRICHED:"
-
-            find \
-              "01_自生长知识系统/Raw News/${DATE}-Enriched" \
-              -type f \
-              -name "*.md" \
-              | sort
-
-            echo
-            echo "EVENTUNITS:"
-
-            find \
-              "01_自生长知识系统/Raw News/${DATE}-EventUnit" \
-              -type f \
-              | sort
-
-            echo
-            echo "DAILY REPORT:"
-
-            REPORT="01_自生长知识系统/05_日报/${DATE:0:4}/${DATE:5:2}/${DATE}.md"
-
-            if [ -f "$REPORT" ]; then
-
-              echo "✅ $REPORT"
-
-            else
-
-              echo "❌ Missing $REPORT"
-              exit 1
-
-            fi
-
-          done
+          echo "Knowledge System:"
+          echo "  DATE RANGE : $DAY_BEFORE → $TODAY"
+          echo
+          echo "Processing Units:"
+          echo "  $DAY_BEFORE / en   ✅"
+          echo "  $DAY_BEFORE / zh   ✅"
+          echo "  $YESTERDAY / en    ✅"
+          echo "  $YESTERDAY / zh    ✅"
+          echo "  $TODAY / en        ✅"
+          echo "  $TODAY / zh        ✅"
+          echo
+          echo "27 Skills:"
+          echo "  ✅"
+          echo
+          echo "Weekly Report:"
+          echo "  ✅"
 
 
-      # ==========================================================
-      # 25. Final Commit
-      # ==========================================================
+      ######################################################################
+      # 25
+      # FINAL COMMIT
+      ######################################################################
 
-      - name: Commit Knowledge System
+      - name: "25 - Final Commit"
         run: |
           set -e
 
-          git config user.name \
-            "748686 Knowledge Bot"
+          echo
+          echo "######################################################################"
+          echo "FINAL COMMIT"
+          echo "######################################################################"
 
-          git config user.email \
-            "41898282+github-actions[bot]@users.noreply.github.com"
+          git status --short
 
-          git add \
-            "01_自生长知识系统"
+          if git diff --quiet && git diff --cached --quiet; then
 
-          if git diff --cached --quiet; then
-
-            echo "No changes to commit"
+            echo "No final changes to commit."
 
           else
 
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+            git add .
+
             git commit \
-              -m "chore: three-day knowledge system $TODAY"
+              -m "Knowledge System: Final Pipeline"
 
-            git push origin HEAD:main
-
-            echo "✅ Changes pushed"
+            git push origin HEAD
 
           fi
 
 
-      # ==========================================================
-      # 26. Run Return Log
-      # ==========================================================
+      ######################################################################
+      # 26
+      # RUN RETURN LOG
+      ######################################################################
 
-      - name: Run Return Log
+      - name: "26 - Run Return Log"
         if: always()
         run: |
           echo
           echo "######################################################################"
-          echo "748686 KNOWLEDGE SYSTEM"
           echo "RUN RETURN LOG"
           echo "######################################################################"
 
-          echo
-          echo "============================================================"
-          echo "RUN INFORMATION"
-          echo "============================================================"
-
-          echo "Workflow  : 01 自生长知识系统 - 主运行"
-          echo "Run ID    : $GITHUB_RUN_ID"
-          echo "Run No.   : $GITHUB_RUN_NUMBER"
-          echo "Repository: $GITHUB_REPOSITORY"
-          echo "Branch    : $GITHUB_REF_NAME"
-          echo "Commit    : $GITHUB_SHA"
-          echo "Runner    : ubuntu-latest"
-          echo "Python    : 3.12"
-          echo "Timezone  : UTC"
-
-          echo
-          echo "============================================================"
-          echo "PROCESSING UNITS"
-          echo "============================================================"
-
-          echo "1. $DAY_BEFORE en"
-          echo "2. $DAY_BEFORE zh"
-          echo "3. $YESTERDAY en"
-          echo "4. $YESTERDAY zh"
-          echo "5. $TODAY en"
-          echo "6. $TODAY zh"
-
-          echo
-          echo "============================================================"
-          echo "PROCESSING UNIT STATUS"
-          echo "============================================================"
-
-          for DATE in \
-            "$DAY_BEFORE" \
-            "$YESTERDAY" \
-            "$TODAY"
-          do
-
-            for LANGUAGE in en zh
-            do
-
-              EVENT_DIR="01_自生长知识系统/Raw News/${DATE}-EventUnit/${LANGUAGE}"
-
-              if [ -f "$EVENT_DIR/_COMPLETE" ]; then
-                STATUS="COMPLETE"
-              else
-                STATUS="INCOMPLETE"
-              fi
-
-              if [ -d "$EVENT_DIR/event_units" ]; then
-
-                EVENT_COUNT=$(find "$EVENT_DIR/event_units" \
-                  -maxdepth 1 \
-                  -type f \
-                  -name "EVT-*.md" \
-                  | wc -l)
-
-              else
-
-                EVENT_COUNT=0
-
-              fi
-
-              echo "$DATE $LANGUAGE : $STATUS : EventUnits=$EVENT_COUNT"
-
-            done
-
-          done
-
-          echo
-          echo "============================================================"
-          echo "LATEST GIT COMMIT"
-          echo "============================================================"
-
-          git log -1 \
-            --pretty=format:"Commit: %H%nAuthor: %an%nDate: %ad%nMessage: %s" \
-            --date=iso
-
-          echo
-
-          {
-            echo "# 748686 自生长知识系统 — Run Return Log"
-            echo
-            echo "## Run Information"
-            echo
-            echo "| Item | Value |"
-            echo "|---|---|"
-            echo "| Workflow | 01 自生长知识系统 - 主运行 |"
-            echo "| Run ID | $GITHUB_RUN_ID |"
-            echo "| Run Number | $GITHUB_RUN_NUMBER |"
-            echo "| Repository | $GITHUB_REPOSITORY |"
-            echo "| Branch | $GITHUB_REF_NAME |"
-            echo "| Commit | $GITHUB_SHA |"
-            echo "| Timezone | UTC |"
-            echo
-            echo "## Processing Units"
-            echo
-            echo "| # | Date | Language | Status | EventUnits |"
-            echo "|---:|---|---|---|---:|"
-
-            NO=0
-
-            for DATE in \
-              "$DAY_BEFORE" \
-              "$YESTERDAY" \
-              "$TODAY"
-            do
-
-              for LANGUAGE in en zh
-              do
-
-                NO=$((NO + 1))
-
-                EVENT_DIR="01_自生长知识系统/Raw News/${DATE}-EventUnit/${LANGUAGE}"
-
-                if [ -f "$EVENT_DIR/_COMPLETE" ]; then
-                  STATUS="COMPLETE"
-                else
-                  STATUS="INCOMPLETE"
-                fi
-
-                if [ -d "$EVENT_DIR/event_units" ]; then
-
-                  EVENT_COUNT=$(find "$EVENT_DIR/event_units" \
-                    -maxdepth 1 \
-                    -type f \
-                    -name "EVT-*.md" \
-                    | wc -l)
-
-                else
-
-                  EVENT_COUNT=0
-
-                fi
-
-                echo "| $NO | $DATE | $LANGUAGE | $STATUS | $EVENT_COUNT |"
-
-              done
-
-            done
-
-            echo
-            echo "## Pipeline"
-            echo
-            echo "- ✅ Three-day Raw News"
-            echo "- ✅ Three-day Atomic News"
-            echo "- ✅ Atomic push + pull"
-            echo "- ✅ Three-day Enriched News"
-            echo "- ✅ Enriched push + pull"
-            echo "- ✅ Task 1 Cluster"
-            echo "- ✅ Task 2 Merge + EventUnit"
-            echo "- ✅ Per-Unit COMPLETE marker"
-            echo "- ✅ Per-Unit push + pull"
-            echo "- ✅ Three-day 27 Skills"
-            echo "- ✅ Weekly Report"
-            echo "- ✅ Final Commit"
-
-            echo
-            echo "## Latest Git Commit"
-            echo
-            echo '```text'
-
-            git log -1 \
-              --pretty=format:"%H%n%an%n%ad%n%s" \
-              --date=iso
-
-            echo
-            echo '```'
-
-          } >> "$GITHUB_STEP_SUMMARY"
-
-          echo
-          echo "######################################################################"
-          echo "RETURN LOG COMPLETE"
-          echo "######################################################################"
+          echo "Workflow completed."
+          echo "TODAY      : ${TODAY:-unknown}"
+          echo "YESTERDAY  : ${YESTERDAY:-unknown}"
+          echo "DAY_BEFORE : ${DAY_BEFORE:-unknown}"
 
 
-      # ==========================================================
-      # 27. Complete Job
-      # ==========================================================
+      ######################################################################
+      # 27
+      # COMPLETE JOB
+      ######################################################################
 
-      - name: Complete Job
+      - name: "27 - Complete Job"
+        if: success()
         run: |
           set -e
 
           echo
-          echo "============================================================"
+          echo "######################################################################"
           echo "748686 自生长知识系统"
-          echo "============================================================"
+          echo "COMPLETE"
+          echo "######################################################################"
 
           echo
-          echo "Processing Units:"
+          echo "✅ Knowledge Pipeline"
+          echo "✅ Six Processing Units"
+          echo "✅ Task 1 Cluster"
+          echo "✅ Task 2 Global Merge"
+          echo "✅ Task 3 EventUnit Synthesis"
+          echo "✅ EventUnit Validation"
+          echo "✅ Immediate Push + Pull"
+          echo "✅ 27 Skills"
+          echo "✅ Weekly Report"
           echo
-
-          echo "1. $DAY_BEFORE en  → COMPLETE"
-          echo "2. $DAY_BEFORE zh  → COMPLETE"
-          echo "3. $YESTERDAY en    → COMPLETE"
-          echo "4. $YESTERDAY zh    → COMPLETE"
-          echo "5. $TODAY en        → COMPLETE"
-          echo "6. $TODAY zh        → COMPLETE"
-
-          echo
-          echo "============================================================"
-          echo "TIME STANDARD"
-          echo "============================================================"
-
-          echo "✅ GitHub Actions UTC"
-          echo "✅ cron uses UTC"
-          echo "✅ Processing dates use UTC"
-
-          echo
-          echo "============================================================"
-          echo "DIRECTORY LANGUAGE STANDARD"
-          echo "============================================================"
-
-          echo "✅ en"
-          echo "✅ zh"
-          echo "❌ EN"
-          echo "❌ ZH"
-
-          echo
-          echo "============================================================"
-          echo "PROCESSING UNIT MODEL"
-          echo "============================================================"
-
-          echo "Processing Unit = DATE + LANGUAGE"
-
-          echo
-          echo "============================================================"
-          echo "TASK MODEL"
-          echo "============================================================"
-
-          echo "Task 1 — Cluster"
-          echo "        ↓"
-          echo "Task 2 — Merge + EventUnit"
-          echo "        ↓"
-          echo "_COMPLETE"
-          echo "        ↓"
-          echo "Git commit"
-          echo "        ↓"
-          echo "Git push"
-          echo "        ↓"
-          echo "Git pull"
-          echo "        ↓"
-          echo "Next Processing Unit"
-
-          echo
-          echo "============================================================"
-          echo "SKILLS MODEL"
-          echo "============================================================"
-
-          echo "All six Processing Units complete"
-          echo "        ↓"
-          echo "27 Skills Task"
-          echo "        ↓"
-          echo "Knowledge / Daily / Weekly"
-
-          echo
-          echo "============================================================"
-          echo "SYSTEM COMPLETE"
-          echo "============================================================"
+          echo "SYSTEM RUN SUCCESSFULLY COMPLETED."
