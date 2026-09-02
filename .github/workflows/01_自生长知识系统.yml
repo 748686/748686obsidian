@@ -815,87 +815,87 @@ jobs:
             echo "======================================================================"
 
             python - <<PY
-import sys
-from pathlib import Path
+            import sys
+            from pathlib import Path
 
-date = "$DATE"
-language = "$LANGUAGE"
+            date = "$DATE"
+            language = "$LANGUAGE"
 
-root = Path("01_自生长知识系统/Raw News")
-event_root = root / f"{date}-EventUnit"
-lang_root = event_root / language
+            root = Path("01_自生长知识系统/Raw News")
+            event_root = root / f"{date}-EventUnit"
+            lang_root = event_root / language
 
-event_units_dir = lang_root / "event_units"
-complete_marker = lang_root / "_COMPLETE"
+            event_units_dir = lang_root / "event_units"
+            complete_marker = lang_root / "_COMPLETE"
 
-print(f"Date          : {date}")
-print(f"Language      : {language}")
-print(f"EventUnit dir : {event_units_dir}")
-print(f"Complete      : {complete_marker}")
+            print(f"Date          : {date}")
+            print(f"Language      : {language}")
+            print(f"EventUnit dir : {event_units_dir}")
+            print(f"Complete      : {complete_marker}")
 
-if not lang_root.is_dir():
-    print("❌ EventUnit language directory missing")
-    sys.exit(1)
+            if not lang_root.is_dir():
+            print("❌ EventUnit language directory missing")
+            sys.exit(1)
 
-if not event_units_dir.is_dir():
-    print("❌ EventUnit directory missing")
-    sys.exit(1)
+            if not event_units_dir.is_dir():
+            print("❌ EventUnit directory missing")
+            sys.exit(1)
 
-event_files = sorted(
-    p for p in event_units_dir.glob("*.md")
-    if p.name != "_COMPLETE"
-)
+            event_files = sorted(
+            p for p in event_units_dir.glob("*.md")
+            if p.name != "_COMPLETE"
+             )
 
-print(f"EventUnits    : {len(event_files)}")
+            print(f"EventUnits    : {len(event_files)}")
 
-if len(event_files) == 0:
-    print("❌ No EventUnits generated")
-    sys.exit(1)
+            if len(event_files) == 0:
+            print("❌ No EventUnits generated")
+            sys.exit(1)
 
-invalid = []
+            invalid = []
 
-for path in event_files:
+            for path in event_files:
 
-    try:
-        text = path.read_text(encoding="utf-8")
-    except Exception as exc:
-        invalid.append((path.name, f"read error: {exc}"))
-        continue
+            try:
+             text = path.read_text(encoding="utf-8")
+            except Exception as exc:
+            invalid.append((path.name, f"read error: {exc}"))
+            continue
 
-    if not text.strip():
-        invalid.append((path.name, "empty file"))
-        continue
+            if not text.strip():
+            invalid.append((path.name, "empty file"))
+            continue
 
-    if "type: event_unit" not in text:
-        invalid.append((path.name, "missing type: event_unit"))
+            if "type: event_unit" not in text:
+            invalid.append((path.name, "missing type: event_unit"))
 
-    if "status: completed" not in text:
-        invalid.append((path.name, "missing status: completed"))
+           if "status: completed" not in text:
+           invalid.append((path.name, "missing status: completed"))
 
-    if "event_id:" not in text:
-        invalid.append((path.name, "missing event_id"))
+           if "event_id:" not in text:
+           invalid.append((path.name, "missing event_id"))
 
-if invalid:
+           if invalid:
 
-    print()
-    print("❌ INVALID EVENTUNITS")
+           print()
+           print("❌ INVALID EVENTUNITS")
 
-    for filename, reason in invalid:
-        print(f"  - {filename}: {reason}")
+           for filename, reason in invalid:
+           print(f"  - {filename}: {reason}")
 
-    sys.exit(1)
+           sys.exit(1)
 
-if not complete_marker.is_file():
-    print("❌ _COMPLETE missing after validation")
-    sys.exit(1)
+           if not complete_marker.is_file():
+            print("❌ _COMPLETE missing after validation")
+            sys.exit(1)
 
-print()
-print("✅ EventUnit files structurally valid")
-print("✅ _COMPLETE exists")
-print()
-print(f"EVENTUNIT VALIDATION COMPLETE | {date}/{language}")
-print(f"EventUnits: {len(event_files)}")
-PY
+            print()
+             print("✅ EventUnit files structurally valid")
+             print("✅ _COMPLETE exists")
+             print()
+              print(f"EVENTUNIT VALIDATION COMPLETE | {date}/{language}")
+             print(f"EventUnits: {len(event_files)}")
+             PY
 
 
             ##################################################################
