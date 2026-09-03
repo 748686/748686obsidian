@@ -435,31 +435,76 @@ def analysis_skill_catalog(
     skills: Any,
 ) -> dict[str, Any]:
 
+    """
+    建立 Analysis Skill Catalog。
+
+    knowledge_common.load_skills()
+    返回的 Skill 结构为：
+
+        name
+        path
+        content
+
+    当前 load_skills() 不包含 role 字段。
+
+    因此这里不能通过：
+
+        value.get("role") == "analysis"
+
+    对 Skill 进行过滤。
+
+    原来的逻辑会把 load_skills() 返回的所有
+    标准 Skill 全部过滤掉，从而导致：
+
+        RuntimeError: No analysis skills found.
+
+    Task 4 后续会根据：
+
+        skill_routes.json
+            Route
+                -> skills
+
+    限定 Router 实际可以选择的 Skill。
+
+    因此这里保留 load_skills() 返回的全部 Skill，
+    作为 Task 4 的 Skill Catalog。
+    """
+
     catalog: dict[str, Any] = {}
+
+    # ------------------------------------------------------------------
+    # knowledge_common.load_skills() 当前返回 dict
+    #
+    # 结构类似：
+    #
+    # {
+    #     "SkillName.md": {
+    #         "name": "SkillName.md",
+    #         "path": "...",
+    #         "content": "..."
+    #     }
+    # }
+    #
+    # Skill ID / Skill Name 就是 dict key。
+    # ------------------------------------------------------------------
 
     if isinstance(skills, dict):
 
-        iterable = skills.items()
+        for key, value in skills.items():
 
-        for key, value in iterable:
+            if not isinstance(key, str):
+                continue
 
-            if isinstance(value, dict):
+            name = key.strip()
 
-                role = value.get("role")
+            if not name:
+                continue
 
-                if role == "analysis":
-                    name = (
-                        key
-                        if isinstance(key, str)
-                        else extract_skill_name(value)
-                    )
+            catalog[name] = value
 
-                    if name:
-                        catalog[name] = value
-
-            elif isinstance(value, str):
-
-                catalog[key] = value
+    # ------------------------------------------------------------------
+    # 兼容 list 结构
+    # ------------------------------------------------------------------
 
     elif isinstance(skills, list):
 
@@ -468,15 +513,14 @@ def analysis_skill_catalog(
             if not isinstance(item, dict):
                 continue
 
-            role = item.get("role")
+            name = extract_skill_name(
+                item
+            )
 
-            if role != "analysis":
+            if not name:
                 continue
 
-            name = extract_skill_name(item)
-
-            if name:
-                catalog[name] = item
+            catalog[name] = item
 
     return catalog
 
