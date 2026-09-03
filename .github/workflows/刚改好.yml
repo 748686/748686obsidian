@@ -1410,12 +1410,12 @@ jobs:
           echo "######################################################################"
 
           UNITS=(
-            "$DAY_BEFORE|EN"
-            "$DAY_BEFORE|ZH"
-            "$YESTERDAY|EN"
-            "$YESTERDAY|ZH"
-            "$TODAY|EN"
-            "$TODAY|ZH"
+            "$DAY_BEFORE|en"
+            "$DAY_BEFORE|zh"
+            "$YESTERDAY|en"
+            "$YESTERDAY|zh"
+            "$TODAY|en"
+            "$TODAY|zh"
           )
 
           UNIT_NO=0
