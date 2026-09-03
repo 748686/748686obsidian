@@ -1,0 +1,96 @@
+{
+  "version": "2.0",
+
+  "routes": {
+    "新闻": {
+      "role": "analysis",
+      "skills": [
+        "总结文章.md",
+        "金字塔原理.md",
+        "四维价值模型.md"
+      ]
+    },
+
+    "商业": {
+      "role": "analysis",
+      "skills": [
+        "总结文章.md",
+        "SWOT分析.md",
+        "利弊分析表.md",
+        "决策树分析.md"
+      ]
+    },
+
+    "战略": {
+      "role": "analysis",
+      "skills": [
+        "SWOT分析.md",
+        "情景规划.md",
+        "OKR目标规划.md"
+      ]
+    },
+
+    "决策": {
+      "role": "analysis",
+      "skills": [
+        "5Why分析法.md",
+        "决策树分析.md",
+        "利弊分析表.md",
+        "情景规划.md"
+      ]
+    },
+
+    "营销": {
+      "role": "analysis",
+      "skills": [
+        "AIDA 模型.md",
+        "FAB 技巧.md",
+        "PAS 框架.md",
+        "SCAMPER 框架.md",
+        "SCQA 模型.md"
+      ]
+    },
+
+    "内容创作": {
+      "role": "output",
+      "skills": [
+        "笔记生成器.md",
+        "内容扩写大师.md",
+        "总结文章.md",
+        "STAR 法则.md"
+      ]
+    },
+
+    "小红书": {
+      "role": "output",
+      "skills": [
+        "产品种草.md",
+        "合集清单.md",
+        "教程攻略.md",
+        "经验分享.md"
+      ]
+    },
+
+    "故事": {
+      "role": "output",
+      "skills": [
+        "三幕剧结构.md",
+        "五幕剧结构.md",
+        "英雄之旅.md"
+      ]
+    },
+
+    "汇报": {
+      "role": "output",
+      "skills": [
+        "日报编写助手.md",
+        "周报编写助手.md"
+      ]
+    }
+  },
+
+  "selection": {
+    "min_skills": 2,
+    "max_skills": 6
+  }
+}
