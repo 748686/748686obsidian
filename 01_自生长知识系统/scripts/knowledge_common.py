@@ -1,0 +1,2550 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+748686 自生长知识系统
+Knowledge Common V6.5.4
+
+公共基础模块。
+
+本文件只负责：
+
+    1. 系统根目录
+    2. 文件路径
+    3. 严格语言验证
+    4. 时间
+    5. JSON读写
+    6. 原子文件写入
+    7. Front Matter解析
+    8. Enriched News读取
+    9. AI请求
+   10. AI JSON解析
+   11. Conflict Log
+   12. Global Cluster Registry
+   13. Global Cluster基本验证
+   14. 公共EventUnit路径
+
+本文件不负责：
+
+    Task 1 — Cluster
+    Task 2 — Global Merge
+    Task 3 — EventUnit
+    Task 4 — 27 Skills
+
+
+LANGUAGE CONTRACT
+=================
+
+系统唯一合法语言：
+
+    en
+    zh
+
+禁止：
+
+    EN
+    ZH
+    En
+    Zh
+    eN
+    zH
+
+禁止任何大小写转换。
+
+
+FILESYSTEM CONTRACT
+===================
+
+Enriched输入：
+
+    Raw News/
+        YYYY-MM-DD-Enriched/
+            en/
+            zh/
+
+EventUnit输出：
+
+    Raw News/
+        YYYY-MM-DD-EventUnit/
+            _global_cluster_registry.json
+            en/
+                articles/
+                event_units/
+            zh/
+                articles/
+                event_units/
+
+
+GLOBAL CLUSTER ID CONTRACT
+==========================
+
+Global Cluster ID唯一格式：
+
+    EVT-YYYYMMDD-000001
+
+例如：
+
+    EVT-20260830-000001
+    EVT-20260830-000002
+
+注意：
+
+    Global ID日期部分不带横杠。
+
+AI只能产生Local Cluster ID：
+
+    C001
+    C002
+    C003
+
+AI禁止产生：
+
+    EVT-
+    REC-
+    GM-
+
+
+AI RETRY CONTRACT
+=================
+
+自动重试：
+
+    HTTP 429
+    HTTP 500
+    HTTP 502
+    HTTP 503
+    HTTP 504
+
+网络错误：
+
+    URLError
+
+请求超时：
+
+    TimeoutError
+
+重试策略：
+
+    指数退避
+    +
+    Jitter
+
+默认：
+
+    Retry 1 : 10s + jitter
+    Retry 2 : 20s + jitter
+    Retry 3 : 40s + jitter
+    Retry 4 : 80s + jitter
+    Retry 5 : 160s + jitter
+
+最大等待：
+
+    180s
+
+HTTP 429：
+
+    如果服务器返回 Retry-After，
+    优先使用 Retry-After。
+
+非临时HTTP错误：
+
+    400
+    401
+    403
+    404
+    等
+
+直接失败，不自动重试。
+"""
+
+
+from __future__ import annotations
+
+import json
+import os
+import random
+import re
+import time
+
+from datetime import datetime
+from pathlib import Path
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
+from zoneinfo import ZoneInfo
+
+
+# ============================================================
+# ROOT
+# ============================================================
+
+ROOT = Path(__file__).resolve().parents[1]
+
+SYSTEM = ROOT / "00_System"
+SKILLS = ROOT / "Skills"
+RAW_NEWS = ROOT / "Raw News"
+
+REPORTS = ROOT / "05_日报"
+WEEKLY = ROOT / "06_周报"
+TOPICS = ROOT / "07_专题报告"
+KNOWLEDGE = ROOT / "08_知识库"
+
+LOGS = SYSTEM / "运行日志"
+
+ROUTES_FILE = SYSTEM / "skill_routes.json"
+
+
+# ============================================================
+# FILE CONTRACT
+# ============================================================
+
+EVENT_UNITS_SUFFIX = "EventUnit"
+
+EVENT_INDEX_FILE = "_event_index.json"
+
+EVENT_UNITS_COMPLETE_FILE = "_COMPLETE"
+
+SKILLS_COMPLETE_FILE = "_SKILLS_COMPLETE"
+
+GLOBAL_MERGE_CHECKPOINT_FILE = (
+    "_global_merge_checkpoint.json"
+)
+
+INITIAL_CLUSTERS_FILE = (
+    "_initial_clusters.json"
+)
+
+MERGED_CLUSTERS_FILE = (
+    "_merged_clusters.json"
+)
+
+GLOBAL_CLUSTER_REGISTRY_FILE = (
+    "_global_cluster_registry.json"
+)
+
+
+# ============================================================
+# PIPELINE COMMON CONFIGURATION
+# ============================================================
+
+AGGREGATION_BATCH_SIZE = 30
+
+GLOBAL_MERGE_WINDOW_SIZE = 30
+
+GLOBAL_MERGE_OVERLAP = 0
+
+MAX_ARTICLES_PER_EVENT_CONTEXT = 30
+
+ARTICLE_CLUSTER_CONTENT_LIMIT = 3500
+
+ARTICLE_AGGREGATION_CONTENT_LIMIT = 8000
+
+RECOVERY_BATCH_SIZES = (
+    30,
+    15,
+    8,
+    4,
+    2,
+    1,
+)
+
+
+# ============================================================
+# GLOBAL ID CONTRACT
+# ============================================================
+
+GLOBAL_CLUSTER_ID_PATTERN = re.compile(
+    r"^EVT-\d{8}-\d{6}$"
+)
+
+FORBIDDEN_AI_GLOBAL_ID_PATTERN = re.compile(
+    r"^(EVT|REC|GM)-.*",
+    flags=re.I,
+)
+
+
+def make_global_cluster_id(
+    date,
+    sequence,
+):
+    """
+    统一生成Global Cluster ID。
+
+    正式格式：
+
+        EVT-YYYYMMDD-000001
+    """
+
+    date_text = str(date).strip()
+
+    if not re.fullmatch(
+        r"\d{4}-\d{2}-\d{2}",
+        date_text,
+    ):
+        raise RuntimeError(
+            "❌ 非法日期格式，无法生成Global Cluster ID："
+            f"{date_text}"
+        )
+
+    sequence = int(sequence)
+
+    if sequence < 1:
+        raise RuntimeError(
+            f"❌ 非法Global Cluster sequence：{sequence}"
+        )
+
+    return (
+        f"EVT-"
+        f"{date_text.replace('-', '')}-"
+        f"{sequence:06d}"
+    )
+
+
+def is_valid_global_cluster_id(
+    value,
+):
+    return bool(
+        GLOBAL_CLUSTER_ID_PATTERN.fullmatch(
+            str(value or "").strip()
+        )
+    )
+
+
+def is_forbidden_ai_global_id(
+    value,
+):
+    return bool(
+        FORBIDDEN_AI_GLOBAL_ID_PATTERN.fullmatch(
+            str(value or "").strip()
+        )
+    )
+
+
+# ============================================================
+# AI CONFIGURATION
+# ============================================================
+
+AGNES_BASE_URL = os.getenv(
+    "AI_BASE_URL",
+    "https://api.agnes-ai.cn/v1",
+).rstrip("/")
+
+AGNES_MODEL = os.getenv(
+    "AI_MODEL",
+    "agnes-2.5-flash",
+)
+
+AGNES_API_KEY_ENV = "AGNES_API_KEY"
+
+DEFAULT_TEMPERATURE = 0.3
+
+AI_TIMEOUT = 180
+
+AI_REQUEST_THROTTLE_SECONDS = 1.5
+
+
+# ------------------------------------------------------------
+# AI RETRY CONFIGURATION
+# ------------------------------------------------------------
+
+AI_MAX_RETRIES = 5
+
+AI_BACKOFF_BASE = 10
+
+AI_BACKOFF_MAX = 180
+
+AI_JITTER_MAX = 3
+
+AI_RETRYABLE_HTTP_STATUS = (
+    429,
+    500,
+    502,
+    503,
+    504,
+)
+
+
+# ------------------------------------------------------------
+# Compatibility aliases
+#
+# 保留旧变量名称，避免其他旧Task直接引用时报错。
+# ------------------------------------------------------------
+
+AI_MAX_429_RETRIES = AI_MAX_RETRIES
+
+AI_429_BACKOFF_BASE = AI_BACKOFF_BASE
+
+AI_429_BACKOFF_MAX = AI_BACKOFF_MAX
+
+AI_429_JITTER_MAX = AI_JITTER_MAX
+
+
+_LAST_AI_REQUEST_TIME = 0.0
+
+
+# ============================================================
+# TIME
+# ============================================================
+
+BEIJING_TZ = ZoneInfo(
+    "Asia/Shanghai"
+)
+
+
+def now():
+    return datetime.now(
+        BEIJING_TZ
+    )
+
+
+# ============================================================
+# LANGUAGE CONTRACT
+# ============================================================
+
+SUPPORTED_LANGUAGES = (
+    "en",
+    "zh",
+)
+
+CURRENT_LANGUAGE = None
+
+
+def validate_language(
+    language,
+):
+    """
+    严格验证language。
+
+    不进行任何大小写转换。
+    """
+
+    if not isinstance(
+        language,
+        str,
+    ):
+        raise RuntimeError(
+            "❌ language必须是小写字符串："
+            f"{language!r}"
+        )
+
+    if language not in SUPPORTED_LANGUAGES:
+        raise RuntimeError(
+            "❌ language非法。"
+            f"收到={language!r}；"
+            "只允许：en / zh"
+        )
+
+    return language
+
+
+# ============================================================
+# PATHS
+# ============================================================
+
+def event_units_root(
+    date,
+):
+    return (
+        RAW_NEWS /
+        f"{date}-EventUnit"
+    )
+
+
+def enriched_news_root(
+    date,
+):
+    return (
+        RAW_NEWS /
+        f"{date}-Enriched"
+    )
+
+
+def enriched_language_dir(
+    date,
+    language,
+):
+    lang = validate_language(
+        language
+    )
+
+    return (
+        enriched_news_root(date) /
+        lang
+    )
+
+
+def language_dir(
+    date,
+    language,
+):
+    lang = validate_language(
+        language
+    )
+
+    return (
+        event_units_root(date) /
+        lang
+    )
+
+
+def event_units_dir(
+    date,
+    language,
+):
+    return (
+        language_dir(
+            date,
+            language,
+        ) /
+        "event_units"
+    )
+
+
+def articles_dir(
+    date,
+    language,
+):
+    return (
+        language_dir(
+            date,
+            language,
+        ) /
+        "articles"
+    )
+
+
+def initial_clusters_path(
+    date,
+    language,
+):
+    return (
+        language_dir(
+            date,
+            language,
+        ) /
+        INITIAL_CLUSTERS_FILE
+    )
+
+
+def merged_clusters_path(
+    date,
+    language,
+):
+    return (
+        language_dir(
+            date,
+            language,
+        ) /
+        MERGED_CLUSTERS_FILE
+    )
+
+
+def global_merge_checkpoint_path(
+    date,
+    language,
+):
+    return (
+        event_units_dir(
+            date,
+            language,
+        ) /
+        GLOBAL_MERGE_CHECKPOINT_FILE
+    )
+
+
+def conflict_log_path(
+    date,
+):
+    return (
+        LOGS /
+        f"{date}_event_aggregation_conflicts.log"
+    )
+
+
+def global_cluster_registry_path(
+    date,
+):
+    """
+    Global Registry由en / zh共同使用。
+
+    正确结构：
+
+        Raw News/
+            YYYY-MM-DD-EventUnit/
+                _global_cluster_registry.json
+    """
+
+    return (
+        event_units_root(date) /
+        GLOBAL_CLUSTER_REGISTRY_FILE
+    )
+
+
+# ============================================================
+# ENRICHED NEWS LOADER
+# ============================================================
+
+def _front_matter_value(
+    metadata,
+    *keys,
+):
+    for key in keys:
+        value = metadata.get(key)
+
+        if value is not None:
+            return value
+
+    return ""
+
+
+def load_all_enriched_news(
+    date,
+    language,
+):
+    """
+    读取当天指定语言的全部Enriched Markdown新闻。
+
+    输入：
+
+        Raw News/
+            YYYY-MM-DD-Enriched/
+                en/
+                zh/
+
+    返回：
+
+        [
+            {
+                "metadata": {...},
+                "body": "..."
+            },
+            ...
+        ]
+
+    文件排序必须稳定。
+    ARTICLE INDEX将按照这里的顺序产生。
+    """
+
+    lang = validate_language(
+        language
+    )
+
+    root = enriched_language_dir(
+        date,
+        lang,
+    )
+
+    if not root.exists():
+        raise RuntimeError(
+            f"❌ Enriched目录不存在：{root}"
+        )
+
+    if not root.is_dir():
+        raise RuntimeError(
+            f"❌ Enriched路径不是目录：{root}"
+        )
+
+    files = sorted(
+        [
+            path
+            for path in root.rglob("*.md")
+            if (
+                path.is_file()
+                and not path.name.startswith(".")
+                and not path.name.endswith(".tmp")
+            )
+        ],
+        key=lambda path: str(
+            path.relative_to(root)
+        ),
+    )
+
+    if not files:
+        raise RuntimeError(
+            f"❌ Enriched目录没有Markdown文件：{root}"
+        )
+
+    news = []
+
+    for path in files:
+
+        try:
+            content = path.read_text(
+                encoding="utf-8"
+            )
+
+        except Exception as e:
+            raise RuntimeError(
+                "❌ Enriched文件读取失败："
+                f"{path}\n{e}"
+            ) from e
+
+        metadata, body = parse_front_matter(
+            content
+        )
+
+        if not isinstance(
+            metadata,
+            dict,
+        ):
+            metadata = {}
+
+        if not isinstance(
+            body,
+            str,
+        ):
+            body = str(
+                body or ""
+            )
+
+        metadata = dict(
+            metadata
+        )
+
+        relative_path = str(
+            path.relative_to(root)
+        )
+
+        metadata.setdefault(
+            "source_file",
+            relative_path,
+        )
+
+        metadata.setdefault(
+            "date",
+            str(date),
+        )
+
+        metadata.setdefault(
+            "language",
+            lang,
+        )
+
+        title = _front_matter_value(
+            metadata,
+            "title",
+            "Title",
+        )
+
+        source = _front_matter_value(
+            metadata,
+            "source",
+            "publisher",
+            "site",
+        )
+
+        source_url = _front_matter_value(
+            metadata,
+            "source_url",
+            "url",
+            "link",
+        )
+
+        if title:
+            metadata["title"] = str(
+                title
+            )
+
+        if source:
+            metadata["source"] = str(
+                source
+            )
+
+        if source_url:
+            metadata["source_url"] = str(
+                source_url
+            )
+
+        news.append(
+            {
+                "metadata": metadata,
+                "body": body,
+            }
+        )
+
+    return news
+
+
+# ============================================================
+# ATOMIC TEXT WRITE
+# ============================================================
+
+def write_text_atomic(
+    path,
+    text,
+):
+    path = Path(path)
+
+    path.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    tmp = path.with_name(
+        path.name + ".tmp"
+    )
+
+    try:
+
+        tmp.write_text(
+            text,
+            encoding="utf-8",
+        )
+
+        tmp.replace(
+            path
+        )
+
+    except Exception:
+
+        try:
+            if tmp.exists():
+                tmp.unlink()
+        except Exception:
+            pass
+
+        raise
+
+
+# ============================================================
+# JSON
+# ============================================================
+
+def read_json(
+    path,
+    default=None,
+):
+    path = Path(path)
+
+    if not path.exists():
+        return default
+
+    try:
+
+        return json.loads(
+            path.read_text(
+                encoding="utf-8"
+            )
+        )
+
+    except Exception as e:
+
+        raise RuntimeError(
+            f"❌ JSON读取失败：{path}\n{e}"
+        ) from e
+
+
+def write_json(
+    path,
+    data,
+):
+    path = Path(path)
+
+    path.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    path.write_text(
+        json.dumps(
+            data,
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+
+def write_json_atomic(
+    path,
+    data,
+):
+    path = Path(path)
+
+    path.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    tmp = path.with_name(
+        path.name + ".tmp"
+    )
+
+    try:
+
+        payload = json.dumps(
+            data,
+            ensure_ascii=False,
+            indent=2,
+        )
+
+        tmp.write_text(
+            payload,
+            encoding="utf-8",
+        )
+
+        json.loads(
+            tmp.read_text(
+                encoding="utf-8"
+            )
+        )
+
+        with tmp.open(
+            "rb"
+        ) as f:
+
+            os.fsync(
+                f.fileno()
+            )
+
+        tmp.replace(
+            path
+        )
+
+    except Exception:
+
+        try:
+            if tmp.exists():
+                tmp.unlink()
+        except Exception:
+            pass
+
+        raise
+
+
+# ============================================================
+# FRONT MATTER
+# ============================================================
+
+def parse_front_matter(
+    content,
+):
+    if not isinstance(
+        content,
+        str,
+    ):
+        return {}, str(
+            content or ""
+        )
+
+    if not content.startswith(
+        "---"
+    ):
+        return {}, content
+
+    parts = content.split(
+        "---",
+        2
+    )
+
+    if len(parts) < 3:
+        return {}, content
+
+    data = {}
+
+    for line in (
+        parts[1]
+        .strip()
+        .splitlines()
+    ):
+
+        if ":" not in line:
+            continue
+
+        key, value = line.split(
+            ":",
+            1
+        )
+
+        data[
+            key.strip()
+        ] = (
+            value.strip()
+            .strip('"')
+            .strip("'")
+        )
+
+    return (
+        data,
+        parts[2].lstrip()
+    )
+
+
+# ============================================================
+# SAFE FILE NAME
+# ============================================================
+
+def safe_name(
+    text,
+):
+    text = re.sub(
+        r'[\\/:*?"<>|]',
+        "_",
+        str(text or "")
+    )
+
+    text = re.sub(
+        r"\s+",
+        " ",
+        text
+    ).strip()
+
+    return (
+        text[:120]
+        or "未命名"
+    )
+
+
+# ============================================================
+# CONFLICT LOG
+# ============================================================
+
+def log_conflict(
+    date,
+    stage,
+    message,
+    details=None,
+):
+    LOGS.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    lines = [
+        "",
+        "=" * 80,
+        f"TIME: {now().isoformat()}",
+        f"DATE: {date}",
+        f"STAGE: {stage}",
+        f"MESSAGE: {message}",
+    ]
+
+    if details is not None:
+
+        try:
+
+            detail = (
+                details
+                if isinstance(
+                    details,
+                    str,
+                )
+                else json.dumps(
+                    details,
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
+
+        except Exception:
+
+            detail = str(
+                details
+            )
+
+        lines += [
+            "DETAILS:",
+            detail,
+        ]
+
+    lines += [
+        "=" * 80,
+        "",
+    ]
+
+    with conflict_log_path(
+        date
+    ).open(
+        "a",
+        encoding="utf-8",
+    ) as f:
+
+        f.write(
+            "\n".join(lines)
+        )
+
+    print(
+        f"⚠️ {message}"
+    )
+
+    print(
+        "   Conflict log: "
+        f"{conflict_log_path(date)}"
+    )
+
+
+# ============================================================
+# AI JSON PARSER
+# ============================================================
+
+def parse_ai_json(
+    result,
+    context,
+):
+    text = str(
+        result
+    ).strip()
+
+    if text.startswith(
+        "```"
+    ):
+
+        text = re.sub(
+            r"^```(?:json)?\s*",
+            "",
+            text,
+            flags=re.I,
+        )
+
+        text = re.sub(
+            r"\s*```$",
+            "",
+            text,
+        ).strip()
+
+    try:
+
+        return json.loads(
+            text
+        )
+
+    except Exception:
+
+        start = text.find(
+            "{"
+        )
+
+        end = text.rfind(
+            "}"
+        )
+
+        if (
+            start >= 0
+            and end > start
+        ):
+
+            candidate = text[
+                start:end + 1
+            ]
+
+            try:
+
+                return json.loads(
+                    candidate
+                )
+
+            except Exception:
+                pass
+
+        raise RuntimeError(
+            "❌ AI JSON解析失败："
+            f"{context}\n\n"
+            f"{text[:5000]}"
+        )
+
+
+# ============================================================
+# AI THROTTLE
+# ============================================================
+
+def wait_for_ai_throttle():
+
+    global _LAST_AI_REQUEST_TIME
+
+    elapsed = (
+        time.monotonic()
+        -
+        _LAST_AI_REQUEST_TIME
+    )
+
+    remaining = (
+        AI_REQUEST_THROTTLE_SECONDS
+        -
+        elapsed
+    )
+
+    if remaining > 0:
+
+        print(
+            "   ⏳ AI请求节流等待 "
+            f"{remaining:.1f}s"
+        )
+
+        time.sleep(
+            remaining
+        )
+
+    _LAST_AI_REQUEST_TIME = (
+        time.monotonic()
+    )
+
+
+# ============================================================
+# RETRY-AFTER
+# ============================================================
+
+def parse_retry_after(
+    headers,
+):
+    """
+    解析：
+
+        Retry-After: 30
+
+    当前优先支持秒数格式。
+    """
+
+    if headers is None:
+        return None
+
+    try:
+
+        value = headers.get(
+            "Retry-After"
+        )
+
+    except Exception:
+
+        return None
+
+    if value is None:
+        return None
+
+    try:
+
+        seconds = float(
+            str(value).strip()
+        )
+
+    except Exception:
+
+        return None
+
+    if seconds < 0:
+        return None
+
+    return seconds
+
+
+# ============================================================
+# GENERAL AI BACKOFF
+# ============================================================
+
+def calculate_ai_backoff(
+    retry_number,
+):
+    """
+    指数退避 + Jitter。
+
+    Retry 1：
+
+        10s + jitter
+
+    Retry 2：
+
+        20s + jitter
+
+    Retry 3：
+
+        40s + jitter
+
+    Retry 4：
+
+        80s + jitter
+
+    Retry 5：
+
+        160s + jitter
+
+    最大：
+
+        180s
+    """
+
+    if retry_number < 1:
+        retry_number = 1
+
+    base = min(
+        AI_BACKOFF_BASE
+        *
+        (
+            2 **
+            (
+                retry_number - 1
+            )
+        ),
+        AI_BACKOFF_MAX,
+    )
+
+    return min(
+        base
+        +
+        random.uniform(
+            0,
+            AI_JITTER_MAX,
+        ),
+        AI_BACKOFF_MAX,
+    )
+
+
+# ============================================================
+# BACKWARD COMPATIBILITY
+# ============================================================
+
+def calculate_429_backoff(
+    retry_number,
+):
+    """
+    保留旧函数名称。
+
+    老Task如果仍然调用：
+
+        calculate_429_backoff()
+
+    也不会报错。
+    """
+
+    return calculate_ai_backoff(
+        retry_number
+    )
+
+
+# ============================================================
+# AI CALL
+# ============================================================
+
+def call_ai(
+    prompt,
+    system_prompt=None,
+    temperature=DEFAULT_TEMPERATURE,
+):
+    """
+    统一AI请求入口。
+
+    自动处理：
+
+        HTTP 429
+        HTTP 500
+        HTTP 502
+        HTTP 503
+        HTTP 504
+
+    以及：
+
+        URLError
+        TimeoutError
+
+    重试策略：
+
+        指数退避
+        +
+        Jitter
+
+    HTTP 429：
+
+        优先读取Retry-After。
+
+    非临时HTTP错误：
+
+        直接失败。
+
+    注意：
+
+        不改变调用方接口。
+
+        Task 1 / Task 2 /
+        Task 3 / Task 4
+        无需修改。
+    """
+
+    key = os.getenv(
+        AGNES_API_KEY_ENV,
+        "",
+    ).strip()
+
+    if not key:
+
+        raise RuntimeError(
+            "❌ 缺少 AGNES_API_KEY"
+        )
+
+    if not system_prompt:
+
+        system_prompt = (
+            "你是748686自生长知识系统的知识工程师。"
+            "严格依据输入内容，不得编造事实。"
+        )
+
+    payload = json.dumps(
+        {
+            "model": AGNES_MODEL,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": system_prompt,
+                },
+                {
+                    "role": "user",
+                    "content": prompt,
+                },
+            ],
+            "temperature": temperature,
+        },
+        ensure_ascii=False,
+    ).encode(
+        "utf-8"
+    )
+
+    url = (
+        AGNES_BASE_URL
+        +
+        "/chat/completions"
+    )
+
+    # --------------------------------------------------------
+    # attempt定义
+    #
+    # attempt = 0
+    # 第一次正常请求
+    #
+    # attempt = 1
+    # 第一次retry
+    #
+    # ...
+    #
+    # attempt = 5
+    # 第五次retry
+    # --------------------------------------------------------
+
+    for attempt in range(
+        AI_MAX_RETRIES + 1
+    ):
+
+        # ----------------------------------------------------
+        # 每次retry重新创建Request。
+        #
+        # 避免某些HTTP连接层对已经发送过的Request
+        # 进行重复使用时产生不可预期问题。
+        # ----------------------------------------------------
+
+        req = Request(
+            url,
+            data=payload,
+            headers={
+                "Authorization":
+                    f"Bearer {key}",
+
+                "Content-Type":
+                    "application/json",
+
+                "Accept":
+                    "application/json",
+
+                "User-Agent":
+                    "748686-Knowledge-Pipeline/6.5.4",
+            },
+            method="POST",
+        )
+
+        wait_for_ai_throttle()
+
+        try:
+
+            with urlopen(
+                req,
+                timeout=AI_TIMEOUT,
+            ) as response:
+
+                raw = (
+                    response
+                    .read()
+                    .decode(
+                        "utf-8",
+                        errors="replace",
+                    )
+                )
+
+            # ------------------------------------------------
+            # JSON解析
+            # ------------------------------------------------
+
+            try:
+
+                data = json.loads(
+                    raw
+                )
+
+            except Exception as e:
+
+                raise RuntimeError(
+                    "❌ AGNES.ai返回不是合法JSON\n"
+                    +
+                    raw[:3000]
+                ) from e
+
+            # ------------------------------------------------
+            # OpenAI-compatible response
+            # ------------------------------------------------
+
+            try:
+
+                result = (
+                    data[
+                        "choices"
+                    ][0][
+                        "message"
+                    ][
+                        "content"
+                    ]
+                )
+
+            except Exception as e:
+
+                raise RuntimeError(
+                    "❌ AGNES.ai返回格式异常\n"
+                    +
+                    json.dumps(
+                        data,
+                        ensure_ascii=False,
+                    )[:5000]
+                ) from e
+
+            if not str(
+                result
+            ).strip():
+
+                raise RuntimeError(
+                    "❌ AGNES.ai返回空内容"
+                )
+
+            return str(
+                result
+            ).strip()
+
+        # ====================================================
+        # HTTP ERROR
+        # ====================================================
+
+        except HTTPError as e:
+
+            status = int(
+                e.code
+            )
+
+            body = ""
+
+            try:
+
+                body = (
+                    e.read()
+                    .decode(
+                        "utf-8",
+                        errors="replace",
+                    )
+                )
+
+            except Exception:
+                pass
+
+            # ------------------------------------------------
+            # 非临时HTTP错误
+            #
+            # 例如：
+            #
+            # 400
+            # 401
+            # 403
+            # 404
+            #
+            # 不应该无限retry。
+            # ------------------------------------------------
+
+            if status not in (
+                AI_RETRYABLE_HTTP_STATUS
+            ):
+
+                raise RuntimeError(
+                    f"❌ AGNES.ai HTTP错误 "
+                    f"{status}\n"
+                    f"{body[:3000]}"
+                ) from e
+
+            # ------------------------------------------------
+            # 已经达到最大retry次数
+            # ------------------------------------------------
+
+            if attempt >= AI_MAX_RETRIES:
+
+                print()
+                print(
+                    "❌ AGNES.ai 临时HTTP错误 "
+                    f"{status}"
+                )
+
+                print(
+                    "   已达到最大自动重试次数"
+                )
+
+                if body:
+
+                    print(
+                        "   Response    : "
+                        +
+                        re.sub(
+                            r"\s+",
+                            " ",
+                            body,
+                        ).strip()[:1000]
+                    )
+
+                raise RuntimeError(
+                    f"❌ AGNES.ai HTTP错误 "
+                    f"{status}："
+                    "自动重试次数耗尽\n"
+                    f"{body[:3000]}"
+                ) from e
+
+            # ------------------------------------------------
+            # 当前是第几次retry
+            # ------------------------------------------------
+
+            retry_number = (
+                attempt + 1
+            )
+
+            # ------------------------------------------------
+            # 429优先读取Retry-After
+            # ------------------------------------------------
+
+            retry_after = None
+
+            if status == 429:
+
+                retry_after = (
+                    parse_retry_after(
+                        e.headers
+                    )
+                )
+
+            if retry_after is not None:
+
+                wait_seconds = min(
+                    retry_after,
+                    AI_BACKOFF_MAX,
+                )
+
+                wait_source = (
+                    "Retry-After"
+                )
+
+            else:
+
+                wait_seconds = (
+                    calculate_ai_backoff(
+                        retry_number
+                    )
+                )
+
+                wait_source = (
+                    "指数退避 + Jitter"
+                )
+
+            # ------------------------------------------------
+            # 日志
+            # ------------------------------------------------
+
+            print()
+            print(
+                "⚠️ AGNES.ai 临时HTTP错误"
+            )
+
+            print(
+                f"   HTTP Status : {status}"
+            )
+
+            print(
+                f"   Retry       : "
+                f"{retry_number}/"
+                f"{AI_MAX_RETRIES}"
+            )
+
+            print(
+                f"   Wait        : "
+                f"{wait_seconds:.1f}s"
+            )
+
+            print(
+                f"   Strategy    : "
+                f"{wait_source}"
+            )
+
+            if body:
+
+                compact_body = re.sub(
+                    r"\s+",
+                    " ",
+                    body,
+                ).strip()
+
+                print(
+                    "   Response    : "
+                    +
+                    compact_body[:1000]
+                )
+
+            # ------------------------------------------------
+            # 等待
+            # ------------------------------------------------
+
+            time.sleep(
+                wait_seconds
+            )
+
+            continue
+
+        # ====================================================
+        # NETWORK ERROR
+        # ====================================================
+
+        except URLError as e:
+
+            if attempt >= (
+                AI_MAX_RETRIES
+            ):
+
+                raise RuntimeError(
+                    "❌ AGNES.ai网络连接失败，"
+                    "自动重试次数耗尽\n"
+                    f"{e.reason}"
+                ) from e
+
+            retry_number = (
+                attempt + 1
+            )
+
+            wait_seconds = (
+                calculate_ai_backoff(
+                    retry_number
+                )
+            )
+
+            print()
+            print(
+                "⚠️ AGNES.ai网络错误"
+            )
+
+            print(
+                f"   Error       : "
+                f"{e.reason}"
+            )
+
+            print(
+                f"   Retry       : "
+                f"{retry_number}/"
+                f"{AI_MAX_RETRIES}"
+            )
+
+            print(
+                f"   Wait        : "
+                f"{wait_seconds:.1f}s"
+            )
+
+            time.sleep(
+                wait_seconds
+            )
+
+            continue
+
+        # ====================================================
+        # TIMEOUT
+        # ====================================================
+
+        except TimeoutError as e:
+
+            if attempt >= (
+                AI_MAX_RETRIES
+            ):
+
+                raise RuntimeError(
+                    "❌ AGNES.ai请求超时，"
+                    "自动重试次数耗尽"
+                ) from e
+
+            retry_number = (
+                attempt + 1
+            )
+
+            wait_seconds = (
+                calculate_ai_backoff(
+                    retry_number
+                )
+            )
+
+            print()
+            print(
+                "⚠️ AGNES.ai请求超时"
+            )
+
+            print(
+                f"   Retry       : "
+                f"{retry_number}/"
+                f"{AI_MAX_RETRIES}"
+            )
+
+            print(
+                f"   Wait        : "
+                f"{wait_seconds:.1f}s"
+            )
+
+            time.sleep(
+                wait_seconds
+            )
+
+            continue
+
+        # ====================================================
+        # OTHER ERRORS
+        # ====================================================
+
+        except Exception as e:
+
+            raise RuntimeError(
+                f"❌ AGNES.ai请求失败：{e}"
+            ) from e
+
+    raise RuntimeError(
+        "❌ AGNES.ai请求异常结束"
+    )
+
+
+# ============================================================
+# GLOBAL CLUSTER REGISTRY
+# ============================================================
+
+def create_global_cluster_registry(
+    date,
+):
+    """
+    创建当天Global Cluster Registry。
+
+    Registry由en / zh共同使用。
+    """
+
+    date_text = str(
+        date
+    ).strip()
+
+    if not re.fullmatch(
+        r"\d{4}-\d{2}-\d{2}",
+        date_text,
+    ):
+        raise RuntimeError(
+            f"❌ Registry日期格式异常：{date_text}"
+        )
+
+    return {
+        "version": "6.5.4",
+        "date": date_text,
+        "next_sequence": 1,
+        "registered": [],
+    }
+
+
+def validate_registry_basic(
+    date,
+    registry,
+):
+    """
+    验证Global Registry基础结构。
+
+    Global ID正式格式：
+
+        EVT-YYYYMMDD-000001
+    """
+
+    date_text = str(
+        date
+    ).strip()
+
+    if (
+        not isinstance(
+            registry,
+            dict,
+        )
+        or registry.get(
+            "date"
+        ) != date_text
+    ):
+
+        raise RuntimeError(
+            f"❌ {date} Global Cluster Registry异常"
+        )
+
+    if (
+        not isinstance(
+            registry.get(
+                "next_sequence"
+            ),
+            int,
+        )
+        or registry[
+            "next_sequence"
+        ] < 1
+    ):
+
+        raise RuntimeError(
+            f"❌ {date} Global Cluster Registry "
+            "next_sequence异常"
+        )
+
+    registered = registry.get(
+        "registered"
+    )
+
+    if not isinstance(
+        registered,
+        list,
+    ):
+
+        raise RuntimeError(
+            f"❌ {date} Global Cluster Registry "
+            "registered异常"
+        )
+
+    seen_global_ids = set()
+
+    max_sequence = 0
+
+    for pos, item in enumerate(
+        registered,
+        1
+    ):
+
+        if not isinstance(
+            item,
+            dict,
+        ):
+
+            raise RuntimeError(
+                f"❌ {date} Registry "
+                f"registered[{pos}]不是对象"
+            )
+
+        global_id = str(
+            item.get(
+                "global_cluster_id",
+                ""
+            )
+        ).strip()
+
+        if not is_valid_global_cluster_id(
+            global_id
+        ):
+
+            raise RuntimeError(
+                f"❌ {date} Registry存在非法Global ID："
+                f"{global_id}"
+            )
+
+        if global_id in seen_global_ids:
+
+            raise RuntimeError(
+                f"❌ {date} Registry存在重复Global ID："
+                f"{global_id}"
+            )
+
+        seen_global_ids.add(
+            global_id
+        )
+
+        match = re.fullmatch(
+            r"EVT-\d{8}-(\d{6})",
+            global_id,
+        )
+
+        if match:
+
+            max_sequence = max(
+                max_sequence,
+                int(
+                    match.group(1)
+                ),
+            )
+
+        local_id = str(
+            item.get(
+                "local_cluster_id",
+                ""
+            )
+        ).strip()
+
+        if not local_id:
+
+            raise RuntimeError(
+                f"❌ {date} Registry "
+                f"registered[{pos}]缺少Local ID"
+            )
+
+        if is_forbidden_ai_global_id(
+            local_id
+        ):
+
+            raise RuntimeError(
+                f"❌ {date} Registry "
+                f"Local ID非法：{local_id}"
+            )
+
+        indexes = item.get(
+            "article_indexes",
+            [],
+        )
+
+        if not isinstance(
+            indexes,
+            list,
+        ):
+
+            raise RuntimeError(
+                f"❌ {date} Registry "
+                f"registered[{pos}] "
+                "article_indexes异常"
+            )
+
+        for index in indexes:
+
+            try:
+
+                int(index)
+
+            except Exception:
+
+                raise RuntimeError(
+                    f"❌ {date} Registry "
+                    f"registered[{pos}]存在非法ARTICLE："
+                    f"{index}"
+                )
+
+    next_sequence = int(
+        registry[
+            "next_sequence"
+        ]
+    )
+
+    if next_sequence <= max_sequence:
+
+        raise RuntimeError(
+            f"❌ {date} Registry next_sequence="
+            f"{next_sequence} "
+            "不大于当前最大sequence="
+            f"{max_sequence}"
+        )
+
+
+def persist_global_cluster_registry(
+    date,
+    registry,
+):
+    validate_registry_basic(
+        date,
+        registry,
+    )
+
+    write_json_atomic(
+        global_cluster_registry_path(
+            date
+        ),
+        {
+            "version": "6.5.4",
+            "date":
+                registry["date"],
+            "next_sequence":
+                int(
+                    registry[
+                        "next_sequence"
+                    ]
+                ),
+            "registered":
+                registry[
+                    "registered"
+                ],
+            "saved_at":
+                now().isoformat(),
+        },
+    )
+
+
+def register_global_cluster_ids(
+    date,
+    clusters,
+    registry,
+    source,
+):
+    """
+    唯一Global Cluster ID生成入口。
+
+    AI产生：
+
+        C001
+        C002
+
+    Python Registry产生：
+
+        EVT-20260830-000001
+    """
+
+    validate_registry_basic(
+        date,
+        registry,
+    )
+
+    out = []
+
+    for cluster in clusters:
+
+        if not isinstance(
+            cluster,
+            dict,
+        ):
+
+            raise RuntimeError(
+                f"❌ {date} Registry收到非对象Cluster"
+            )
+
+        d = dict(
+            cluster
+        )
+
+        local_id = str(
+            d.get(
+                "local_cluster_id"
+            )
+            or d.get(
+                "cluster_id"
+            )
+            or ""
+        ).strip()
+
+        if not local_id:
+
+            raise RuntimeError(
+                f"❌ {date} Registry收到空Local Cluster ID"
+            )
+
+        if is_forbidden_ai_global_id(
+            local_id
+        ):
+
+            raise RuntimeError(
+                f"❌ AI Local Cluster ID非法："
+                f"{local_id}"
+            )
+
+        seq = int(
+            registry[
+                "next_sequence"
+            ]
+        )
+
+        global_id = make_global_cluster_id(
+            date,
+            seq,
+        )
+
+        registry[
+            "next_sequence"
+        ] = seq + 1
+
+        d[
+            "local_cluster_id"
+        ] = local_id
+
+        d[
+            "cluster_id"
+        ] = global_id
+
+        d[
+            "member_cluster_ids"
+        ] = [
+            global_id
+        ]
+
+        d[
+            "global_id_source"
+        ] = (
+            "python_global_registry"
+        )
+
+        d[
+            "global_registry_source"
+        ] = source
+
+        indexes = []
+
+        for value in d.get(
+            "article_indexes",
+            [],
+        ):
+
+            indexes.append(
+                int(value)
+            )
+
+        registry[
+            "registered"
+        ].append(
+            {
+                "global_cluster_id":
+                    global_id,
+
+                "local_cluster_id":
+                    local_id,
+
+                "source":
+                    source,
+
+                "article_indexes":
+                    sorted(
+                        set(
+                            indexes
+                        )
+                    ),
+            }
+        )
+
+        out.append(
+            d
+        )
+
+    persist_global_cluster_registry(
+        date,
+        registry,
+    )
+
+    return out
+
+
+# ============================================================
+# GLOBAL CLUSTER MEMBERSHIP VALIDATION
+# ============================================================
+
+def validate_global_cluster_membership(
+    date,
+    clusters,
+    context,
+    expected_original_ids=None,
+):
+    """
+    验证Cluster结构。
+
+    Stage 1A：
+
+        cluster_id
+            =
+        Global Cluster ID
+
+        member_cluster_ids
+            =
+        [自身Global Cluster ID]
+
+    后续Global Merge可以：
+
+        member_cluster_ids
+            =
+        多个Initial Global Cluster ID
+    """
+
+    seen_current = set()
+
+    seen_original = set()
+
+    malformed = []
+
+    duplicate_current = []
+
+    duplicate_original = []
+
+    for pos, cluster in enumerate(
+        clusters,
+        1,
+    ):
+
+        if not isinstance(
+            cluster,
+            dict,
+        ):
+
+            malformed.append(
+                f"cluster[{pos}]不是对象"
+            )
+
+            continue
+
+        cid = str(
+            cluster.get(
+                "cluster_id",
+                "",
+            )
+        ).strip()
+
+        if not cid:
+
+            malformed.append(
+                f"cluster[{pos}]缺少cluster_id"
+            )
+
+        elif not is_valid_global_cluster_id(
+            cid
+        ):
+
+            malformed.append(
+                f"cluster[{pos}]"
+                f"非法Global cluster_id：{cid}"
+            )
+
+        elif cid in seen_current:
+
+            duplicate_current.append(
+                cid
+            )
+
+        else:
+
+            seen_current.add(
+                cid
+            )
+
+        members = cluster.get(
+            "member_cluster_ids"
+        )
+
+        if (
+            not isinstance(
+                members,
+                list,
+            )
+            or not members
+        ):
+
+            malformed.append(
+                f"cluster[{pos}]"
+                "member_cluster_ids无效"
+            )
+
+            continue
+
+        for member in members:
+
+            member = str(
+                member
+            ).strip()
+
+            if not member:
+
+                malformed.append(
+                    f"cluster[{pos}]"
+                    "存在空member_cluster_id"
+                )
+
+                continue
+
+            if not is_valid_global_cluster_id(
+                member
+            ):
+
+                malformed.append(
+                    f"cluster[{pos}]"
+                    f"非法member_cluster_id：{member}"
+                )
+
+                continue
+
+            if member in seen_original:
+
+                duplicate_original.append(
+                    member
+                )
+
+            else:
+
+                seen_original.add(
+                    member
+                )
+
+    expected = set(
+        map(
+            str,
+            expected_original_ids or [],
+        )
+    )
+
+    missing = (
+        sorted(
+            expected -
+            seen_original
+        )
+        if expected_original_ids is not None
+        else []
+    )
+
+    extra = (
+        sorted(
+            seen_original -
+            expected
+        )
+        if expected_original_ids is not None
+        else []
+    )
+
+    if (
+        malformed
+        or duplicate_current
+        or duplicate_original
+        or missing
+        or extra
+    ):
+
+        log_conflict(
+            date,
+            context,
+            "Global Cluster membership验证失败。",
+            {
+                "malformed":
+                    malformed,
+
+                "duplicate_current":
+                    duplicate_current,
+
+                "duplicate_original":
+                    duplicate_original,
+
+                "missing_original":
+                    missing,
+
+                "extra_original":
+                    extra,
+            },
+        )
+
+        raise RuntimeError(
+            f"❌ {context} Global Cluster membership异常"
+        )
+
+
+# ============================================================
+# GLOBAL ARTICLE COVERAGE VALIDATION
+# ============================================================
+
+def validate_global_article_coverage(
+    date,
+    clusters,
+    news_count,
+    context,
+):
+    all_indexes = []
+
+    malformed = []
+
+    for pos, cluster in enumerate(
+        clusters,
+        1,
+    ):
+
+        ids = (
+            cluster.get(
+                "article_indexes"
+            )
+            if isinstance(
+                cluster,
+                dict,
+            )
+            else None
+        )
+
+        if not isinstance(
+            ids,
+            list,
+        ):
+
+            malformed.append(
+                f"cluster[{pos}] "
+                "article_indexes不是数组"
+            )
+
+            continue
+
+        for value in ids:
+
+            try:
+
+                all_indexes.append(
+                    int(value)
+                )
+
+            except Exception:
+
+                malformed.append(
+                    f"cluster[{pos}]"
+                    f"非法ARTICLE：{value}"
+                )
+
+    expected = set(
+        range(
+            1,
+            news_count + 1,
+        )
+    )
+
+    actual = set(
+        all_indexes
+    )
+
+    duplicate = sorted(
+        {
+            x
+            for x in all_indexes
+            if all_indexes.count(x) > 1
+        }
+    )
+
+    missing = sorted(
+        expected -
+        actual
+    )
+
+    extra = sorted(
+        actual -
+        expected
+    )
+
+    if (
+        duplicate
+        or missing
+        or extra
+        or malformed
+    ):
+
+        log_conflict(
+            date,
+            context,
+            "Global Article coverage异常。",
+            {
+                "duplicate":
+                    duplicate,
+
+                "missing":
+                    missing,
+
+                "extra":
+                    extra,
+
+                "malformed":
+                    malformed,
+            },
+        )
+
+        raise RuntimeError(
+            f"❌ {context} Article覆盖异常 "
+            f"Duplicate={duplicate} "
+            f"Missing={missing} "
+            f"Extra={extra} "
+            f"Malformed={malformed}"
+        )
