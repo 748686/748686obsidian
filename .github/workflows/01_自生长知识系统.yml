@@ -401,12 +401,6 @@ jobs:
 
       # ==========================================================
       # 14. Build Atomic News
-      #
-      # DATE-Atomic/
-      #   ├── en/
-      #   └── zh/
-      #
-      # language 永远使用小写。
       # ==========================================================
 
       - name: Build three-day Atomic News
@@ -794,17 +788,6 @@ jobs:
       #
       # Processing Unit = DATE + LANGUAGE
       #
-      # 严格顺序：
-      #
-      # 1. DAY_BEFORE en
-      # 2. DAY_BEFORE zh
-      # 3. YESTERDAY  en
-      # 4. YESTERDAY  zh
-      # 5. TODAY      en
-      # 6. TODAY      zh
-      #
-      # 每个 Unit：
-      #
       # Task 1
       #   ↓
       # Task 2
@@ -816,9 +799,13 @@ jobs:
       # Git Push
       #   ↓
       # Git Pull
-      #   ↓
-      # Next Unit
       #
+      # LANGUAGE:
+      #
+      #     en
+      #     zh
+      #
+      # 严禁大小写转换。
       # ==========================================================
 
       - name: Knowledge Pipeline - six Processing Units
@@ -835,10 +822,6 @@ jobs:
           TASK1="01_自生长知识系统/scripts/knowledge_task_1_cluster.py"
           TASK2="01_自生长知识系统/scripts/knowledge_task_2_merge.py"
           TASK3="01_自生长知识系统/scripts/knowledge_task_3_eventunit.py"
-
-          # ======================================================
-          # TASK FILE VALIDATION
-          # ======================================================
 
           if [ ! -f "$TASK1" ]; then
             echo "❌ knowledge_task_1_cluster.py not found"
@@ -881,12 +864,6 @@ jobs:
 
             # ======================================================
             # HARD LANGUAGE CONTRACT
-            #
-            # ONLY:
-            #     en
-            #     zh
-            #
-            # 禁止任何大小写转换。
             # ======================================================
 
             if [ "$LANGUAGE" != "en" ] && \
@@ -902,7 +879,6 @@ jobs:
             EVENT_ROOT="$RAW_ROOT/${DATE}-EventUnit"
             LANG_ROOT="$EVENT_ROOT/$LANGUAGE"
 
-            ARTICLES_DIR="$LANG_ROOT/articles"
             EVENT_UNITS_DIR="$LANG_ROOT/event_units"
             COMPLETE_MARKER="$LANG_ROOT/_COMPLETE"
 
@@ -930,13 +906,6 @@ jobs:
 
             # ======================================================
             # ZH DEPENDENCY
-            #
-            # 同一天：
-            #
-            #     en
-            #      ↓
-            #     zh
-            #
             # ======================================================
 
             if [ "$LANGUAGE" = "zh" ]; then
@@ -1014,19 +983,19 @@ jobs:
             fi
 
             # ======================================================
-            # CREATE BASIC DIRECTORIES
+            # BASIC DIRECTORY
             #
-            # 注意：
-            # YAML 可以创建目录。
+            # 不创建 articles。
+            #
+            # YAML 只提供 event_units 基础目录。
             # YAML 不创建 EventUnit。
             # YAML 不创建 _COMPLETE。
             # ======================================================
 
-            mkdir -p "$ARTICLES_DIR"
             mkdir -p "$EVENT_UNITS_DIR"
 
             # ======================================================
-            # TASK 1 — CLUSTER
+            # TASK 1
             # ======================================================
 
             echo
@@ -1041,10 +1010,7 @@ jobs:
             echo "✅ Task 1 Cluster returned successfully"
 
             # ======================================================
-            # TASK 2 — MERGE
-            #
-            # Task 2 只负责 Global Merge。
-            # EventUnit 由 Task 3 负责。
+            # TASK 2
             # ======================================================
 
             echo
@@ -1059,21 +1025,7 @@ jobs:
             echo "✅ Task 2 Merge returned successfully"
 
             # ======================================================
-            # TASK 3 — EVENTUNIT SYNTHESIS
-            #
-            # Task 3 负责：
-            #
-            # 1. 读取 Task 2 Global Merge
-            # 2. ARTICLE Coverage 100%
-            # 3. Event ID 验证
-            # 4. EventUnit 构建
-            # 5. Event Index
-            # 6. AI Multi-source synthesis
-            # 7. EVT-*.md
-            # 8. EventUnit 全量验证
-            # 9. 创建 _COMPLETE
-            #
-            # 只有 Task 3 可以创建 _COMPLETE。
+            # TASK 3
             # ======================================================
 
             echo
@@ -1088,10 +1040,11 @@ jobs:
             echo "✅ Task 3 EventUnit returned successfully"
 
             # ======================================================
-            # EVENTUNIT POST-TASK-3 VALIDATION
+            # POST TASK 3 VALIDATION
             #
             # 这里只验证。
             # 不生成 EventUnit。
+            # 不生成 _event_index.json。
             # 不生成 _COMPLETE。
             # ======================================================
 
@@ -1102,21 +1055,32 @@ jobs:
 
             if [ ! -d "$EVENT_ROOT" ]; then
               echo "❌ EventUnit root missing"
+              echo "$EVENT_ROOT"
               exit 1
             fi
 
             if [ ! -d "$LANG_ROOT" ]; then
               echo "❌ Language directory missing"
-              exit 1
-            fi
-
-            if [ ! -d "$ARTICLES_DIR" ]; then
-              echo "❌ articles directory missing"
+              echo "$LANG_ROOT"
               exit 1
             fi
 
             if [ ! -d "$EVENT_UNITS_DIR" ]; then
               echo "❌ event_units directory missing"
+              echo "$EVENT_UNITS_DIR"
+              exit 1
+            fi
+
+            EVENT_INDEX="$LANG_ROOT/_event_index.json"
+
+            if [ ! -f "$EVENT_INDEX" ]; then
+              echo "❌ _event_index.json missing"
+              echo "$EVENT_INDEX"
+              exit 1
+            fi
+
+            if [ ! -s "$EVENT_INDEX" ]; then
+              echo "❌ _event_index.json is empty"
               exit 1
             fi
 
@@ -1124,33 +1088,33 @@ jobs:
               -maxdepth 1 \
               -type f \
               -name "EVT-*.md" \
+              ! -name "*_analysis.md" \
               | wc -l)
 
-            echo "EventUnits: $EVENT_COUNT"
+            echo "EventUnits : $EVENT_COUNT"
 
             if [ "$EVENT_COUNT" -eq 0 ]; then
               echo "❌ No EventUnits generated"
               exit 1
             fi
 
-            # ======================================================
-            # COMPLETE MARKER
-            #
-            # 这里只允许验证 Task 3 是否已经创建。
-            #
-            # 严禁：
-            #
-            #     touch "$COMPLETE_MARKER"
-            #
-            # ======================================================
+            EMPTY_EVENT_COUNT=$(find "$EVENT_UNITS_DIR" \
+              -maxdepth 1 \
+              -type f \
+              -name "EVT-*.md" \
+              ! -name "*_analysis.md" \
+              -size 0 \
+              | wc -l)
+
+            if [ "$EMPTY_EVENT_COUNT" -ne 0 ]; then
+              echo "❌ Empty EventUnit files found: $EMPTY_EVENT_COUNT"
+              exit 1
+            fi
 
             if [ ! -f "$COMPLETE_MARKER" ]; then
-
               echo "❌ Task 3 did not create _COMPLETE"
-              echo "Expected:"
               echo "$COMPLETE_MARKER"
               exit 1
-
             fi
 
             echo
@@ -1161,6 +1125,7 @@ jobs:
             echo "DATE       : $DATE"
             echo "LANGUAGE   : $LANGUAGE"
             echo "EventUnits : $EVENT_COUNT"
+            echo "Index      : OK"
             echo "COMPLETE   : YES"
             echo "OWNER      : Task 3"
 
@@ -1186,10 +1151,6 @@ jobs:
               git commit \
                 -m "data: complete EventUnit ${DATE} ${LANGUAGE}"
 
-              echo
-              echo "▶️ PUSH:"
-              echo "$DATE $LANGUAGE"
-
               git push origin HEAD:main
 
               echo "✅ PUSH COMPLETE"
@@ -1200,23 +1161,17 @@ jobs:
             # IMMEDIATE PULL
             # ======================================================
 
-            echo
-            echo "▶️ PULL:"
-            echo "$DATE $LANGUAGE"
-
             git pull --ff-only origin main
 
             echo "✅ PULL COMPLETE"
 
             # ======================================================
-            # POST-SYNC VALIDATION
+            # POST SYNC VALIDATION
             # ======================================================
 
             if [ ! -f "$COMPLETE_MARKER" ]; then
-
               echo "❌ COMPLETE marker missing after pull"
               exit 1
-
             fi
 
             echo
@@ -1228,9 +1183,6 @@ jobs:
             echo "STATUS : COMPLETE"
             echo "GIT    : PUSHED"
             echo "SYNC   : PULLED"
-
-            echo
-            echo "▶️ Next Unit is now allowed."
 
           done
 
@@ -1251,6 +1203,18 @@ jobs:
       # 21. Final EventUnit Validation
       #
       # 这里只验证，不生成。
+      #
+      # 不再检查 articles/
+      #
+      # 验证：
+      #
+      # 1. EventUnit root
+      # 2. language root
+      # 3. _event_index.json
+      # 4. event_units/
+      # 5. EVT-*.md
+      # 6. EventUnit 非空
+      # 7. _COMPLETE
       # ==========================================================
 
       - name: Validate six Processing Units
@@ -1282,10 +1246,6 @@ jobs:
             DATE="${UNIT%%|*}"
             LANGUAGE="${UNIT##*|}"
 
-            # ------------------------------------------------------
-            # HARD LANGUAGE CONTRACT
-            # ------------------------------------------------------
-
             if [ "$LANGUAGE" != "en" ] && \
                [ "$LANGUAGE" != "zh" ]; then
 
@@ -1295,8 +1255,10 @@ jobs:
 
             fi
 
-            LANG_ROOT="$RAW_ROOT/${DATE}-EventUnit/$LANGUAGE"
-            ARTICLES_DIR="$LANG_ROOT/articles"
+            EVENT_ROOT="$RAW_ROOT/${DATE}-EventUnit"
+            LANG_ROOT="$EVENT_ROOT/$LANGUAGE"
+
+            EVENT_INDEX="$LANG_ROOT/_event_index.json"
             EVENT_UNITS_DIR="$LANG_ROOT/event_units"
             COMPLETE_MARKER="$LANG_ROOT/_COMPLETE"
 
@@ -1307,13 +1269,26 @@ jobs:
             echo "LANGUAGE : $LANGUAGE"
             echo "------------------------------------------------------------"
 
-            if [ ! -d "$LANG_ROOT" ]; then
-              echo "❌ Language directory missing"
+            if [ ! -d "$EVENT_ROOT" ]; then
+              echo "❌ EventUnit root missing"
+              echo "$EVENT_ROOT"
               exit 1
             fi
 
-            if [ ! -d "$ARTICLES_DIR" ]; then
-              echo "❌ articles directory missing"
+            if [ ! -d "$LANG_ROOT" ]; then
+              echo "❌ Language directory missing"
+              echo "$LANG_ROOT"
+              exit 1
+            fi
+
+            if [ ! -f "$EVENT_INDEX" ]; then
+              echo "❌ _event_index.json missing"
+              echo "$EVENT_INDEX"
+              exit 1
+            fi
+
+            if [ ! -s "$EVENT_INDEX" ]; then
+              echo "❌ _event_index.json is empty"
               exit 1
             fi
 
@@ -1322,26 +1297,44 @@ jobs:
               exit 1
             fi
 
-            if [ ! -f "$COMPLETE_MARKER" ]; then
-              echo "❌ _COMPLETE missing"
-              exit 1
-            fi
-
             EVENT_COUNT=$(find "$EVENT_UNITS_DIR" \
               -maxdepth 1 \
               -type f \
               -name "EVT-*.md" \
+              ! -name "*_analysis.md" \
               | wc -l)
 
             echo "EventUnits : $EVENT_COUNT"
-            echo "COMPLETE   : YES"
 
             if [ "$EVENT_COUNT" -eq 0 ]; then
               echo "❌ EventUnits empty"
               exit 1
             fi
 
-            echo "✅ Unit complete"
+            EMPTY_EVENT_COUNT=$(find "$EVENT_UNITS_DIR" \
+              -maxdepth 1 \
+              -type f \
+              -name "EVT-*.md" \
+              ! -name "*_analysis.md" \
+              -size 0 \
+              | wc -l)
+
+            if [ "$EMPTY_EVENT_COUNT" -ne 0 ]; then
+              echo "❌ Empty EventUnit files: $EMPTY_EVENT_COUNT"
+              exit 1
+            fi
+
+            if [ ! -f "$COMPLETE_MARKER" ]; then
+              echo "❌ _COMPLETE missing"
+              echo "$COMPLETE_MARKER"
+              exit 1
+            fi
+
+            echo "Event Index : OK"
+            echo "EventUnits  : OK"
+            echo "COMPLETE    : YES"
+
+            echo "✅ Unit $UNIT_NO / 6 validated"
 
           done
 
@@ -1351,14 +1344,19 @@ jobs:
           echo "============================================================"
 
       # ==========================================================
-      # 22. KNOWLEDGE PIPELINE - 27 SKILLS
+      # 22. KNOWLEDGE PIPELINE - TASK 4 / 27 SKILLS
       #
-      # Task 4
+      # Task 4 interface:
       #
-      # Processing Unit = DATE + LANGUAGE
+      #     en
+      #     zh
       #
-      # 六个 EventUnit 完成之后，
-      # 再按照同样的六 Unit 顺序运行 Skills。
+      # 磁盘目录同样使用：
+      #
+      #     en
+      #     zh
+      #
+      # 不进行任何语言大小写转换。
       # ==========================================================
 
       - name: Knowledge Pipeline - 27 Skills
@@ -1404,26 +1402,44 @@ jobs:
 
             # ======================================================
             # HARD LANGUAGE CONTRACT
+            #
+            # ONLY:
+            #
+            #     en
+            #     zh
+            #
+            # 不允许任何大小写形式。
             # ======================================================
 
             if [ "$LANGUAGE" != "en" ] && \
                [ "$LANGUAGE" != "zh" ]; then
 
-              echo "❌ Invalid language: $LANGUAGE"
+              echo "❌ Invalid Task 4 language: $LANGUAGE"
+              echo "Expected: en or zh"
               exit 1
 
             fi
 
+            # ======================================================
+            # DIRECT LANGUAGE PATH
+            #
+            # 不存在 DISK_LANGUAGE。
+            # 不做任何语言转换。
+            # ======================================================
+
             EVENT_ROOT="$RAW_ROOT/${DATE}-EventUnit"
             LANG_ROOT="$EVENT_ROOT/$LANGUAGE"
+
             COMPLETE_MARKER="$LANG_ROOT/_COMPLETE"
+            EVENT_UNITS_DIR="$LANG_ROOT/event_units"
+            SKILLS_COMPLETE="$EVENT_UNITS_DIR/_SKILLS_COMPLETE"
 
             echo
             echo
             echo "######################################################################"
             echo "SKILLS PROCESSING UNIT $UNIT_NO / 6"
-            echo "DATE     : $DATE"
-            echo "LANGUAGE : $LANGUAGE"
+            echo "DATE             : $DATE"
+            echo "LANGUAGE         : $LANGUAGE"
             echo "######################################################################"
 
             # ======================================================
@@ -1442,7 +1458,41 @@ jobs:
             echo "✅ EventUnit complete"
 
             # ======================================================
-            # TASK 4 — 27 SKILLS
+            # EventUnit directory
+            # ======================================================
+
+            if [ ! -d "$EVENT_UNITS_DIR" ]; then
+
+              echo "❌ event_units directory missing"
+              echo "$EVENT_UNITS_DIR"
+              exit 1
+
+            fi
+
+            # ======================================================
+            # Existing Task 3 EventUnits
+            #
+            # 排除 Task 4 已生成的 *_analysis.md。
+            # ======================================================
+
+            EVENT_COUNT=$(find "$EVENT_UNITS_DIR" \
+              -maxdepth 1 \
+              -type f \
+              -name "EVT-*.md" \
+              ! -name "*_analysis.md" \
+              | wc -l)
+
+            echo "Task 3 EventUnits : $EVENT_COUNT"
+
+            if [ "$EVENT_COUNT" -eq 0 ]; then
+
+              echo "❌ No Task 3 EventUnits found"
+              exit 1
+
+            fi
+
+            # ======================================================
+            # TASK 4
             # ======================================================
 
             echo
@@ -1457,7 +1507,132 @@ jobs:
             echo "✅ Task 4 Skills finished: $DATE $LANGUAGE"
 
             # ======================================================
-            # IMMEDIATE GIT SYNC
+            # TASK 4 COMPLETION VALIDATION
+            #
+            # Task 4 自己负责创建：
+            #
+            #     event_units/_SKILLS_COMPLETE
+            #
+            # YAML 这里只验证。
+            # ======================================================
+
+            echo
+            echo "------------------------------------------------------------"
+            echo "TASK 4 VALIDATION"
+            echo "------------------------------------------------------------"
+
+            if [ ! -f "$SKILLS_COMPLETE" ]; then
+
+              echo "❌ Task 4 did not create _SKILLS_COMPLETE"
+              echo "Expected:"
+              echo "$SKILLS_COMPLETE"
+              exit 1
+
+            fi
+
+            if [ ! -s "$SKILLS_COMPLETE" ]; then
+
+              echo "❌ _SKILLS_COMPLETE is empty"
+              exit 1
+
+            fi
+
+            echo "SKILLS_COMPLETE : YES"
+
+            # ======================================================
+            # Count Task 4 Analysis files
+            #
+            # Task 4 当前实际输出：
+            #
+            #     event_units/
+            #       EVT-XXXXXXXX-NNNNNN.md
+            #       EVT-XXXXXXXX-NNNNNN_analysis.md
+            #
+            # 不再要求 EVT-* 子目录。
+            # ======================================================
+
+            ANALYSIS_FILE_COUNT=$(find "$EVENT_UNITS_DIR" \
+              -maxdepth 1 \
+              -type f \
+              -name "*_analysis.md" \
+              | wc -l)
+
+            echo "Analysis files    : $ANALYSIS_FILE_COUNT"
+
+            # ------------------------------------------------------
+            # Task 3 Event count must equal Task 4 Analysis count
+            # ------------------------------------------------------
+
+            if [ "$ANALYSIS_FILE_COUNT" -ne "$EVENT_COUNT" ]; then
+
+              echo "❌ Task 3 / Task 4 Analysis count mismatch"
+              echo "Task 3 EventUnits : $EVENT_COUNT"
+              echo "Task 4 Analysis   : $ANALYSIS_FILE_COUNT"
+              exit 1
+
+            fi
+
+            echo "Event / Analysis mapping : COUNT OK"
+
+            # ======================================================
+            # Validate every EventUnit has corresponding Analysis
+            # ======================================================
+
+            MISSING_ANALYSIS_COUNT=0
+
+            while IFS= read -r EVENT_FILE; do
+
+              ANALYSIS_FILE="${EVENT_FILE%.md}_analysis.md"
+
+              if [ ! -f "$ANALYSIS_FILE" ]; then
+
+                echo "❌ Missing Analysis:"
+                echo "$ANALYSIS_FILE"
+
+                MISSING_ANALYSIS_COUNT=$((MISSING_ANALYSIS_COUNT + 1))
+
+              fi
+
+            done < <(
+              find "$EVENT_UNITS_DIR" \
+                -maxdepth 1 \
+                -type f \
+                -name "EVT-*.md" \
+                ! -name "*_analysis.md" \
+                | sort
+            )
+
+            if [ "$MISSING_ANALYSIS_COUNT" -ne 0 ]; then
+
+              echo "❌ Missing Analysis files: $MISSING_ANALYSIS_COUNT"
+              exit 1
+
+            fi
+
+            echo "Event / Analysis mapping : ALL OK"
+
+            # ======================================================
+            # Empty Analysis files
+            # ======================================================
+
+            EMPTY_ANALYSIS_COUNT=$(find "$EVENT_UNITS_DIR" \
+              -maxdepth 1 \
+              -type f \
+              -name "*_analysis.md" \
+              -size 0 \
+              | wc -l)
+
+            if [ "$EMPTY_ANALYSIS_COUNT" -ne 0 ]; then
+
+              echo "❌ Empty Analysis files found: $EMPTY_ANALYSIS_COUNT"
+              exit 1
+
+            fi
+
+            echo "Analysis files    : ALL NON-EMPTY"
+
+            # ======================================================
+            # Immediate Git Sync
             # ======================================================
 
             git config user.name \
@@ -1485,9 +1660,24 @@ jobs:
 
             fi
 
+            # ======================================================
+            # Immediate Pull
+            # ======================================================
+
             git pull --ff-only origin main
 
             echo "✅ Skills PULL COMPLETE"
+
+            # ======================================================
+            # Post-sync validation
+            # ======================================================
+
+            if [ ! -f "$SKILLS_COMPLETE" ]; then
+
+              echo "❌ _SKILLS_COMPLETE missing after pull"
+              exit 1
+
+            fi
 
             echo
             echo "######################################################################"
@@ -1495,9 +1685,10 @@ jobs:
             echo "######################################################################"
 
             echo "$DATE $LANGUAGE"
-            echo "STATUS : COMPLETE"
-            echo "GIT    : PUSHED"
-            echo "SYNC   : PULLED"
+            echo "LANGUAGE : $LANGUAGE"
+            echo "STATUS   : COMPLETE"
+            echo "GIT      : PUSHED"
+            echo "SYNC     : PULLED"
 
           done
 
@@ -1508,7 +1699,226 @@ jobs:
           echo "######################################################################"
 
       # ==========================================================
-      # 23. Weekly Report
+      # 23. Final Task 4 / Skills Validation
+      #
+      # 这里再次做六 Unit 最终只读验收。
+      #
+      # 必须满足：
+      #
+      # Task 3:
+      #     _COMPLETE
+      #
+      # Task 4:
+      #     _SKILLS_COMPLETE
+      #
+      # 并且：
+      #
+      #     EventUnit 数量
+      #       =
+      #     Analysis 文件数量
+      #
+      # 每一个 EventUnit 都必须存在对应的 Analysis。
+      # 所有 Analysis md 非空。
+      # ==========================================================
+
+      - name: Validate six Task 4 Skills Units
+        run: |
+          set -e
+
+          RAW_ROOT="01_自生长知识系统/Raw News"
+
+          UNITS=(
+            "$DAY_BEFORE|en"
+            "$DAY_BEFORE|zh"
+            "$YESTERDAY|en"
+            "$YESTERDAY|zh"
+            "$TODAY|en"
+            "$TODAY|zh"
+          )
+
+          UNIT_NO=0
+
+          echo
+          echo "============================================================"
+          echo "FINAL SIX TASK 4 SKILLS VALIDATION"
+          echo "============================================================"
+
+          for UNIT in "${UNITS[@]}"; do
+
+            UNIT_NO=$((UNIT_NO + 1))
+
+            DATE="${UNIT%%|*}"
+            LANGUAGE="${UNIT##*|}"
+
+            # ======================================================
+            # HARD LANGUAGE CONTRACT
+            # ======================================================
+
+            if [ "$LANGUAGE" != "en" ] && \
+               [ "$LANGUAGE" != "zh" ]; then
+
+              echo "❌ Invalid language: $LANGUAGE"
+              echo "Expected: en or zh"
+              exit 1
+
+            fi
+
+            LANG_ROOT="$RAW_ROOT/${DATE}-EventUnit/$LANGUAGE"
+            EVENT_UNITS_DIR="$LANG_ROOT/event_units"
+
+            COMPLETE_MARKER="$LANG_ROOT/_COMPLETE"
+            SKILLS_COMPLETE="$EVENT_UNITS_DIR/_SKILLS_COMPLETE"
+
+            echo
+            echo "------------------------------------------------------------"
+            echo "UNIT $UNIT_NO / 6"
+            echo "DATE     : $DATE"
+            echo "LANGUAGE : $LANGUAGE"
+            echo "------------------------------------------------------------"
+
+            # ------------------------------------------------------
+            # Task 3 complete
+            # ------------------------------------------------------
+
+            if [ ! -f "$COMPLETE_MARKER" ]; then
+              echo "❌ Task 3 _COMPLETE missing"
+              exit 1
+            fi
+
+            # ------------------------------------------------------
+            # event_units
+            # ------------------------------------------------------
+
+            if [ ! -d "$EVENT_UNITS_DIR" ]; then
+              echo "❌ event_units directory missing"
+              exit 1
+            fi
+
+            # ------------------------------------------------------
+            # Task 3 EventUnits
+            #
+            # 排除 Task 4 *_analysis.md。
+            # ------------------------------------------------------
+
+            EVENT_COUNT=$(find "$EVENT_UNITS_DIR" \
+              -maxdepth 1 \
+              -type f \
+              -name "EVT-*.md" \
+              ! -name "*_analysis.md" \
+              | wc -l)
+
+            echo "EventUnits       : $EVENT_COUNT"
+
+            if [ "$EVENT_COUNT" -eq 0 ]; then
+              echo "❌ No EventUnits"
+              exit 1
+            fi
+
+            # ------------------------------------------------------
+            # Task 4 completion marker
+            # ------------------------------------------------------
+
+            if [ ! -f "$SKILLS_COMPLETE" ]; then
+              echo "❌ _SKILLS_COMPLETE missing"
+              exit 1
+            fi
+
+            if [ ! -s "$SKILLS_COMPLETE" ]; then
+              echo "❌ _SKILLS_COMPLETE empty"
+              exit 1
+            fi
+
+            # ------------------------------------------------------
+            # Task 4 Analysis files
+            # ------------------------------------------------------
+
+            ANALYSIS_COUNT=$(find "$EVENT_UNITS_DIR" \
+              -maxdepth 1 \
+              -type f \
+              -name "*_analysis.md" \
+              | wc -l)
+
+            echo "Analysis files   : $ANALYSIS_COUNT"
+
+            if [ "$ANALYSIS_COUNT" -ne "$EVENT_COUNT" ]; then
+
+              echo "❌ Event / Analysis count mismatch"
+              echo "EventUnits     : $EVENT_COUNT"
+              echo "Analysis files : $ANALYSIS_COUNT"
+              exit 1
+
+            fi
+
+            # ------------------------------------------------------
+            # Every EventUnit must have corresponding Analysis
+            # ------------------------------------------------------
+
+            MISSING_ANALYSIS_COUNT=0
+
+            while IFS= read -r EVENT_FILE; do
+
+              ANALYSIS_FILE="${EVENT_FILE%.md}_analysis.md"
+
+              if [ ! -f "$ANALYSIS_FILE" ]; then
+
+                echo "❌ Missing Analysis:"
+                echo "$ANALYSIS_FILE"
+
+                MISSING_ANALYSIS_COUNT=$((MISSING_ANALYSIS_COUNT + 1))
+
+              fi
+
+            done < <(
+              find "$EVENT_UNITS_DIR" \
+                -maxdepth 1 \
+                -type f \
+                -name "EVT-*.md" \
+                ! -name "*_analysis.md" \
+                | sort
+            )
+
+            if [ "$MISSING_ANALYSIS_COUNT" -ne 0 ]; then
+
+              echo "❌ Missing Analysis files: $MISSING_ANALYSIS_COUNT"
+              exit 1
+
+            fi
+
+            # ------------------------------------------------------
+            # Empty Analysis files
+            # ------------------------------------------------------
+
+            EMPTY_ANALYSIS_COUNT=$(find "$EVENT_UNITS_DIR" \
+              -maxdepth 1 \
+              -type f \
+              -name "*_analysis.md" \
+              -size 0 \
+              | wc -l)
+
+            if [ "$EMPTY_ANALYSIS_COUNT" -ne 0 ]; then
+
+              echo "❌ Empty Analysis files: $EMPTY_ANALYSIS_COUNT"
+              exit 1
+
+            fi
+
+            echo "Task 3 _COMPLETE : YES"
+            echo "Task 4 marker    : YES"
+            echo "Analysis files   : NON-EMPTY"
+            echo "Event / Analysis : COMPLETE"
+            echo "STATUS           : COMPLETE"
+
+            echo "✅ Task 4 Unit $UNIT_NO / 6 validated"
+
+          done
+
+          echo
+          echo "============================================================"
+          echo "✅ ALL SIX TASK 4 SKILLS UNITS VALIDATED"
+          echo "============================================================"
+
+      # ==========================================================
+      # 24. Weekly Report
       # ==========================================================
 
       - name: Run Weekly Report V2
@@ -1530,7 +1940,7 @@ jobs:
           echo "✅ Weekly Report completed"
 
       # ==========================================================
-      # 24. Final result
+      # 25. Final result
       # ==========================================================
 
       - name: Show three-day final result
@@ -1608,7 +2018,7 @@ jobs:
           done
 
       # ==========================================================
-      # 25. Final Commit
+      # 26. Final Commit
       # ==========================================================
 
       - name: Commit Knowledge System
@@ -1640,7 +2050,7 @@ jobs:
           fi
 
       # ==========================================================
-      # 26. Run Return Log
+      # 27. Run Return Log
       # ==========================================================
 
       - name: Run Return Log
@@ -1707,15 +2117,30 @@ jobs:
                   -maxdepth 1 \
                   -type f \
                   -name "EVT-*.md" \
+                  ! -name "*_analysis.md" \
                   | wc -l)
+
+                ANALYSIS_COUNT=$(find "$EVENT_DIR/event_units" \
+                  -maxdepth 1 \
+                  -type f \
+                  -name "*_analysis.md" \
+                  | wc -l)
+
+                if [ -f "$EVENT_DIR/event_units/_SKILLS_COMPLETE" ]; then
+                  SKILLS_STATUS="SKILLS_COMPLETE"
+                else
+                  SKILLS_STATUS="SKILLS_INCOMPLETE"
+                fi
 
               else
 
                 EVENT_COUNT=0
+                ANALYSIS_COUNT=0
+                SKILLS_STATUS="SKILLS_INCOMPLETE"
 
               fi
 
-              echo "$DATE $LANGUAGE : $STATUS : EventUnits=$EVENT_COUNT"
+              echo "$DATE $LANGUAGE : $STATUS : EventUnits=$EVENT_COUNT : Analysis=$ANALYSIS_COUNT : $SKILLS_STATUS"
 
             done
 
@@ -1749,8 +2174,8 @@ jobs:
             echo
             echo "## Processing Units"
             echo
-            echo "| # | Date | Language | Status | EventUnits |"
-            echo "|---:|---|---|---|---:|"
+            echo "| # | Date | Language | Status | EventUnits | Analysis | Skills Status |"
+            echo "|---:|---|---|---|---:|---:|---|"
 
             NO=0
 
@@ -1779,15 +2204,30 @@ jobs:
                     -maxdepth 1 \
                     -type f \
                     -name "EVT-*.md" \
+                    ! -name "*_analysis.md" \
                     | wc -l)
+
+                  ANALYSIS_COUNT=$(find "$EVENT_DIR/event_units" \
+                    -maxdepth 1 \
+                    -type f \
+                    -name "*_analysis.md" \
+                    | wc -l)
+
+                  if [ -f "$EVENT_DIR/event_units/_SKILLS_COMPLETE" ]; then
+                    SKILLS_STATUS="COMPLETE"
+                  else
+                    SKILLS_STATUS="INCOMPLETE"
+                  fi
 
                 else
 
                   EVENT_COUNT=0
+                  ANALYSIS_COUNT=0
+                  SKILLS_STATUS="INCOMPLETE"
 
                 fi
 
-                echo "| $NO | $DATE | $LANGUAGE | $STATUS | $EVENT_COUNT |"
+                echo "| $NO | $DATE | $LANGUAGE | $STATUS | $EVENT_COUNT | $ANALYSIS_COUNT | $SKILLS_STATUS |"
 
               done
 
@@ -1806,8 +2246,12 @@ jobs:
             echo "- ✅ Task 3 EventUnit Synthesis"
             echo "- ✅ Task 3 EventUnit validation"
             echo "- ✅ Task 3 owns _COMPLETE"
-            echo "- ✅ Per-Unit push + pull"
+            echo "- ✅ Per-Unit EventUnit push + pull"
+            echo "- ✅ Six Processing Units validated"
             echo "- ✅ Task 4 — 27 Skills"
+            echo "- ✅ Task 4 _SKILLS_COMPLETE validation"
+            echo "- ✅ EventUnit / Analysis mapping validation"
+            echo "- ✅ Six Task 4 Units validated"
             echo "- ✅ Weekly Report"
             echo "- ✅ Final Commit"
 
@@ -1835,9 +2279,19 @@ jobs:
             echo "        ↓"
             echo "Task 4 — 27 Skills"
             echo "        ↓"
-            echo "DATE + language"
+            echo "DATE + LANGUAGE"
             echo "        ↓"
-            echo "Knowledge / Daily / Weekly"
+            echo "Disk language en/zh"
+            echo "        ↓"
+            echo "Event × Skill"
+            echo "        ↓"
+            echo "Analysis files"
+            echo "        ↓"
+            echo "_SKILLS_COMPLETE"
+            echo "        ↓"
+            echo "Git Push"
+            echo "        ↓"
+            echo "Git Pull"
 
             echo
             echo "## Latest Git Commit"
@@ -1859,7 +2313,7 @@ jobs:
           echo "######################################################################"
 
       # ==========================================================
-      # 27. Complete Job
+      # 28. Complete Job
       # ==========================================================
 
       - name: Complete Job
@@ -1896,10 +2350,15 @@ jobs:
           echo "DIRECTORY LANGUAGE STANDARD"
           echo "============================================================"
 
+          echo "Task 3 / Disk:"
           echo "✅ en"
           echo "✅ zh"
-          echo "❌ EN"
-          echo "❌ ZH"
+          echo "❌ uppercase language values"
+
+          echo
+          echo "Task 4 / CLI:"
+          echo "✅ en"
+          echo "✅ zh"
 
           echo
           echo "============================================================"
@@ -1938,9 +2397,19 @@ jobs:
           echo "        ↓"
           echo "Task 4 — 27 Skills"
           echo "        ↓"
-          echo "DATE + language"
+          echo "en / zh interface"
           echo "        ↓"
-          echo "Knowledge / Daily / Weekly"
+          echo "en / zh disk directory"
+          echo "        ↓"
+          echo "Event × Skill"
+          echo "        ↓"
+          echo "Analysis files"
+          echo "        ↓"
+          echo "_SKILLS_COMPLETE"
+          echo "        ↓"
+          echo "Git push"
+          echo "        ↓"
+          echo "Git pull"
 
           echo
           echo "============================================================"
