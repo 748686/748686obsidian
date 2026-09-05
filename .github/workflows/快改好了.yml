@@ -1,4 +1,4 @@
-name: 748686 自生长知识系统快改好
+name: 748686 自生长知识系统
 
 on:
   workflow_dispatch:
@@ -1041,11 +1041,6 @@ jobs:
 
             # ======================================================
             # POST TASK 3 VALIDATION
-            #
-            # 这里只验证。
-            # 不生成 EventUnit。
-            # 不生成 _event_index.json。
-            # 不生成 _COMPLETE。
             # ======================================================
 
             echo
@@ -1201,20 +1196,6 @@ jobs:
 
       # ==========================================================
       # 21. Final EventUnit Validation
-      #
-      # 这里只验证，不生成。
-      #
-      # 不再检查 articles/
-      #
-      # 验证：
-      #
-      # 1. EventUnit root
-      # 2. language root
-      # 3. _event_index.json
-      # 4. event_units/
-      # 5. EVT-*.md
-      # 6. EventUnit 非空
-      # 7. _COMPLETE
       # ==========================================================
 
       - name: Validate six Processing Units
@@ -1326,7 +1307,6 @@ jobs:
 
             if [ ! -f "$COMPLETE_MARKER" ]; then
               echo "❌ _COMPLETE missing"
-              echo "$COMPLETE_MARKER"
               exit 1
             fi
 
@@ -1357,6 +1337,20 @@ jobs:
       #     zh
       #
       # 不进行任何语言大小写转换。
+      #
+      # BATCH PERSISTENCE:
+      #
+      #     每 30 个 NEW Analysis
+      #         ↓
+      #     Git commit
+      #         ↓
+      #     Git push
+      #         ↓
+      #     Git pull
+      #         ↓
+      #     继续当前 Processing Unit
+      #
+      # 已存在合法 Analysis 不计入 30。
       # ==========================================================
 
       - name: Knowledge Pipeline - 27 Skills
@@ -1492,19 +1486,249 @@ jobs:
             fi
 
             # ======================================================
-            # TASK 4
+            # TASK 4 BATCH LOOP
+            #
+            # 每次 Python 最多生成 30 个 NEW Analysis。
+            #
+            # 注意：
+            #
+            # 1. 已存在合法 Analysis 不计数。
+            # 2. Python 成功返回后立即 Git sync。
+            # 3. Python 失败时，如果已经产生部分 Analysis，
+            #    仍然先 Git sync，防止成果丢失。
+            # 4. _SKILLS_COMPLETE 只有完整 Processing Unit
+            #    才会由 Python 创建。
             # ======================================================
 
-            echo
-            echo "------------------------------------------------------------"
-            echo "TASK 4 — 27 SKILLS"
-            echo "------------------------------------------------------------"
+            BATCH_NO=0
 
-            python "$SCRIPT" \
-              --date "$DATE" \
-              --language "$LANGUAGE"
+            while true; do
 
-            echo "✅ Task 4 Skills finished: $DATE $LANGUAGE"
+              BATCH_NO=$((BATCH_NO + 1))
+
+              echo
+              echo "============================================================"
+              echo "TASK 4 BATCH $BATCH_NO"
+              echo "============================================================"
+              echo "DATE     : $DATE"
+              echo "LANGUAGE : $LANGUAGE"
+              echo "LIMIT    : 30 NEW ANALYSIS FILES"
+
+              # ----------------------------------------------------
+              # Recovery:
+              #
+              # 如果之前的 Batch 已经完成整个 Unit，
+              # 直接结束当前 Unit。
+              # ----------------------------------------------------
+
+              if [ -f "$SKILLS_COMPLETE" ] && \
+                 [ -s "$SKILLS_COMPLETE" ]; then
+
+                echo
+                echo "✅ Task 4 already COMPLETE"
+                echo "⏭️ Skip remaining batches: $DATE $LANGUAGE"
+
+                break
+
+              fi
+
+              # ----------------------------------------------------
+              # Count Analysis before this Python invocation.
+              # ----------------------------------------------------
+
+              BEFORE_COUNT=$(find "$EVENT_UNITS_DIR" \
+                -maxdepth 1 \
+                -type f \
+                -name "*_analysis.md" \
+                | wc -l)
+
+              echo "Analysis before batch : $BEFORE_COUNT"
+              echo "Expected EventUnits   : $EVENT_COUNT"
+
+              # ----------------------------------------------------
+              # Run Task 4.
+              #
+              # 临时关闭 set -e。
+              #
+              # 原因：
+              #
+              # 如果 Python 在生成部分 Analysis 后失败，
+              # 必须先把已经成功生成的 Analysis 推送到 Git。
+              # ----------------------------------------------------
+
+              set +e
+
+              python "$SCRIPT" \
+                --date "$DATE" \
+                --language "$LANGUAGE" \
+                --max-new 30
+
+              TASK4_RC=$?
+
+              set -e
+
+              # ----------------------------------------------------
+              # Count Analysis after Python.
+              # ----------------------------------------------------
+
+              AFTER_COUNT=$(find "$EVENT_UNITS_DIR" \
+                -maxdepth 1 \
+                -type f \
+                -name "*_analysis.md" \
+                | wc -l)
+
+              NEW_COUNT=$((AFTER_COUNT - BEFORE_COUNT))
+
+              echo
+              echo "Analysis after batch  : $AFTER_COUNT"
+              echo "New Analysis this run: $NEW_COUNT"
+              echo "Task 4 return code    : $TASK4_RC"
+
+              # ----------------------------------------------------
+              # Basic safety:
+              #
+              # Analysis 数量不允许下降。
+              # ----------------------------------------------------
+
+              if [ "$AFTER_COUNT" -lt "$BEFORE_COUNT" ]; then
+
+                echo "❌ Analysis file count decreased unexpectedly"
+                echo "Before: $BEFORE_COUNT"
+                echo "After : $AFTER_COUNT"
+                exit 1
+
+              fi
+
+              # ====================================================
+              # IMMEDIATE GIT SYNC
+              #
+              # 无论 Python 是：
+              #
+              #     0   成功
+              #     30  成功
+              #     <30 成功完成最终 Unit
+              #     部分生成后失败
+              #
+              # 都先把当前工作树成果保存。
+              # ====================================================
+
+              git config user.name \
+                "748686 Knowledge Bot"
+
+              git config user.email \
+                "41898282+github-actions[bot]@users.noreply.github.com"
+
+              git add \
+                "$EVENT_ROOT" \
+                "01_自生长知识系统"
+
+              if git diff --cached --quiet; then
+
+                echo "ℹ️ No Skills changes detected"
+
+              else
+
+                if [ -f "$SKILLS_COMPLETE" ] && \
+                   [ -s "$SKILLS_COMPLETE" ]; then
+
+                  git commit \
+                    -m "data: complete Skills ${DATE} ${LANGUAGE}"
+
+                else
+
+                  git commit \
+                    -m "data: checkpoint Skills ${DATE} ${LANGUAGE} (${AFTER_COUNT}/${EVENT_COUNT})"
+
+                fi
+
+                git push origin HEAD:main
+
+                echo "✅ Skills PUSH COMPLETE"
+
+              fi
+
+              # ====================================================
+              # Immediate Pull
+              # ====================================================
+
+              git pull --ff-only origin main
+
+              echo "✅ Skills PULL COMPLETE"
+
+              # ====================================================
+              # If Python failed:
+              #
+              # 已经先完成 Git persistence。
+              # 然后让 Workflow 正常失败。
+              # ====================================================
+
+              if [ "$TASK4_RC" -ne 0 ]; then
+
+                echo
+                echo "❌ Task 4 failed: $DATE $LANGUAGE"
+                echo "Partial Analysis files have been persisted."
+                echo "New Analysis persisted this batch: $NEW_COUNT"
+                exit "$TASK4_RC"
+
+              fi
+
+              # ====================================================
+              # Complete?
+              # ====================================================
+
+              if [ -f "$SKILLS_COMPLETE" ] && \
+                 [ -s "$SKILLS_COMPLETE" ]; then
+
+                echo
+                echo "============================================================"
+                echo "TASK 4 PROCESSING UNIT COMPLETE"
+                echo "============================================================"
+
+                echo "DATE             : $DATE"
+                echo "LANGUAGE         : $LANGUAGE"
+                echo "Analysis files   : $AFTER_COUNT"
+                echo "_SKILLS_COMPLETE : YES"
+                echo "STATUS           : COMPLETE"
+
+                break
+
+              fi
+
+              # ====================================================
+              # Safety against infinite loop.
+              #
+              # 如果 Python 正常返回，
+              # 但既没有完成 Unit，
+              # 又没有产生任何新的 Analysis，
+              # 则不能继续无限循环。
+              # ====================================================
+
+              if [ "$AFTER_COUNT" -le "$BEFORE_COUNT" ]; then
+
+                echo
+                echo "❌ Task 4 made no new Analysis files"
+                echo "and did not create _SKILLS_COMPLETE."
+                echo "Before: $BEFORE_COUNT"
+                echo "After : $AFTER_COUNT"
+                exit 1
+
+              fi
+
+              echo
+              echo "------------------------------------------------------------"
+              echo "CHECKPOINT PERSISTED"
+              echo "------------------------------------------------------------"
+
+              echo "DATE              : $DATE"
+              echo "LANGUAGE          : $LANGUAGE"
+              echo "BATCH             : $BATCH_NO"
+              echo "NEW THIS BATCH    : $NEW_COUNT"
+              echo "TOTAL ANALYSIS    : $AFTER_COUNT"
+              echo "EXPECTED EVENT    : $EVENT_COUNT"
+              echo "STATUS            : CONTINUE"
+              echo "NEXT ACTION       : GENERATE NEXT BATCH"
+
+            done
 
             # ======================================================
             # TASK 4 COMPLETION VALIDATION
@@ -1541,14 +1765,6 @@ jobs:
 
             # ======================================================
             # Count Task 4 Analysis files
-            #
-            # Task 4 当前实际输出：
-            #
-            #     event_units/
-            #       EVT-XXXXXXXX-NNNNNN.md
-            #       EVT-XXXXXXXX-NNNNNN_analysis.md
-            #
-            # 不再要求 EVT-* 子目录。
             # ======================================================
 
             ANALYSIS_FILE_COUNT=$(find "$EVENT_UNITS_DIR" \
@@ -1632,52 +1848,8 @@ jobs:
             echo "Analysis files    : ALL NON-EMPTY"
 
             # ======================================================
-            # Immediate Git Sync
+            # Final confirmation for this Skills Processing Unit
             # ======================================================
-
-            git config user.name \
-              "748686 Knowledge Bot"
-
-            git config user.email \
-              "41898282+github-actions[bot]@users.noreply.github.com"
-
-            git add \
-              "$EVENT_ROOT" \
-              "01_自生长知识系统"
-
-            if git diff --cached --quiet; then
-
-              echo "ℹ️ No Skills changes detected"
-
-            else
-
-              git commit \
-                -m "data: complete Skills ${DATE} ${LANGUAGE}"
-
-              git push origin HEAD:main
-
-              echo "✅ Skills PUSH COMPLETE"
-
-            fi
-
-            # ======================================================
-            # Immediate Pull
-            # ======================================================
-
-            git pull --ff-only origin main
-
-            echo "✅ Skills PULL COMPLETE"
-
-            # ======================================================
-            # Post-sync validation
-            # ======================================================
-
-            if [ ! -f "$SKILLS_COMPLETE" ]; then
-
-              echo "❌ _SKILLS_COMPLETE missing after pull"
-              exit 1
-
-            fi
 
             echo
             echo "######################################################################"
@@ -1687,7 +1859,8 @@ jobs:
             echo "$DATE $LANGUAGE"
             echo "LANGUAGE : $LANGUAGE"
             echo "STATUS   : COMPLETE"
-            echo "GIT      : PUSHED"
+            echo "Analysis : $ANALYSIS_FILE_COUNT / $EVENT_COUNT"
+            echo "GIT      : CHECKPOINTS PUSHED"
             echo "SYNC     : PULLED"
 
           done
@@ -1700,25 +1873,6 @@ jobs:
 
       # ==========================================================
       # 23. Final Task 4 / Skills Validation
-      #
-      # 这里再次做六 Unit 最终只读验收。
-      #
-      # 必须满足：
-      #
-      # Task 3:
-      #     _COMPLETE
-      #
-      # Task 4:
-      #     _SKILLS_COMPLETE
-      #
-      # 并且：
-      #
-      #     EventUnit 数量
-      #       =
-      #     Analysis 文件数量
-      #
-      # 每一个 EventUnit 都必须存在对应的 Analysis。
-      # 所有 Analysis md 非空。
       # ==========================================================
 
       - name: Validate six Task 4 Skills Units
@@ -1796,8 +1950,6 @@ jobs:
 
             # ------------------------------------------------------
             # Task 3 EventUnits
-            #
-            # 排除 Task 4 *_analysis.md。
             # ------------------------------------------------------
 
             EVENT_COUNT=$(find "$EVENT_UNITS_DIR" \
