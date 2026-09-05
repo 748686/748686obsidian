@@ -46,6 +46,10 @@ jobs:
       # 4. Calculate three processing dates
       #
       # GitHub Actions UTC = 唯一业务时间基准
+      #
+      # 注意：
+      # 本版本不修改现有日期契约。
+      # Task 1 ~ Task 4 继续使用同一 UTC 日期逻辑。
       # ==========================================================
 
       - name: Calculate three processing dates
@@ -862,10 +866,6 @@ jobs:
             DATE="${UNIT%%|*}"
             LANGUAGE="${UNIT##*|}"
 
-            # ======================================================
-            # HARD LANGUAGE CONTRACT
-            # ======================================================
-
             if [ "$LANGUAGE" != "en" ] && \
                [ "$LANGUAGE" != "zh" ]; then
 
@@ -890,10 +890,6 @@ jobs:
             echo "LANGUAGE : $LANGUAGE"
             echo "######################################################################"
 
-            # ======================================================
-            # RECOVERY
-            # ======================================================
-
             if [ -f "$COMPLETE_MARKER" ]; then
 
               echo
@@ -903,10 +899,6 @@ jobs:
               continue
 
             fi
-
-            # ======================================================
-            # ZH DEPENDENCY
-            # ======================================================
 
             if [ "$LANGUAGE" = "zh" ]; then
 
@@ -928,10 +920,6 @@ jobs:
               echo "✅ en Unit complete"
 
             fi
-
-            # ======================================================
-            # INPUT VERIFICATION
-            # ======================================================
 
             ATOMIC_ROOT="$RAW_ROOT/${DATE}-Atomic"
             ENRICHED_ROOT="$RAW_ROOT/${DATE}-Enriched"
@@ -982,21 +970,7 @@ jobs:
               exit 1
             fi
 
-            # ======================================================
-            # BASIC DIRECTORY
-            #
-            # 不创建 articles。
-            #
-            # YAML 只提供 event_units 基础目录。
-            # YAML 不创建 EventUnit。
-            # YAML 不创建 _COMPLETE。
-            # ======================================================
-
             mkdir -p "$EVENT_UNITS_DIR"
-
-            # ======================================================
-            # TASK 1
-            # ======================================================
 
             echo
             echo "------------------------------------------------------------"
@@ -1009,10 +983,6 @@ jobs:
 
             echo "✅ Task 1 Cluster returned successfully"
 
-            # ======================================================
-            # TASK 2
-            # ======================================================
-
             echo
             echo "------------------------------------------------------------"
             echo "TASK 2 — MERGE"
@@ -1024,10 +994,6 @@ jobs:
 
             echo "✅ Task 2 Merge returned successfully"
 
-            # ======================================================
-            # TASK 3
-            # ======================================================
-
             echo
             echo "------------------------------------------------------------"
             echo "TASK 3 — EVENTUNIT SYNTHESIS"
@@ -1038,10 +1004,6 @@ jobs:
               --language "$LANGUAGE"
 
             echo "✅ Task 3 EventUnit returned successfully"
-
-            # ======================================================
-            # POST TASK 3 VALIDATION
-            # ======================================================
 
             echo
             echo "------------------------------------------------------------"
@@ -1124,10 +1086,6 @@ jobs:
             echo "COMPLETE   : YES"
             echo "OWNER      : Task 3"
 
-            # ======================================================
-            # IMMEDIATE GIT TRANSACTION
-            # ======================================================
-
             git config user.name \
               "748686 Knowledge Bot"
 
@@ -1152,17 +1110,9 @@ jobs:
 
             fi
 
-            # ======================================================
-            # IMMEDIATE PULL
-            # ======================================================
-
             git pull --ff-only origin main
 
             echo "✅ PULL COMPLETE"
-
-            # ======================================================
-            # POST SYNC VALIDATION
-            # ======================================================
 
             if [ ! -f "$COMPLETE_MARKER" ]; then
               echo "❌ COMPLETE marker missing after pull"
@@ -1325,32 +1275,6 @@ jobs:
 
       # ==========================================================
       # 22. KNOWLEDGE PIPELINE - TASK 4 / 27 SKILLS
-      #
-      # Task 4 interface:
-      #
-      #     en
-      #     zh
-      #
-      # 磁盘目录同样使用：
-      #
-      #     en
-      #     zh
-      #
-      # 不进行任何语言大小写转换。
-      #
-      # BATCH PERSISTENCE:
-      #
-      #     每 30 个 NEW Analysis
-      #         ↓
-      #     Git commit
-      #         ↓
-      #     Git push
-      #         ↓
-      #     Git pull
-      #         ↓
-      #     继续当前 Processing Unit
-      #
-      # 已存在合法 Analysis 不计入 30。
       # ==========================================================
 
       - name: Knowledge Pipeline - 27 Skills
@@ -1394,17 +1318,6 @@ jobs:
             DATE="${UNIT%%|*}"
             LANGUAGE="${UNIT##*|}"
 
-            # ======================================================
-            # HARD LANGUAGE CONTRACT
-            #
-            # ONLY:
-            #
-            #     en
-            #     zh
-            #
-            # 不允许任何大小写形式。
-            # ======================================================
-
             if [ "$LANGUAGE" != "en" ] && \
                [ "$LANGUAGE" != "zh" ]; then
 
@@ -1413,13 +1326,6 @@ jobs:
               exit 1
 
             fi
-
-            # ======================================================
-            # DIRECT LANGUAGE PATH
-            #
-            # 不存在 DISK_LANGUAGE。
-            # 不做任何语言转换。
-            # ======================================================
 
             EVENT_ROOT="$RAW_ROOT/${DATE}-EventUnit"
             LANG_ROOT="$EVENT_ROOT/$LANGUAGE"
@@ -1436,10 +1342,6 @@ jobs:
             echo "LANGUAGE         : $LANGUAGE"
             echo "######################################################################"
 
-            # ======================================================
-            # EventUnit prerequisite
-            # ======================================================
-
             if [ ! -f "$COMPLETE_MARKER" ]; then
 
               echo "❌ EventUnit incomplete"
@@ -1451,10 +1353,6 @@ jobs:
 
             echo "✅ EventUnit complete"
 
-            # ======================================================
-            # EventUnit directory
-            # ======================================================
-
             if [ ! -d "$EVENT_UNITS_DIR" ]; then
 
               echo "❌ event_units directory missing"
@@ -1462,12 +1360,6 @@ jobs:
               exit 1
 
             fi
-
-            # ======================================================
-            # Existing Task 3 EventUnits
-            #
-            # 排除 Task 4 已生成的 *_analysis.md。
-            # ======================================================
 
             EVENT_COUNT=$(find "$EVENT_UNITS_DIR" \
               -maxdepth 1 \
@@ -1485,21 +1377,6 @@ jobs:
 
             fi
 
-            # ======================================================
-            # TASK 4 BATCH LOOP
-            #
-            # 每次 Python 最多生成 30 个 NEW Analysis。
-            #
-            # 注意：
-            #
-            # 1. 已存在合法 Analysis 不计数。
-            # 2. Python 成功返回后立即 Git sync。
-            # 3. Python 失败时，如果已经产生部分 Analysis，
-            #    仍然先 Git sync，防止成果丢失。
-            # 4. _SKILLS_COMPLETE 只有完整 Processing Unit
-            #    才会由 Python 创建。
-            # ======================================================
-
             BATCH_NO=0
 
             while true; do
@@ -1514,13 +1391,6 @@ jobs:
               echo "LANGUAGE : $LANGUAGE"
               echo "LIMIT    : 30 NEW ANALYSIS FILES"
 
-              # ----------------------------------------------------
-              # Recovery:
-              #
-              # 如果之前的 Batch 已经完成整个 Unit，
-              # 直接结束当前 Unit。
-              # ----------------------------------------------------
-
               if [ -f "$SKILLS_COMPLETE" ] && \
                  [ -s "$SKILLS_COMPLETE" ]; then
 
@@ -1532,10 +1402,6 @@ jobs:
 
               fi
 
-              # ----------------------------------------------------
-              # Count Analysis before this Python invocation.
-              # ----------------------------------------------------
-
               BEFORE_COUNT=$(find "$EVENT_UNITS_DIR" \
                 -maxdepth 1 \
                 -type f \
@@ -1544,17 +1410,6 @@ jobs:
 
               echo "Analysis before batch : $BEFORE_COUNT"
               echo "Expected EventUnits   : $EVENT_COUNT"
-
-              # ----------------------------------------------------
-              # Run Task 4.
-              #
-              # 临时关闭 set -e。
-              #
-              # 原因：
-              #
-              # 如果 Python 在生成部分 Analysis 后失败，
-              # 必须先把已经成功生成的 Analysis 推送到 Git。
-              # ----------------------------------------------------
 
               set +e
 
@@ -1566,10 +1421,6 @@ jobs:
               TASK4_RC=$?
 
               set -e
-
-              # ----------------------------------------------------
-              # Count Analysis after Python.
-              # ----------------------------------------------------
 
               AFTER_COUNT=$(find "$EVENT_UNITS_DIR" \
                 -maxdepth 1 \
@@ -1584,12 +1435,6 @@ jobs:
               echo "New Analysis this run: $NEW_COUNT"
               echo "Task 4 return code    : $TASK4_RC"
 
-              # ----------------------------------------------------
-              # Basic safety:
-              #
-              # Analysis 数量不允许下降。
-              # ----------------------------------------------------
-
               if [ "$AFTER_COUNT" -lt "$BEFORE_COUNT" ]; then
 
                 echo "❌ Analysis file count decreased unexpectedly"
@@ -1598,19 +1443,6 @@ jobs:
                 exit 1
 
               fi
-
-              # ====================================================
-              # IMMEDIATE GIT SYNC
-              #
-              # 无论 Python 是：
-              #
-              #     0   成功
-              #     30  成功
-              #     <30 成功完成最终 Unit
-              #     部分生成后失败
-              #
-              # 都先把当前工作树成果保存。
-              # ====================================================
 
               git config user.name \
                 "748686 Knowledge Bot"
@@ -1647,20 +1479,9 @@ jobs:
 
               fi
 
-              # ====================================================
-              # Immediate Pull
-              # ====================================================
-
               git pull --ff-only origin main
 
               echo "✅ Skills PULL COMPLETE"
-
-              # ====================================================
-              # If Python failed:
-              #
-              # 已经先完成 Git persistence。
-              # 然后让 Workflow 正常失败。
-              # ====================================================
 
               if [ "$TASK4_RC" -ne 0 ]; then
 
@@ -1671,10 +1492,6 @@ jobs:
                 exit "$TASK4_RC"
 
               fi
-
-              # ====================================================
-              # Complete?
-              # ====================================================
 
               if [ -f "$SKILLS_COMPLETE" ] && \
                  [ -s "$SKILLS_COMPLETE" ]; then
@@ -1693,15 +1510,6 @@ jobs:
                 break
 
               fi
-
-              # ====================================================
-              # Safety against infinite loop.
-              #
-              # 如果 Python 正常返回，
-              # 但既没有完成 Unit，
-              # 又没有产生任何新的 Analysis，
-              # 则不能继续无限循环。
-              # ====================================================
 
               if [ "$AFTER_COUNT" -le "$BEFORE_COUNT" ]; then
 
@@ -1730,16 +1538,6 @@ jobs:
 
             done
 
-            # ======================================================
-            # TASK 4 COMPLETION VALIDATION
-            #
-            # Task 4 自己负责创建：
-            #
-            #     event_units/_SKILLS_COMPLETE
-            #
-            # YAML 这里只验证。
-            # ======================================================
-
             echo
             echo "------------------------------------------------------------"
             echo "TASK 4 VALIDATION"
@@ -1761,12 +1559,6 @@ jobs:
 
             fi
 
-            echo "SKILLS_COMPLETE : YES"
-
-            # ======================================================
-            # Count Task 4 Analysis files
-            # ======================================================
-
             ANALYSIS_FILE_COUNT=$(find "$EVENT_UNITS_DIR" \
               -maxdepth 1 \
               -type f \
@@ -1774,10 +1566,6 @@ jobs:
               | wc -l)
 
             echo "Analysis files    : $ANALYSIS_FILE_COUNT"
-
-            # ------------------------------------------------------
-            # Task 3 Event count must equal Task 4 Analysis count
-            # ------------------------------------------------------
 
             if [ "$ANALYSIS_FILE_COUNT" -ne "$EVENT_COUNT" ]; then
 
@@ -1787,12 +1575,6 @@ jobs:
               exit 1
 
             fi
-
-            echo "Event / Analysis mapping : COUNT OK"
-
-            # ======================================================
-            # Validate every EventUnit has corresponding Analysis
-            # ======================================================
 
             MISSING_ANALYSIS_COUNT=0
 
@@ -1825,12 +1607,6 @@ jobs:
 
             fi
 
-            echo "Event / Analysis mapping : ALL OK"
-
-            # ======================================================
-            # Empty Analysis files
-            # ======================================================
-
             EMPTY_ANALYSIS_COUNT=$(find "$EVENT_UNITS_DIR" \
               -maxdepth 1 \
               -type f \
@@ -1844,12 +1620,6 @@ jobs:
               exit 1
 
             fi
-
-            echo "Analysis files    : ALL NON-EMPTY"
-
-            # ======================================================
-            # Final confirmation for this Skills Processing Unit
-            # ======================================================
 
             echo
             echo "######################################################################"
@@ -1904,10 +1674,6 @@ jobs:
             DATE="${UNIT%%|*}"
             LANGUAGE="${UNIT##*|}"
 
-            # ======================================================
-            # HARD LANGUAGE CONTRACT
-            # ======================================================
-
             if [ "$LANGUAGE" != "en" ] && \
                [ "$LANGUAGE" != "zh" ]; then
 
@@ -1930,27 +1696,15 @@ jobs:
             echo "LANGUAGE : $LANGUAGE"
             echo "------------------------------------------------------------"
 
-            # ------------------------------------------------------
-            # Task 3 complete
-            # ------------------------------------------------------
-
             if [ ! -f "$COMPLETE_MARKER" ]; then
               echo "❌ Task 3 _COMPLETE missing"
               exit 1
             fi
 
-            # ------------------------------------------------------
-            # event_units
-            # ------------------------------------------------------
-
             if [ ! -d "$EVENT_UNITS_DIR" ]; then
               echo "❌ event_units directory missing"
               exit 1
             fi
-
-            # ------------------------------------------------------
-            # Task 3 EventUnits
-            # ------------------------------------------------------
 
             EVENT_COUNT=$(find "$EVENT_UNITS_DIR" \
               -maxdepth 1 \
@@ -1966,10 +1720,6 @@ jobs:
               exit 1
             fi
 
-            # ------------------------------------------------------
-            # Task 4 completion marker
-            # ------------------------------------------------------
-
             if [ ! -f "$SKILLS_COMPLETE" ]; then
               echo "❌ _SKILLS_COMPLETE missing"
               exit 1
@@ -1979,10 +1729,6 @@ jobs:
               echo "❌ _SKILLS_COMPLETE empty"
               exit 1
             fi
-
-            # ------------------------------------------------------
-            # Task 4 Analysis files
-            # ------------------------------------------------------
 
             ANALYSIS_COUNT=$(find "$EVENT_UNITS_DIR" \
               -maxdepth 1 \
@@ -2000,10 +1746,6 @@ jobs:
               exit 1
 
             fi
-
-            # ------------------------------------------------------
-            # Every EventUnit must have corresponding Analysis
-            # ------------------------------------------------------
 
             MISSING_ANALYSIS_COUNT=0
 
@@ -2036,10 +1778,6 @@ jobs:
 
             fi
 
-            # ------------------------------------------------------
-            # Empty Analysis files
-            # ------------------------------------------------------
-
             EMPTY_ANALYSIS_COUNT=$(find "$EVENT_UNITS_DIR" \
               -maxdepth 1 \
               -type f \
@@ -2070,10 +1808,18 @@ jobs:
           echo "============================================================"
 
       # ==========================================================
-      # 24. Weekly Report
+      # 24. Daily Report
+      #
+      # Task 4
+      #    ↓
+      # knowledge_daily.py
+      #    ↓
+      # 05_日报
+      #
+      # 不修改 Task 4。
       # ==========================================================
 
-      - name: Run Weekly Report V2
+      - name: Run Daily Report
         env:
           AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
           AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
@@ -2082,22 +1828,168 @@ jobs:
         run: |
           set -e
 
-          echo "============================================================"
+          SCRIPT="01_自生长知识系统/scripts/knowledge_daily.py"
+
+          echo
+          echo "######################################################################"
+          echo "DAILY REPORT"
+          echo "######################################################################"
+
+          if [ ! -f "$SCRIPT" ]; then
+            echo "❌ knowledge_daily.py not found"
+            exit 1
+          fi
+
+          python "$SCRIPT"
+
+          echo
+          echo "✅ Daily Report completed"
+
+      # ==========================================================
+      # 25. Knowledge Assetization
+      #
+      # Task 4 Analysis
+      #       ↓
+      # knowledge_asset.py
+      #       ↓
+      # 08_知识库
+      # 09_知识图谱
+      # 知识缺口
+      # 知识矛盾
+      #
+      # 不写 01 / 02 / 03 / 04 / 10。
+      # ==========================================================
+
+      - name: Run Knowledge Assetization
+        env:
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_BASE_URL: https://api.agnes-ai.cn/v1
+          AI_MODEL: agnes-2.5-flash
+        run: |
+          set -e
+
+          SCRIPT="01_自生长知识系统/scripts/knowledge_asset.py"
+
+          echo
+          echo "######################################################################"
+          echo "KNOWLEDGE ASSETIZATION"
+          echo "######################################################################"
+
+          if [ ! -f "$SCRIPT" ]; then
+            echo "❌ knowledge_asset.py not found"
+            exit 1
+          fi
+
+          python "$SCRIPT"
+
+          echo
+          echo "✅ Knowledge Assetization completed"
+
+      # ==========================================================
+      # 26. Weekly Report
+      #
+      # Daily Report
+      # Knowledge Base
+      # Knowledge Graph
+      # Task 4 Analysis
+      #       ↓
+      # weekly_report.py
+      #       ↓
+      # 06_周报
+      # ==========================================================
+
+      - name: Run Weekly Report
+        env:
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_BASE_URL: https://api.agnes-ai.cn/v1
+          AI_MODEL: agnes-2.5-flash
+        run: |
+          set -e
+
+          SCRIPT="01_自生长知识系统/scripts/weekly_report.py"
+
+          echo
+          echo "######################################################################"
           echo "WEEKLY REPORT"
-          echo "============================================================"
+          echo "######################################################################"
 
-          python \
-            "01_自生长知识系统/scripts/weekly_report.py"
+          if [ ! -f "$SCRIPT" ]; then
+            echo "❌ weekly_report.py not found"
+            exit 1
+          fi
 
+          python "$SCRIPT"
+
+          echo
           echo "✅ Weekly Report completed"
 
       # ==========================================================
-      # 25. Final result
+      # 27. Knowledge Growth
+      #
+      # Knowledge Base
+      # Knowledge Graph
+      # Daily
+      # Weekly
+      # Task 4 Analysis
+      #       ↓
+      # knowledge_growth.py
+      #       ↓
+      # 知识更新
+      # 新关系
+      # 知识缺口
+      # 知识矛盾
+      # 候选专题
+      # ==========================================================
+
+      - name: Run Knowledge Growth
+        env:
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_BASE_URL: https://api.agnes-ai.cn/v1
+          AI_MODEL: agnes-2.5-flash
+        run: |
+          set -e
+
+          SCRIPT="01_自生长知识系统/scripts/knowledge_growth.py"
+
+          echo
+          echo "######################################################################"
+          echo "KNOWLEDGE GROWTH"
+          echo "######################################################################"
+
+          if [ ! -f "$SCRIPT" ]; then
+            echo "❌ knowledge_growth.py not found"
+            exit 1
+          fi
+
+          python "$SCRIPT"
+
+          echo
+          echo "✅ Knowledge Growth completed"
+
+      # ==========================================================
+      # 28. Final result validation
+      #
+      # 验证：
+      #
+      # Raw
+      # Atomic
+      # Enriched
+      # EventUnit
+      # Task 4 Analysis
+      # Daily
+      # Knowledge Asset
+      # Weekly
+      # Growth
       # ==========================================================
 
       - name: Show three-day final result
         run: |
           set -e
+
+          RAW_ROOT="01_自生长知识系统/Raw News"
 
           echo
           echo "============================================================"
@@ -2119,7 +2011,7 @@ jobs:
             echo "RAW:"
 
             find \
-              "01_自生长知识系统/Raw News/$DATE" \
+              "$RAW_ROOT/$DATE" \
               -maxdepth 1 \
               -type f \
               -name "*.md" \
@@ -2129,7 +2021,7 @@ jobs:
             echo "ATOMIC:"
 
             find \
-              "01_自生长知识系统/Raw News/${DATE}-Atomic" \
+              "$RAW_ROOT/${DATE}-Atomic" \
               -type f \
               -name "*.md" \
               | sort
@@ -2138,7 +2030,7 @@ jobs:
             echo "ENRICHED:"
 
             find \
-              "01_自生长知识系统/Raw News/${DATE}-Enriched" \
+              "$RAW_ROOT/${DATE}-Enriched" \
               -type f \
               -name "*.md" \
               | sort
@@ -2147,30 +2039,182 @@ jobs:
             echo "EVENTUNITS:"
 
             find \
-              "01_自生长知识系统/Raw News/${DATE}-EventUnit" \
+              "$RAW_ROOT/${DATE}-EventUnit" \
               -type f \
               | sort
 
-            echo
-            echo "DAILY REPORT:"
-
-            REPORT="01_自生长知识系统/05_日报/${DATE:0:4}/${DATE:5:2}/${DATE}.md"
-
-            if [ -f "$REPORT" ]; then
-
-              echo "✅ $REPORT"
-
-            else
-
-              echo "❌ Missing $REPORT"
-              exit 1
-
-            fi
-
           done
 
+          # ======================================================
+          # Daily Report validation
+          # ======================================================
+
+          echo
+          echo "============================================================"
+          echo "DAILY REPORT VALIDATION"
+          echo "============================================================"
+
+          DAILY_REPORT="01_自生长知识系统/05_日报/${TODAY:0:4}/${TODAY:5:2}/${TODAY}.md"
+
+          if [ ! -f "$DAILY_REPORT" ]; then
+            echo "❌ Missing Daily Report"
+            echo "$DAILY_REPORT"
+            exit 1
+          fi
+
+          if [ ! -s "$DAILY_REPORT" ]; then
+            echo "❌ Daily Report is empty"
+            echo "$DAILY_REPORT"
+            exit 1
+          fi
+
+          echo "✅ Daily Report:"
+          echo "$DAILY_REPORT"
+
+          # ======================================================
+          # Knowledge Base validation
+          # ======================================================
+
+          echo
+          echo "============================================================"
+          echo "KNOWLEDGE BASE VALIDATION"
+          echo "============================================================"
+
+          KNOWLEDGE_ROOT="01_自生长知识系统/08_知识库"
+
+          if [ ! -d "$KNOWLEDGE_ROOT" ]; then
+            echo "❌ Knowledge Base directory missing"
+            echo "$KNOWLEDGE_ROOT"
+            exit 1
+          fi
+
+          KNOWLEDGE_COUNT=$(find "$KNOWLEDGE_ROOT" \
+            -type f \
+            -name "*.md" \
+            | wc -l)
+
+          echo "Knowledge files: $KNOWLEDGE_COUNT"
+
+          if [ "$KNOWLEDGE_COUNT" -eq 0 ]; then
+            echo "❌ Knowledge Base contains no Markdown files"
+            exit 1
+          fi
+
+          echo "✅ Knowledge Base exists"
+
+          # ======================================================
+          # Knowledge Graph validation
+          # ======================================================
+
+          echo
+          echo "============================================================"
+          echo "KNOWLEDGE GRAPH VALIDATION"
+          echo "============================================================"
+
+          GRAPH_ROOT="01_自生长知识系统/09_知识图谱"
+
+          if [ ! -d "$GRAPH_ROOT" ]; then
+            echo "❌ Knowledge Graph directory missing"
+            echo "$GRAPH_ROOT"
+            exit 1
+          fi
+
+          GRAPH_COUNT=$(find "$GRAPH_ROOT" \
+            -type f \
+            -name "*.md" \
+            | wc -l)
+
+          echo "Knowledge Graph files: $GRAPH_COUNT"
+
+          if [ "$GRAPH_COUNT" -eq 0 ]; then
+            echo "❌ Knowledge Graph contains no Markdown files"
+            exit 1
+          fi
+
+          echo "✅ Knowledge Graph exists"
+
+          # ======================================================
+          # Weekly Report validation
+          #
+          # 根据当前 UTC TODAY 计算 ISO week。
+          # ======================================================
+
+          WEEK_YEAR=$(date -u -d "$TODAY" +%G)
+          WEEK_NO=$(date -u -d "$TODAY" +%V)
+
+          WEEKLY_REPORT="01_自生长知识系统/06_周报/${WEEK_YEAR}/W${WEEK_NO}.md"
+
+          echo
+          echo "============================================================"
+          echo "WEEKLY REPORT VALIDATION"
+          echo "============================================================"
+
+          echo "Expected:"
+          echo "$WEEKLY_REPORT"
+
+          if [ ! -f "$WEEKLY_REPORT" ]; then
+            echo "❌ Weekly Report missing"
+            exit 1
+          fi
+
+          if [ ! -s "$WEEKLY_REPORT" ]; then
+            echo "❌ Weekly Report empty"
+            exit 1
+          fi
+
+          echo "✅ Weekly Report exists"
+
+          # ======================================================
+          # Growth output validation
+          #
+          # Growth 本身允许某些日期没有：
+          #
+          #     knowledge gaps
+          #     contradictions
+          #     candidate topics
+          #
+          # 因此这里只验证程序成功完成后，
+          # 运行日志存在。
+          # ======================================================
+
+          GROWTH_COMPLETE="01_自生长知识系统/00_System/运行日志/knowledge_growth/${TODAY}_COMPLETE"
+
+          echo
+          echo "============================================================"
+          echo "KNOWLEDGE GROWTH VALIDATION"
+          echo "============================================================"
+
+          if [ ! -f "$GROWTH_COMPLETE" ]; then
+            echo "❌ Knowledge Growth completion marker missing"
+            echo "$GROWTH_COMPLETE"
+            exit 1
+          fi
+
+          if [ ! -s "$GROWTH_COMPLETE" ]; then
+            echo "❌ Knowledge Growth completion marker empty"
+            exit 1
+          fi
+
+          echo "✅ Knowledge Growth COMPLETE"
+
+          echo
+          echo "============================================================"
+          echo "FINAL PIPELINE VALIDATION COMPLETE"
+          echo "============================================================"
+
+          echo "Raw              : OK"
+          echo "Atomic           : OK"
+          echo "Enriched         : OK"
+          echo "EventUnit        : OK"
+          echo "Task 4 Skills    : OK"
+          echo "Daily Report     : OK"
+          echo "Knowledge Base   : OK"
+          echo "Knowledge Graph  : OK"
+          echo "Weekly Report    : OK"
+          echo "Knowledge Growth : OK"
+
       # ==========================================================
-      # 26. Final Commit
+      # 29. Final Commit
       # ==========================================================
 
       - name: Commit Knowledge System
@@ -2202,7 +2246,7 @@ jobs:
           fi
 
       # ==========================================================
-      # 27. Run Return Log
+      # 30. Run Return Log
       # ==========================================================
 
       - name: Run Return Log
@@ -2228,6 +2272,15 @@ jobs:
           echo "Runner    : ubuntu-latest"
           echo "Python    : 3.12"
           echo "Timezone  : UTC"
+
+          echo
+          echo "============================================================"
+          echo "PROCESSING DATES"
+          echo "============================================================"
+
+          echo "DAY_BEFORE : $DAY_BEFORE"
+          echo "YESTERDAY  : $YESTERDAY"
+          echo "TODAY      : $TODAY"
 
           echo
           echo "============================================================"
@@ -2300,6 +2353,64 @@ jobs:
 
           echo
           echo "============================================================"
+          echo "DOWNSTREAM STATUS"
+          echo "============================================================"
+
+          DAILY_REPORT="01_自生长知识系统/05_日报/${TODAY:0:4}/${TODAY:5:2}/${TODAY}.md"
+
+          if [ -s "$DAILY_REPORT" ]; then
+            echo "Daily Report     : COMPLETE"
+          else
+            echo "Daily Report     : INCOMPLETE"
+          fi
+
+          KNOWLEDGE_ROOT="01_自生长知识系统/08_知识库"
+
+          if [ -d "$KNOWLEDGE_ROOT" ]; then
+            KNOWLEDGE_COUNT=$(find "$KNOWLEDGE_ROOT" \
+              -type f \
+              -name "*.md" \
+              | wc -l)
+          else
+            KNOWLEDGE_COUNT=0
+          fi
+
+          echo "Knowledge Base   : $KNOWLEDGE_COUNT files"
+
+          GRAPH_ROOT="01_自生长知识系统/09_知识图谱"
+
+          if [ -d "$GRAPH_ROOT" ]; then
+            GRAPH_COUNT=$(find "$GRAPH_ROOT" \
+              -type f \
+              -name "*.md" \
+              | wc -l)
+          else
+            GRAPH_COUNT=0
+          fi
+
+          echo "Knowledge Graph  : $GRAPH_COUNT files"
+
+          WEEK_YEAR=$(date -u -d "$TODAY" +%G)
+          WEEK_NO=$(date -u -d "$TODAY" +%V)
+
+          WEEKLY_REPORT="01_自生长知识系统/06_周报/${WEEK_YEAR}/W${WEEK_NO}.md"
+
+          if [ -s "$WEEKLY_REPORT" ]; then
+            echo "Weekly Report    : COMPLETE"
+          else
+            echo "Weekly Report    : INCOMPLETE"
+          fi
+
+          GROWTH_COMPLETE="01_自生长知识系统/00_System/运行日志/knowledge_growth/${TODAY}_COMPLETE"
+
+          if [ -s "$GROWTH_COMPLETE" ]; then
+            echo "Knowledge Growth : COMPLETE"
+          else
+            echo "Knowledge Growth : INCOMPLETE"
+          fi
+
+          echo
+          echo "============================================================"
           echo "LATEST GIT COMMIT"
           echo "============================================================"
 
@@ -2323,6 +2434,10 @@ jobs:
             echo "| Branch | $GITHUB_REF_NAME |"
             echo "| Commit | $GITHUB_SHA |"
             echo "| Timezone | UTC |"
+            echo "| Day Before | $DAY_BEFORE |"
+            echo "| Yesterday | $YESTERDAY |"
+            echo "| Today | $TODAY |"
+
             echo
             echo "## Processing Units"
             echo
@@ -2386,6 +2501,33 @@ jobs:
             done
 
             echo
+            echo "## Downstream"
+            echo
+            echo "| Component | Status |"
+            echo "|---|---|"
+
+            if [ -s "$DAILY_REPORT" ]; then
+              echo "| Daily Report | COMPLETE |"
+            else
+              echo "| Daily Report | INCOMPLETE |"
+            fi
+
+            echo "| Knowledge Base | $KNOWLEDGE_COUNT Markdown files |"
+            echo "| Knowledge Graph | $GRAPH_COUNT Markdown files |"
+
+            if [ -s "$WEEKLY_REPORT" ]; then
+              echo "| Weekly Report | COMPLETE |"
+            else
+              echo "| Weekly Report | INCOMPLETE |"
+            fi
+
+            if [ -s "$GROWTH_COMPLETE" ]; then
+              echo "| Knowledge Growth | COMPLETE |"
+            else
+              echo "| Knowledge Growth | INCOMPLETE |"
+            fi
+
+            echo
             echo "## Pipeline"
             echo
             echo "- ✅ Three-day Raw News"
@@ -2404,46 +2546,55 @@ jobs:
             echo "- ✅ Task 4 _SKILLS_COMPLETE validation"
             echo "- ✅ EventUnit / Analysis mapping validation"
             echo "- ✅ Six Task 4 Units validated"
+            echo "- ✅ Daily Report"
+            echo "- ✅ Knowledge Assetization"
+            echo "- ✅ Knowledge Base"
+            echo "- ✅ Knowledge Graph"
             echo "- ✅ Weekly Report"
+            echo "- ✅ Knowledge Growth"
+            echo "- ✅ Final Validation"
             echo "- ✅ Final Commit"
 
             echo
-            echo "## Task Model"
+            echo "## Knowledge Pipeline"
             echo
+            echo "Raw"
+            echo " ↓"
+            echo "Atomic"
+            echo " ↓"
+            echo "Enriched"
+            echo " ↓"
             echo "Task 1 — Cluster"
-            echo "        ↓"
+            echo " ↓"
             echo "Task 2 — Merge"
-            echo "        ↓"
-            echo "Task 3 — EventUnit Synthesis"
-            echo "        ↓"
-            echo "Task 3 creates _COMPLETE"
-            echo "        ↓"
-            echo "Git Push"
-            echo "        ↓"
-            echo "Git Pull"
-            echo "        ↓"
-            echo "Next Processing Unit"
+            echo " ↓"
+            echo "Task 3 — EventUnit"
+            echo " ↓"
+            echo "_COMPLETE"
+            echo " ↓"
+            echo "Task 4 — 27 Skills"
+            echo " ↓"
+            echo "_SKILLS_COMPLETE"
+            echo " ↓"
+            echo "Daily Report"
+            echo " ↓"
+            echo "Knowledge Assetization"
+            echo " ↓"
+            echo "08_知识库 + 09_知识图谱"
+            echo " ↓"
+            echo "Weekly Report"
+            echo " ↓"
+            echo "Knowledge Growth"
+            echo " ↓"
+            echo "Final Validation"
 
             echo
-            echo "## Skills Model"
+            echo "## Time Contract"
             echo
-            echo "All six EventUnit Processing Units complete"
-            echo "        ↓"
-            echo "Task 4 — 27 Skills"
-            echo "        ↓"
-            echo "DATE + LANGUAGE"
-            echo "        ↓"
-            echo "Disk language en/zh"
-            echo "        ↓"
-            echo "Event × Skill"
-            echo "        ↓"
-            echo "Analysis files"
-            echo "        ↓"
-            echo "_SKILLS_COMPLETE"
-            echo "        ↓"
-            echo "Git Push"
-            echo "        ↓"
-            echo "Git Pull"
+            echo "- GitHub Actions cron: UTC"
+            echo "- Processing dates: UTC"
+            echo "- Task 1–Task 4 date contract: unchanged"
+            echo "- Language contract: lowercase en / zh only"
 
             echo
             echo "## Latest Git Commit"
@@ -2465,7 +2616,7 @@ jobs:
           echo "######################################################################"
 
       # ==========================================================
-      # 28. Complete Job
+      # 31. Complete Job
       # ==========================================================
 
       - name: Complete Job
@@ -2476,6 +2627,14 @@ jobs:
           echo "============================================================"
           echo "748686 自生长知识系统"
           echo "============================================================"
+
+          echo
+          echo "PROCESSING DATES:"
+          echo
+
+          echo "DAY_BEFORE : $DAY_BEFORE"
+          echo "YESTERDAY  : $YESTERDAY"
+          echo "TODAY      : $TODAY"
 
           echo
           echo "Processing Units:"
@@ -2496,6 +2655,7 @@ jobs:
           echo "✅ GitHub Actions UTC"
           echo "✅ cron uses UTC"
           echo "✅ Processing dates use UTC"
+          echo "✅ Task 1–Task 4 date contract unchanged"
 
           echo
           echo "============================================================"
@@ -2521,49 +2681,72 @@ jobs:
 
           echo
           echo "============================================================"
-          echo "TASK MODEL"
+          echo "KNOWLEDGE PIPELINE"
           echo "============================================================"
 
+          echo "Raw"
+          echo " ↓"
+          echo "Atomic"
+          echo " ↓"
+          echo "Enriched"
+          echo " ↓"
           echo "Task 1 — Cluster"
-          echo "        ↓"
+          echo " ↓"
           echo "Task 2 — Merge"
-          echo "        ↓"
-          echo "Task 3 — EventUnit Synthesis"
-          echo "        ↓"
+          echo " ↓"
+          echo "Task 3 — EventUnit"
+          echo " ↓"
           echo "Task 3 creates _COMPLETE"
-          echo "        ↓"
-          echo "Git commit"
-          echo "        ↓"
-          echo "Git push"
-          echo "        ↓"
-          echo "Git pull"
-          echo "        ↓"
-          echo "Next Processing Unit"
+          echo " ↓"
+          echo "Task 4 — 27 Skills"
+          echo " ↓"
+          echo "Task 4 creates _SKILLS_COMPLETE"
+          echo " ↓"
+          echo "Daily Report"
+          echo " ↓"
+          echo "Knowledge Assetization"
+          echo " ↓"
+          echo "08_知识库"
+          echo " ↓"
+          echo "09_知识图谱"
+          echo " ↓"
+          echo "Weekly Report"
+          echo " ↓"
+          echo "Knowledge Growth"
+          echo " ↓"
+          echo "Final Validation"
+          echo " ↓"
+          echo "Git Commit / Push"
 
           echo
           echo "============================================================"
-          echo "SKILLS MODEL"
+          echo "DOWNSTREAM KNOWLEDGE LAYERS"
           echo "============================================================"
 
-          echo "All six Processing Units complete"
-          echo "        ↓"
-          echo "Task 4 — 27 Skills"
-          echo "        ↓"
-          echo "en / zh interface"
-          echo "        ↓"
-          echo "en / zh disk directory"
-          echo "        ↓"
-          echo "Event × Skill"
-          echo "        ↓"
-          echo "Analysis files"
-          echo "        ↓"
-          echo "_SKILLS_COMPLETE"
-          echo "        ↓"
-          echo "Git push"
-          echo "        ↓"
-          echo "Git pull"
+          echo "05_日报       → Daily Cognition"
+          echo "06_周报       → Weekly Cognition"
+          echo "08_知识库     → Durable Knowledge"
+          echo "09_知识图谱   → Knowledge Relationships"
+          echo "Knowledge Growth → Continuous Iteration"
 
           echo
           echo "============================================================"
           echo "SYSTEM COMPLETE"
           echo "============================================================"
+
+          echo "✅ Raw"
+          echo "✅ Atomic"
+          echo "✅ Enriched"
+          echo "✅ Task 1"
+          echo "✅ Task 2"
+          echo "✅ Task 3"
+          echo "✅ Task 4"
+          echo "✅ Daily Report"
+          echo "✅ Knowledge Assetization"
+          echo "✅ Weekly Report"
+          echo "✅ Knowledge Growth"
+          echo "✅ Final Validation"
+          echo "✅ Git Sync"
+
+          echo
+          echo "748686 自生长知识系统 RUN COMPLETE"
