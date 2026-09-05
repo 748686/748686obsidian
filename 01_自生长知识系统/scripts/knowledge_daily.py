@@ -108,6 +108,7 @@ Task 4 仍然严格使用：
 
 不进行大小写转换。
 
+
 ======================================================================
 EVENT DEDUPLICATION
 ======================================================================
@@ -128,6 +129,7 @@ Daily 层只把它视为一个 Event。
     en
 
 这样避免最终日报重复报道同一个事件。
+
 
 ======================================================================
 BATCH CONTRACT
@@ -242,8 +244,8 @@ import argparse
 import json
 import re
 import sys
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 from knowledge_common import (
     ROOT,
@@ -315,7 +317,6 @@ def validate_date(
         date,
         str,
     ):
-
         raise ValueError(
             f"Invalid date type: {type(date).__name__}"
         )
@@ -323,21 +324,17 @@ def validate_date(
     if not DATE_RE.fullmatch(
         date
     ):
-
         raise ValueError(
             f"Invalid date format: {date!r}. "
             "Expected YYYY-MM-DD."
         )
 
     try:
-
         datetime.strptime(
             date,
             "%Y-%m-%d",
         )
-
     except ValueError as exc:
-
         raise ValueError(
             f"Invalid calendar date: {date!r}"
         ) from exc
@@ -416,7 +413,6 @@ def runtime_dir(
 def load_daily_skill() -> str:
 
     if not DAILY_SKILL_PATH.exists():
-
         raise FileNotFoundError(
             "日报 Skill 不存在：\n"
             f"{DAILY_SKILL_PATH}"
@@ -427,7 +423,6 @@ def load_daily_skill() -> str:
     ).strip()
 
     if not skill:
-
         raise RuntimeError(
             "日报 Skill 文件为空：\n"
             f"{DAILY_SKILL_PATH}"
@@ -462,7 +457,6 @@ def extract_event_id(
         if EVENT_ID_RE.fullmatch(
             event_id
         ):
-
             return event_id
 
     match = EVENT_ID_RE.search(
@@ -470,7 +464,6 @@ def extract_event_id(
     )
 
     if match:
-
         return match.group(0)
 
     match = EVENT_ID_RE.search(
@@ -478,7 +471,6 @@ def extract_event_id(
     )
 
     if match:
-
         return match.group(0)
 
     raise ValueError(
@@ -506,18 +498,17 @@ def discover_analysis_files(
         "zh",
     ):
 
-        directory = (
-            event_units_dir(
-                date,
-                language,
-            )
+        directory = event_units_dir(
+            date,
+            language,
         )
 
         if not directory.exists():
 
             raise FileNotFoundError(
-                f"Task 4 EventUnit directory "
-                f"does not exist:\n{directory}"
+                "Task 4 EventUnit directory "
+                "does not exist:\n"
+                f"{directory}"
             )
 
         for path in sorted(
@@ -527,7 +518,6 @@ def discover_analysis_files(
         ):
 
             if not path.is_file():
-
                 continue
 
             try:
@@ -605,11 +595,14 @@ def select_canonical_analysis(
 
 def load_deduplicated_analyses(
     date: str,
+    grouped: dict[str, dict[str, Path]] | None = None,
 ) -> list[dict[str, str]]:
 
-    grouped = discover_analysis_files(
-        date
-    )
+    if grouped is None:
+
+        grouped = discover_analysis_files(
+            date
+        )
 
     records: list[
         dict[str, str]
@@ -631,7 +624,6 @@ def load_deduplicated_analyses(
         ).strip()
 
         if not text:
-
             continue
 
         records.append(
@@ -707,7 +699,8 @@ def build_batch_prompt(
                 analysis[
                     :MAX_ANALYSIS_CHARS
                 ]
-                + "\n\n[Analysis truncated for batch compression]"
+                + "\n\n"
+                "[Analysis truncated for batch compression]"
             )
 
         sections.append(
@@ -924,7 +917,8 @@ def build_intermediate_prompt(
                 summary[
                     :MAX_INTERMEDIATE_BATCH_CHARS
                 ]
-                + "\n\n[Batch summary truncated for intermediate merge]"
+                + "\n\n"
+                "[Batch summary truncated for intermediate merge]"
             )
 
         sections.append(
@@ -1125,7 +1119,8 @@ def build_final_input(
             intermediate[
                 :MAX_FINAL_INPUT_CHARS
             ]
-            + "\n\n[Intermediate Brief truncated]"
+            + "\n\n"
+            "[Intermediate Brief truncated]"
         )
 
     content = f"""# Daily Report Final Input
@@ -1207,7 +1202,8 @@ def build_final_daily_prompt(
             intermediate[
                 :MAX_FINAL_INPUT_CHARS
             ]
-            + "\n\n[Intermediate Brief truncated]"
+            + "\n\n"
+            "[Intermediate Brief truncated]"
         )
 
     return f"""
@@ -1373,7 +1369,9 @@ def write_runtime_manifest(
         "analysis_count": analysis_count,
         "batch_size": BATCH_SIZE,
         "batch_count": batch_count,
-        "deduplication": "Event ID; zh preferred over en",
+        "deduplication": (
+            "Event ID; zh preferred over en"
+        ),
         "pipeline": [
             "Task 4 Analysis",
             "Event ID Deduplication",
@@ -1458,7 +1456,7 @@ def process_date(
 
         print()
         print(
-            f"⏭️ DAILY REPORT ALREADY EXISTS"
+            "⏭️ DAILY REPORT ALREADY EXISTS"
         )
         print(
             f"   {report_path}"
@@ -1469,9 +1467,27 @@ def process_date(
     # ==============================================================
     # Load Task 4 Analysis
     # ==============================================================
+    #
+    # 重要：
+    # discover_analysis_files() 只执行一次。
+    # 既用于统计原始 Analysis 数量，
+    # 又用于后续 Event ID 去重。
+    #
+    # 这样可以避免重复扫描目录。
+    # =============================================================
+
+    grouped = discover_analysis_files(
+        date
+    )
+
+    raw_analysis_count = sum(
+        len(language_paths)
+        for language_paths in grouped.values()
+    )
 
     records = load_deduplicated_analyses(
-        date
+        date,
+        grouped=grouped,
     )
 
     if not records:
@@ -1480,14 +1496,25 @@ def process_date(
             f"❌ {date} 没有可用 Task 4 Analysis"
         )
 
+    # ==============================================================
+    # FIXED:
+    #
+    # 原来的代码：
+    #
+    # f"{sum("
+    #     ...
+    # ")}"
+    #
+    # 会导致：
+    #
+    # SyntaxError: f-string: expecting '}'
+    #
+    # 现在先计算变量，再输出。
+    # =============================================================
+
     print(
         f"Task 4 Analysis : "
-        f"{sum("
-            "1 "
-            "for language_paths "
-            "in discover_analysis_files(date).values() "
-            "for _ in language_paths"
-        )}"
+        f"{raw_analysis_count}"
     )
 
     print(
@@ -1496,8 +1523,8 @@ def process_date(
     )
 
     print(
-        f"Languages        : "
-        f"zh preferred / en fallback"
+        "Languages        : "
+        "zh preferred / en fallback"
     )
 
     # ==============================================================
@@ -1635,6 +1662,9 @@ def process_date(
     )
     print(
         f"DATE              : {date}"
+    )
+    print(
+        f"RAW ANALYSES      : {raw_analysis_count}"
     )
     print(
         f"UNIQUE EVENTS     : {len(records)}"
