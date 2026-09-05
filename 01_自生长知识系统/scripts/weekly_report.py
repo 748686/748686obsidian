@@ -3,1156 +3,154 @@
 
 """
 748686 自生长知识系统
-Weekly Report V3
+Weekly Report V3.0
 
 ======================================================================
 职责
 ======================================================================
 
-Weekly Report 不是简单拼接过去 7 天日报。
+让 AI 调取：
 
-它是一个独立的“周级知识编译器”。
+    Skills/05.汇报写作/周报编写助手.md
 
-数据来源：
+然后基于：
 
-    1. 05_日报
-       └── 已经完成的每日知识压缩结果
+    本周日报
+    +
+    本周 Task 4 Analysis
+    +
+    08_知识库
+    +
+    09_知识图谱
+    +
+    07_专题报告
 
-    2. 08_知识库
-       └── 持久化知识资产
-
-    3. 07_专题报告
-       └── 已有专题 / 专题候选
-
-    4. Raw News/YYYY-MM-DD-EventUnit/{en,zh}/event_units/*_analysis.md
-       └── Task 4 分析层
-       └── 作为事实校验和必要的细节补充
-
-======================================================================
-周报的核心原则
-======================================================================
-
-不是：
-
-    日报1
-    日报2
-    日报3
-    ...
-    日报7
-          ↓
-       拼起来
-
-而是：
-
-    日报
-      +
-    知识库
-      +
-    专题
-      +
-    Task 4 Analysis
-          ↓
-    AI 跨日期比较
-          ↓
-    趋势识别
-          ↓
-    知识增长判断
-          ↓
-    周报
+严格按照「周报编写助手」要求生成周报。
 
 ======================================================================
-重要规则
+重要原则
 ======================================================================
 
-1. 严格按照 Asia/Shanghai 判断当前日期和 ISO Week。
-2. 严格按照本周日期读取日报。
-3. 不按照文件 mtime 判断“最近7天”。
-4. 知识库中的历史内容不能冒充本周新增知识。
-5. 不得编造事实。
-6. 不得把推测写成事实。
-7. 不修改 Raw News。
-8. 不修改 Task 4 Analysis。
-9. 周报不存在才生成。
-10. 周报已经存在且非空，则跳过。
-11. AI 生成失败时，不创建半成品。
-12. 使用临时文件 + replace 原子落盘。
+1. 周报格式完全由 Skill 决定。
+2. Python 不硬编码周报章节。
+3. AI 必须读取周报 Skill。
+4. Skill 不存在或为空 → 直接失败。
+5. 日报不是唯一数据来源。
+6. 周报是独立的周级知识编译。
+7. 使用真实 ISO 周。
+8. 使用 Asia/Shanghai。
+9. 不修改 Task 4。
+10. 不写 00_System 知识成果。
 """
 
 from __future__ import annotations
 
-import json
 import os
+import re
+import json
 import time
 from pathlib import Path
-from datetime import datetime, date, timedelta, timezone
-from urllib.request import Request, urlopen
-from urllib.error import HTTPError, URLError
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+from urllib import request
 
 
 # ======================================================================
-# 基础路径
+# PATH
 # ======================================================================
 
 ROOT = Path(__file__).resolve().parents[1]
 
 RAW_NEWS = ROOT / "Raw News"
 
-REPORTS = ROOT / "05_日报"
-
-KNOWLEDGE = ROOT / "08_知识库"
-
-TOPICS = ROOT / "07_专题报告"
-
-WEEKLY = ROOT / "06_周报"
-
-
-# ======================================================================
-# 时间
-# ======================================================================
-
-TIMEZONE = timezone(
-    timedelta(hours=8)
+SKILL_FILE = (
+    ROOT
+    / "Skills"
+    / "05.汇报写作"
+    / "周报编写助手.md"
 )
 
+DAILY_DIR = ROOT / "05_日报"
 
-def now() -> datetime:
-    """
-    当前北京时间。
-    """
+WEEKLY_DIR = ROOT / "06_周报"
 
-    return datetime.now(
-        TIMEZONE
-    )
+KNOWLEDGE_DIR = ROOT / "08_知识库"
 
+GRAPH_DIR = ROOT / "09_知识图谱"
 
-# ======================================================================
-# AI 配置
-# ======================================================================
+TOPIC_DIR = ROOT / "07_专题报告"
 
-AI_BASE_URL = os.getenv(
-    "AI_BASE_URL",
-    "https://api.openai.com/v1"
-).rstrip("/")
-
-
-AI_MODEL = os.getenv(
-    "AI_MODEL",
-    ""
+TIMEZONE = ZoneInfo(
+    "Asia/Shanghai"
 )
-
-
-AI_API_KEY = os.getenv(
-    "AI_API_KEY",
-    ""
-)
-
-
-AI_TIMEOUT = 180
-
-AI_RETRIES = 5
-
-AI_RETRY_BASE = 5
-
-AI_THROTTLE_SECONDS = 1.5
-
-
-# ======================================================================
-# 工具
-# ======================================================================
-
-def is_nonempty_file(path: Path) -> bool:
-    """
-    判断文件是否存在且非空。
-    """
-
-    try:
-
-        return (
-            path.is_file()
-            and path.stat().st_size > 0
-        )
-
-    except Exception:
-
-        return False
 
 
 # ======================================================================
 # AI
 # ======================================================================
 
-def call_ai(prompt: str) -> str:
-    """
-    OpenAI-compatible API。
+AGNES_BASE_URL = os.getenv(
+    "AGNES_BASE_URL",
+    "https://api.agnes-ai.cn/v1"
+).rstrip("/")
 
-    支持：
+AGNES_MODEL = os.getenv(
+    "AGNES_MODEL",
+    "agnes-2.5-flash"
+)
 
-        AI_BASE_URL
-        AI_MODEL
-        AI_API_KEY
+AGNES_API_KEY = os.getenv(
+    "AGNES_API_KEY"
+)
 
-    例如：
-
-        https://api.agnes-ai.cn/v1
-    """
-
-    if not AI_API_KEY:
-
-        raise RuntimeError(
-            "缺少环境变量 AI_API_KEY"
-        )
-
-    if not AI_MODEL:
-
-        raise RuntimeError(
-            "缺少环境变量 AI_MODEL"
-        )
-
-    payload = json.dumps(
-        {
-            "model": AI_MODEL,
-            "messages": [
-                {
-                    "role": "system",
-                    "content": (
-                        "你是748686自生长知识系统的"
-                        "周级战略知识分析师。"
-                        "\n\n"
-                        "你的任务不是总结文字，而是进行"
-                        "跨日期知识编译。"
-                        "\n\n"
-                        "必须严格依据输入材料。"
-                        "不得编造事实。"
-                        "不得把推测写成事实。"
-                        "不得把历史知识冒充本周新增知识。"
-                        "对于证据不足的判断必须明确标记。"
-                        "\n\n"
-                        "输出中文 Markdown。"
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": prompt,
-                },
-            ],
-            "temperature": 0.2,
-        },
-        ensure_ascii=False,
-    ).encode("utf-8")
-
-    last_error = None
-
-    for attempt in range(
-        1,
-        AI_RETRIES + 1
-    ):
-
-        try:
-
-            if AI_THROTTLE_SECONDS > 0:
-
-                time.sleep(
-                    AI_THROTTLE_SECONDS
-                )
-
-            request = Request(
-                AI_BASE_URL
-                + "/chat/completions",
-                data=payload,
-                headers={
-                    "Authorization":
-                        "Bearer "
-                        + AI_API_KEY,
-                    "Content-Type":
-                        "application/json",
-                },
-                method="POST",
-            )
-
-            with urlopen(
-                request,
-                timeout=AI_TIMEOUT,
-            ) as response:
-
-                raw = response.read().decode(
-                    "utf-8",
-                    errors="replace"
-                )
-
-            data = json.loads(
-                raw
-            )
-
-            result = (
-                data
-                .get("choices", [{}])[0]
-                .get("message", {})
-                .get("content", "")
-            )
-
-            if not result or not result.strip():
-
-                raise RuntimeError(
-                    "AI 返回空内容"
-                )
-
-            return result.strip()
-
-        except (
-            HTTPError,
-            URLError,
-            TimeoutError,
-            json.JSONDecodeError,
-            RuntimeError,
-            Exception,
-        ) as exc:
-
-            last_error = exc
-
-            print(
-                f"⚠️ WEEKLY AI RETRY "
-                f"{attempt}/{AI_RETRIES}"
-            )
-
-            print(
-                f"   {type(exc).__name__}: {exc}"
-            )
-
-            if attempt < AI_RETRIES:
-
-                wait_seconds = (
-                    AI_RETRY_BASE
-                    * attempt
-                )
-
-                print(
-                    f"   ⏳ 等待 "
-                    f"{wait_seconds}s"
-                )
-
-                time.sleep(
-                    wait_seconds
-                )
-
-    raise RuntimeError(
-        "Weekly AI 请求最终失败: "
-        + str(last_error)
+AI_TIMEOUT = int(
+    os.getenv(
+        "WEEKLY_REPORT_TIMEOUT",
+        "240"
     )
+)
 
-
-# ======================================================================
-# ISO Week
-# ======================================================================
-
-def get_week_dates(
-    current: date
-) -> list[date]:
-    """
-    获取当前 ISO Week 的日期。
-
-    Monday -> Sunday
-    """
-
-    weekday = current.weekday()
-
-    monday = (
-        current
-        - timedelta(days=weekday)
+AI_RETRIES = int(
+    os.getenv(
+        "WEEKLY_REPORT_RETRIES",
+        "3"
     )
+)
 
-    return [
-        monday + timedelta(days=i)
-        for i in range(7)
-    ]
-
-
-# ======================================================================
-# 日报路径
-# ======================================================================
-
-def daily_report_path(
-    target_date: date
-) -> Path:
-
-    return (
-        REPORTS
-        / target_date.strftime("%Y")
-        / target_date.strftime("%m")
-        / (
-            target_date.strftime("%Y-%m-%d")
-            + ".md"
-        )
+AI_THROTTLE = float(
+    os.getenv(
+        "WEEKLY_REPORT_THROTTLE",
+        "1.5"
     )
+)
 
 
 # ======================================================================
-# Task 4 Analysis
+# LOG
 # ======================================================================
 
-def analysis_directory(
-    target_date: date
-) -> Path:
-
-    return (
-        RAW_NEWS
-        / (
-            target_date.strftime("%Y-%m-%d")
-            + "-EventUnit"
-        )
-    )
-
-
-def collect_analysis_files(
-    target_date: date
-) -> list[Path]:
-    """
-    读取指定日期的 Task 4 Analysis。
-
-    严格使用：
-
-        en
-        zh
-
-    不进行大小写转换。
-    """
-
-    root = analysis_directory(
-        target_date
-    )
-
-    if not root.is_dir():
-
-        return []
-
-    files = []
-
-    for language in (
-        "en",
-        "zh",
-    ):
-
-        directory = (
-            root
-            / language
-            / "event_units"
-        )
-
-        if not directory.is_dir():
-
-            continue
-
-        files.extend(
-            sorted(
-                directory.glob(
-                    "*_analysis.md"
-                )
-            )
-        )
-
-    return sorted(
-        files,
-        key=lambda p: p.name
-    )
+def log(message: str) -> None:
+    print(message, flush=True)
 
 
 # ======================================================================
-# 读取文件
+# FILE
 # ======================================================================
 
-def read_file(
-    path: Path,
-    max_chars: int = 25000
+def read_text(
+    path: Path
 ) -> str:
 
-    try:
-
-        text = path.read_text(
-            encoding="utf-8",
-            errors="replace"
-        )
-
-        if not text.strip():
-
-            return ""
-
-        return text[:max_chars]
-
-    except Exception as exc:
-
-        print(
-            f"⚠️ 文件读取失败：{path}"
-        )
-
-        print(
-            f"   {exc}"
-        )
-
+    if not path.exists():
         return ""
 
-
-# ======================================================================
-# 构造文件输入
-# ======================================================================
-
-def build_file_sections(
-    files: list[Path],
-    max_each: int
-) -> str:
-
-    sections = []
-
-    for path in files:
-
-        text = read_file(
-            path,
-            max_each
+    try:
+        return path.read_text(
+            encoding="utf-8"
         )
+    except Exception:
+        return ""
 
-        if not text:
-
-            continue
-
-        sections.append(
-            "\n".join(
-                [
-                    "",
-                    "=" * 70,
-                    f"FILE: {path}",
-                    "=" * 70,
-                    "",
-                    text,
-                ]
-            )
-        )
-
-    return "\n".join(
-        sections
-    )
-
-
-# ======================================================================
-# 收集本周日报
-# ======================================================================
-
-def collect_weekly_daily_reports(
-    week_dates: list[date]
-) -> tuple[list[Path], list[date]]:
-    """
-    严格按照本周日期读取日报。
-
-    返回：
-
-        existing_files
-        missing_dates
-    """
-
-    existing = []
-
-    missing = []
-
-    for target_date in week_dates:
-
-        path = daily_report_path(
-            target_date
-        )
-
-        if is_nonempty_file(path):
-
-            existing.append(
-                path
-            )
-
-        else:
-
-            missing.append(
-                target_date
-            )
-
-    return existing, missing
-
-
-# ======================================================================
-# 收集本周 Task 4 Analysis
-# ======================================================================
-
-def collect_weekly_analysis(
-    week_dates: list[date]
-) -> list[Path]:
-
-    files = []
-
-    for target_date in week_dates:
-
-        files.extend(
-            collect_analysis_files(
-                target_date
-            )
-        )
-
-    return files
-
-
-# ======================================================================
-# 知识库文件
-# ======================================================================
-
-def collect_knowledge_files(
-    max_files: int = 100
-) -> list[Path]:
-    """
-    知识库不是按照 mtime 简单取7个文件。
-
-    周报需要看到知识库的结构性内容。
-
-    这里最多读取 max_files 个 Markdown，
-    防止知识库巨大导致 Prompt 无限增长。
-    """
-
-    if not KNOWLEDGE.is_dir():
-
-        return []
-
-    files = sorted(
-        KNOWLEDGE.rglob("*.md")
-    )
-
-    if len(files) <= max_files:
-
-        return files
-
-    # 优先选择最近修改的文件。
-    files = sorted(
-        files,
-        key=lambda p: p.stat().st_mtime,
-        reverse=True
-    )
-
-    return files[:max_files]
-
-
-# ======================================================================
-# 专题文件
-# ======================================================================
-
-def collect_topic_files(
-    max_files: int = 50
-) -> list[Path]:
-
-    if not TOPICS.is_dir():
-
-        return []
-
-    files = sorted(
-        TOPICS.rglob("*.md")
-    )
-
-    if len(files) <= max_files:
-
-        return files
-
-    files = sorted(
-        files,
-        key=lambda p: p.stat().st_mtime,
-        reverse=True
-    )
-
-    return files[:max_files]
-
-
-# ======================================================================
-# 周报 Prompt
-# ======================================================================
-
-def build_prompt(
-    current: datetime,
-    week_dates: list[date],
-    daily_files: list[Path],
-    missing_dates: list[date],
-    knowledge_files: list[Path],
-    topic_files: list[Path],
-    analysis_files: list[Path],
-) -> str:
-
-    iso_year, iso_week, _ = (
-        current.date().isocalendar()
-    )
-
-    week_start = week_dates[0]
-
-    week_end = week_dates[-1]
-
-    daily_text = build_file_sections(
-        daily_files,
-        max_each=30000
-    )
-
-    knowledge_text = build_file_sections(
-        knowledge_files,
-        max_each=16000
-    )
-
-    topic_text = build_file_sections(
-        topic_files,
-        max_each=16000
-    )
-
-    analysis_text = build_file_sections(
-        analysis_files,
-        max_each=12000
-    )
-
-    missing_text = "\n".join(
-        f"- {d.isoformat()}"
-        for d in missing_dates
-    )
-
-    if not missing_text:
-
-        missing_text = "无，本周7天日报全部存在。"
-
-    return f"""
-# 748686 自生长知识系统
-# 周级知识编译任务
-
-当前时间：
-{current.strftime("%Y-%m-%d %H:%M:%S")} Asia/Shanghai
-
-ISO Week：
-{iso_year} W{iso_week:02d}
-
-本周：
-{week_start.isoformat()}
-至
-{week_end.isoformat()}
-
----
-
-# 一、本周日报
-
-以下是本周已经实际生成的日报。
-
-注意：
-
-如果某一天日报不存在，
-说明该日目前没有完成日报。
-
-不要自行补写缺失日期。
-
-缺失日报：
-
-{missing_text}
-
-日报内容：
-
-{daily_text[:100000]}
-
----
-
-# 二、持久化知识库
-
-以下内容来自：
-
-08_知识库
-
-注意：
-
-这里可能包含历史知识。
-
-绝对不能因为一个知识卡片出现在输入中，
-就把它判断为“本周新增”。
-
-只有当本周材料显示该知识发生了新的变化，
-才能判断为本周知识增长。
-
-知识库：
-
-{knowledge_text[:70000]}
-
----
-
-# 三、专题研究
-
-以下来自：
-
-07_专题报告
-
-它们可以帮助判断：
-
-- 哪些问题已经持续出现；
-- 哪些问题正在形成专题；
-- 哪些方向值得进一步研究。
-
-专题：
-
-{topic_text[:60000]}
-
----
-
-# 四、Task 4 Event Analysis
-
-以下是本周 EventUnit 的分析结果。
-
-它是事实校验层。
-
-如果日报和知识库之间存在冲突，
-优先回到这些 Event Analysis 判断。
-
-不得编造不存在的事件。
-
-Task 4 Analysis：
-
-{analysis_text[:100000]}
-
----
-
-# 五、任务
-
-现在生成：
-
-{iso_year} W{iso_week:02d}
-
-真正的“知识周报”。
-
-绝对不要简单拼接日报。
-
-必须进行：
-
-跨日期比较
-+
-事件归纳
-+
-趋势识别
-+
-知识变化判断
-+
-机会判断
-+
-风险判断
-+
-未来追踪
-
----
-
-# 六、特别要求
-
-## 1. 十大事件
-
-不是简单按照新闻数量排序。
-
-应该综合判断：
-
-- 影响范围
-- 持续时间
-- 战略意义
-- 跨行业影响
-- 是否可能改变未来趋势
-
----
-
-## 2. 趋势
-
-至少找出5个趋势。
-
-每个趋势必须回答：
-
-### 证据
-
-哪些事件支持这个判断？
-
-### 判断
-
-现在发生了什么？
-
-### 长期意义
-
-为什么可能重要？
-
----
-
-## 3. 短期 vs 长期
-
-明确区分：
-
-- 短期噪音
-- 周期性变化
-- 中期趋势
-- 长期结构性变化
-
----
-
-## 4. 人物
-
-找出本周反复出现的重要人物。
-
-不要因为人物只出现一次，
-就强行认为其重要。
-
----
-
-## 5. 公司
-
-找出：
-
-- 反复出现的公司
-- 战略动作明显的公司
-- 行业位置发生变化的公司
-
----
-
-## 6. 技术
-
-关注：
-
-- 新技术
-- 技术突破
-- 技术商业化
-- 技术竞争
-- 技术监管
-- AI相关变化
-
----
-
-## 7. 行业
-
-至少分析：
-
-- 科技
-- 金融
-- 商业
-- 政策
-- 媒体
-- 消费
-- AI
-- 国际局势
-
-没有足够证据的行业，
-明确写：
-
-“本周证据不足”。
-
-不要为了凑内容编造判断。
-
----
-
-## 8. 机会
-
-机会必须来自输入材料。
-
-不能写成泛泛而谈的鸡汤。
-
----
-
-## 9. 风险
-
-明确区分：
-
-- 已发生风险
-- 正在形成的风险
-- 潜在风险
-
----
-
-## 10. 知识增长
-
-重点回答：
-
-> 相比本周开始之前，
-> 我们真正多知道了什么？
-
-必须区分：
-
-### 新事实
-
-本周新出现的信息。
-
-### 新关系
-
-本周发现的事件、人物、公司、
-技术之间的新关联。
-
-### 新判断
-
-通过多个事件组合后得到的新认识。
-
-### 新问题
-
-目前仍然不知道、
-但值得继续研究的问题。
-
----
-
-## 11. 专题
-
-判断哪些问题已经从：
-
-新闻
-
-升级为：
-
-持续性问题
-
-再升级为：
-
-专题研究方向
-
----
-
-## 12. 下周追踪
-
-每一个追踪事项必须尽量给出：
-
-- 追踪对象
-- 原因
-- 观察指标
-- 什么变化会改变当前判断
-
----
-
-# 七、输出格式
-
-# 本周核心结论
-
-用5～10句话说明本周真正发生了什么。
-
-# 一、本周十大事件
-
-| 排名 | 事件 | 重要性 | 核心影响 |
-|---|---|---|---|
-
-# 二、本周核心趋势
-
-## 趋势1
-
-### 证据
-
-### 判断
-
-### 长期意义
-
-## 趋势2
-
-### 证据
-
-### 判断
-
-### 长期意义
-
-## 趋势3
-
-### 证据
-
-### 判断
-
-### 长期意义
-
-## 趋势4
-
-### 证据
-
-### 判断
-
-### 长期意义
-
-## 趋势5
-
-### 证据
-
-### 判断
-
-### 长期意义
-
-# 三、短期波动与长期趋势
-
-| 类型 | 判断 | 证据 |
-|---|---|---|
-
-# 四、人物变化
-
-| 人物 | 本周动态 | 为什么重要 |
-|---|---|---|
-
-# 五、公司变化
-
-| 公司 | 本周动态 | 战略意义 |
-|---|---|---|
-
-# 六、技术变化
-
-| 技术 | 本周进展 | 影响 |
-|---|---|---|
-
-# 七、行业变化
-
-## 科技
-
-## 金融
-
-## 商业
-
-## 政策
-
-## 媒体
-
-## 消费
-
-## AI
-
-## 国际局势
-
-# 八、机会
-
-列出真正值得关注的机会。
-
-# 九、风险
-
-列出真正值得关注的风险。
-
-# 十、本周知识增长
-
-## 新事实
-
-## 新关系
-
-## 新判断
-
-## 新问题
-
-# 十一、专题研究方向
-
-列出最值得进入下一阶段深度研究的专题。
-
-说明：
-
-- 为什么现在值得研究
-- 已有证据
-- 还缺什么信息
-
-# 十二、下周重点追踪
-
-| 优先级 | 项目 | 追踪原因 | 观察指标 | 判断改变条件 |
-|---|---|---|---|---|
-
-# 十三、一句话周结论
-
-用一句话总结本周。
-
----
-
-再次强调：
-
-不要编造。
-
-不要为了填满模板而创造不存在的信息。
-
-证据不足时明确说明证据不足。
-
-历史知识不能冒充本周新增知识。
-"""
-
-
-# ======================================================================
-# 原子写入
-# ======================================================================
 
 def atomic_write(
     path: Path,
@@ -1164,344 +162,1007 @@ def atomic_write(
         exist_ok=True
     )
 
-    tmp_path = path.with_suffix(
-        path.suffix + ".tmp"
+    tmp = path.with_name(
+        path.name + ".tmp"
     )
 
-    try:
-
-        tmp_path.write_text(
-            content,
-            encoding="utf-8"
-        )
-
-        # 写入后立即验证
-        if not is_nonempty_file(
-            tmp_path
-        ):
-
-            raise RuntimeError(
-                f"临时文件为空：{tmp_path}"
-            )
-
-        tmp_path.replace(
-            path
-        )
-
-    finally:
-
-        if tmp_path.exists():
-
-            try:
-
-                tmp_path.unlink()
-
-            except Exception:
-
-                pass
-
-
-# ======================================================================
-# 主程序
-# ======================================================================
-
-def main():
-
-    current = now()
-
-    current_date = current.date()
-
-    iso_year, iso_week, iso_weekday = (
-        current_date.isocalendar()
+    tmp.write_text(
+        content,
+        encoding="utf-8"
     )
 
-    week_dates = get_week_dates(
-        current_date
-    )
+    tmp.replace(path)
 
-    week_start = week_dates[0]
 
-    week_end = week_dates[-1]
+def nonempty_files(
+    directory: Path
+):
 
-    print()
-    print("=" * 70)
-    print(
-        "748686 WEEKLY REPORT V3"
-    )
-    print("=" * 70)
+    if not directory.exists():
+        return []
 
-    print(
-        f"Current : "
-        f"{current.strftime('%Y-%m-%d %H:%M:%S')}"
-    )
+    result = []
 
-    print(
-        f"Week    : "
-        f"{iso_year} W{iso_week:02d}"
-    )
-
-    print(
-        f"Range   : "
-        f"{week_start} -> {week_end}"
-    )
-
-    # ------------------------------------------------------------------
-    # 输出路径
-    # ------------------------------------------------------------------
-
-    output_dir = (
-        WEEKLY
-        / str(iso_year)
-    )
-
-    output_path = (
-        output_dir
-        / f"W{iso_week:02d}.md"
-    )
-
-    print()
-    print(
-        f"Output  : {output_path}"
-    )
-
-    # ------------------------------------------------------------------
-    # 已存在则跳过
-    # ------------------------------------------------------------------
-
-    if is_nonempty_file(
-        output_path
+    for path in directory.rglob(
+        "*.md"
     ):
 
-        print()
-        print(
-            "⏭️ WEEKLY REPORT ALREADY EXISTS"
+        if not path.is_file():
+            continue
+
+        try:
+            if path.stat().st_size <= 0:
+                continue
+        except Exception:
+            continue
+
+        result.append(path)
+
+    return sorted(
+        result,
+        key=lambda x: x.as_posix()
+    )
+
+
+# ======================================================================
+# SKILL
+# ======================================================================
+
+def load_weekly_skill() -> str:
+
+    if not SKILL_FILE.exists():
+
+        raise RuntimeError(
+            "周报 Skill 不存在：\n"
+            f"{SKILL_FILE}"
         )
 
-        print(
-            f"   Skip: {output_path}"
+    content = read_text(
+        SKILL_FILE
+    ).strip()
+
+    if not content:
+
+        raise RuntimeError(
+            "周报 Skill 文件为空：\n"
+            f"{SKILL_FILE}"
         )
 
-        print()
-        print("=" * 70)
+    return content
+
+
+# ======================================================================
+# DATE / ISO WEEK
+# ======================================================================
+
+def now_local() -> datetime:
+
+    return datetime.now(
+        TIMEZONE
+    )
+
+
+def current_week():
+
+    current = now_local().date()
+
+    iso_year, iso_week, iso_weekday = (
+        current.isocalendar()
+    )
+
+    monday = (
+        current
+        - timedelta(
+            days=iso_weekday - 1
+        )
+    )
+
+    sunday = (
+        monday
+        + timedelta(days=6)
+    )
+
+    return (
+        iso_year,
+        iso_week,
+        monday,
+        sunday
+    )
+
+
+# ======================================================================
+# DAILY REPORTS
+# ======================================================================
+
+def daily_path(
+    date_obj
+) -> Path:
+
+    date_str = date_obj.strftime(
+        "%Y-%m-%d"
+    )
+
+    return (
+        DAILY_DIR
+        / date_obj.strftime("%Y")
+        / date_obj.strftime("%m")
+        / f"{date_str}.md"
+    )
+
+
+def load_week_daily_reports(
+    monday,
+    sunday
+):
+
+    reports = []
+
+    current = monday
+
+    while current <= sunday:
+
+        path = daily_path(
+            current
+        )
+
+        if (
+            path.exists()
+            and path.stat().st_size > 0
+        ):
+
+            reports.append(
+                (
+                    current.strftime(
+                        "%Y-%m-%d"
+                    ),
+                    path,
+                    read_text(path)
+                )
+            )
+
+        current += timedelta(
+            days=1
+        )
+
+    return reports
+
+
+# ======================================================================
+# TASK 4
+# ======================================================================
+
+def analysis_files_for_date(
+    date_str: str
+):
+
+    result = []
+
+    for language in (
+        "en",
+        "zh"
+    ):
+
+        directory = (
+            RAW_NEWS
+            / f"{date_str}-EventUnit"
+            / language
+            / "event_units"
+        )
+
+        if not directory.exists():
+            continue
+
+        result.extend(
+            sorted(
+                directory.glob(
+                    "*_analysis.md"
+                )
+            )
+        )
+
+    return [
+        path
+        for path in result
+        if (
+            path.is_file()
+            and path.stat().st_size > 0
+        )
+    ]
+
+
+def event_id(
+    path: Path
+) -> str:
+
+    match = re.search(
+        r"EVT-\d{8}-\d+",
+        path.name
+    )
+
+    if match:
+        return match.group(0)
+
+    return path.stem.replace(
+        "_analysis",
+        ""
+    )
+
+
+def load_week_analysis(
+    monday,
+    sunday
+):
+
+    chunks = []
+
+    seen_events = set()
+
+    current = monday
+
+    file_count = 0
+
+    while current <= sunday:
+
+        date_str = current.strftime(
+            "%Y-%m-%d"
+        )
+
+        files = analysis_files_for_date(
+            date_str
+        )
+
+        for path in files:
+
+            file_count += 1
+
+            eid = event_id(path)
+
+            if eid in seen_events:
+                duplicate = (
+                    "\nNOTE: Duplicate language "
+                    "version of the same EVT-ID. "
+                    "Do not double-count.\n"
+                )
+            else:
+                seen_events.add(eid)
+                duplicate = ""
+
+            language = (
+                "en"
+                if "/en/"
+                in path.as_posix()
+                else "zh"
+            )
+
+            content = read_text(
+                path
+            ).strip()
+
+            if not content:
+                continue
+
+            chunks.append(
+                "\n".join([
+                    "=" * 70,
+                    f"DATE: {date_str}",
+                    f"EVENT_ID: {eid}",
+                    f"LANGUAGE: {language}",
+                    f"FILE: {path.relative_to(ROOT)}",
+                    duplicate,
+                    "=" * 70,
+                    content,
+                ])
+            )
+
+        current += timedelta(
+            days=1
+        )
+
+    return (
+        "\n\n".join(chunks),
+        file_count,
+        len(seen_events)
+    )
+
+
+# ======================================================================
+# KNOWLEDGE BASE
+# ======================================================================
+
+def load_knowledge_base(
+    max_chars: int = 90000
+) -> str:
+
+    files = nonempty_files(
+        KNOWLEDGE_DIR
+    )
+
+    chunks = []
+
+    total = 0
+
+    for path in files:
+
+        content = read_text(
+            path
+        ).strip()
+
+        if not content:
+            continue
+
+        block = (
+            "\n"
+            + "=" * 60
+            + "\n"
+            + f"FILE: {path.relative_to(ROOT)}\n"
+            + "=" * 60
+            + "\n"
+            + content
+            + "\n"
+        )
+
+        if (
+            total
+            + len(block)
+            > max_chars
+        ):
+            break
+
+        chunks.append(block)
+
+        total += len(block)
+
+    return "\n".join(
+        chunks
+    )
+
+
+# ======================================================================
+# GRAPH
+# ======================================================================
+
+def load_graph(
+    max_chars: int = 50000
+) -> str:
+
+    files = nonempty_files(
+        GRAPH_DIR
+    )
+
+    chunks = []
+
+    total = 0
+
+    for path in files:
+
+        content = read_text(
+            path
+        ).strip()
+
+        if not content:
+            continue
+
+        block = (
+            "\n"
+            + "=" * 60
+            + "\n"
+            + f"FILE: {path.relative_to(ROOT)}\n"
+            + "=" * 60
+            + "\n"
+            + content
+            + "\n"
+        )
+
+        if (
+            total
+            + len(block)
+            > max_chars
+        ):
+            break
+
+        chunks.append(block)
+
+        total += len(block)
+
+    return "\n".join(
+        chunks
+    )
+
+
+# ======================================================================
+# TOPICS
+# ======================================================================
+
+def load_topic_reports(
+    max_files: int = 20,
+    max_chars: int = 50000
+) -> str:
+
+    files = nonempty_files(
+        TOPIC_DIR
+    )
+
+    files = files[-max_files:]
+
+    chunks = []
+
+    total = 0
+
+    for path in files:
+
+        content = read_text(
+            path
+        ).strip()
+
+        if not content:
+            continue
+
+        block = (
+            "\n"
+            + "=" * 60
+            + "\n"
+            + f"FILE: {path.relative_to(ROOT)}\n"
+            + "=" * 60
+            + "\n"
+            + content
+            + "\n"
+        )
+
+        if (
+            total
+            + len(block)
+            > max_chars
+        ):
+            break
+
+        chunks.append(block)
+
+        total += len(block)
+
+    return "\n".join(
+        chunks
+    )
+
+
+# ======================================================================
+# AI
+# ======================================================================
+
+def call_ai(
+    system_prompt: str,
+    user_prompt: str
+) -> str:
+
+    if not AGNES_API_KEY:
+
+        raise RuntimeError(
+            "缺少 AGNES_API_KEY"
+        )
+
+    url = (
+        AGNES_BASE_URL
+        + "/chat/completions"
+    )
+
+    payload = {
+        "model": AGNES_MODEL,
+        "temperature": 0.2,
+        "messages": [
+            {
+                "role": "system",
+                "content": system_prompt,
+            },
+            {
+                "role": "user",
+                "content": user_prompt,
+            },
+        ],
+    }
+
+    data = json.dumps(
+        payload,
+        ensure_ascii=False
+    ).encode("utf-8")
+
+    headers = {
+        "Authorization":
+            f"Bearer {AGNES_API_KEY}",
+        "Content-Type":
+            "application/json",
+    }
+
+    last_error = None
+
+    for attempt in range(
+        1,
+        AI_RETRIES + 1
+    ):
+
+        try:
+
+            if attempt > 1:
+
+                time.sleep(
+                    AI_THROTTLE
+                    * attempt
+                )
+
+            req = request.Request(
+                url,
+                data=data,
+                headers=headers,
+                method="POST"
+            )
+
+            with request.urlopen(
+                req,
+                timeout=AI_TIMEOUT
+            ) as response:
+
+                raw = (
+                    response
+                    .read()
+                    .decode("utf-8")
+                )
+
+            data = json.loads(
+                raw
+            )
+
+            content = (
+                data
+                .get("choices", [{}])[0]
+                .get("message", {})
+                .get("content", "")
+            )
+
+            if not content.strip():
+
+                raise RuntimeError(
+                    "AI 返回为空"
+                )
+
+            return content.strip()
+
+        except Exception as exc:
+
+            last_error = exc
+
+            log(
+                f"⚠️ AI RETRY "
+                f"{attempt}/{AI_RETRIES} | "
+                f"{exc}"
+            )
+
+    raise RuntimeError(
+        f"AI 请求失败：{last_error}"
+    )
+
+
+# ======================================================================
+# PROMPT
+# ======================================================================
+
+SYSTEM_PROMPT = """
+你是 748686 自生长知识系统的周报编写执行器。
+
+你必须严格执行：
+
+「Skills/05.汇报写作/周报编写助手.md」
+
+该 Skill 是本次周报生成的正式规范。
+
+重要：
+
+1. 必须完整阅读周报 Skill。
+2. 周报结构完全服从 Skill。
+3. 不得自行发明新的周报模板。
+4. 不得简单复制日报。
+5. 必须进行周级综合判断。
+6. 必须区分本周新事实与历史知识。
+7. 不得编造事实。
+8. 同一个 EVT-ID 的 en / zh Analysis 只能计算一次。
+9. 如果资料之间存在不确定性，应按 Skill 的要求处理。
+10. 最终只输出可以直接保存的 Markdown 周报正文。
+11. 不要输出解释。
+12. 不要输出 markdown code fence。
+"""
+
+
+def build_prompt(
+    year: int,
+    week: int,
+    monday,
+    sunday,
+    skill: str,
+    daily_text: str,
+    analysis_text: str,
+    knowledge_text: str,
+    graph_text: str,
+    topic_text: str
+) -> str:
+
+    missing_daily = []
+
+    current = monday
+
+    while current <= sunday:
+
+        path = daily_path(
+            current
+        )
+
+        if not (
+            path.exists()
+            and path.stat().st_size > 0
+        ):
+
+            missing_daily.append(
+                current.strftime(
+                    "%Y-%m-%d"
+                )
+            )
+
+        current += timedelta(
+            days=1
+        )
+
+    missing_text = (
+        "无"
+        if not missing_daily
+        else "、".join(
+            missing_daily
+        )
+    )
+
+    return f"""
+当前周：
+
+ISO YEAR: {year}
+ISO WEEK: {week:02d}
+
+本周：
+
+{monday.strftime("%Y-%m-%d")}
+至
+{sunday.strftime("%Y-%m-%d")}
+
+缺失日报日期：
+
+{missing_text}
+
+============================================================
+周报编写 Skill
+============================================================
+
+{skill}
+
+============================================================
+本周日报
+============================================================
+
+{daily_text or "本周没有可用日报。"}
+
+============================================================
+本周全部 Task 4 Analysis
+============================================================
+
+{analysis_text or "本周没有可用 Task 4 Analysis。"}
+
+============================================================
+当前长期知识库
+============================================================
+
+{knowledge_text or "当前没有可用知识库内容。"}
+
+============================================================
+当前知识图谱
+============================================================
+
+{graph_text or "当前没有可用知识图谱内容。"}
+
+============================================================
+近期专题报告
+============================================================
+
+{topic_text or "当前没有可用专题报告。"}
+
+============================================================
+
+现在开始编写本周周报。
+
+严格执行「周报编写助手」中的全部要求。
+
+特别注意：
+
+- 周报不是日报简单拼接；
+- 必须进行周级综合；
+- 必须利用已有长期知识判断本周变化；
+- 必须区分新事实、已有知识和新的判断；
+- 不得编造；
+- 不得因为资料缺失而虚构内容；
+- 最终只输出周报正文。
+"""
+
+
+# ======================================================================
+# OUTPUT
+# ======================================================================
+
+def weekly_output_path(
+    year: int,
+    week: int
+) -> Path:
+
+    return (
+        WEEKLY_DIR
+        / str(year)
+        / f"W{week:02d}.md"
+    )
+
+
+def save_weekly(
+    path: Path,
+    content: str
+) -> None:
+
+    content = content.strip()
+
+    if not content:
+
+        raise RuntimeError(
+            "AI 生成的周报为空"
+        )
+
+    atomic_write(
+        path,
+        content + "\n"
+    )
+
+    if not (
+        path.exists()
+        and path.stat().st_size > 0
+    ):
+
+        raise RuntimeError(
+            f"周报保存失败：{path}"
+        )
+
+
+# ======================================================================
+# MAIN
+# ======================================================================
+
+def main() -> None:
+
+    log("")
+    log("#" * 72)
+    log(
+        "748686 自生长知识系统"
+    )
+    log(
+        "WEEKLY REPORT V3.0"
+    )
+    log("#" * 72)
+
+    if not AGNES_API_KEY:
+
+        raise RuntimeError(
+            "未设置 AGNES_API_KEY"
+        )
+
+    year, week, monday, sunday = (
+        current_week()
+    )
+
+    log(
+        f"ISO WEEK : "
+        f"{year}-W{week:02d}"
+    )
+
+    log(
+        f"PERIOD   : "
+        f"{monday} → {sunday}"
+    )
+
+    # --------------------------------------------------------------
+    # Skill
+    # --------------------------------------------------------------
+
+    skill = load_weekly_skill()
+
+    log(
+        "✅ 周报 Skill 已加载"
+    )
+
+    log(
+        f"   {SKILL_FILE}"
+    )
+
+    # --------------------------------------------------------------
+    # Output exists
+    # --------------------------------------------------------------
+
+    output = weekly_output_path(
+        year,
+        week
+    )
+
+    if (
+        output.exists()
+        and output.stat().st_size > 0
+    ):
+
+        log(
+            f"⏭️ SKIP | "
+            f"周报已存在：{output}"
+        )
 
         return
 
-    # ------------------------------------------------------------------
-    # 日报
-    # ------------------------------------------------------------------
+    # --------------------------------------------------------------
+    # Daily
+    # --------------------------------------------------------------
 
-    daily_files, missing_dates = (
-        collect_weekly_daily_reports(
-            week_dates
+    daily_reports = (
+        load_week_daily_reports(
+            monday,
+            sunday
         )
     )
 
-    print()
-    print(
-        f"Daily reports : "
-        f"{len(daily_files)} / 7"
-    )
+    daily_chunks = []
 
-    if missing_dates:
+    for date_str, path, content in (
+        daily_reports
+    ):
 
-        print(
-            "Missing daily reports:"
+        daily_chunks.append(
+            "\n".join([
+                "=" * 70,
+                f"DATE: {date_str}",
+                f"FILE: {path.relative_to(ROOT)}",
+                "=" * 70,
+                content,
+            ])
         )
 
-        for target_date in missing_dates:
-
-            print(
-                f"   - {target_date}"
-            )
-
-    # ------------------------------------------------------------------
-    # 没有任何日报
-    # ------------------------------------------------------------------
-
-    if not daily_files:
-
-        raise RuntimeError(
-            "本周没有任何日报，"
-            "无法生成 Weekly Report"
-        )
-
-    # ------------------------------------------------------------------
-    # Task 4 Analysis
-    # ------------------------------------------------------------------
-
-    analysis_files = (
-        collect_weekly_analysis(
-            week_dates
+    daily_text = (
+        "\n\n".join(
+            daily_chunks
         )
     )
 
-    print(
-        f"Task 4 analysis: "
-        f"{len(analysis_files)}"
+    log(
+        f"Daily Reports : "
+        f"{len(daily_reports)}"
     )
 
-    # ------------------------------------------------------------------
-    # 知识库
-    # ------------------------------------------------------------------
+    # --------------------------------------------------------------
+    # Task 4
+    # --------------------------------------------------------------
 
-    knowledge_files = (
-        collect_knowledge_files(
-            max_files=100
+    (
+        analysis_text,
+        analysis_file_count,
+        unique_event_count
+    ) = load_week_analysis(
+        monday,
+        sunday
+    )
+
+    log(
+        f"Task 4 Files  : "
+        f"{analysis_file_count}"
+    )
+
+    log(
+        f"Unique Events : "
+        f"{unique_event_count}"
+    )
+
+    # --------------------------------------------------------------
+    # Knowledge
+    # --------------------------------------------------------------
+
+    knowledge_text = (
+        load_knowledge_base()
+    )
+
+    knowledge_count = len(
+        nonempty_files(
+            KNOWLEDGE_DIR
         )
     )
 
-    print(
-        f"Knowledge files: "
-        f"{len(knowledge_files)}"
+    log(
+        f"Knowledge Files : "
+        f"{knowledge_count}"
     )
 
-    # ------------------------------------------------------------------
-    # 专题
-    # ------------------------------------------------------------------
+    # --------------------------------------------------------------
+    # Graph
+    # --------------------------------------------------------------
 
-    topic_files = (
-        collect_topic_files(
-            max_files=50
+    graph_text = load_graph()
+
+    graph_count = len(
+        nonempty_files(
+            GRAPH_DIR
         )
     )
 
-    print(
-        f"Topic files    : "
-        f"{len(topic_files)}"
+    log(
+        f"Graph Files     : "
+        f"{graph_count}"
     )
 
-    # ------------------------------------------------------------------
-    # Prompt
-    # ------------------------------------------------------------------
+    # --------------------------------------------------------------
+    # Topics
+    # --------------------------------------------------------------
 
-    print()
-    print(
-        "Building weekly knowledge prompt..."
+    topic_text = (
+        load_topic_reports()
+    )
+
+    topic_count = len(
+        nonempty_files(
+            TOPIC_DIR
+        )
+    )
+
+    log(
+        f"Topic Files     : "
+        f"{topic_count}"
+    )
+
+    # --------------------------------------------------------------
+    # AI
+    # --------------------------------------------------------------
+
+    log(
+        "🧠 AI 调取："
+        "Skills/05.汇报写作/周报编写助手.md"
     )
 
     prompt = build_prompt(
-        current=current,
-        week_dates=week_dates,
-        daily_files=daily_files,
-        missing_dates=missing_dates,
-        knowledge_files=knowledge_files,
-        topic_files=topic_files,
-        analysis_files=analysis_files,
-    )
-
-    print(
-        f"Prompt chars   : "
-        f"{len(prompt):,}"
-    )
-
-    # ------------------------------------------------------------------
-    # AI
-    # ------------------------------------------------------------------
-
-    print()
-    print(
-        "Generating weekly report..."
+        year,
+        week,
+        monday,
+        sunday,
+        skill,
+        daily_text,
+        analysis_text,
+        knowledge_text,
+        graph_text,
+        topic_text
     )
 
     result = call_ai(
+        SYSTEM_PROMPT,
         prompt
     )
 
-    if not result.strip():
+    # --------------------------------------------------------------
+    # Save
+    # --------------------------------------------------------------
 
-        raise RuntimeError(
-            "AI 返回空周报"
-        )
-
-    # ------------------------------------------------------------------
-    # Markdown
-    # ------------------------------------------------------------------
-
-    content = f"""---
-year: {iso_year}
-week: {iso_week}
-week_start: {week_start}
-week_end: {week_end}
-type: weekly_report
-status: generated
-source:
-  - 05_日报
-  - 08_知识库
-  - 07_专题报告
-  - Raw News Task 4 Analysis
-generated_at: {current.strftime("%Y-%m-%d %H:%M:%S")}
-timezone: Asia/Shanghai
----
-
-# {iso_year} W{iso_week:02d} 自生长知识周报
-
-{result.strip()}
-"""
-
-    # ------------------------------------------------------------------
-    # 原子落盘
-    # ------------------------------------------------------------------
-
-    print()
-    print(
-        "Saving weekly report..."
+    save_weekly(
+        output,
+        result
     )
 
-    atomic_write(
-        output_path,
-        content
+    log(
+        f"✅ SAVED | {output}"
     )
 
-    # ------------------------------------------------------------------
-    # 最终验证
-    # ------------------------------------------------------------------
-
-    if not is_nonempty_file(
-        output_path
-    ):
-
-        raise RuntimeError(
-            "周报保存后验证失败"
-        )
-
-    print()
-    print("=" * 70)
-    print(
-        "✅ WEEKLY REPORT V3 COMPLETE"
+    log("")
+    log("#" * 72)
+    log(
+        "WEEKLY REPORT FINISHED"
     )
-    print("=" * 70)
+    log("#" * 72)
 
-    print(
-        f"Output : {output_path}"
-    )
-
-    print(
-        f"Daily  : "
-        f"{len(daily_files)}/7"
-    )
-
-    print(
-        f"Analysis : "
-        f"{len(analysis_files)}"
-    )
-
-    print(
-        f"Knowledge : "
-        f"{len(knowledge_files)}"
-    )
-
-    print(
-        f"Topics : "
-        f"{len(topic_files)}"
-    )
-
-    print()
-
-
-# ======================================================================
-# Entry
-# ======================================================================
 
 if __name__ == "__main__":
-
     main()
