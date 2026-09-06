@@ -126,7 +126,7 @@ from urllib import request, error
 # 基础配置
 # ======================================================================
 
-TIMEZONE = ZoneInfo("Asia/Shanghai")
+TIMEZONE = ZoneInfo("UTC")
 
 ROOT = Path(__file__).resolve().parents[1]
 
