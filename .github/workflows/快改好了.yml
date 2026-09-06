@@ -1787,7 +1787,7 @@ jobs:
 
             if [ "$EMPTY_ANALYSIS_COUNT" -ne 0 ]; then
 
-              echo "❌ Empty Analysis files: $EMPTY_ANALYSIS_COUNT"
+              echo "❌ Empty Analysis files found: $EMPTY_ANALYSIS_COUNT"
               exit 1
 
             fi
@@ -1816,7 +1816,8 @@ jobs:
       #    ↓
       # 05_日报
       #
-      # 不修改 Task 4。
+      # 日期由 Workflow UTC 统一提供。
+      # Daily 不自行计算业务日期。
       # ==========================================================
 
       - name: Run Daily Report
@@ -1840,7 +1841,15 @@ jobs:
             exit 1
           fi
 
-          python "$SCRIPT"
+          echo "DAY_BEFORE : $DAY_BEFORE"
+          echo "YESTERDAY  : $YESTERDAY"
+          echo "TODAY      : $TODAY"
+          echo "Timezone   : UTC"
+
+          python "$SCRIPT" \
+            --day-before "$DAY_BEFORE" \
+            --yesterday "$YESTERDAY" \
+            --today "$TODAY"
 
           echo
           echo "✅ Daily Report completed"
@@ -1858,6 +1867,8 @@ jobs:
       # 知识矛盾
       #
       # 不写 01 / 02 / 03 / 04 / 10。
+      #
+      # 日期由 Workflow UTC 统一提供。
       # ==========================================================
 
       - name: Run Knowledge Assetization
@@ -1881,7 +1892,15 @@ jobs:
             exit 1
           fi
 
-          python "$SCRIPT"
+          echo "DAY_BEFORE : $DAY_BEFORE"
+          echo "YESTERDAY  : $YESTERDAY"
+          echo "TODAY      : $TODAY"
+          echo "Timezone   : UTC"
+
+          python "$SCRIPT" \
+            --day-before "$DAY_BEFORE" \
+            --yesterday "$YESTERDAY" \
+            --today "$TODAY"
 
           echo
           echo "✅ Knowledge Assetization completed"
@@ -1897,6 +1916,8 @@ jobs:
       # weekly_report.py
       #       ↓
       # 06_周报
+      #
+      # 日期由 Workflow UTC 统一提供。
       # ==========================================================
 
       - name: Run Weekly Report
@@ -1920,7 +1941,15 @@ jobs:
             exit 1
           fi
 
-          python "$SCRIPT"
+          echo "DAY_BEFORE : $DAY_BEFORE"
+          echo "YESTERDAY  : $YESTERDAY"
+          echo "TODAY      : $TODAY"
+          echo "Timezone   : UTC"
+
+          python "$SCRIPT" \
+            --day-before "$DAY_BEFORE" \
+            --yesterday "$YESTERDAY" \
+            --today "$TODAY"
 
           echo
           echo "✅ Weekly Report completed"
@@ -1941,6 +1970,8 @@ jobs:
       # 知识缺口
       # 知识矛盾
       # 候选专题
+      #
+      # 日期由 Workflow UTC 统一提供。
       # ==========================================================
 
       - name: Run Knowledge Growth
@@ -1964,7 +1995,15 @@ jobs:
             exit 1
           fi
 
-          python "$SCRIPT"
+          echo "DAY_BEFORE : $DAY_BEFORE"
+          echo "YESTERDAY  : $YESTERDAY"
+          echo "TODAY      : $TODAY"
+          echo "Timezone   : UTC"
+
+          python "$SCRIPT" \
+            --day-before "$DAY_BEFORE" \
+            --yesterday "$YESTERDAY" \
+            --today "$TODAY"
 
           echo
           echo "✅ Knowledge Growth completed"
@@ -2594,6 +2633,7 @@ jobs:
             echo "- GitHub Actions cron: UTC"
             echo "- Processing dates: UTC"
             echo "- Task 1–Task 4 date contract: unchanged"
+            echo "- Downstream modules consume Workflow dates"
             echo "- Language contract: lowercase en / zh only"
 
             echo
@@ -2656,6 +2696,7 @@ jobs:
           echo "✅ cron uses UTC"
           echo "✅ Processing dates use UTC"
           echo "✅ Task 1–Task 4 date contract unchanged"
+          echo "✅ Downstream modules consume Workflow dates"
 
           echo
           echo "============================================================"
