@@ -1,0 +1,18 @@
+{
+  "version": "V4.0",
+  "date": "2026-09-06",
+  "analysis_count": 303,
+  "batch_size": 15,
+  "batch_count": 21,
+  "deduplication": "Event ID; zh preferred over en",
+  "pipeline": [
+    "Task 4 Analysis",
+    "Event ID Deduplication",
+    "Batch Compression",
+    "Intermediate Merge",
+    "Final Daily Report AI"
+  ],
+  "report_path": "/home/runner/work/748686obsidian/748686obsidian/01_自生长知识系统/05_日报/2026/09/2026-09-06.md",
+  "status": "COMPLETE",
+  "completed_at": "2026-09-06T23:39:56.925836+08:00"
+}
