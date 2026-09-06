@@ -5,7 +5,7 @@ status: active
 importance: 3
 confidence: 0.7
 created_at: 2026-09-06
-last_updated: 2026-09-06
+last_updated: 2026-09-04
 ---
 
 # Isar Aerospace
@@ -157,3 +157,13 @@ last_updated: 2026-09-06
 
 - [[欧洲航天]]
 - [[SUNRISE火箭]]
+
+## 知识更新｜2026-09-04
+
+德国航天公司Isar Aerospace成功完成SUNRISE火箭的首次轨道级发射，实现了欧洲大陆首次私营轨道发射。
+
+### 新增事实
+
+- Isar Aerospace于2026年9月成功完成SUNRISE火箭首次轨道级发射
+- 这是欧洲大陆首次由私营公司实现的轨道发射里程碑
+

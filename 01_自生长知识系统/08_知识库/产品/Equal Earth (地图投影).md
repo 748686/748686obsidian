@@ -5,7 +5,7 @@ status: active
 importance: 2
 confidence: 0.9
 created_at: 2026-09-06
-last_updated: 2026-09-06
+last_updated: 2026-09-05
 ---
 
 # Equal Earth (地图投影)
@@ -37,3 +37,16 @@ last_updated: 2026-09-06
 
 - 来源事件：EVT-20260906-000268
 - 本次动作：CREATE
+
+## 知识更新｜2026-09-05
+
+联合国通过决议采用Equal Earth地图投影，但源文章内容与事件无关，无法验证具体投票情况。
+
+### 新增事实
+
+- 联合国声称通过决议放弃墨卡托投影（需验证）
+
+### 来源 EventUnit
+
+- `EVT-20260905-000157`
+
