@@ -5,7 +5,7 @@ status: active
 importance: 3
 confidence: 0.7
 created_at: 2026-09-06
-last_updated: 2026-09-04
+last_updated: 2026-09-07
 ---
 
 # Isar Aerospace
@@ -189,3 +189,31 @@ last_updated: 2026-09-04
 ### 相关知识
 
 - [[SpaceX]]
+
+## 知识更新｜2026-09-06
+
+德国Isar Aerospace公司于2026年9月6日成功完成'SUNRISE'火箭首次轨道级发射。这是欧洲大陆首次私营轨道发射，打破了欧洲对非欧洲发射服务的依赖。
+
+### 新增事实
+
+- Isar Aerospace完成SUNRISE火箭首次轨道级发射
+- 实现欧洲大陆首次私营轨道发射
+- 打破对非欧洲发射服务的依赖
+
+### 来源 EventUnit
+
+- `EVT-20260906-000126`
+
+## 知识更新｜2026-09-07
+
+2026年9月7日，德国Isar Aerospace成功发射SUNRISE火箭，实现欧洲商业航天里程碑。
+
+### 新增事实
+
+- 德国初创企业Isar Aerospace成功执行首次商业火箭发射任务，发射地点位于欧洲境内
+- 该事件标志着德国正式进入商业航天发射领域
+
+### 来源 EventUnit
+
+- `EVT-20260907-000266`
+
