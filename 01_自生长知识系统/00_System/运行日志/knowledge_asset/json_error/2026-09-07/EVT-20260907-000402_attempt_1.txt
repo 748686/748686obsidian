@@ -1,0 +1,95 @@
+748686 Knowledge Asset JSON Diagnostic
+
+date:
+2026-09-07
+
+event_id:
+EVT-20260907-000402
+
+attempt:
+1
+
+error_type:
+ValueError
+
+error:
+无法解析 AI JSON | JSONDecodeError line=4 column=97 pos=159: Invalid control character at
+
+======================================================================
+AI RAW RESPONSE
+======================================================================
+
+{
+  "event_id": "EVT-20260907-000402",
+  "long_term_value": 1,
+  "summary": "事件单元关于英国国内政治的合并逻辑存在严重偏差，大部分源文章实际涉及美国、国际军事或非英国议题。仅有一项关于朴茨茅斯极右翼抗议的事实被部分验证，但缺乏细节支撑。',
+  "knowledge_assets": [
+    {
+      "type": "概念",
+      "name": "英国移民与极右翼动员",
+      "action": "update",
+      "importance": 2,
+      "confidence": 0.4,
+      "summary": "朴茨茅斯出现因小型船只抵达引发的极右翼抗议活动，反映移民问题在地方层面引发社会紧张。",
+      "new_facts": [
+        "2026年9月7日，数百名极右翼抗议者在英国朴茨茅斯聚集，直接诱因是小型船只（移民）抵达。",
+        "该事件反映了移民问题在英国地方层面引发的社会紧张和公共秩序挑战。"
+      ],
+      "changes": [
+        "确认了朴茨茅斯抗议活动的存在，但缺失警方反应、具体诉求及政府回应等细节。"
+      ],
+      "related_entities": [
+        "英国",
+        "朴茨茅斯",
+        "极右翼"
+      ]
+    },
+    {
+      "type": "概念",
+      "name": "英格兰特殊需求教育支持计划",
+      "action": "skip",
+      "importance": 1,
+      "confidence": 0.1,
+      "summary": "事件合并逻辑中提及的“英格兰特殊需求教育支持计划”在提供的新闻源中完全缺失，无证据支撑。",
+      "new_facts": [],
+      "changes": [],
+      "related_entities": [
+        "英格兰",
+        "教育政策"
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "from": "小型船只抵达",
+      "relation": "引发",
+      "to": "朴茨茅斯极右翼抗议",
+      "evidence": "Event Analysis指出抗议的直接诱因是小型船只（移民）抵达"
+    }
+  ],
+  "knowledge_gaps": [
+    {
+      "question": "朴茨茅斯抗议活动的具体规模、警方应对措施及参与者诉求为何？",
+      "reason": "源文章仅显示标题和部分元数据，缺乏正文细节，无法支撑深入分析。",
+      "importance": 3
+    },
+    {
+      "question": "英国政府对此次朴茨茅斯抗议活动及移民问题的官方立场或回应是什么？",
+      "reason": "当前信息仅记录了抗议事件本身，未包含政府层面的反应或政策导向。",
+      "importance": 3
+    },
+    {
+      "question": "Andy Burnham的政治动向及相关 Labour 政策主张具体为何？",
+      "reason": "相关源文章状态为“unresolved”且无原文，无法验证其政治活动细节。",
+      "importance": 2
+    }
+  ],
+  "contradictions": [
+    {
+      "subject": "事件单元的内容完整性",
+      "description": "事件标题涵盖“英国国内政治与社会动态”，预期包含教育政策等多维度内容，但实际有效信息仅局限于单一抗议事件。",
+      "reason": "提供的8个新闻源中，绝大多数涉及美国政治、国际军事或非英国议题，与标题预期的英国国内政治综合图景存在巨大偏差。",
+      "importance": 2
+    }
+  ]
+}
