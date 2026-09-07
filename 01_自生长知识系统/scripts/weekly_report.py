@@ -84,7 +84,7 @@ GRAPH_DIR = ROOT / "09_知识图谱"
 TOPIC_DIR = ROOT / "07_专题报告"
 
 TIMEZONE = ZoneInfo(
-    "Asia/Shanghai"
+    "UTC"
 )
 
 
