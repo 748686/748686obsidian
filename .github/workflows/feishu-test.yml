@@ -1,4 +1,4 @@
-name: 748686 飞书日报周报测试
+name: 748686 飞书日报周报卡片测试
 
 on:
   workflow_dispatch:
@@ -106,7 +106,7 @@ jobs:
           set -e
 
           echo "=========================================="
-          echo "748686 飞书日报周报测试"
+          echo "748686 飞书日报周报卡片测试"
           echo "=========================================="
 
           echo "日报："
@@ -120,9 +120,9 @@ jobs:
           echo "=========================================="
 
       # ==========================================================
-      # 6. 发送日报到飞书
+      # 6. 发送日报到飞书卡片
       # ==========================================================
-      - name: 发送日报到飞书
+      - name: 发送日报到飞书卡片
         env:
           FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
           DAILY_REPORT: ${{ steps.find_daily.outputs.daily_report }}
@@ -130,7 +130,7 @@ jobs:
           set -e
 
           echo "=========================================="
-          echo "FEISHU DAILY REPORT"
+          echo "FEISHU DAILY REPORT CARD"
           echo "=========================================="
 
           if [ ! -f "$DAILY_REPORT" ]; then
@@ -138,49 +138,137 @@ jobs:
             exit 1
           fi
 
-          python - "$DAILY_REPORT" > /tmp/feishu_daily.json <<'PY'
+          # ------------------------------------------------------
+          # 将 Markdown 日报转换为飞书 interactive 卡片
+          # 同时按长度自动拆分，避免单张卡片过长
+          # ------------------------------------------------------
+          python - "$DAILY_REPORT" > /tmp/feishu_daily_cards.jsonl <<'PY'
           import json
           import sys
 
           path = sys.argv[1]
 
           with open(path, "r", encoding="utf-8") as f:
-              content = f.read()
+              content = f.read().strip()
 
-          text = "748686｜自生长知识系统｜日报\n\n" + content
+          title = "748686｜自生长知识系统｜日报"
 
-          payload = {
-              "msg_type": "text",
-              "content": {
-                  "text": text
+          # 单张卡片正文的保守长度
+          MAX_CHARS = 7000
+
+          # ------------------------------------------------------
+          # 按 Markdown 段落拆分
+          # 尽量避免在标题、列表或段落中间切断
+          # ------------------------------------------------------
+          paragraphs = content.split("\n\n")
+
+          chunks = []
+          current = ""
+
+          for paragraph in paragraphs:
+              paragraph = paragraph.strip()
+
+              if not paragraph:
+                  continue
+
+              candidate = (
+                  current + "\n\n" + paragraph
+                  if current
+                  else paragraph
+              )
+
+              if len(candidate) <= MAX_CHARS:
+                  current = candidate
+              else:
+                  if current:
+                      chunks.append(current)
+
+                  # 如果单个段落本身超过限制，再强制切分
+                  while len(paragraph) > MAX_CHARS:
+                      chunks.append(paragraph[:MAX_CHARS])
+                      paragraph = paragraph[MAX_CHARS:]
+
+                  current = paragraph
+
+          if current:
+              chunks.append(current)
+
+          total = len(chunks)
+
+          for index, chunk in enumerate(chunks, 1):
+
+              if total == 1:
+                  header_title = title
+              else:
+                  header_title = f"{title}｜第 {index}/{total} 部分"
+
+              payload = {
+                  "msg_type": "interactive",
+                  "card": {
+                      "header": {
+                          "template": "blue",
+                          "title": {
+                              "tag": "plain_text",
+                              "content": header_title
+                          }
+                      },
+                      "elements": [
+                          {
+                              "tag": "markdown",
+                              "content": chunk
+                          }
+                      ]
+                  }
               }
-          }
 
-          print(json.dumps(payload, ensure_ascii=False))
+              print(
+                  json.dumps(
+                      payload,
+                      ensure_ascii=False
+                  )
+              )
           PY
 
-          RESPONSE=$(curl -sS \
-            -X POST \
-            -H "Content-Type: application/json" \
-            --data-binary @/tmp/feishu_daily.json \
-            "$FEISHU_WEBHOOK")
+          TOTAL=$(wc -l < /tmp/feishu_daily_cards.jsonl)
 
-          echo "飞书返回："
-          echo "$RESPONSE"
+          echo "日报卡片数量：$TOTAL"
 
-          echo "$RESPONSE" | grep -q '"code":0' || {
-            echo "❌ 飞书日报发送失败"
-            exit 1
-          }
+          INDEX=0
+
+          while IFS= read -r PAYLOAD; do
+              INDEX=$((INDEX + 1))
+
+              echo "正在发送日报卡片：$INDEX / $TOTAL"
+
+              RESPONSE=$(curl -sS \
+                -X POST \
+                -H "Content-Type: application/json" \
+                --data-binary "$PAYLOAD" \
+                "$FEISHU_WEBHOOK")
+
+              echo "飞书返回："
+              echo "$RESPONSE"
+
+              echo "$RESPONSE" | grep -q '"code":0' || {
+                echo "❌ 飞书日报卡片发送失败"
+                exit 1
+              }
+
+              echo "✅ 日报卡片 $INDEX / $TOTAL 发送成功"
+
+              # 避免连续请求过快
+              sleep 1
+
+          done < /tmp/feishu_daily_cards.jsonl
 
           echo "=========================================="
-          echo "✅ 日报发送成功"
+          echo "✅ 日报飞书卡片发送完成"
           echo "=========================================="
 
       # ==========================================================
-      # 7. 发送周报到飞书
+      # 7. 发送周报到飞书卡片
       # ==========================================================
-      - name: 发送周报到飞书
+      - name: 发送周报到飞书卡片
         env:
           FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
           WEEKLY_REPORT: ${{ steps.find_weekly.outputs.weekly_report }}
@@ -188,7 +276,7 @@ jobs:
           set -e
 
           echo "=========================================="
-          echo "FEISHU WEEKLY REPORT"
+          echo "FEISHU WEEKLY REPORT CARD"
           echo "=========================================="
 
           if [ ! -f "$WEEKLY_REPORT" ]; then
@@ -196,57 +284,141 @@ jobs:
             exit 1
           fi
 
-          python - "$WEEKLY_REPORT" > /tmp/feishu_weekly.json <<'PY'
+          # ------------------------------------------------------
+          # 将 Markdown 周报转换为飞书 interactive 卡片
+          # 同时按长度自动拆分
+          # ------------------------------------------------------
+          python - "$WEEKLY_REPORT" > /tmp/feishu_weekly_cards.jsonl <<'PY'
           import json
           import sys
 
           path = sys.argv[1]
 
           with open(path, "r", encoding="utf-8") as f:
-              content = f.read()
+              content = f.read().strip()
 
-          text = "748686｜自生长知识系统｜周报\n\n" + content
+          title = "748686｜自生长知识系统｜周报"
 
-          payload = {
-              "msg_type": "text",
-              "content": {
-                  "text": text
+          # 单张卡片正文的保守长度
+          MAX_CHARS = 7000
+
+          paragraphs = content.split("\n\n")
+
+          chunks = []
+          current = ""
+
+          for paragraph in paragraphs:
+              paragraph = paragraph.strip()
+
+              if not paragraph:
+                  continue
+
+              candidate = (
+                  current + "\n\n" + paragraph
+                  if current
+                  else paragraph
+              )
+
+              if len(candidate) <= MAX_CHARS:
+                  current = candidate
+              else:
+                  if current:
+                      chunks.append(current)
+
+                  # 如果单个段落本身超过限制，再强制切分
+                  while len(paragraph) > MAX_CHARS:
+                      chunks.append(paragraph[:MAX_CHARS])
+                      paragraph = paragraph[MAX_CHARS:]
+
+                  current = paragraph
+
+          if current:
+              chunks.append(current)
+
+          total = len(chunks)
+
+          for index, chunk in enumerate(chunks, 1):
+
+              if total == 1:
+                  header_title = title
+              else:
+                  header_title = f"{title}｜第 {index}/{total} 部分"
+
+              payload = {
+                  "msg_type": "interactive",
+                  "card": {
+                      "header": {
+                          "template": "green",
+                          "title": {
+                              "tag": "plain_text",
+                              "content": header_title
+                          }
+                      },
+                      "elements": [
+                          {
+                              "tag": "markdown",
+                              "content": chunk
+                          }
+                      ]
+                  }
               }
-          }
 
-          print(json.dumps(payload, ensure_ascii=False))
+              print(
+                  json.dumps(
+                      payload,
+                      ensure_ascii=False
+                  )
+              )
           PY
 
-          RESPONSE=$(curl -sS \
-            -X POST \
-            -H "Content-Type: application/json" \
-            --data-binary @/tmp/feishu_weekly.json \
-            "$FEISHU_WEBHOOK")
+          TOTAL=$(wc -l < /tmp/feishu_weekly_cards.jsonl)
 
-          echo "飞书返回："
-          echo "$RESPONSE"
+          echo "周报卡片数量：$TOTAL"
 
-          echo "$RESPONSE" | grep -q '"code":0' || {
-            echo "❌ 飞书周报发送失败"
-            exit 1
-          }
+          INDEX=0
+
+          while IFS= read -r PAYLOAD; do
+              INDEX=$((INDEX + 1))
+
+              echo "正在发送周报卡片：$INDEX / $TOTAL"
+
+              RESPONSE=$(curl -sS \
+                -X POST \
+                -H "Content-Type: application/json" \
+                --data-binary "$PAYLOAD" \
+                "$FEISHU_WEBHOOK")
+
+              echo "飞书返回："
+              echo "$RESPONSE"
+
+              echo "$RESPONSE" | grep -q '"code":0' || {
+                echo "❌ 飞书周报卡片发送失败"
+                exit 1
+              }
+
+              echo "✅ 周报卡片 $INDEX / $TOTAL 发送成功"
+
+              # 避免连续请求过快
+              sleep 1
+
+          done < /tmp/feishu_weekly_cards.jsonl
 
           echo "=========================================="
-          echo "✅ 周报发送成功"
+          echo "✅ 周报飞书卡片发送完成"
           echo "=========================================="
 
       # ==========================================================
       # 8. 测试完成
       # ==========================================================
-      - name: 飞书日报周报测试完成
+      - name: 飞书日报周报卡片测试完成
         run: |
           echo
           echo "=================================================="
-          echo "748686 飞书日报周报测试完成"
+          echo "748686 飞书日报周报卡片测试完成"
           echo "=================================================="
           echo
-          echo "✅ 最新日报已发送到飞书"
-          echo "✅ 最新周报已发送到飞书"
+          echo "✅ 最新日报已发送到飞书卡片"
+          echo "✅ 最新周报已发送到飞书卡片"
           echo
           echo "本次测试没有运行："
           echo "  - Horizon"
@@ -257,5 +429,5 @@ jobs:
           echo "  - Knowledge Asset"
           echo
           echo "只测试："
-          echo "GitHub → MD 日报/周报 → FEISHU_WEBHOOK → 飞书"
+          echo "GitHub → MD 日报/周报 → 飞书 Interactive Card"
           echo "=================================================="
