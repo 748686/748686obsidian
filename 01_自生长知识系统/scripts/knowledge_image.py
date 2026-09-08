@@ -3,31 +3,29 @@
 
 """
 748686 自生长知识系统
-Knowledge Image Engine V3
+Knowledge Image Engine V4
 ======================================================================
 
-核心目标
-----------------------------------------------------------------------
+V4 核心：
 
-1. 日报 / 周报自动生成配图
+1. 新闻锚定
 2. 一图一个场景
-3. 图片必须与报告中的真实新闻内容对应
-4. 首图严格锚定“最近一条新闻”
-5. 插图1继续围绕最近新闻，但使用另一个单独镜头
-6. 插图2锚定第二条新闻
-7. 插图3锚定第三条新闻
-8. 禁止拼图 / 分屏 / 多场景 / 多事件
-9. 禁止图片中出现中文、英文、标题、标签、Logo、水印等文字
-10. 图片生成后立即验证 PNG
-11. 使用原子写入
-12. 已存在且有效的图片不重复生成
-13. 原 Markdown 永远不修改
-14. 创建 *_带图.md
-15. 首图放在正文最前面
-16. 其余图片穿插正文
-17. 全部日期使用 UTC
-18. 日报处理：前天 → 昨天 → 今天
-19. 周报处理：三个日期对应的 ISO 周，去重
+3. 单一地点
+4. 单一时刻
+5. 单一镜头
+6. 单一视觉中心
+7. 禁止拼图 / 格子 / 分屏
+8. 禁止中文 / 英文 / Logo / 水印 / 招牌等文字
+9. 生成后进行本地视觉结构质检
+10. 不合格自动删除并重新生成
+11. 最多自动重试 MAX_GENERATION_ATTEMPTS 次
+12. 合格后才原子写入正式文件
+13. 原始 Markdown 永远不修改
+14. *_带图.md 单独生成
+15. 首图 + 插图穿插正文
+16. UTC
+17. 日报：前天 / 昨天 / 今天
+18. 周报：对应 ISO Week，去重
 ======================================================================
 """
 
@@ -36,7 +34,7 @@ import re
 import sys
 import json
 import time
-import hashlib
+import math
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from urllib.request import Request, urlopen
@@ -54,6 +52,7 @@ DAILY_ROOT = SYSTEM_ROOT / "05_日报"
 WEEKLY_ROOT = SYSTEM_ROOT / "06_周报"
 
 IMAGE_ROOT = SYSTEM_ROOT / "04_图片"
+
 DAILY_IMAGE_ROOT = IMAGE_ROOT / "日报"
 WEEKLY_IMAGE_ROOT = IMAGE_ROOT / "周报"
 
@@ -62,14 +61,27 @@ WEEKLY_IMAGE_ROOT = IMAGE_ROOT / "周报"
 # AGNES
 # ======================================================================
 
-AGNES_API_URL = "https://api.agnes-ai.cn/v1/images/generations"
+AGNES_API_URL = (
+    "https://api.agnes-ai.cn/v1/images/generations"
+)
 
-AGNES_IMAGE_MODEL = "agnes-image-2.5-flash"
+AGNES_IMAGE_MODEL = (
+    "agnes-image-2.5-flash"
+)
 
 IMAGE_SIZE = "2K"
 IMAGE_RATIO = "16:9"
 
 REQUEST_TIMEOUT = 180
+
+
+# ======================================================================
+# GENERATION CONTROL
+# ======================================================================
+
+MAX_GENERATION_ATTEMPTS = 5
+
+RETRY_SLEEP_SECONDS = 2
 
 
 # ======================================================================
@@ -88,28 +100,29 @@ MAX_IMAGE_COUNT = 4
 
 
 # ======================================================================
-# NEWS EXTRACTION
+# OPTIONAL IMAGE ANALYSIS
 # ======================================================================
 
-# 新闻条目标题常见形式：
-#
-# ## 新闻标题
-# ### 新闻标题
-# 1. 新闻标题
-# 1、新闻标题
-# - 新闻标题
-# **新闻标题**
-#
-# 我们不会强依赖某一种 Markdown 格式。
-#
+try:
 
-HEADING_RE = re.compile(
-    r"^\s{0,3}#{1,6}\s+(.+?)\s*$"
-)
+    from PIL import Image
+    PIL_AVAILABLE = True
 
-NUMBERED_RE = re.compile(
-    r"^\s*(?:\d+[\.\、\)]|[-•])\s+(.+?)\s*$"
-)
+except Exception:
+
+    PIL_AVAILABLE = False
+
+
+# ======================================================================
+# LOG
+# ======================================================================
+
+def log(message):
+
+    print(
+        message,
+        flush=True
+    )
 
 
 # ======================================================================
@@ -117,90 +130,68 @@ NUMBERED_RE = re.compile(
 # ======================================================================
 
 def utc_today():
-    return datetime.now(timezone.utc).date()
+
+    return datetime.now(
+        timezone.utc
+    ).date()
 
 
 # ======================================================================
-# BASIC UTILITIES
+# MARKDOWN CLEAN
 # ======================================================================
-
-def log(message):
-    print(message, flush=True)
-
 
 def clean_markdown_text(text):
-    """
-    把 Markdown 内容变成适合新闻识别的纯文本。
-    """
 
     if not text:
         return ""
 
-    text = re.sub(r"!\[[^\]]*\]\([^)]+\)", " ", text)
+    text = re.sub(
+        r"!\[[^\]]*\]\([^)]+\)",
+        " ",
+        text
+    )
 
-    text = re.sub(r"\[[^\]]+\]\([^)]+\)", " ", text)
+    text = re.sub(
+        r"\[[^\]]+\]\([^)]+\)",
+        " ",
+        text
+    )
 
-    text = re.sub(r"<[^>]+>", " ", text)
+    text = re.sub(
+        r"<[^>]+>",
+        " ",
+        text
+    )
 
-    text = re.sub(r"`{1,3}.*?`{1,3}", " ", text, flags=re.S)
+    text = re.sub(
+        r"`{1,3}.*?`{1,3}",
+        " ",
+        text,
+        flags=re.S
+    )
 
-    text = re.sub(r"[*_~]+", "", text)
+    text = re.sub(
+        r"[*_~]+",
+        "",
+        text
+    )
 
-    text = re.sub(r"\s+", " ", text)
+    text = re.sub(
+        r"\s+",
+        " ",
+        text
+    )
 
     return text.strip()
 
 
-def remove_report_metadata_lines(text):
-    """
-    删除明显属于报告元数据的行。
-    """
-
-    output = []
-
-    for line in text.splitlines():
-
-        s = line.strip()
-
-        if not s:
-            continue
-
-        lower = s.lower()
-
-        if lower.startswith("date:"):
-            continue
-
-        if lower.startswith("generated"):
-            continue
-
-        if lower.startswith("timezone"):
-            continue
-
-        if lower.startswith("source"):
-            continue
-
-        if lower.startswith("url:"):
-            continue
-
-        if lower.startswith("http://"):
-            continue
-
-        if lower.startswith("https://"):
-            continue
-
-        if s.startswith("---"):
-            continue
-
-        output.append(line)
-
-    return "\n".join(output)
-
-
 # ======================================================================
-# REPORT LOCATION
+# REPORT
 # ======================================================================
 
-def find_daily_report(target_date):
+def find_daily_report(
+    target_date
+):
 
     path = (
         DAILY_ROOT
@@ -210,12 +201,16 @@ def find_daily_report(target_date):
     )
 
     if path.exists():
+
         return path
 
     return None
 
 
-def find_weekly_report(year, week):
+def find_weekly_report(
+    year,
+    week
+):
 
     path = (
         WEEKLY_ROOT
@@ -224,34 +219,11 @@ def find_weekly_report(year, week):
     )
 
     if path.exists():
+
         return path
 
     return None
 
-
-# ======================================================================
-# IMAGE DIRECTORY
-# ======================================================================
-
-def daily_image_dir(target_date):
-
-    return (
-        DAILY_IMAGE_ROOT
-        / target_date.strftime("%Y-%m-%d")
-    )
-
-
-def weekly_image_dir(year, week):
-
-    return (
-        WEEKLY_IMAGE_ROOT
-        / f"{year}-W{week:02d}"
-    )
-
-
-# ======================================================================
-# REPORT
-# ======================================================================
 
 def read_report(path):
 
@@ -260,7 +232,9 @@ def read_report(path):
     )
 
 
-def extract_report_title(content):
+def extract_report_title(
+    content
+):
 
     for line in content.splitlines():
 
@@ -269,15 +243,16 @@ def extract_report_title(content):
         if not s:
             continue
 
-        m = HEADING_RE.match(s)
+        match = re.match(
+            r"^\s*#{1,6}\s+(.+?)\s*$",
+            s
+        )
 
-        if m:
+        if match:
+
             return clean_markdown_text(
-                m.group(1)
+                match.group(1)
             )
-
-        if len(s) >= 8:
-            return clean_markdown_text(s)
 
     return "Knowledge Report"
 
@@ -286,17 +261,18 @@ def extract_report_title(content):
 # NEWS EXTRACTION
 # ======================================================================
 
-def is_noise_heading(text):
-    """
-    判断一个标题是不是报告结构标题，而不是新闻标题。
-    """
+def is_noise_heading(
+    text
+):
 
-    t = clean_markdown_text(text).strip()
+    t = clean_markdown_text(
+        text
+    )
 
     if not t:
         return True
 
-    noise_keywords = [
+    noise = [
         "日报",
         "周报",
         "摘要",
@@ -306,88 +282,46 @@ def is_noise_heading(text):
         "目录",
         "概览",
         "说明",
-        "数据统计",
         "来源",
         "参考",
         "核心观点",
-        "今日知识",
-        "本周知识",
-        "知识图谱",
-        "系统运行",
-        "运行信息",
-        "报告说明",
         "免责声明",
+        "运行信息",
+        "系统信息",
     ]
 
-    for keyword in noise_keywords:
+    for keyword in noise:
 
         if t == keyword:
             return True
 
-        if t.startswith(keyword + "："):
+        if t.startswith(
+            keyword + ":"
+        ):
             return True
 
-        if t.startswith(keyword + ":"):
+        if t.startswith(
+            keyword + "："
+        ):
             return True
 
     return False
 
 
-def extract_candidate_headings(content):
-
-    candidates = []
-
-    for line in content.splitlines():
-
-        s = line.strip()
-
-        if not s:
-            continue
-
-        match = HEADING_RE.match(s)
-
-        if match:
-
-            title = clean_markdown_text(
-                match.group(1)
-            )
-
-            if not is_noise_heading(title):
-
-                candidates.append({
-                    "title": title,
-                    "source_line": line,
-                })
-
-    return candidates
-
-
-def split_sections_by_headings(content):
-
-    """
-    按 Markdown 标题切分报告。
-
-    返回：
-
-    [
-        {
-            "title": "...",
-            "content": "..."
-        }
-    ]
-    """
-
-    lines = content.splitlines()
+def split_sections_by_headings(
+    content
+):
 
     sections = []
 
     current_title = None
     current_lines = []
 
-    for line in lines:
+    for line in content.splitlines():
 
-        match = HEADING_RE.match(
-            line.strip()
+        match = re.match(
+            r"^\s*#{1,6}\s+(.+?)\s*$",
+            line
         )
 
         if match:
@@ -395,116 +329,109 @@ def split_sections_by_headings(content):
             if current_title is not None:
 
                 sections.append({
-                    "title": clean_markdown_text(
-                        current_title
-                    ),
-                    "content": "\n".join(
-                        current_lines
-                    ).strip(),
+                    "title":
+                        clean_markdown_text(
+                            current_title
+                        ),
+                    "content":
+                        "\n".join(
+                            current_lines
+                        ).strip(),
                 })
 
             current_title = match.group(1)
+
             current_lines = []
 
         else:
 
             if current_title is not None:
-                current_lines.append(line)
+
+                current_lines.append(
+                    line
+                )
 
     if current_title is not None:
 
         sections.append({
-            "title": clean_markdown_text(
-                current_title
-            ),
-            "content": "\n".join(
-                current_lines
-            ).strip(),
+            "title":
+                clean_markdown_text(
+                    current_title
+                ),
+            "content":
+                "\n".join(
+                    current_lines
+                ).strip(),
         })
 
     return sections
 
 
-def extract_news_items(content):
-
-    """
-    从报告中提取新闻单元。
-
-    不要求报告必须使用统一 Markdown 模板。
-
-    优先：
-        标题 + 标题下面的正文
-
-    其次：
-        编号新闻
-
-    最后：
-        正文段落作为候选新闻。
-    """
+def extract_news_items(
+    content
+):
 
     items = []
 
-    sections = split_sections_by_headings(
-        content
+    sections = (
+        split_sections_by_headings(
+            content
+        )
     )
 
     for section in sections:
 
-        title = clean_markdown_text(
-            section["title"]
-        )
-
-        body = clean_markdown_text(
-            remove_report_metadata_lines(
-                section["content"]
-            )
-        )
+        title = section["title"]
 
         if is_noise_heading(title):
+
             continue
+
+        body = clean_markdown_text(
+            section["content"]
+        )
 
         if len(title) < 4:
+
             continue
 
-        # 避免把极大的报告章节当成单条新闻
-        if len(body) > 6000:
-            body = body[:6000]
+        if not body:
 
-        if body:
+            continue
 
-            items.append({
-                "title": title,
-                "body": body,
-                "text": (
-                    f"{title}\n"
-                    f"{body}"
-                ),
-            })
+        body = body[:5000]
+
+        items.append({
+            "title": title,
+            "body": body,
+            "text":
+                title
+                + "\n"
+                + body,
+        })
 
     # --------------------------------------------------------------
-    # 如果标题解析不足，再尝试编号条目
+    # 编号新闻兜底
     # --------------------------------------------------------------
 
     if len(items) < 2:
 
-        lines = content.splitlines()
-
         current = None
 
-        for line in lines:
+        for line in content.splitlines():
 
-            m = NUMBERED_RE.match(line)
+            match = re.match(
+                r"^\s*(?:\d+[\.\、\)]|[-•])\s+(.+?)\s*$",
+                line
+            )
 
-            if m:
+            if match:
 
                 title = clean_markdown_text(
-                    m.group(1)
+                    match.group(1)
                 )
 
-                if (
-                    len(title) >= 8
-                    and not is_noise_heading(title)
-                ):
+                if len(title) >= 8:
 
                     current = {
                         "title": title,
@@ -512,16 +439,20 @@ def extract_news_items(content):
                         "text": title,
                     }
 
-                    items.append(current)
+                    items.append(
+                        current
+                    )
 
             elif current:
 
-                s = clean_markdown_text(line)
+                text = clean_markdown_text(
+                    line
+                )
 
-                if s:
+                if text:
 
                     current["body"] += (
-                        " " + s
+                        " " + text
                     )
 
                     current["text"] = (
@@ -530,61 +461,26 @@ def extract_news_items(content):
                         + current["body"]
                     )
 
-    # --------------------------------------------------------------
-    # 最后兜底：使用正文段落
-    # --------------------------------------------------------------
-
-    if not items:
-
-        blocks = split_markdown_blocks(
-            content
-        )
-
-        for block in blocks:
-
-            text = clean_markdown_text(
-                block
-            )
-
-            if len(text) < 40:
-                continue
-
-            if text.startswith("#"):
-                continue
-
-            items.append({
-                "title": text[:120],
-                "body": text,
-                "text": text,
-            })
-
-            if len(items) >= 5:
-                break
-
     return items
 
 
 # ======================================================================
-# NEWS NORMALIZATION
+# NEWS PLAN
 # ======================================================================
 
-def normalize_news_text(text, max_chars=2600):
+def normalize_news_text(
+    text,
+    limit=2600
+):
 
-    text = clean_markdown_text(text)
+    text = clean_markdown_text(
+        text
+    )
 
-    # 删除 URL
     text = re.sub(
         r"https?://\S+",
         " ",
         text
-    )
-
-    # 删除明显的图片路径
-    text = re.sub(
-        r"\S+\.(?:png|jpg|jpeg|webp)",
-        " ",
-        text,
-        flags=re.I
     )
 
     text = re.sub(
@@ -593,56 +489,12 @@ def normalize_news_text(text, max_chars=2600):
         text
     )
 
-    return text.strip()[:max_chars]
+    return text.strip()[:limit]
 
 
-# ======================================================================
-# NEWS ANCHOR
-# ======================================================================
-
-def build_news_anchor(
-    news_item,
-    role,
-    index
+def build_image_plan(
+    report_content
 ):
-    """
-    建立图片与新闻之间的明确绑定。
-
-    role:
-        cover
-        related
-        secondary
-    """
-
-    title = normalize_news_text(
-        news_item.get("title", ""),
-        500
-    )
-
-    body = normalize_news_text(
-        news_item.get("body", ""),
-        2000
-    )
-
-    text = normalize_news_text(
-        news_item.get("text", ""),
-        2600
-    )
-
-    return {
-        "role": role,
-        "index": index,
-        "title": title,
-        "body": body,
-        "news_text": text,
-    }
-
-
-# ======================================================================
-# IMAGE PLAN
-# ======================================================================
-
-def build_image_plan(report_content):
 
     news_items = extract_news_items(
         report_content
@@ -654,44 +506,33 @@ def build_image_plan(report_content):
     )
 
     for i, item in enumerate(
-        news_items[:10],
-        start=1
+        news_items[-10:],
+        start=max(
+            1,
+            len(news_items) - 9
+        )
     ):
 
         log(
-            f"  NEWS {i}: "
-            f"{item.get('title', '')[:120]}"
+            f"NEWS {i}: "
+            f"{item['title'][:120]}"
         )
 
     if not news_items:
 
         raise RuntimeError(
-            "Unable to extract any news item "
-            "from report."
+            "No news items detected."
         )
 
-    # --------------------------------------------------------------
-    # 最近一条新闻
-    #
-    # 这里的“最近”定义为：
-    # 报告中最后一个可识别新闻单元。
-    #
-    # 这正是用户当前要求的核心。
-    # --------------------------------------------------------------
+    latest_index = (
+        len(news_items) - 1
+    )
 
-    latest_index = len(news_items) - 1
-
-    latest_news = news_items[
+    latest = news_items[
         latest_index
     ]
 
-    # --------------------------------------------------------------
-    # 第二、第三条新闻
-    #
-    # 从最近新闻向前寻找。
-    # --------------------------------------------------------------
-
-    previous_news = []
+    previous = []
 
     for i in range(
         latest_index - 1,
@@ -699,339 +540,499 @@ def build_image_plan(report_content):
         -1
     ):
 
-        previous_news.append(
+        previous.append(
             news_items[i]
         )
 
-        if len(previous_news) >= 2:
+        if len(previous) >= 2:
+
             break
 
     plan = []
 
-    # ==============================================================
-    # COVER
-    # ==============================================================
+    # --------------------------------------------------------------
+    # 首图
+    # --------------------------------------------------------------
 
     plan.append({
-        "image_name": "首图.png",
-        "anchor": build_news_anchor(
-            latest_news,
-            "cover",
-            latest_index + 1
-        ),
+        "image_name":
+            "首图.png",
+        "news":
+            latest,
+        "role":
+            "latest",
+        "news_index":
+            latest_index + 1,
     })
 
-    # ==============================================================
-    # INSERT 1
-    #
-    # 同一条最近新闻
-    # 但必须要求“不同镜头”
-    # ==============================================================
+    # --------------------------------------------------------------
+    # 插图1
+    # --------------------------------------------------------------
 
     plan.append({
-        "image_name": "插图1.png",
-        "anchor": build_news_anchor(
-            latest_news,
-            "related",
-            latest_index + 1
-        ),
+        "image_name":
+            "插图1.png",
+        "news":
+            latest,
+        "role":
+            "latest_second_view",
+        "news_index":
+            latest_index + 1,
     })
 
-    # ==============================================================
-    # INSERT 2
-    # ==============================================================
+    # --------------------------------------------------------------
+    # 插图2
+    # --------------------------------------------------------------
 
-    if len(previous_news) >= 1:
+    if len(previous) >= 1:
 
         plan.append({
-            "image_name": "插图2.png",
-            "anchor": build_news_anchor(
-                previous_news[0],
-                "secondary",
-                latest_index
-            ),
+            "image_name":
+                "插图2.png",
+            "news":
+                previous[0],
+            "role":
+                "second_news",
+            "news_index":
+                latest_index,
         })
 
-    else:
+    # --------------------------------------------------------------
+    # 插图3
+    # --------------------------------------------------------------
+
+    if len(previous) >= 2:
 
         plan.append({
-            "image_name": "插图2.png",
-            "anchor": build_news_anchor(
-                latest_news,
-                "related",
-                latest_index + 1
-            ),
-        })
-
-    # ==============================================================
-    # INSERT 3
-    # ==============================================================
-
-    if len(previous_news) >= 2:
-
-        plan.append({
-            "image_name": "插图3.png",
-            "anchor": build_news_anchor(
-                previous_news[1],
-                "secondary",
-                latest_index - 1
-            ),
+            "image_name":
+                "插图3.png",
+            "news":
+                previous[1],
+            "role":
+                "third_news",
+            "news_index":
+                latest_index - 1,
         })
 
     return plan
 
 
 # ======================================================================
-# SCENE BRIEF
+# PROMPT
 # ======================================================================
 
-def build_scene_brief(
+def build_image_prompt(
     image_name,
-    anchor
+    plan_item,
+    attempt
 ):
 
-    role = anchor["role"]
-    title = anchor["title"]
-    body = anchor["body"]
+    news = plan_item["news"]
 
-    if image_name == "首图.png":
+    title = normalize_news_text(
+        news.get("title", ""),
+        500
+    )
 
-        shot_instruction = """
-Create the strongest single photographic scene
-that directly represents the news event described below.
+    body = normalize_news_text(
+        news.get("body", ""),
+        1800
+    )
 
-The image must function as the visual cover of this
-specific news event.
+    role = plan_item["role"]
 
-Do not summarize the whole report.
-Do not combine different facts.
-Do not create a symbolic collage.
+    # --------------------------------------------------------------
+    # 每次失败后，进一步改变构图
+    # --------------------------------------------------------------
 
-Choose ONE concrete physical moment from this news.
+    retry_instruction = ""
+
+    if attempt >= 2:
+
+        retry_instruction = """
+THIS IS A RETRY.
+
+The previous candidate was rejected.
+
+Make the composition dramatically simpler.
+
+Use fewer visible objects.
+Use one dominant subject.
+Use a plain natural background.
+Use one physical location.
+Use one photographic moment.
+
+Do NOT attempt to show the whole news story.
 """
 
-    elif image_name == "插图1.png":
+    if attempt >= 3:
 
-        shot_instruction = """
-Create a second photographic view of the SAME news event.
+        retry_instruction += """
+SECOND RETRY WARNING.
 
-It must remain clearly connected to the same event,
-but it must be a DIFFERENT single camera shot.
+Do not create any editorial graphic composition.
 
-Do not create a collage.
-Do not combine multiple moments.
-Do not summarize several aspects of the event.
+Think like a photojournalist who has only ONE
+camera frame available.
 
-Choose one concrete physical moment related to this event.
+Take ONE photograph.
+Nothing else.
+"""
+
+    if attempt >= 4:
+
+        retry_instruction += """
+FINAL RETRY MODE.
+
+Use an extremely simple documentary photograph.
+
+ONE subject.
+ONE action.
+ONE location.
+ONE moment.
+
+Avoid every object that can contain writing.
+Avoid every visual structure that can become
+a panel, grid, poster, collage, or infographic.
+"""
+
+    # --------------------------------------------------------------
+    # 图片角色
+    # --------------------------------------------------------------
+
+    if role == "latest":
+
+        role_instruction = """
+This is the COVER IMAGE.
+
+It MUST represent the latest news item below.
+
+Choose the clearest single physical scene
+that a professional photojournalist could
+actually photograph while covering this event.
+"""
+
+    elif role == "latest_second_view":
+
+        role_instruction = """
+This is the SECOND IMAGE for the SAME latest news.
+
+It MUST remain about exactly the same news event.
+
+Use a different single camera position or
+different physical moment within that same event.
+
+Do not introduce another event.
+Do not introduce another location.
 """
 
     else:
 
-        shot_instruction = """
-Create one concrete documentary photograph representing
-the specific news item below.
+        role_instruction = """
+This image MUST represent the specific news item below.
 
-The image must correspond directly to this news item,
-not to the whole report.
+Do not use the whole report as visual inspiration.
 
-Choose ONE physical situation from this news.
+Do not combine this news item with other news.
 """
 
-    return f"""
-NEWS-ANCHORED VISUAL TASK
+    prompt = f"""
+IMPORTANT: GENERATE ONE NORMAL PHOTOGRAPH.
 
-{shot_instruction}
+{role_instruction}
 
 NEWS TITLE:
 {title}
 
-NEWS CONTENT:
+NEWS FACTS:
 {body}
 
-The news content above is the factual anchor.
-The generated image MUST depict a visually plausible,
-real-world scene that directly corresponds to this news.
+The text above is the ONLY factual source for the scene.
 
-Do not invent an unrelated subject.
+The image must visibly correspond to this news.
 
-If the article describes a person, institution, building,
-location, event, meeting, protest, launch, accident,
-technology, market event, natural event, or other concrete
-occurrence, visually represent that same occurrence.
-
-If exact visual details are not explicitly stated,
-choose only conservative details that are compatible
-with the news.
-
-Do not add unrelated objects or unrelated events.
+Do not generate an unrelated generic image.
 
 ============================================================
-ABSOLUTE SCENE RULE
+SINGLE SCENE CONTRACT
 ============================================================
 
-ONE IMAGE.
-ONE SCENE.
-ONE LOCATION.
-ONE MOMENT.
-ONE CAMERA.
-ONE CAMERA ANGLE.
-ONE CONTINUOUS PHYSICAL ENVIRONMENT.
-ONE DOMINANT VISUAL SUBJECT.
-ONE MAIN ACTION.
-ONE VISUAL CENTER.
+ONE photograph.
 
-The background must remain subordinate.
+ONE physical location.
+
+ONE moment in time.
+
+ONE camera.
+
+ONE camera viewpoint.
+
+ONE continuous environment.
+
+ONE dominant subject.
+
+ONE main action.
+
+ONE visual center.
+
+The viewer must immediately perceive this as
+ONE ordinary documentary photograph.
 
 ============================================================
-STRICTLY FORBIDDEN
+ABSOLUTELY FORBIDDEN
 ============================================================
 
 NO collage.
-NO composite image.
+
 NO grid.
-NO panels.
+
+NO tiled image.
+
 NO split screen.
-NO four-panel layout.
+
+NO multiple panels.
+
+NO four panels.
+
 NO triptych.
+
 NO diptych.
+
 NO montage.
+
 NO storyboard.
+
 NO infographic.
-NO news-summary board.
-NO multiple photographs inside one image.
-NO multiple separate locations.
-NO multiple unrelated events.
-NO different time periods.
-NO visual timeline.
+
+NO poster.
+
+NO newspaper-style layout.
+
+NO news board.
+
+NO multiple photographs.
+
+NO multiple frames.
+
+NO multiple scenes.
+
+NO multiple locations.
+
+NO separate mini-scenes.
+
+NO before-and-after.
+
+NO timeline.
+
+NO visual summary.
+
+NO symbolic collection of objects.
 
 ============================================================
-TEXT PROHIBITION
+TEXT-FREE PHOTOGRAPH
 ============================================================
 
-The final image must contain NO readable text.
+The photograph must contain ZERO readable writing.
 
-Absolutely no:
+Do not show:
 
 Chinese characters.
+
 Hanzi.
-Chinese writing.
-English words.
+
+Chinese text.
+
 English letters.
+
+English words.
+
+Numbers used as labels.
+
 Headlines.
+
 Titles.
+
 Captions.
-Labels.
+
 Subtitles.
+
 Logos.
+
 Watermarks.
+
 Brand names.
+
 Signs.
+
 Road signs.
+
 Shop signs.
+
 Building signs.
+
 Billboards.
-Newspapers.
-Books.
-Documents.
-Printed papers.
+
 Posters.
-Advertisements.
-Screen text.
-Phone screen text.
-Computer screen text.
-Television text.
-UI text.
+
+Newspapers.
+
+Books.
+
+Documents.
+
+Printed papers.
+
+Packaging.
+
+Labels.
+
+Badges.
+
+Banners.
+
+Screens.
+
+Phones.
+
+Computer monitors.
+
+Televisions.
+
+Digital displays.
+
 Charts.
-Chart labels.
-Legends.
+
+Graphs.
+
 Diagrams.
-Packaging text.
-Name badges.
-Uniform logos.
 
-Avoid text-bearing objects whenever possible.
+Maps containing labels.
+
+UI.
+
+Interfaces.
+
+Menus.
+
+Advertisements.
+
+If an object could naturally contain writing,
+DO NOT include that object.
 
 ============================================================
-VISUAL STYLE
+COMPOSITION
 ============================================================
 
-Professional documentary news photography.
+Use a simple natural photographic composition.
 
-Realistic physical environment.
+Keep the background quiet.
 
-Natural human proportions.
+Keep secondary objects subordinate.
 
-Credible lighting.
+Do not create repeated rectangular shapes.
 
-Natural materials.
+Do not create rows of panels.
 
-Realistic camera perspective.
+Do not create windows that look like separate photographs.
+
+Do not create screens.
+
+Do not create picture frames.
+
+Do not create posters.
+
+Do not create newspaper pages.
+
+Do not create multiple visible displays.
+
+============================================================
+PHOTOGRAPHIC STYLE
+============================================================
+
+Realistic documentary news photography.
+
+Professional photojournalism.
 
 Photorealistic.
 
-Editorial photography quality.
+Natural lighting.
 
-Cinematic but restrained.
+Natural perspective.
 
-No fantasy.
+Real physical environment.
+
+Credible human anatomy.
+
+Restrained cinematic quality.
 
 No illustration.
 
 No cartoon.
 
+No fantasy.
+
 No surrealism.
 
-No artificial infographic aesthetic.
+No graphic design.
+
+No infographic aesthetic.
+
+{retry_instruction}
 
 ============================================================
-FINAL INSTRUCTION
+FINAL CHECK
 ============================================================
 
-Before generating, internally verify:
+Before generating the photograph, internally verify:
 
-1. Does this image depict the SAME NEWS EVENT?
-2. Is there exactly ONE physical scene?
-3. Is there exactly ONE location?
-4. Is there exactly ONE moment?
-5. Is there exactly ONE camera view?
-6. Is there exactly ONE visual center?
-7. Is there any readable text?
+ONE scene.
+ONE location.
+ONE moment.
+ONE camera.
+ONE visual center.
+ZERO readable text.
+ZERO panels.
+ZERO grids.
+ZERO collage.
 
-If any answer violates the rules,
-simplify the image until all rules are satisfied.
+If any condition fails,
+simplify the photograph.
 
-Generate ONLY the final single photograph.
+Generate ONLY the photograph.
 """
+
+    return prompt
 
 
 # ======================================================================
-# API
+# AGNES API
 # ======================================================================
 
 def get_api_key():
 
-    api_key = os.getenv(
+    key = os.getenv(
         "AGNES_API_KEY",
         ""
     ).strip()
 
-    if not api_key:
+    if not key:
 
         raise RuntimeError(
-            "AGNES_API_KEY environment variable "
-            "is not configured."
+            "AGNES_API_KEY is not configured."
         )
 
-    return api_key
+    return key
 
 
-def download_image(url):
+def download_image(
+    url
+):
 
     request = Request(
         url,
         headers={
             "User-Agent":
-                "748686-Knowledge-Image-Engine/3.0"
+                "748686-Knowledge-Image-V4"
         }
     )
 
@@ -1042,26 +1043,35 @@ def download_image(url):
 
         data = response.read()
 
-    if not data.startswith(b"\x89PNG\r\n\x1a\n"):
+    if not data.startswith(
+        b"\x89PNG\r\n\x1a\n"
+    ):
 
         raise RuntimeError(
-            "Downloaded image is not a valid PNG."
+            "Downloaded file is not PNG."
         )
 
     return data
 
 
-def generate_image(prompt):
+def generate_image(
+    prompt
+):
 
     api_key = get_api_key()
 
     payload = {
-        "model": AGNES_IMAGE_MODEL,
-        "prompt": prompt,
-        "size": IMAGE_SIZE,
-        "ratio": IMAGE_RATIO,
+        "model":
+            AGNES_IMAGE_MODEL,
+        "prompt":
+            prompt,
+        "size":
+            IMAGE_SIZE,
+        "ratio":
+            IMAGE_RATIO,
         "extra_body": {
-            "response_format": "url"
+            "response_format":
+                "url"
         },
     }
 
@@ -1095,14 +1105,14 @@ def generate_image(prompt):
 
     except HTTPError as exc:
 
-        error_body = exc.read().decode(
+        detail = exc.read().decode(
             "utf-8",
             errors="replace"
         )
 
         raise RuntimeError(
             f"AGNES HTTP {exc.code}: "
-            f"{error_body[:2000]}"
+            f"{detail[:2000]}"
         )
 
     except URLError as exc:
@@ -1119,25 +1129,27 @@ def generate_image(prompt):
 
     if isinstance(data, dict):
 
-        data_items = data.get(
+        items = data.get(
             "data"
         )
 
         if (
-            isinstance(data_items, list)
-            and data_items
-            and isinstance(data_items[0], dict)
+            isinstance(items, list)
+            and items
+            and isinstance(
+                items[0],
+                dict
+            )
         ):
 
-            image_url = data_items[0].get(
+            image_url = items[0].get(
                 "url"
             )
 
     if not image_url:
 
         raise RuntimeError(
-            "AGNES response did not contain "
-            "data[0].url."
+            "No data[0].url in AGNES response."
         )
 
     return download_image(
@@ -1159,12 +1171,12 @@ def atomic_write_bytes(
         exist_ok=True
     )
 
-    temp_path = path.with_name(
-        f".{path.name}.tmp"
+    tmp = path.with_name(
+        "." + path.name + ".tmp"
     )
 
     with open(
-        temp_path,
+        tmp,
         "wb"
     ) as f:
 
@@ -1177,50 +1189,18 @@ def atomic_write_bytes(
         )
 
     os.replace(
-        temp_path,
+        tmp,
         path
     )
 
 
-def atomic_write_text(
-    path,
-    text
+# ======================================================================
+# PNG VALIDATION
+# ======================================================================
+
+def is_valid_png(
+    path
 ):
-
-    path.parent.mkdir(
-        parents=True,
-        exist_ok=True
-    )
-
-    temp_path = path.with_name(
-        f".{path.name}.tmp"
-    )
-
-    with open(
-        temp_path,
-        "w",
-        encoding="utf-8"
-    ) as f:
-
-        f.write(text)
-
-        f.flush()
-
-        os.fsync(
-            f.fileno()
-        )
-
-    os.replace(
-        temp_path,
-        path
-    )
-
-
-# ======================================================================
-# IMAGE VALIDATION
-# ======================================================================
-
-def is_valid_png(path):
 
     try:
 
@@ -1228,7 +1208,6 @@ def is_valid_png(path):
             return False
 
         if path.stat().st_size < 100:
-
             return False
 
         with open(
@@ -1248,11 +1227,554 @@ def is_valid_png(path):
         return False
 
 
+# ======================================================================
+# VISUAL QUALITY CHECK
+# ======================================================================
+
+def image_dimensions(
+    image_path
+):
+
+    if not PIL_AVAILABLE:
+
+        return None
+
+    try:
+
+        with Image.open(
+            image_path
+        ) as img:
+
+            return img.size
+
+    except Exception:
+
+        return None
+
+
+def detect_extreme_grid_structure(
+    image_path
+):
+    """
+    轻量级结构检测。
+
+    目的不是判断“艺术质量”，
+    而是淘汰明显的：
+
+        多格
+        拼图
+        分屏
+        规则重复矩形
+
+    """
+
+    if not PIL_AVAILABLE:
+
+        return False, (
+            "Pillow unavailable; "
+            "grid detector skipped"
+        )
+
+    try:
+
+        with Image.open(
+            image_path
+        ) as img:
+
+            img = img.convert(
+                "L"
+            )
+
+            width, height = img.size
+
+            if width < 100 or height < 100:
+
+                return True, (
+                    "image too small"
+                )
+
+            # 缩小
+            img.thumbnail(
+                (240, 240)
+            )
+
+            pixels = img.load()
+
+            w, h = img.size
+
+            # ------------------------------------------------------
+            # 检测明显的竖直 / 水平分隔线
+            # ------------------------------------------------------
+
+            vertical_scores = []
+
+            for x in range(w):
+
+                dark = 0
+
+                for y in range(h):
+
+                    if pixels[x, y] < 35:
+
+                        dark += 1
+
+                vertical_scores.append(
+                    dark / max(h, 1)
+                )
+
+            horizontal_scores = []
+
+            for y in range(h):
+
+                dark = 0
+
+                for x in range(w):
+
+                    if pixels[x, y] < 35:
+
+                        dark += 1
+
+                horizontal_scores.append(
+                    dark / max(w, 1)
+                )
+
+            strong_vertical = sum(
+                1
+                for score
+                in vertical_scores
+                if score > 0.72
+            )
+
+            strong_horizontal = sum(
+                1
+                for score
+                in horizontal_scores
+                if score > 0.72
+            )
+
+            # 多条贯穿线非常可疑
+            if strong_vertical >= 2:
+
+                return True, (
+                    "possible multi-panel "
+                    "vertical separators"
+                )
+
+            if strong_horizontal >= 2:
+
+                return True, (
+                    "possible multi-panel "
+                    "horizontal separators"
+                )
+
+            return False, "grid structure not obvious"
+
+    except Exception as exc:
+
+        return False, (
+            f"grid detector error: {exc}"
+        )
+
+
+def detect_text_like_structure(
+    image_path
+):
+    """
+    只做非常保守的“文字可能性”检测。
+
+    不把正常物体纹理直接判为文字。
+
+    """
+
+    if not PIL_AVAILABLE:
+
+        return False, (
+            "Pillow unavailable; "
+            "text detector skipped"
+        )
+
+    try:
+
+        with Image.open(
+            image_path
+        ) as img:
+
+            img = img.convert(
+                "L"
+            )
+
+            img.thumbnail(
+                (500, 500)
+            )
+
+            w, h = img.size
+
+            if w < 50 or h < 50:
+
+                return False, (
+                    "image too small"
+                )
+
+            # ------------------------------------------------------
+            # 检测大量局部高频小块
+            #
+            # 这不是 OCR。
+            # 只是发现极端密集的小型高对比结构。
+            # ------------------------------------------------------
+
+            small_regions = 0
+
+            step_x = max(
+                8,
+                w // 50
+            )
+
+            step_y = max(
+                8,
+                h // 50
+            )
+
+            for y in range(
+                0,
+                h - step_y,
+                step_y
+            ):
+
+                for x in range(
+                    0,
+                    w - step_x,
+                    step_x
+                ):
+
+                    values = []
+
+                    for yy in range(
+                        y,
+                        min(
+                            y + step_y,
+                            h
+                        )
+                    ):
+
+                        for xx in range(
+                            x,
+                            min(
+                                x + step_x,
+                                w
+                            )
+                        ):
+
+                            values.append(
+                                img.getpixel(
+                                    (xx, yy)
+                                )
+                            )
+
+                    if not values:
+                        continue
+
+                    mean = sum(
+                        values
+                    ) / len(values)
+
+                    variance = sum(
+                        (
+                            v - mean
+                        ) ** 2
+                        for v in values
+                    ) / len(values)
+
+                    if variance > 5000:
+
+                        small_regions += 1
+
+            # ------------------------------------------------------
+            # 极端情况下才判定可疑
+            # ------------------------------------------------------
+
+            total_regions = (
+                max(
+                    1,
+                    (
+                        w // step_x
+                    )
+                    *
+                    (
+                        h // step_y
+                    )
+                )
+            )
+
+            ratio = (
+                small_regions
+                /
+                total_regions
+            )
+
+            if ratio > 0.62:
+
+                return True, (
+                    "unusually dense "
+                    "text-like texture"
+                )
+
+            return False, (
+                "text-like structure "
+                "not obvious"
+            )
+
+    except Exception as exc:
+
+        return False, (
+            f"text detector error: {exc}"
+        )
+
+
+def visual_quality_check(
+    image_path
+):
+    """
+    返回：
+
+        True,  reasons
+
+    或：
+
+        False, reasons
+    """
+
+    reasons = []
+
+    # --------------------------------------------------------------
+    # PNG
+    # --------------------------------------------------------------
+
+    if not is_valid_png(
+        image_path
+    ):
+
+        return False, [
+            "invalid PNG"
+        ]
+
+    # --------------------------------------------------------------
+    # 尺寸
+    # --------------------------------------------------------------
+
+    dimensions = image_dimensions(
+        image_path
+    )
+
+    if dimensions:
+
+        width, height = dimensions
+
+        if width < 512 or height < 512:
+
+            reasons.append(
+                "image resolution too small"
+            )
+
+    # --------------------------------------------------------------
+    # Grid
+    # --------------------------------------------------------------
+
+    grid_bad, grid_reason = (
+        detect_extreme_grid_structure(
+            image_path
+        )
+    )
+
+    if grid_bad:
+
+        reasons.append(
+            grid_reason
+        )
+
+    # --------------------------------------------------------------
+    # Text-like
+    # --------------------------------------------------------------
+
+    text_bad, text_reason = (
+        detect_text_like_structure(
+            image_path
+        )
+    )
+
+    if text_bad:
+
+        reasons.append(
+            text_reason
+        )
+
+    # --------------------------------------------------------------
+    # PASS
+    # --------------------------------------------------------------
+
+    if reasons:
+
+        return False, reasons
+
+    return True, [
+        "basic visual structure check passed"
+    ]
+
+
+# ======================================================================
+# GENERATE VERIFIED IMAGE
+# ======================================================================
+
+def generate_verified_image(
+    image_path,
+    image_name,
+    plan_item
+):
+
+    for attempt in range(
+        1,
+        MAX_GENERATION_ATTEMPTS + 1
+    ):
+
+        log("")
+        log(
+            f"GENERATE "
+            f"{image_name} "
+            f"ATTEMPT "
+            f"{attempt}/"
+            f"{MAX_GENERATION_ATTEMPTS}"
+        )
+
+        prompt = build_image_prompt(
+            image_name,
+            plan_item,
+            attempt
+        )
+
+        try:
+
+            image_bytes = generate_image(
+                prompt
+            )
+
+            # ------------------------------------------------------
+            # 临时候选文件
+            # ------------------------------------------------------
+
+            candidate_path = (
+                image_path.with_name(
+                    "."
+                    + image_path.stem
+                    + ".candidate.png"
+                )
+            )
+
+            atomic_write_bytes(
+                candidate_path,
+                image_bytes
+            )
+
+            # ------------------------------------------------------
+            # 视觉检查
+            # ------------------------------------------------------
+
+            passed, reasons = (
+                visual_quality_check(
+                    candidate_path
+                )
+            )
+
+            if passed:
+
+                log(
+                    "VISUAL CHECK: PASS"
+                )
+
+                atomic_write_bytes(
+                    image_path,
+                    image_bytes
+                )
+
+                try:
+
+                    candidate_path.unlink()
+
+                except Exception:
+
+                    pass
+
+                if not is_valid_png(
+                    image_path
+                ):
+
+                    raise RuntimeError(
+                        "Final PNG validation failed."
+                    )
+
+                log(
+                    f"ACCEPTED: "
+                    f"{image_path}"
+                )
+
+                return True
+
+            # ------------------------------------------------------
+            # FAIL
+            # ------------------------------------------------------
+
+            log(
+                "VISUAL CHECK: FAIL"
+            )
+
+            for reason in reasons:
+
+                log(
+                    f"  REJECT: {reason}"
+                )
+
+            try:
+
+                candidate_path.unlink()
+
+            except Exception:
+
+                pass
+
+            if attempt < MAX_GENERATION_ATTEMPTS:
+
+                time.sleep(
+                    RETRY_SLEEP_SECONDS
+                )
+
+        except Exception as exc:
+
+            log(
+                f"Generation attempt failed: "
+                f"{exc}"
+            )
+
+            if attempt < MAX_GENERATION_ATTEMPTS:
+
+                time.sleep(
+                    RETRY_SLEEP_SECONDS
+                )
+
+    raise RuntimeError(
+        f"Unable to generate a verified "
+        f"single-scene image after "
+        f"{MAX_GENERATION_ATTEMPTS} attempts: "
+        f"{image_name}"
+    )
+
+
+# ======================================================================
+# EXISTING IMAGES
+# ======================================================================
+
 def get_existing_images(
     image_dir
 ):
 
-    existing = []
+    result = []
 
     for name in IMAGE_NAMES:
 
@@ -1260,41 +1782,36 @@ def get_existing_images(
 
         if is_valid_png(path):
 
-            existing.append(name)
+            result.append(name)
 
-    return existing
+    return result
 
 
 def determine_missing_images(
     image_dir
 ):
 
-    existing = get_existing_images(
-        image_dir
+    existing = (
+        get_existing_images(
+            image_dir
+        )
     )
 
     missing = []
 
-    # --------------------------------------------------------------
-    # 至少保证三张
-    # --------------------------------------------------------------
-
-    for name in IMAGE_NAMES[:MIN_IMAGE_COUNT]:
+    for name in IMAGE_NAMES[
+        :MIN_IMAGE_COUNT
+    ]:
 
         if name not in existing:
 
             missing.append(name)
 
-    # --------------------------------------------------------------
-    # 如果第四张已经存在，就保留。
-    # 如果第四张不存在，本次不强制生成。
-    # --------------------------------------------------------------
-
     return existing, missing
 
 
 # ======================================================================
-# IMAGE GENERATION
+# GENERATE MISSING
 # ======================================================================
 
 def generate_missing_images(
@@ -1315,51 +1832,36 @@ def generate_missing_images(
 
     log("")
     log("=" * 70)
-    log("IMAGE GENERATION PLAN")
+    log("VERIFIED IMAGE GENERATION")
     log("=" * 70)
 
     log(
-        f"Existing valid images: "
+        f"Existing valid: "
         f"{len(existing)}"
     )
 
     log(
-        f"Missing required images: "
+        f"Missing: "
         f"{len(missing)}"
     )
 
     if not missing:
 
         log(
-            "All required images already exist. "
-            "No regeneration needed."
+            "No image generation required."
         )
 
         return
 
-    # --------------------------------------------------------------
-    # 新闻锚点计划
-    # --------------------------------------------------------------
-
-    image_plan = build_image_plan(
+    plan = build_image_plan(
         report_content
     )
 
     plan_map = {
-        item["image_name"]: item
-        for item in image_plan
+        item["image_name"]:
+            item
+        for item in plan
     }
-
-    # --------------------------------------------------------------
-    # 严格按照：
-    #
-    # 首图
-    # 插图1
-    # 插图2
-    # 插图3
-    #
-    # 顺序生成。
-    # --------------------------------------------------------------
 
     for image_name in missing:
 
@@ -1369,97 +1871,44 @@ def generate_missing_images(
 
         if not plan_item:
 
-            log(
-                f"WARNING: no news plan for "
+            raise RuntimeError(
+                f"No image plan for "
                 f"{image_name}"
             )
 
-            continue
-
-        anchor = plan_item["anchor"]
+        news = plan_item["news"]
 
         log("")
         log("-" * 70)
-        log(
-            f"Generating: {image_name}"
-        )
 
         log(
-            f"News anchor: "
-            f"{anchor['title'][:180]}"
+            f"IMAGE: {image_name}"
         )
 
         log(
-            f"News position: "
-            f"{anchor['index']}"
+            f"NEWS INDEX: "
+            f"{plan_item['news_index']}"
         )
 
         log(
-            f"Image role: "
-            f"{anchor['role']}"
+            f"NEWS TITLE: "
+            f"{news['title'][:200]}"
         )
 
-        scene_brief = build_scene_brief(
-            image_name,
-            anchor
-        )
-
-        log(
-            "Single-scene visual task "
-            "created."
-        )
-
-        prompt = scene_brief
-
-        image_path = (
+        target = (
             image_dir
             / image_name
         )
 
-        # ----------------------------------------------------------
-        # 调用 AGNES
-        # ----------------------------------------------------------
-
-        image_bytes = generate_image(
-            prompt
+        generate_verified_image(
+            target,
+            image_name,
+            plan_item
         )
-
-        # ----------------------------------------------------------
-        # 立即原子写入
-        # ----------------------------------------------------------
-
-        atomic_write_bytes(
-            image_path,
-            image_bytes
-        )
-
-        # ----------------------------------------------------------
-        # 立即验证
-        # ----------------------------------------------------------
-
-        if not is_valid_png(
-            image_path
-        ):
-
-            raise RuntimeError(
-                f"Image validation failed: "
-                f"{image_path}"
-            )
-
-        log(
-            f"VALID PNG: "
-            f"{image_path}"
-        )
-
-        # ----------------------------------------------------------
-        # 每张图之间稍微停顿
-        # ----------------------------------------------------------
-
-        time.sleep(1)
 
 
 # ======================================================================
-# MARKDOWN
+# MARKDOWN INSERTION
 # ======================================================================
 
 def split_markdown_blocks(
@@ -1479,28 +1928,29 @@ def is_good_insertion_block(
     s = block.strip()
 
     if not s:
+
         return False
 
-    # 标题
     if re.match(
         r"^\s*#{1,6}\s+",
         s
     ):
+
         return False
 
-    # 图片
     if re.fullmatch(
         r"!\[[^\]]*\]\([^)]+\)",
         s
     ):
+
         return False
 
-    # HTML
     if s.startswith("<"):
+
         return False
 
-    # 表格
-    if "|" in s and "\n|" in s:
+    if "|" in s:
+
         return False
 
     return True
@@ -1511,29 +1961,26 @@ def get_insertion_positions(
     image_count
 ):
 
-    good_positions = [
+    good = [
         i
-        for i, block in enumerate(blocks)
+        for i, block
+        in enumerate(blocks)
         if is_good_insertion_block(
             block
         )
     ]
 
-    if not good_positions:
+    interior_count = (
+        image_count - 1
+    )
+
+    if not good:
 
         return []
 
-    # 需要插入的正文图片：
-    # 插图1、插图2、插图3
-    interior_count = image_count - 1
+    if len(good) <= interior_count:
 
-    if interior_count <= 0:
-
-        return []
-
-    if len(good_positions) <= interior_count:
-
-        return good_positions
+        return good
 
     positions = []
 
@@ -1549,25 +1996,19 @@ def get_insertion_positions(
 
         index = int(
             ratio
-            * (
-                len(good_positions) - 1
+            *
+            (
+                len(good) - 1
             )
         )
 
-        positions.append(
-            good_positions[index]
-        )
+        p = good[index]
 
-    # 去重并保持顺序
-    result = []
+        if p not in positions:
 
-    for p in positions:
+            positions.append(p)
 
-        if p not in result:
-
-            result.append(p)
-
-    return result
+    return positions
 
 
 def make_relative_image_path(
@@ -1592,20 +2033,20 @@ def build_image_markdown(
     image_dir
 ):
 
-    images = [
-        image_dir / name
-        for name in IMAGE_NAMES
-        if is_valid_png(
-            image_dir / name
-        )
-    ]
+    images = []
+
+    for name in IMAGE_NAMES:
+
+        path = image_dir / name
+
+        if is_valid_png(path):
+
+            images.append(path)
 
     if len(images) < MIN_IMAGE_COUNT:
 
         raise RuntimeError(
-            f"Need at least "
-            f"{MIN_IMAGE_COUNT} valid images, "
-            f"found {len(images)}."
+            "Less than 3 valid images."
         )
 
     if len(images) > MAX_IMAGE_COUNT:
@@ -1619,20 +2060,14 @@ def build_image_markdown(
     if not is_valid_png(cover):
 
         raise RuntimeError(
-            "首图.png is missing or invalid."
+            "首图.png invalid."
         )
-
-    # --------------------------------------------------------------
-    # 原始正文
-    # --------------------------------------------------------------
 
     blocks = split_markdown_blocks(
         original_content
     )
 
-    # --------------------------------------------------------------
-    # 首图
-    # --------------------------------------------------------------
+    output = []
 
     cover_relative = (
         make_relative_image_path(
@@ -1641,99 +2076,85 @@ def build_image_markdown(
         )
     )
 
-    output = []
-
     output.append(
         f"![首图]({cover_relative})"
     )
 
     output.append("")
 
-    # --------------------------------------------------------------
-    # 正文图片
-    # --------------------------------------------------------------
+    interior = [
+        image
+        for image in images
+        if image.name != "首图.png"
+    ]
 
-    interior_images = []
-
-    for image_path in images:
-
-        if image_path.name == "首图.png":
-            continue
-
-        interior_images.append(
-            image_path
+    positions = (
+        get_insertion_positions(
+            blocks,
+            len(images)
         )
-
-    positions = get_insertion_positions(
-        blocks,
-        len(images)
     )
 
-    position_to_image = {}
+    position_map = {}
 
-    for position, image_path in zip(
+    for p, image in zip(
         positions,
-        interior_images
+        interior
     ):
 
-        position_to_image[
-            position
-        ] = image_path
+        position_map[p] = image
 
-    remaining_images = [
-        image_path
-        for image_path in interior_images
-        if image_path not in
-        position_to_image.values()
+    used = set(
+        position_map.values()
+    )
+
+    remaining = [
+        image
+        for image in interior
+        if image not in used
     ]
 
     for index, block in enumerate(
         blocks
     ):
 
-        output.append(
-            block
+        output.append(block)
+
+        image = position_map.get(
+            index
         )
 
-        image_path = (
-            position_to_image.get(index)
-        )
-
-        if image_path:
+        if image:
 
             relative = (
                 make_relative_image_path(
                     markdown_path,
-                    image_path
+                    image
                 )
             )
 
             output.append("")
 
             output.append(
-                f"![{image_path.stem}]"
+                f"![{image.stem}]"
                 f"({relative})"
             )
 
             output.append("")
 
-    # --------------------------------------------------------------
-    # 如果正文块太少，剩余图片放在最后
-    # --------------------------------------------------------------
-
-    for image_path in remaining_images:
+    for image in remaining:
 
         relative = (
             make_relative_image_path(
                 markdown_path,
-                image_path
+                image
             )
         )
 
         output.append("")
 
         output.append(
-            f"![{image_path.stem}]"
+            f"![{image.stem}]"
             f"({relative})"
         )
 
@@ -1745,7 +2166,7 @@ def build_image_markdown(
 
 
 # ======================================================================
-# IMAGE REPORT PATH
+# IMAGE REPORT
 # ======================================================================
 
 def build_image_report_path(
@@ -1757,10 +2178,6 @@ def build_image_report_path(
         + "_带图.md"
     )
 
-
-# ======================================================================
-# MARKDOWN VALIDATION
-# ======================================================================
 
 def validate_image_order(
     content
@@ -1781,29 +2198,29 @@ def validate_image_order(
 
             found.append(name)
 
-    # 首图必须存在
     if not found:
 
         raise RuntimeError(
-            "No image references found."
+            "No image references."
         )
 
     if found[0] != "首图.png":
 
         raise RuntimeError(
-            "Cover image is not first."
+            "Cover is not first."
         )
 
-    # 顺序必须正确
     positions = [
-        expected.index(name)
-        for name in found
+        expected.index(x)
+        for x in found
     ]
 
-    if positions != sorted(positions):
+    if positions != sorted(
+        positions
+    ):
 
         raise RuntimeError(
-            "Image order validation failed."
+            "Image order invalid."
         )
 
 
@@ -1811,16 +2228,17 @@ def validate_body_interleaving(
     content
 ):
 
-    image_pattern = re.compile(
-        r"!\[[^\]]*\]\([^)]+\.(?:png|jpg|jpeg|webp)\)",
+    pattern = re.compile(
+        r"!\[[^\]]*\]\([^)]+"
+        r"\.(?:png|jpg|jpeg|webp)"
+        r"\)",
         re.I
     )
 
-    parts = image_pattern.split(
+    parts = pattern.split(
         content
     )
 
-    # 图片少于两张时没有必要检查
     if len(parts) <= 2:
 
         return
@@ -1831,10 +2249,8 @@ def validate_body_interleaving(
 
             return
 
-    # 如果所有图片连续出现
     raise RuntimeError(
-        "Images are not interleaved with "
-        "body content."
+        "Images are not interleaved."
     )
 
 
@@ -1847,119 +2263,86 @@ def validate_image_report(
         encoding="utf-8"
     )
 
-    # --------------------------------------------------------------
-    # 图片存在
-    # --------------------------------------------------------------
-
-    image_references = re.findall(
+    refs = re.findall(
         r"!\[[^\]]*\]\(([^)]+)\)",
         content
     )
 
-    if len(image_references) < MIN_IMAGE_COUNT:
+    if len(refs) < MIN_IMAGE_COUNT:
 
         raise RuntimeError(
-            "Image report contains fewer "
-            "than 3 image references."
+            "Not enough image references."
         )
 
-    # --------------------------------------------------------------
-    # 每个引用必须存在
-    # --------------------------------------------------------------
+    for ref in refs:
 
-    for relative in image_references:
-
-        image_path = (
+        path = (
             markdown_path.parent
-            / relative
+            / ref
         ).resolve()
 
-        if not image_path.exists():
+        if not path.exists():
 
             raise RuntimeError(
-                f"Referenced image missing: "
-                f"{relative}"
+                f"Missing image: {ref}"
             )
 
-        if not is_valid_png(
-            image_path
-        ):
+        if not is_valid_png(path):
 
             raise RuntimeError(
-                f"Referenced image invalid: "
-                f"{relative}"
+                f"Invalid image: {ref}"
             )
-
-    # --------------------------------------------------------------
-    # 顺序
-    # --------------------------------------------------------------
 
     validate_image_order(
         content
     )
 
-    # --------------------------------------------------------------
-    # 正文穿插
-    # --------------------------------------------------------------
-
     validate_body_interleaving(
         content
     )
 
-    # --------------------------------------------------------------
-    # 首图必须是第一内容
-    # --------------------------------------------------------------
-
-    stripped = content.lstrip()
-
-    if not stripped.startswith(
+    if not content.lstrip().startswith(
         "![首图]"
     ):
 
         raise RuntimeError(
-            "Cover image is not the first "
-            "content of the image report."
+            "Cover is not first."
         )
 
-    # --------------------------------------------------------------
-    # 原始正文必须仍然存在
-    # --------------------------------------------------------------
 
-    normalized_original = (
-        re.sub(
-            r"\s+",
-            " ",
-            original_content
-        ).strip()
+def atomic_write_text(
+    path,
+    text
+):
+
+    path.parent.mkdir(
+        parents=True,
+        exist_ok=True
     )
 
-    content_without_images = re.sub(
-        r"!\[[^\]]*\]\([^)]+\)",
-        "",
-        content
+    tmp = path.with_name(
+        "." + path.name + ".tmp"
     )
 
-    normalized_result = (
-        re.sub(
-            r"\s+",
-            " ",
-            content_without_images
-        ).strip()
+    with open(
+        tmp,
+        "w",
+        encoding="utf-8"
+    ) as f:
+
+        f.write(text)
+
+        f.flush()
+
+        os.fsync(
+            f.fileno()
+        )
+
+    os.replace(
+        tmp,
+        path
     )
 
-    if normalized_original:
-
-        if normalized_original not in normalized_result:
-
-            raise RuntimeError(
-                "Original report body was "
-                "altered or lost."
-            )
-
-
-# ======================================================================
-# CREATE IMAGE REPORT
-# ======================================================================
 
 def create_image_report(
     report_path,
@@ -1990,7 +2373,7 @@ def create_image_report(
     )
 
     log(
-        f"Image report created: "
+        f"IMAGE REPORT: "
         f"{output_path}"
     )
 
@@ -2008,8 +2391,7 @@ def process_daily_report(
     log("")
     log("=" * 70)
     log(
-        f"DAILY IMAGE REPORT: "
-        f"{target_date}"
+        f"DAILY IMAGE: {target_date}"
     )
     log("=" * 70)
 
@@ -2025,20 +2407,8 @@ def process_daily_report(
 
         return False
 
-    original_content = read_report(
+    content = read_report(
         report_path
-    )
-
-    title = extract_report_title(
-        original_content
-    )
-
-    log(
-        f"Report: {report_path}"
-    )
-
-    log(
-        f"Title: {title}"
     )
 
     image_dir = daily_image_dir(
@@ -2047,17 +2417,13 @@ def process_daily_report(
 
     generate_missing_images(
         image_dir,
-        original_content
+        content
     )
 
-    output_path = create_image_report(
+    create_image_report(
         report_path,
         image_dir,
-        original_content
-    )
-
-    log(
-        f"SUCCESS: {output_path}"
+        content
     )
 
     return True
@@ -2075,7 +2441,7 @@ def process_weekly_report(
     log("")
     log("=" * 70)
     log(
-        f"WEEKLY IMAGE REPORT: "
+        f"WEEKLY IMAGE: "
         f"{year}-W{week:02d}"
     )
     log("=" * 70)
@@ -2093,20 +2459,8 @@ def process_weekly_report(
 
         return False
 
-    original_content = read_report(
+    content = read_report(
         report_path
-    )
-
-    title = extract_report_title(
-        original_content
-    )
-
-    log(
-        f"Report: {report_path}"
-    )
-
-    log(
-        f"Title: {title}"
     )
 
     image_dir = weekly_image_dir(
@@ -2116,17 +2470,13 @@ def process_weekly_report(
 
     generate_missing_images(
         image_dir,
-        original_content
+        content
     )
 
-    output_path = create_image_report(
+    create_image_report(
         report_path,
         image_dir,
-        original_content
-    )
-
-    log(
-        f"SUCCESS: {output_path}"
+        content
     )
 
     return True
@@ -2140,7 +2490,12 @@ def main():
 
     log("")
     log("=" * 70)
-    log("748686 KNOWLEDGE IMAGE ENGINE V3")
+    log(
+        "748686 KNOWLEDGE IMAGE ENGINE V4"
+    )
+    log(
+        "NEWS ANCHOR + VISUAL QUALITY CHECK"
+    )
     log("=" * 70)
 
     today = utc_today()
@@ -2155,31 +2510,31 @@ def main():
         - timedelta(days=1)
     )
 
-    log(
-        f"UTC TODAY     : {today}"
-    )
-
-    log(
-        f"DAY BEFORE    : {day_before}"
-    )
-
-    log(
-        f"YESTERDAY     : {yesterday}"
-    )
-
-    log(
-        f"TODAY         : {today}"
-    )
-
-    # ==============================================================
-    # DAILY
-    # ==============================================================
-
     daily_dates = [
         day_before,
         yesterday,
         today,
     ]
+
+    log(
+        f"UTC TODAY  : {today}"
+    )
+
+    log(
+        f"DAY BEFORE : {day_before}"
+    )
+
+    log(
+        f"YESTERDAY  : {yesterday}"
+    )
+
+    log(
+        f"TODAY      : {today}"
+    )
+
+    # ==============================================================
+    # DAILY
+    # ==============================================================
 
     for target_date in daily_dates:
 
@@ -2193,7 +2548,8 @@ def main():
 
             log(
                 f"DAILY FAILED "
-                f"{target_date}: {exc}"
+                f"{target_date}: "
+                f"{exc}"
             )
 
     # ==============================================================
@@ -2235,7 +2591,7 @@ def main():
     log("")
     log("=" * 70)
     log(
-        "748686 KNOWLEDGE IMAGE ENGINE V3 FINISHED"
+        "KNOWLEDGE IMAGE ENGINE V4 FINISHED"
     )
     log("=" * 70)
 
