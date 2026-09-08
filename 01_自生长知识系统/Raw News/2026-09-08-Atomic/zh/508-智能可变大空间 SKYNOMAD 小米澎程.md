@@ -1,0 +1,30 @@
+---
+title: "智能可变大空间 SKYNOMAD 小米澎程"
+date: 2026-09-08
+type: "新闻"
+source: "AP"
+language: "zh"
+horizon_score: null
+original_source: "Horizon"
+original_url: "http://paper.people.com.cn/rmrb/pc/content/202609/08/content_30179808.html"
+status: "待AI处理"
+---
+
+# 智能可变大空间 SKYNOMAD 小米澎程
+
+## Horizon 摘要
+
+rss · 人民日报\(People&\#x27;s Daily\) · 9月8日 00:26
+
+---
+
+### [13 版 - 在自然“课堂”，小动物学什么？（美丽中国）](http://paper.people.com.cn/rmrb/pc/content/202609/08/content_30179808.html) ⭐️ ?/10
+
+## 原文信息
+
+- Source: AP
+- Original URL: http://paper.people.com.cn/rmrb/pc/content/202609/08/content_30179808.html
+
+## AI处理状态
+
+等待后续 AI 二次处理及 27 Skills 分析。
