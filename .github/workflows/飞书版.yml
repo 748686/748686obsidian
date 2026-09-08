@@ -1,4 +1,4 @@
-name: 748686 自生长知识系统后四段
+name: 748686 自生长知识系统飞书版
 
 on:
   workflow_dispatch:
@@ -789,27 +789,6 @@ jobs:
 
       # ==========================================================
       # 20. KNOWLEDGE PROCESSING UNITS
-      #
-      # Processing Unit = DATE + LANGUAGE
-      #
-      # Task 1
-      #   ↓
-      # Task 2
-      #   ↓
-      # Task 3
-      #   ↓
-      # _COMPLETE
-      #   ↓
-      # Git Push
-      #   ↓
-      # Git Pull
-      #
-      # LANGUAGE:
-      #
-      #     en
-      #     zh
-      #
-      # 严禁大小写转换。
       # ==========================================================
 
       - name: Knowledge Pipeline - six Processing Units
@@ -1809,22 +1788,6 @@ jobs:
 
       # ==========================================================
       # 24. Daily Report
-      #
-      # Task 4
-      #    ↓
-      # knowledge_daily.py
-      #    ↓
-      # 05_日报
-      #
-      # 日期由 Workflow UTC 统一提供。
-      #
-      # Daily 完成后立即：
-      #    Git Add
-      #    Git Commit
-      #    Git Push
-      #    Git Pull
-      #
-      # 然后才进入 Knowledge Assetization。
       # ==========================================================
 
       - name: Run Daily Report
@@ -1901,30 +1864,6 @@ jobs:
 
       # ==========================================================
       # 25. Knowledge Assetization
-      #
-      # Task 4 Analysis
-      #       ↓
-      # knowledge_asset.py
-      #       ↓
-      # 08_知识库
-      # 09_知识图谱
-      # 知识缺口
-      # 知识矛盾
-      #
-      # Daily 已经 Push + Pull 完成后，
-      # 才进入本任务。
-      #
-      # 本任务完成后立即：
-      #    Git Add
-      #    Git Commit
-      #    Git Push
-      #    Git Pull
-      #
-      # 然后才进入 Weekly Report。
-      #
-      # 不写 01 / 02 / 03 / 04 / 10。
-      #
-      # 日期由 Workflow UTC 统一提供。
       # ==========================================================
 
       - name: Run Knowledge Assetization
@@ -2001,28 +1940,6 @@ jobs:
 
       # ==========================================================
       # 26. Weekly Report
-      #
-      # Daily Report
-      # Knowledge Base
-      # Knowledge Graph
-      # Task 4 Analysis
-      #       ↓
-      # weekly_report.py
-      #       ↓
-      # 06_周报
-      #
-      # Assetization 已经 Push + Pull 完成后，
-      # 才进入本任务。
-      #
-      # 本任务完成后立即：
-      #    Git Add
-      #    Git Commit
-      #    Git Push
-      #    Git Pull
-      #
-      # 然后才进入 Knowledge Growth。
-      #
-      # 日期由 Workflow UTC 统一提供。
       # ==========================================================
 
       - name: Run Weekly Report
@@ -2099,31 +2016,6 @@ jobs:
 
       # ==========================================================
       # 27. Knowledge Growth
-      #
-      # Knowledge Base
-      # Knowledge Graph
-      # Daily
-      # Weekly
-      # Task 4 Analysis
-      #       ↓
-      # knowledge_growth.py
-      #       ↓
-      # 知识更新
-      # 新关系
-      # 知识缺口
-      # 知识矛盾
-      # 候选专题
-      #
-      # Weekly 已经 Push + Pull 完成后，
-      # 才进入本任务。
-      #
-      # 本任务完成后立即：
-      #    Git Add
-      #    Git Commit
-      #    Git Push
-      #    Git Pull
-      #
-      # 日期由 Workflow UTC 统一提供。
       # ==========================================================
 
       - name: Run Knowledge Growth
@@ -2200,18 +2092,6 @@ jobs:
 
       # ==========================================================
       # 28. Final result validation
-      #
-      # 验证：
-      #
-      # Raw
-      # Atomic
-      # Enriched
-      # EventUnit
-      # Task 4 Analysis
-      # Daily
-      # Knowledge Asset
-      # Weekly
-      # Growth
       # ==========================================================
 
       - name: Show three-day final result
@@ -2274,10 +2154,6 @@ jobs:
 
           done
 
-          # ======================================================
-          # Daily Report validation
-          # ======================================================
-
           echo
           echo "============================================================"
           echo "DAILY REPORT VALIDATION"
@@ -2299,10 +2175,6 @@ jobs:
 
           echo "✅ Daily Report:"
           echo "$DAILY_REPORT"
-
-          # ======================================================
-          # Knowledge Base validation
-          # ======================================================
 
           echo
           echo "============================================================"
@@ -2331,10 +2203,6 @@ jobs:
 
           echo "✅ Knowledge Base exists"
 
-          # ======================================================
-          # Knowledge Graph validation
-          # ======================================================
-
           echo
           echo "============================================================"
           echo "KNOWLEDGE GRAPH VALIDATION"
@@ -2362,12 +2230,6 @@ jobs:
 
           echo "✅ Knowledge Graph exists"
 
-          # ======================================================
-          # Weekly Report validation
-          #
-          # 根据当前 UTC TODAY 计算 ISO week。
-          # ======================================================
-
           WEEK_YEAR=$(date -u -d "$TODAY" +%G)
           WEEK_NO=$(date -u -d "$TODAY" +%V)
 
@@ -2392,19 +2254,6 @@ jobs:
           fi
 
           echo "✅ Weekly Report exists"
-
-          # ======================================================
-          # Growth output validation
-          #
-          # Growth 本身允许某些日期没有：
-          #
-          #     knowledge gaps
-          #     contradictions
-          #     candidate topics
-          #
-          # 因此这里只验证程序成功完成后，
-          # 运行日志存在。
-          # ======================================================
 
           GROWTH_COMPLETE="01_自生长知识系统/00_System/运行日志/knowledge_growth/${TODAY}_COMPLETE"
 
@@ -2847,6 +2696,13 @@ jobs:
 
       # ==========================================================
       # 31. Complete Job
+      #
+      # 注意：
+      # 这里是系统内部的最终完成确认。
+      #
+      # 但此时还不发送飞书。
+      #
+      # 飞书必须作为整个 Workflow 的最后一步。
       # ==========================================================
 
       - name: Complete Job
@@ -2962,7 +2818,7 @@ jobs:
 
           echo
           echo "============================================================"
-          echo "SYSTEM COMPLETE"
+          echo "SYSTEM INTERNAL COMPLETE"
           echo "============================================================"
 
           echo "✅ Raw"
@@ -2980,4 +2836,260 @@ jobs:
           echo "✅ Git Sync"
 
           echo
-          echo "748686 自生长知识系统 RUN COMPLETE"
+          echo "748686 自生长知识系统 INTERNAL RUN COMPLETE"
+
+      # ==========================================================
+      # 32. FINAL → FEISHU
+      #
+      # 这是整个 Workflow 的最后一步。
+      #
+      # 只有：
+      #
+      #   Final Validation
+      #       ↓
+      #   Final Commit / Push
+      #       ↓
+      #   Return Log
+      #       ↓
+      #   Complete Job
+      #       ↓
+      #   到这里
+      #
+      # 才发送飞书。
+      #
+      # 发送内容只有：
+      #
+      #   ① Daily Report
+      #   ② Weekly Report
+      #
+      # 不发送其他知识系统文件。
+      #
+      # FEISHU_WEBHOOK：
+      #
+      #   GitHub Repository
+      #   → Settings
+      #   → Secrets and variables
+      #   → Actions
+      #   → FEISHU_WEBHOOK
+      #
+      # 使用已经测试成功的同一个 Secret。
+      # ==========================================================
+
+      - name: Send Final Reports to Feishu
+        if: success()
+        env:
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+        run: |
+          set -e
+
+          echo
+          echo "######################################################################"
+          echo "748686 自生长知识系统"
+          echo "FINAL → FEISHU"
+          echo "######################################################################"
+
+          echo
+          echo "============================================================"
+          echo "FEISHU FINAL NOTIFICATION"
+          echo "============================================================"
+
+          if [ -z "$FEISHU_WEBHOOK" ]; then
+            echo "❌ FEISHU_WEBHOOK is missing"
+            exit 1
+          fi
+
+          DAILY_REPORT="01_自生长知识系统/05_日报/${TODAY:0:4}/${TODAY:5:2}/${TODAY}.md"
+
+          WEEK_YEAR=$(date -u -d "$TODAY" +%G)
+          WEEK_NO=$(date -u -d "$TODAY" +%V)
+
+          WEEKLY_REPORT="01_自生长知识系统/06_周报/${WEEK_YEAR}/W${WEEK_NO}.md"
+
+          echo
+          echo "Daily Report:"
+          echo "$DAILY_REPORT"
+
+          echo
+          echo "Weekly Report:"
+          echo "$WEEKLY_REPORT"
+
+          if [ ! -f "$DAILY_REPORT" ]; then
+            echo "❌ Daily Report not found"
+            exit 1
+          fi
+
+          if [ ! -s "$DAILY_REPORT" ]; then
+            echo "❌ Daily Report is empty"
+            exit 1
+          fi
+
+          if [ ! -f "$WEEKLY_REPORT" ]; then
+            echo "❌ Weekly Report not found"
+            exit 1
+          fi
+
+          if [ ! -s "$WEEKLY_REPORT" ]; then
+            echo "❌ Weekly Report is empty"
+            exit 1
+          fi
+
+          echo
+          echo "✅ Daily Report exists"
+          echo "✅ Weekly Report exists"
+          echo "✅ Final validation already passed"
+          echo "✅ Final Git synchronization already completed"
+
+          python - \
+            "$DAILY_REPORT" \
+            "$WEEKLY_REPORT" \
+            "$FEISHU_WEBHOOK" \
+            "$TODAY" \
+            "$WEEK_YEAR" \
+            "$WEEK_NO" <<'PY'
+
+          import json
+          import sys
+          from urllib.request import Request, urlopen
+
+
+          daily_path = sys.argv[1]
+          weekly_path = sys.argv[2]
+          webhook = sys.argv[3]
+          today = sys.argv[4]
+          week_year = sys.argv[5]
+          week_no = sys.argv[6]
+
+
+          with open(daily_path, "r", encoding="utf-8") as f:
+              daily_content = f.read()
+
+
+          with open(weekly_path, "r", encoding="utf-8") as f:
+              weekly_content = f.read()
+
+
+          def send_feishu(title, content, template):
+
+              payload = {
+                  "msg_type": "interactive",
+                  "card": {
+                      "header": {
+                          "title": {
+                              "tag": "plain_text",
+                              "content": title
+                          },
+                          "template": template
+                      },
+                      "elements": [
+                          {
+                              "tag": "markdown",
+                              "content": content
+                          }
+                      ]
+                  }
+              }
+
+              data = json.dumps(
+                  payload,
+                  ensure_ascii=False
+              ).encode("utf-8")
+
+
+              request = Request(
+                  webhook,
+                  data=data,
+                  headers={
+                      "Content-Type": "application/json; charset=utf-8"
+                  },
+                  method="POST"
+              )
+
+
+              with urlopen(request, timeout=30) as response:
+                  result = response.read().decode("utf-8")
+
+
+              print("Feishu response:")
+              print(result)
+
+
+              try:
+
+                  result_json = json.loads(result)
+
+                  if result_json.get("code", 0) != 0:
+                      raise RuntimeError(
+                          f"Feishu webhook failed: {result_json}"
+                      )
+
+              except json.JSONDecodeError:
+
+                  pass
+
+
+          # ======================================================
+          # 1. Daily Report → Feishu
+          # ======================================================
+
+          print()
+          print("============================================================")
+          print("SEND DAILY REPORT TO FEISHU")
+          print("============================================================")
+
+          send_feishu(
+              f"748686 自生长知识系统｜日报 {today}",
+              daily_content,
+              "blue"
+          )
+
+          print("✅ Daily Report sent to Feishu")
+
+
+          # ======================================================
+          # 2. Weekly Report → Feishu
+          # ======================================================
+
+          print()
+          print("============================================================")
+          print("SEND WEEKLY REPORT TO FEISHU")
+          print("============================================================")
+
+          send_feishu(
+              f"748686 自生长知识系统｜周报 {week_year}-W{week_no}",
+              weekly_content,
+              "green"
+          )
+
+          print("✅ Weekly Report sent to Feishu")
+
+
+          print()
+          print("============================================================")
+          print("DAILY REPORT → FEISHU : COMPLETE")
+          print("WEEKLY REPORT → FEISHU : COMPLETE")
+          print("============================================================")
+
+          PY
+
+          echo
+          echo
+          echo "######################################################################"
+          echo "748686 自生长知识系统"
+          echo "######################################################################"
+
+          echo
+          echo "✅ FINAL VALIDATION COMPLETE"
+          echo "✅ FINAL GIT PUSH COMPLETE"
+          echo "✅ DAILY REPORT SENT TO FEISHU"
+          echo "✅ WEEKLY REPORT SENT TO FEISHU"
+
+          echo
+          echo "============================================================"
+          echo "748686 自生长知识系统"
+          echo "SYSTEM FINISHED"
+          echo "============================================================"
+
+          echo "🎉 ALL PIPELINE TASKS COMPLETE"
+          echo "🎉 DAILY REPORT → FEISHU COMPLETE"
+          echo "🎉 WEEKLY REPORT → FEISHU COMPLETE"
+          echo "🎉 748686 KNOWLEDGE SYSTEM RUN COMPLETE"
