@@ -1,0 +1,17 @@
+{
+  "system_name": "02_英语学习系统",
+  "timezone": "UTC",
+  "agnes": {
+    "base_url": "https://api.agnes-ai.cn/v1",
+    "model": "agnes-2.5-flash",
+    "api_key_env": "AGNES_API_KEY"
+  },
+  "openai": {
+    "base_url": "https://api.openai.com/v1",
+    "vision_model": "gpt-4o-mini",
+    "image_model": "gpt-image-1",
+    "tts_model": "gpt-4o-mini-tts",
+    "api_key_env": "OPENAI_API_KEY"
+  },
+  "limits": {"max_words": 200}
+}
