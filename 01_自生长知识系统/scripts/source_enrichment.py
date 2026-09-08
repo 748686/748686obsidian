@@ -106,7 +106,7 @@ AGNES_BASE_URL = (
 )
 
 AGNES_MODEL = (
-    "agnes-2.5-flash"
+    "agnes-3.0-flash"
 )
 
 USER_AGENT = (
