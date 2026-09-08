@@ -1,0 +1,66 @@
+name: 飞书 Webhook 测试
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  feishu-test:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # ==========================================================
+      # 1. 检查 Secret
+      # ==========================================================
+      - name: 检查 FEISHU_WEBHOOK
+        env:
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+        run: |
+          set -e
+
+          if [ -z "$FEISHU_WEBHOOK" ]; then
+            echo "❌ FEISHU_WEBHOOK 未配置"
+            exit 1
+          fi
+
+          echo "✅ FEISHU_WEBHOOK 已配置"
+
+      # ==========================================================
+      # 2. 发送测试消息到飞书
+      # ==========================================================
+      - name: 发送飞书测试消息
+        env:
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+        run: |
+          set -e
+
+          echo "=========================================="
+          echo "FEISHU WEBHOOK TEST"
+          echo "=========================================="
+
+          RESPONSE=$(curl -sS \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -d '{
+              "msg_type": "text",
+              "content": {
+                "text": "748686｜飞书机器人测试成功！\n\n这是一条来自 GitHub Actions 的测试消息。\n\n如果你能看到这条消息，说明：\nGitHub Actions → FEISHU_WEBHOOK → 飞书机器人 → 748686知识系统\n整个链路已经打通。"
+              }
+            }' \
+            "$FEISHU_WEBHOOK")
+
+          echo "飞书返回："
+          echo "$RESPONSE"
+
+          echo "$RESPONSE" | grep -q '"code":0' || {
+            echo "❌ 飞书 Webhook 返回异常"
+            exit 1
+          }
+
+          echo "=========================================="
+          echo "✅ 飞书测试发送成功"
+          echo "=========================================="
