@@ -1,4 +1,4 @@
-name: 飞书 Webhook 测试
+name: 748686 飞书日报周报测试
 
 on:
   workflow_dispatch:
@@ -7,14 +7,21 @@ permissions:
   contents: read
 
 jobs:
-  feishu-test:
+
+  feishu-report-test:
 
     runs-on: ubuntu-latest
 
     steps:
 
       # ==========================================================
-      # 1. 检查 Secret
+      # 1. Checkout 748686obsidian
+      # ==========================================================
+      - name: Checkout 748686obsidian
+        uses: actions/checkout@v4
+
+      # ==========================================================
+      # 2. 检查 FEISHU_WEBHOOK
       # ==========================================================
       - name: 检查 FEISHU_WEBHOOK
         env:
@@ -30,37 +37,225 @@ jobs:
           echo "✅ FEISHU_WEBHOOK 已配置"
 
       # ==========================================================
-      # 2. 发送测试消息到飞书
+      # 3. 查找最新日报
       # ==========================================================
-      - name: 发送飞书测试消息
-        env:
-          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+      - name: 查找最新日报
+        id: find_daily
+        run: |
+          set -e
+
+          DAILY_DIR="01_自生长知识系统/05_日报"
+
+          echo "=========================================="
+          echo "查找最新日报"
+          echo "=========================================="
+
+          if [ ! -d "$DAILY_DIR" ]; then
+            echo "❌ 日报目录不存在：$DAILY_DIR"
+            exit 1
+          fi
+
+          DAILY_REPORT=$(find "$DAILY_DIR" -type f -name "*.md" | sort | tail -n 1)
+
+          if [ -z "$DAILY_REPORT" ]; then
+            echo "❌ 没有找到日报 MD 文件"
+            exit 1
+          fi
+
+          echo "✅ 找到最新日报："
+          echo "$DAILY_REPORT"
+
+          echo "daily_report=$DAILY_REPORT" >> "$GITHUB_OUTPUT"
+
+      # ==========================================================
+      # 4. 查找最新周报
+      # ==========================================================
+      - name: 查找最新周报
+        id: find_weekly
+        run: |
+          set -e
+
+          WEEKLY_DIR="01_自生长知识系统/06_周报"
+
+          echo "=========================================="
+          echo "查找最新周报"
+          echo "=========================================="
+
+          if [ ! -d "$WEEKLY_DIR" ]; then
+            echo "❌ 周报目录不存在：$WEEKLY_DIR"
+            exit 1
+          fi
+
+          WEEKLY_REPORT=$(find "$WEEKLY_DIR" -type f -name "*.md" | sort | tail -n 1)
+
+          if [ -z "$WEEKLY_REPORT" ]; then
+            echo "❌ 没有找到周报 MD 文件"
+            exit 1
+          fi
+
+          echo "✅ 找到最新周报："
+          echo "$WEEKLY_REPORT"
+
+          echo "weekly_report=$WEEKLY_REPORT" >> "$GITHUB_OUTPUT"
+
+      # ==========================================================
+      # 5. 显示即将发送的文件
+      # ==========================================================
+      - name: 确认报告文件
         run: |
           set -e
 
           echo "=========================================="
-          echo "FEISHU WEBHOOK TEST"
+          echo "748686 飞书日报周报测试"
           echo "=========================================="
+
+          echo "日报："
+          echo "${{ steps.find_daily.outputs.daily_report }}"
+
+          echo
+
+          echo "周报："
+          echo "${{ steps.find_weekly.outputs.weekly_report }}"
+
+          echo "=========================================="
+
+      # ==========================================================
+      # 6. 发送日报到飞书
+      # ==========================================================
+      - name: 发送日报到飞书
+        env:
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+          DAILY_REPORT: ${{ steps.find_daily.outputs.daily_report }}
+        run: |
+          set -e
+
+          echo "=========================================="
+          echo "FEISHU DAILY REPORT"
+          echo "=========================================="
+
+          if [ ! -f "$DAILY_REPORT" ]; then
+            echo "❌ 日报文件不存在：$DAILY_REPORT"
+            exit 1
+          fi
+
+          python - "$DAILY_REPORT" > /tmp/feishu_daily.json <<'PY'
+          import json
+          import sys
+
+          path = sys.argv[1]
+
+          with open(path, "r", encoding="utf-8") as f:
+              content = f.read()
+
+          text = "748686｜自生长知识系统｜日报\n\n" + content
+
+          payload = {
+              "msg_type": "text",
+              "content": {
+                  "text": text
+              }
+          }
+
+          print(json.dumps(payload, ensure_ascii=False))
+          PY
 
           RESPONSE=$(curl -sS \
             -X POST \
             -H "Content-Type: application/json" \
-            -d '{
-              "msg_type": "text",
-              "content": {
-                "text": "748686｜飞书机器人测试成功！\n\n这是一条来自 GitHub Actions 的测试消息。\n\n如果你能看到这条消息，说明：\nGitHub Actions → FEISHU_WEBHOOK → 飞书机器人 → 748686知识系统\n整个链路已经打通。"
-              }
-            }' \
+            --data-binary @/tmp/feishu_daily.json \
             "$FEISHU_WEBHOOK")
 
           echo "飞书返回："
           echo "$RESPONSE"
 
           echo "$RESPONSE" | grep -q '"code":0' || {
-            echo "❌ 飞书 Webhook 返回异常"
+            echo "❌ 飞书日报发送失败"
             exit 1
           }
 
           echo "=========================================="
-          echo "✅ 飞书测试发送成功"
+          echo "✅ 日报发送成功"
           echo "=========================================="
+
+      # ==========================================================
+      # 7. 发送周报到飞书
+      # ==========================================================
+      - name: 发送周报到飞书
+        env:
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+          WEEKLY_REPORT: ${{ steps.find_weekly.outputs.weekly_report }}
+        run: |
+          set -e
+
+          echo "=========================================="
+          echo "FEISHU WEEKLY REPORT"
+          echo "=========================================="
+
+          if [ ! -f "$WEEKLY_REPORT" ]; then
+            echo "❌ 周报文件不存在：$WEEKLY_REPORT"
+            exit 1
+          fi
+
+          python - "$WEEKLY_REPORT" > /tmp/feishu_weekly.json <<'PY'
+          import json
+          import sys
+
+          path = sys.argv[1]
+
+          with open(path, "r", encoding="utf-8") as f:
+              content = f.read()
+
+          text = "748686｜自生长知识系统｜周报\n\n" + content
+
+          payload = {
+              "msg_type": "text",
+              "content": {
+                  "text": text
+              }
+          }
+
+          print(json.dumps(payload, ensure_ascii=False))
+          PY
+
+          RESPONSE=$(curl -sS \
+            -X POST \
+            -H "Content-Type: application/json" \
+            --data-binary @/tmp/feishu_weekly.json \
+            "$FEISHU_WEBHOOK")
+
+          echo "飞书返回："
+          echo "$RESPONSE"
+
+          echo "$RESPONSE" | grep -q '"code":0' || {
+            echo "❌ 飞书周报发送失败"
+            exit 1
+          }
+
+          echo "=========================================="
+          echo "✅ 周报发送成功"
+          echo "=========================================="
+
+      # ==========================================================
+      # 8. 测试完成
+      # ==========================================================
+      - name: 飞书日报周报测试完成
+        run: |
+          echo
+          echo "=================================================="
+          echo "748686 飞书日报周报测试完成"
+          echo "=================================================="
+          echo
+          echo "✅ 最新日报已发送到飞书"
+          echo "✅ 最新周报已发送到飞书"
+          echo
+          echo "本次测试没有运行："
+          echo "  - Horizon"
+          echo "  - 新闻抓取"
+          echo "  - AI 分析"
+          echo "  - EventUnit 聚合"
+          echo "  - Skills"
+          echo "  - Knowledge Asset"
+          echo
+          echo "只测试："
+          echo "GitHub → MD 日报/周报 → FEISHU_WEBHOOK → 飞书"
+          echo "=================================================="
