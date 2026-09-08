@@ -3,24 +3,31 @@
 
 """
 748686 自生长知识系统
-Knowledge Image Generator V4.0
+Knowledge Image Generator V4.1
 ======================================================================
 
-核心目标
-----------------------------------------------------------------------
+核心原则：
 
-为日报 / 周报生成配套图片，并生成：
+    ONE IMAGE
+        =
+    ONE SCENE
+        =
+    ONE VISUAL STORY
 
-    原始报告.md
-    原始报告_带图.md
+即：
 
-图片统一保存到：
+    一张图
+    一个连续场景
+    一个主要视觉中心
+    一个时间点
+    一个摄影机位
+    一个视觉故事
 
-    01_自生长知识系统/04_图片/
 
-目录结构：
+图片保存：
 
-    04_图片/
+01_自生长知识系统/
+└── 04_图片/
     ├── 日报/
     │   └── YYYY-MM-DD/
     │       ├── 首图.png
@@ -36,117 +43,35 @@ Knowledge Image Generator V4.0
             └── 插图3.png
 
 
-V4.0 核心视觉规则
-----------------------------------------------------------------------
+报告：
 
-    ONE IMAGE
-        =
-    ONE SCENE
-        =
-    ONE VISUAL STORY
+原始报告保持不变：
 
-即：
+    YYYY-MM-DD.md
+    Wxx.md
 
-    一张图片
-    一个连续空间
-    一个主要视觉主体
-    一个明确动作 / 状态
-    一个视觉中心
+带图版本：
 
-严禁：
-
-    四宫格
-    六宫格
-    九宫格
-    分屏
-    多窗口
-    拼图
-    蒙太奇
-    图片墙
-    缩略图集合
-    多个独立场景
-    多个地点
-    多个时间点
-    新闻事件拼接
-    信息图
-    PPT
-    Dashboard
-    杂志拼版
-    概念元素堆叠
+    YYYY-MM-DD_带图.md
+    Wxx_带图.md
 
 
-图片要求
-----------------------------------------------------------------------
+V4.1 修复：
 
-    - 不出现中文文字
-    - 不出现英文文字
-    - 不出现可读文字
-    - 不出现标题
-    - 不出现字幕
-    - 不出现说明文字
-    - 不出现新闻标题
-    - 不出现报纸版面
-    - 不出现网页 UI
-    - 不出现 Logo
-    - 不出现水印
-    - 不出现图表文字
-    - 不出现信息图文字
-
-数字：
-    只有当真实场景自然需要时才允许出现。
-    不主动加入数字、图表或文字。
-
-视觉风格：
-
-    serious
-    documentary
-    editorial
-    cinematic
-    realistic
-    coherent
-    premium
-
-重要：
-
-    不要求图片解释新闻的全部信息。
-
-    如果一个新闻包含很多信息，
-    只选择一个最有代表性的视觉故事。
-
-    宁可少表现信息，
-    也不要把多个场景塞进一张图。
-
-
-API
-----------------------------------------------------------------------
-
-POST:
-    https://api.agnes-ai.cn/v1/images/generations
-
-Model:
-    agnes-image-2.5-flash
-
-size:
-    2K
-
-ratio:
-    16:9
-
-response_format 必须位于：
-
-    extra_body.response_format
-
-并使用：
-
-    data[0].url
-
-
-运行环境
-----------------------------------------------------------------------
-
-    Python 3.11+
-    GitHub Actions
-    UTC
+1. 修复 Markdown 清洗正则错误
+2. 不再使用容易造成括号错误的 Markdown 图片正则
+3. 强化 ONE IMAGE = ONE SCENE
+4. 强化 ONE CAMERA
+5. 强化 ONE LOCATION
+6. 强化 ONE MOMENT
+7. 强化 ONE VISUAL CENTER
+8. 插图尽量只使用一个核心正文块
+9. 禁止 collage / grid / split-screen / multiple mini-scenes
+10. 每张图片生成后立即落盘
+11. 每个报告完成后立即生成并落盘 _带图.md
+12. UTC 日期
+13. 原始 Markdown 永不修改
+14. 不存在的日报/周报自动跳过
 """
 
 import os
@@ -157,6 +82,7 @@ import time
 import tempfile
 import urllib.request
 import urllib.error
+
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -175,6 +101,7 @@ IMAGE_ROOT = ROOT / "04_图片"
 IMAGE_DAILY_ROOT = IMAGE_ROOT / "日报"
 IMAGE_WEEKLY_ROOT = IMAGE_ROOT / "周报"
 
+
 IMAGE_NAMES = [
     "首图.png",
     "插图1.png",
@@ -182,49 +109,72 @@ IMAGE_NAMES = [
     "插图3.png",
 ]
 
+
 MIN_IMAGE_COUNT = 3
 MAX_IMAGE_COUNT = 4
 
-AGNES_API_URL = "https://api.agnes-ai.cn/v1/images/generations"
-AGNES_IMAGE_MODEL = "agnes-image-2.5-flash"
+
+# ======================================================================
+# 2. AGNES
+# ======================================================================
+
+AGNES_API_URL = (
+    "https://api.agnes-ai.cn/v1/images/generations"
+)
+
+AGNES_IMAGE_MODEL = (
+    "agnes-image-2.5-flash"
+)
 
 IMAGE_SIZE = "2K"
 IMAGE_RATIO = "16:9"
 
 REQUEST_TIMEOUT = 180
 
-# 每张图之间稍微留一点间隔。
-# 当前项目调用量很低，不需要复杂队列。
 REQUEST_INTERVAL_SECONDS = 3
 
 
 # ======================================================================
-# 2. 日志
+# 3. 日志
 # ======================================================================
 
 def log(message):
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-    print(f"[{now}] {message}", flush=True)
+    now = datetime.now(
+        timezone.utc
+    ).strftime(
+        "%Y-%m-%d %H:%M:%S UTC"
+    )
+
+    print(
+        f"[{now}] {message}",
+        flush=True
+    )
 
 
 # ======================================================================
-# 3. UTC 时间
+# 4. UTC
 # ======================================================================
 
 def utc_today():
-    return datetime.now(timezone.utc).date()
+    return datetime.now(
+        timezone.utc
+    ).date()
 
 
 def iso_week_string(day):
     year, week, _ = day.isocalendar()
-    return f"{year}-W{week:02d}"
+
+    return (
+        f"{year}-W{week:02d}"
+    )
 
 
 # ======================================================================
-# 4. 报告路径
+# 5. 报告路径
 # ======================================================================
 
 def daily_report_path(day):
+
     return (
         REPORT_DAILY_ROOT
         / f"{day.year:04d}"
@@ -234,81 +184,239 @@ def daily_report_path(day):
 
 
 def weekly_report_path(week_string):
-    year = int(week_string[:4])
-    return REPORT_WEEKLY_ROOT / str(year) / f"{week_string[5:]}.md"
+
+    year = int(
+        week_string[:4]
+    )
+
+    week = week_string[5:]
+
+    return (
+        REPORT_WEEKLY_ROOT
+        / str(year)
+        / f"{week}.md"
+    )
 
 
 def daily_image_dir(day):
-    return IMAGE_DAILY_ROOT / day.isoformat()
+
+    return (
+        IMAGE_DAILY_ROOT
+        / day.isoformat()
+    )
 
 
 def weekly_image_dir(week_string):
-    return IMAGE_WEEKLY_ROOT / week_string
+
+    return (
+        IMAGE_WEEKLY_ROOT
+        / week_string
+    )
 
 
 # ======================================================================
-# 5. 安全读取 Markdown
+# 6. 文件读取
 # ======================================================================
 
 def read_text(path):
-    return path.read_text(encoding="utf-8")
 
-
-def clean_markdown(text):
-    """
-    去除 Markdown 中对视觉生成没有帮助的结构。
-    """
-
-    text = re.sub(r"```.*?```", " ", text, flags=re.S)
-    text = re.sub(r"`[^`]*`", " ", text)
-
-    # Markdown 图片
-    text = re.sub(r"!$begin:math:display$\[\^$end:math:display$]*\]$begin:math:text$\[\^\)\]\+$end:math:text$", " ", text)
-
-    # Markdown 链接
-    text = re.sub(r"$begin:math:display$\(\[\^$end:math:display$]+)\]$begin:math:text$\[\^\)\]\+$end:math:text$", r"\1", text)
-
-    # HTML
-    text = re.sub(r"<[^>]+>", " ", text)
-
-    # Markdown 标记
-    text = re.sub(r"[*_>#~-]+", " ", text)
-
-    # 多余空白
-    text = re.sub(r"\s+", " ", text)
-
-    return text.strip()
+    return path.read_text(
+        encoding="utf-8"
+    )
 
 
 # ======================================================================
-# 6. Markdown 分块
+# 7. Markdown 清洗
+# ======================================================================
+
+def clean_markdown(text):
+    """
+    V4.1：
+
+    不再使用之前容易出现括号错误的 Markdown 图片正则。
+
+    使用更安全的逐行清洗方式。
+    """
+
+    lines = text.splitlines()
+
+    output = []
+
+    inside_code_block = False
+
+    for line in lines:
+
+        stripped = line.strip()
+
+        # --------------------------------------------------------------
+        # Code block
+        # --------------------------------------------------------------
+
+        if stripped.startswith("```"):
+
+            inside_code_block = (
+                not inside_code_block
+            )
+
+            continue
+
+        if inside_code_block:
+            continue
+
+        # --------------------------------------------------------------
+        # Markdown 图片：
+        #
+        # ![alt](url)
+        #
+        # 只删除整行中图片链接的视觉干扰。
+        # --------------------------------------------------------------
+
+        line = re.sub(
+            r"!$begin:math:display$\[\^$end:math:display$]*\]$begin:math:text$\[\^\)\]\*$end:math:text$",
+            " ",
+            line
+        )
+
+        # --------------------------------------------------------------
+        # Markdown 链接：
+        #
+        # [文字](url)
+        #
+        # 保留文字。
+        # --------------------------------------------------------------
+
+        line = re.sub(
+            r"$begin:math:display$\(\[\^$end:math:display$]+)\]$begin:math:text$\[\^\)\]\*$end:math:text$",
+            r"\1",
+            line
+        )
+
+        # --------------------------------------------------------------
+        # HTML
+        # --------------------------------------------------------------
+
+        line = re.sub(
+            r"<[^>]*>",
+            " ",
+            line
+        )
+
+        # --------------------------------------------------------------
+        # Markdown 标题
+        # --------------------------------------------------------------
+
+        line = re.sub(
+            r"^\s*#{1,6}\s*",
+            "",
+            line
+        )
+
+        # --------------------------------------------------------------
+        # Markdown emphasis
+        # --------------------------------------------------------------
+
+        line = line.replace(
+            "**",
+            ""
+        )
+
+        line = line.replace(
+            "__",
+            ""
+        )
+
+        line = line.replace(
+            "*",
+            ""
+        )
+
+        line = line.replace(
+            "_",
+            " "
+        )
+
+        # --------------------------------------------------------------
+        # Markdown 引用
+        # --------------------------------------------------------------
+
+        line = re.sub(
+            r"^\s*>\s*",
+            "",
+            line
+        )
+
+        # --------------------------------------------------------------
+        # Markdown 列表
+        # --------------------------------------------------------------
+
+        line = re.sub(
+            r"^\s*[-+]\s+",
+            "",
+            line
+        )
+
+        line = re.sub(
+            r"^\s*\d+[.)]\s+",
+            "",
+            line
+        )
+
+        # --------------------------------------------------------------
+        # 空白
+        # --------------------------------------------------------------
+
+        line = re.sub(
+            r"\s+",
+            " ",
+            line
+        )
+
+        line = line.strip()
+
+        if line:
+            output.append(line)
+
+    return "\n".join(output).strip()
+
+
+# ======================================================================
+# 8. Markdown 正文分块
 # ======================================================================
 
 def split_markdown_blocks(text):
     """
-    按 Markdown 空行切分。
+    将 Markdown 按空行分成独立内容块。
 
-    目的：
+    插图不会直接读取整篇报告。
 
-        插图1 / 插图2 / 插图3
-        不再读取整篇报告。
+    而是优先寻找：
 
-    而是尽量找到图片插入位置附近的一个局部内容块。
+        一个完整正文块
+        +
+        极少量上下文
+
+    这样可以避免一张图片同时表现多个新闻。
     """
 
-    raw_blocks = re.split(r"\n\s*\n", text)
+    raw_blocks = re.split(
+        r"\n\s*\n",
+        text
+    )
 
     blocks = []
 
-    for block in raw_blocks:
-        block = block.strip()
+    for raw in raw_blocks:
 
-        if not block:
+        raw = raw.strip()
+
+        if not raw:
             continue
 
-        cleaned = clean_markdown(block)
+        cleaned = clean_markdown(
+            raw
+        )
 
-        if len(cleaned) < 15:
+        if len(cleaned) < 20:
             continue
 
         blocks.append(cleaned)
@@ -317,26 +425,31 @@ def split_markdown_blocks(text):
 
 
 # ======================================================================
-# 7. 截断文本
+# 9. 文本截断
 # ======================================================================
 
-def truncate_text(text, max_chars):
+def truncate_text(
+    text,
+    max_chars
+):
+
     text = text.strip()
 
     if len(text) <= max_chars:
         return text
 
-    return text[:max_chars].rstrip() + "……"
+    return (
+        text[:max_chars]
+        .rstrip()
+        + "……"
+    )
 
 
 # ======================================================================
-# 8. 提取标题
+# 10. 提取标题
 # ======================================================================
 
 def extract_report_title(text):
-    """
-    尽量提取第一条 Markdown 标题。
-    """
 
     for line in text.splitlines():
 
@@ -345,199 +458,208 @@ def extract_report_title(text):
         if not line:
             continue
 
-        m = re.match(r"^#{1,6}\s+(.+)$", line)
+        match = re.match(
+            r"^#{1,6}\s+(.+)$",
+            line
+        )
 
-        if m:
-            title = clean_markdown(m.group(1))
+        if match:
+
+            title = clean_markdown(
+                match.group(1)
+            )
+
             if title:
-                return truncate_text(title, 160)
+                return truncate_text(
+                    title,
+                    180
+                )
 
     return ""
 
 
 # ======================================================================
-# 9. 获取局部视觉上下文
+# 11. 首图视觉上下文
 # ======================================================================
 
-def get_visual_context_for_position(blocks, position, total_images):
+def get_cover_visual_context(
+    report_text
+):
     """
-    V4.0：
+    首图：
 
-    不再给模型一大段正文。
+    不把整篇报告全部交给模型。
 
-    插图只使用：
+    只提供：
 
-        一个主要正文块
-        + 少量上下文
+        标题
+        +
+        前几个重要正文块
 
-    目的：
+    然后强制模型：
 
-        强迫模型形成一个单一视觉故事。
+        只选择一个最高优先级视觉故事。
+    """
+
+    title = extract_report_title(
+        report_text
+    )
+
+    blocks = split_markdown_blocks(
+        report_text
+    )
+
+    parts = []
+
+    if title:
+        parts.append(
+            "报告标题："
+            + title
+        )
+
+    # 首图最多读取前 4 个内容块。
+    for block in blocks[:4]:
+
+        parts.append(
+            "正文信息："
+            + truncate_text(
+                block,
+                260
+            )
+        )
+
+    return truncate_text(
+        "\n".join(parts),
+        1200
+    )
+
+
+# ======================================================================
+# 12. 插图核心内容
+# ======================================================================
+
+def get_visual_context_for_position(
+    blocks,
+    image_number,
+    total_interior_images
+):
+    """
+    V4.1：
+
+    插图尽可能只取一个主要正文块。
+
+    不把整个日报交给模型。
+
+    image_number：
+
+        1 = 插图1
+        2 = 插图2
+        3 = 插图3
     """
 
     if not blocks:
         return ""
 
     if len(blocks) == 1:
-        return truncate_text(blocks[0], 650)
+        selected_index = 0
 
-    # 根据插图序号分配正文区域。
-    usable_count = max(1, total_images - 1)
+    elif total_interior_images <= 1:
 
-    if usable_count == 1:
-        index = len(blocks) // 2
+        selected_index = (
+            len(blocks) // 2
+        )
 
     else:
-        ratio = (position - 1) / max(1, usable_count - 1)
 
-        index = int(round(ratio * (len(blocks) - 1)))
-
-    index = max(0, min(index, len(blocks) - 1))
-
-    main_block = blocks[index]
-
-    # 只允许极少量相邻上下文。
-    previous_block = ""
-    next_block = ""
-
-    if index > 0:
-        previous_block = blocks[index - 1]
-
-    if index + 1 < len(blocks):
-        next_block = blocks[index + 1]
-
-    context_parts = []
-
-    if previous_block:
-        context_parts.append(
-            "前文背景："
-            + truncate_text(previous_block, 220)
+        ratio = (
+            image_number - 1
+        ) / max(
+            1,
+            total_interior_images - 1
         )
 
-    context_parts.append(
-        "当前核心内容："
-        + truncate_text(main_block, 600)
+        selected_index = int(
+            round(
+                ratio
+                * (len(blocks) - 1)
+            )
+        )
+
+    selected_index = max(
+        0,
+        min(
+            selected_index,
+            len(blocks) - 1
+        )
     )
 
-    if next_block:
-        context_parts.append(
-            "后文背景："
-            + truncate_text(next_block, 180)
-        )
+    main_block = blocks[
+        selected_index
+    ]
 
-    context = "\n".join(context_parts)
+    # --------------------------------------------------------------
+    # 核心原则：
+    #
+    # 这里不再拼接前后多个新闻块。
+    #
+    # 只提供一个主要正文块。
+    # --------------------------------------------------------------
 
-    return truncate_text(context, 1000)
-
-
-# ======================================================================
-# 10. 首图视觉上下文
-# ======================================================================
-
-def get_cover_visual_context(report_text):
-    """
-    首图不能直接把整篇报告无限量交给模型。
-
-    否则模型很容易认为：
-
-        每一个主题都必须画出来。
-
-    V4.0：
-
-        标题
-        +
-        少量最重要正文
-
-    然后明确：
-
-        只选择一个最高优先级视觉故事。
-    """
-
-    title = extract_report_title(report_text)
-
-    blocks = split_markdown_blocks(report_text)
-
-    selected = []
-
-    if title:
-        selected.append("报告标题：" + title)
-
-    for block in blocks[:4]:
-        selected.append(
-            "正文：" + truncate_text(block, 260)
-        )
-
-    return truncate_text("\n".join(selected), 1200)
+    return truncate_text(
+        main_block,
+        850
+    )
 
 
 # ======================================================================
-# 11. Prompt
+# 13. Prompt
 # ======================================================================
 
 def build_image_prompt(
     report_type,
     report_identifier,
     image_name,
-    visual_context,
+    visual_context
 ):
-    """
-    V4.0 最重要部分。
 
-    核心：
-
-        ONE IMAGE
-        ONE SCENE
-        ONE VISUAL STORY
-
-    不只是禁止 collage。
-
-    而是主动要求：
-
-        单一场景
-        单一视觉中心
-        单一叙事
-    """
-
-    is_cover = image_name == "首图.png"
+    is_cover = (
+        image_name == "首图.png"
+    )
 
     if is_cover:
 
         role_instruction = """
-This is the COVER IMAGE of a news knowledge report.
+This is the COVER IMAGE.
 
-The report may contain many different subjects and events.
+The report may contain many subjects.
 
-DO NOT attempt to visualize all of them.
+Do NOT visualize all subjects.
 
-Instead:
+Choose ONE dominant visual story that best represents the overall report.
 
-Choose ONLY ONE dominant visual idea that best represents the overall character of the report.
+Turn that single idea into ONE complete documentary scene.
 
-Turn that single idea into ONE complete, coherent documentary scene.
-
-The image must feel like ONE real moment captured by ONE camera in ONE physical location.
-
-Do not create a visual summary made from multiple scenes.
+The image must look like ONE real photograph taken by ONE camera in ONE physical location at ONE moment.
 """
 
     else:
 
         role_instruction = f"""
-This is interior illustration {image_name} of a news knowledge report.
+This is interior illustration {image_name}.
 
-Use the supplied local text only as contextual guidance.
+The supplied source context is only ONE selected section of the report.
 
-Choose ONE single visual event, subject, or situation from that local context.
+Choose ONE dominant visual story from this section.
 
-Do not attempt to visualize all information.
+Do not visualize secondary information.
 
-Create ONE complete scene that communicates ONE visual story.
+Turn the selected idea into ONE complete documentary scene.
 
-The image should feel like ONE real moment captured by ONE camera in ONE physical location.
+The image must look like ONE real photograph taken by ONE camera in ONE physical location at ONE moment.
 """
 
     prompt = f"""
-Create a high-quality editorial documentary image for:
+Create a premium editorial documentary image.
 
 Report type:
 {report_type}
@@ -548,8 +670,9 @@ Report:
 Image:
 {image_name}
 
+
 ============================================================
-PRIMARY VISUAL RULE
+ABSOLUTE COMPOSITION RULE
 ============================================================
 
 ONE IMAGE
@@ -558,136 +681,205 @@ ONE SCENE
 =
 ONE VISUAL STORY
 
-This rule is absolute.
+This is the most important instruction.
 
-Create:
+The final image must represent ONE single continuous scene.
 
-- ONE continuous physical environment
-- ONE coherent composition
-- ONE dominant visual center
-- ONE primary subject or tightly unified subject group
-- ONE clear situation
-- ONE moment in time
-- ONE camera viewpoint
+It must feel like:
 
-The viewer should immediately understand that this is ONE photograph-like scene.
+    ONE photographer
+    ONE camera
+    ONE location
+    ONE moment
+    ONE scene
+    ONE visual story
 
-============================================================
-SCENE UNITY
-============================================================
-
-The image must look as if a real photographer stood in ONE location and captured ONE moment.
-
-Everything visible must belong naturally to the same physical scene.
-
-Do not combine separate places.
-
-Do not combine separate moments.
-
-Do not combine separate events.
-
-Do not create a visual summary of several news stories.
-
-Do not place unrelated symbolic objects around the frame.
-
-Do not construct a collection of concepts.
-
-If the source material contains many ideas:
-
-IGNORE the secondary ideas.
-
-Choose ONLY ONE dominant visual story.
-
-Less information is better than multiple scenes.
 
 ============================================================
-STRICTLY FORBIDDEN COMPOSITIONS
+ONE CAMERA
 ============================================================
 
-ABSOLUTELY NO:
+Imagine that a real photographer is physically standing in the scene.
 
-- collage
-- photo collage
-- grid
-- four-panel composition
-- six-panel composition
-- nine-panel composition
-- split screen
-- multiple windows
-- multiple frames
-- picture wall
-- thumbnail collection
-- montage
-- scrapbook
-- contact sheet
-- multiple photographs inside one image
-- several mini-scenes
-- miniature scenes
-- separate visual boxes
-- floating scene fragments
-- picture-in-picture
-- magazine layout
-- newspaper layout
-- presentation slide
-- PowerPoint style
-- dashboard
-- infographic
-- visual timeline
-- concept board
-- mood board
-- comparison board
-- before-and-after composition
-- multiple locations
-- multiple time periods
-- multiple unrelated events
+The entire image must be captured from ONE camera position.
 
-Do not use boxes, panels, frames, tiles, cards, windows, or compartments.
+Do not combine photographs.
 
-The final result must be ONE uninterrupted visual field.
+Do not simulate multiple camera angles.
+
+Do not show several different viewpoints.
+
+Do not show separate photographs.
+
 
 ============================================================
-VISUAL CENTER
+ONE LOCATION
 ============================================================
 
-Establish ONE obvious visual center.
+Everything in the image must exist naturally in the same physical location.
 
-The main subject should dominate the composition.
+No second location.
 
-Secondary objects are allowed only when they naturally exist inside the same scene and support the same visual story.
+No distant location.
 
-Do NOT give equal visual importance to several different subjects.
+No map of another location.
 
-Do NOT arrange several subjects like a catalog.
+No symbolic representation of another location.
 
-Do NOT create a collection of symbolic objects.
+No transition between locations.
+
 
 ============================================================
-NEWS CONTENT
+ONE MOMENT
 ============================================================
 
-The image should be related to the supplied report content.
+Everything must happen at the same moment in time.
 
-However:
+Do not combine:
+
+    past + present
+
+or:
+
+    before + after
+
+or:
+
+    different stages of an event.
+
+Show ONE specific moment.
+
+
+============================================================
+ONE VISUAL CENTER
+============================================================
+
+Create ONE dominant visual center.
+
+The viewer should immediately know:
+
+    "This is what the image is about."
+
+The primary subject should clearly dominate.
+
+Other objects may appear only when they naturally belong to the same scene.
+
+Do not give equal importance to several independent subjects.
+
+
+============================================================
+DO NOT OVER-EXPLAIN THE NEWS
+============================================================
+
+The source material may contain many facts.
 
 Do NOT illustrate every fact.
 
-Do NOT illustrate every named entity.
+Do NOT illustrate every named person.
+
+Do NOT illustrate every organization.
 
 Do NOT illustrate every location.
 
 Do NOT illustrate every consequence.
 
-Do NOT turn the report into a visual encyclopedia.
+Do NOT create a visual encyclopedia.
 
-Select ONE representative moment.
+Instead:
+
+Choose ONE representative visual moment.
+
+Less information is better.
+
+One strong scene is better than many weak scenes.
+
 
 ============================================================
-TEXT RESTRICTION
+ABSOLUTELY FORBIDDEN
 ============================================================
 
-NO Chinese text.
+NEVER create:
 
-NO English text.
+- collage
+- photo collage
+- grid
+- four-panel
+- six-panel
+- nine-panel
+- split screen
+- multiple windows
+- multiple frames
+- multiple photographs
+- picture wall
+- photo wall
+- thumbnail collection
+- montage
+- scrapbook
+- contact sheet
+- miniature scenes
+- multiple mini-scenes
+- floating scene fragments
+- picture-in-picture
+- magazine layout
+- newspaper layout
+- presentation slide
+- PowerPoint layout
+- dashboard
+- infographic
+- timeline graphic
+- concept board
+- mood board
+- comparison board
+- visual summary made from multiple scenes
+- multiple unrelated events
+- multiple locations
+- multiple time periods
+- separate visual boxes
+- cards
+- tiles
+- compartments
+- panels
+
+There must be NO boxes.
+
+There must be NO grids.
+
+There must be NO separated mini-images.
+
+There must be NO split composition.
+
+
+============================================================
+NO CONCEPTUAL OBJECT COLLECTION
+============================================================
+
+Do not place several symbolic objects around the frame just to represent different ideas.
+
+For example:
+
+Do NOT combine:
+
+    building
+    map
+    aircraft
+    stock chart
+    politician
+    crowd
+
+just because they are related to the same news topic.
+
+Instead choose ONE.
+
+Build ONE coherent physical scene around that ONE choice.
+
+
+============================================================
+TEXT PROHIBITION
+============================================================
+
+NO Chinese characters.
+
+NO English words.
 
 NO readable text.
 
@@ -699,32 +891,48 @@ NO subtitles.
 
 NO labels.
 
-NO article text.
-
 NO newspaper text.
 
 NO magazine text.
 
-NO UI text.
-
 NO website text.
+
+NO UI text.
 
 NO logos.
 
+NO watermarks.
+
 NO brand marks.
 
-NO watermark.
+NO infographic text.
 
-Avoid signs, screens, documents, posters, packages, or displays containing readable text.
+NO chart labels.
+
+Avoid signs, screens, documents, posters, packages, monitors, newspapers, and displays containing readable text.
 
 Do not intentionally generate typography.
 
-Arabic numerals 0-9 are allowed ONLY when naturally unavoidable in a realistic physical environment.
+
+============================================================
+NUMBERS
+============================================================
+
+Arabic numerals 0-9 are allowed ONLY if naturally unavoidable in a realistic environment.
 
 Do not add decorative numbers.
 
+Do not add charts.
+
+Do not add statistics.
+
+Do not add percentages.
+
+Do not add data visualizations.
+
+
 ============================================================
-STYLE
+VISUAL STYLE
 ============================================================
 
 Serious documentary editorial photography.
@@ -733,53 +941,97 @@ Realistic.
 
 Cinematic but credible.
 
-Premium visual quality.
+Premium.
 
 Natural lighting.
 
 Natural depth.
 
+Real physical environment.
+
 Professional photographic composition.
 
-Strong but realistic atmosphere.
-
-Detailed environment.
-
-Physically coherent objects.
+Strong atmosphere.
 
 Consistent perspective.
 
 Consistent lighting.
 
-No surreal visual fragmentation.
+Physically coherent objects.
 
-No abstract concept collage.
+No surreal fragmentation.
 
-No artificial information graphic.
+No abstract collage.
+
+No information graphic.
 
 No fantasy composition.
 
-The final image should feel like ONE powerful editorial photograph.
+The final result should look like ONE powerful editorial photograph.
+
 
 ============================================================
-MOST IMPORTANT FINAL INSTRUCTION
+DECISION PROCESS
 ============================================================
 
-Before generating, mentally reduce the source material to:
+Before generating the image:
 
-ONE SUBJECT.
-ONE SCENE.
-ONE MOMENT.
-ONE CAMERA.
-ONE VISUAL STORY.
+STEP 1:
+Identify the strongest visual idea.
 
-If the prompt contains several possible ideas:
+STEP 2:
+Discard all secondary ideas.
 
-Choose only the single strongest one.
+STEP 3:
+Choose ONE physical location.
 
-Ignore the rest.
+STEP 4:
+Choose ONE moment.
 
-Do not merge them.
+STEP 5:
+Choose ONE dominant subject.
+
+STEP 6:
+Choose ONE camera viewpoint.
+
+STEP 7:
+Create ONE uninterrupted scene.
+
+Do NOT merge multiple ideas.
+
+
+============================================================
+FINAL SELF-CHECK
+============================================================
+
+Before output:
+
+Is there exactly ONE scene?
+
+Is there exactly ONE location?
+
+Is there exactly ONE moment?
+
+Is there exactly ONE camera viewpoint?
+
+Is there ONE dominant visual center?
+
+Does everything belong naturally to the same physical environment?
+
+If not:
+
+Simplify the image.
+
+Remove secondary scenes.
+
+Remove secondary locations.
+
+Remove symbolic fragments.
+
+Remove unnecessary objects.
+
+Return to ONE scene.
+
 
 ============================================================
 SOURCE CONTEXT
@@ -791,59 +1043,70 @@ Source context:
 
 {visual_context}
 
+
 ============================================================
-FINAL QUALITY CHECK
+FINAL COMMAND
 ============================================================
 
-The result must pass all of these:
+Generate ONE uninterrupted 16:9 editorial photograph.
 
-[YES] one scene
-[YES] one location
-[YES] one moment
-[YES] one visual story
-[YES] one dominant visual center
-[YES] coherent photographic composition
-[YES] realistic documentary style
+ONE SCENE.
 
-[NO] collage
-[NO] grid
-[NO] split screen
-[NO] multiple windows
-[NO] multiple mini-scenes
-[NO] multiple unrelated subjects
-[NO] multiple locations
-[NO] infographic
-[NO] presentation layout
-[NO] readable text
-[NO] Chinese characters
-[NO] English words
-[NO] logos
-[NO] watermark
+ONE MOMENT.
+
+ONE CAMERA.
+
+ONE LOCATION.
+
+ONE VISUAL STORY.
+
+No collage.
+
+No grid.
+
+No split screen.
+
+No multiple mini-scenes.
+
+No text.
+
+No Chinese.
+
+No English.
+
+No watermark.
 """
 
     return prompt.strip()
 
 
 # ======================================================================
-# 12. 调用 AGNES 图片 API
+# 14. AGNES API
 # ======================================================================
 
 def generate_image(prompt):
-    api_key = os.getenv("AGNES_API_KEY", "").strip()
+
+    api_key = os.getenv(
+        "AGNES_API_KEY",
+        ""
+    ).strip()
 
     if not api_key:
+
         raise RuntimeError(
             "AGNES_API_KEY environment variable is missing."
         )
 
     payload = {
+
         "model": AGNES_IMAGE_MODEL,
+
         "prompt": prompt,
+
         "size": IMAGE_SIZE,
+
         "ratio": IMAGE_RATIO,
 
-        # 关键：
-        # response_format 必须放在 extra_body 内。
         "extra_body": {
             "response_format": "url"
         }
@@ -858,13 +1121,18 @@ def generate_image(prompt):
         AGNES_API_URL,
         data=body,
         headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
+            "Authorization":
+                f"Bearer {api_key}",
+
+            "Content-Type":
+                "application/json",
         },
         method="POST",
     )
 
-    log("Calling AGNES image API...")
+    log(
+        "Calling AGNES image API..."
+    )
 
     try:
 
@@ -873,22 +1141,30 @@ def generate_image(prompt):
             timeout=REQUEST_TIMEOUT
         ) as response:
 
-            raw = response.read().decode("utf-8")
+            raw = response.read().decode(
+                "utf-8"
+            )
 
     except urllib.error.HTTPError as exc:
 
         error_body = ""
 
         try:
-            error_body = exc.read().decode(
-                "utf-8",
-                errors="replace"
+
+            error_body = (
+                exc.read()
+                .decode(
+                    "utf-8",
+                    errors="replace"
+                )
             )
+
         except Exception:
             pass
 
         raise RuntimeError(
-            f"AGNES HTTP {exc.code}: {error_body[:2000]}"
+            f"AGNES HTTP {exc.code}: "
+            f"{error_body[:2000]}"
         )
 
     except urllib.error.URLError as exc:
@@ -898,18 +1174,27 @@ def generate_image(prompt):
         )
 
     try:
-        data = json.loads(raw)
+
+        data = json.loads(
+            raw
+        )
 
     except json.JSONDecodeError as exc:
 
         raise RuntimeError(
-            f"Invalid AGNES JSON response: {exc}\n"
+            "Invalid AGNES JSON response: "
+            f"{exc}\n"
             f"Raw response: {raw[:2000]}"
         )
 
-    items = data.get("data")
+    items = data.get(
+        "data"
+    )
 
-    if not isinstance(items, list) or not items:
+    if not isinstance(
+        items,
+        list
+    ) or not items:
 
         raise RuntimeError(
             "AGNES response does not contain data[0]."
@@ -917,27 +1202,34 @@ def generate_image(prompt):
 
     first = items[0]
 
-    image_url = first.get("url")
+    image_url = first.get(
+        "url"
+    )
 
     if not image_url:
+
         raise RuntimeError(
             "AGNES response data[0].url is missing."
         )
 
-    log("AGNES image URL received.")
+    log(
+        "AGNES image URL received."
+    )
 
     return image_url
 
 
 # ======================================================================
-# 13. 下载图片
+# 15. 下载图片
 # ======================================================================
 
 def download_image(url):
+
     request = urllib.request.Request(
         url,
         headers={
-            "User-Agent": "748686-Knowledge-System/4.0"
+            "User-Agent":
+                "748686-Knowledge-System/4.1"
         }
     )
 
@@ -957,6 +1249,7 @@ def download_image(url):
         )
 
     if not data:
+
         raise RuntimeError(
             "Downloaded image is empty."
         )
@@ -965,13 +1258,16 @@ def download_image(url):
 
 
 # ======================================================================
-# 14. PNG 校验
+# 16. PNG 验证
 # ======================================================================
 
-PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+PNG_SIGNATURE = (
+    b"\x89PNG\r\n\x1a\n"
+)
 
 
 def is_valid_png(path):
+
     if not path.exists():
         return False
 
@@ -983,20 +1279,31 @@ def is_valid_png(path):
         if path.stat().st_size < 100:
             return False
 
-        with path.open("rb") as f:
+        with path.open(
+            "rb"
+        ) as f:
+
             signature = f.read(8)
 
-        return signature == PNG_SIGNATURE
+        return (
+            signature
+            == PNG_SIGNATURE
+        )
 
     except Exception:
+
         return False
 
 
 # ======================================================================
-# 15. 原子落盘
+# 17. 原子写入 PNG
 # ======================================================================
 
-def atomic_write_bytes(path, data):
+def atomic_write_bytes(
+    path,
+    data
+):
+
     path.parent.mkdir(
         parents=True,
         exist_ok=True
@@ -1010,10 +1317,18 @@ def atomic_write_bytes(path, data):
 
     try:
 
-        with os.fdopen(fd, "wb") as f:
+        with os.fdopen(
+            fd,
+            "wb"
+        ) as f:
+
             f.write(data)
+
             f.flush()
-            os.fsync(f.fileno())
+
+            os.fsync(
+                f.fileno()
+            )
 
         os.replace(
             temp_name,
@@ -1022,15 +1337,28 @@ def atomic_write_bytes(path, data):
 
     finally:
 
-        if os.path.exists(temp_name):
+        if os.path.exists(
+            temp_name
+        ):
 
             try:
-                os.remove(temp_name)
+                os.remove(
+                    temp_name
+                )
+
             except OSError:
                 pass
 
 
-def atomic_write_text(path, text):
+# ======================================================================
+# 18. 原子写入 Markdown
+# ======================================================================
+
+def atomic_write_text(
+    path,
+    text
+):
+
     path.parent.mkdir(
         parents=True,
         exist_ok=True
@@ -1051,8 +1379,12 @@ def atomic_write_text(path, text):
         ) as f:
 
             f.write(text)
+
             f.flush()
-            os.fsync(f.fileno())
+
+            os.fsync(
+                f.fileno()
+            )
 
         os.replace(
             temp_name,
@@ -1061,19 +1393,27 @@ def atomic_write_text(path, text):
 
     finally:
 
-        if os.path.exists(temp_name):
+        if os.path.exists(
+            temp_name
+        ):
 
             try:
-                os.remove(temp_name)
+                os.remove(
+                    temp_name
+                )
+
             except OSError:
                 pass
 
 
 # ======================================================================
-# 16. 当前图片检查
+# 19. 已存在图片
 # ======================================================================
 
-def existing_valid_images(image_dir):
+def existing_valid_images(
+    image_dir
+):
+
     result = []
 
     for name in IMAGE_NAMES:
@@ -1081,26 +1421,21 @@ def existing_valid_images(image_dir):
         path = image_dir / name
 
         if is_valid_png(path):
-            result.append(name)
+
+            result.append(
+                name
+            )
 
     return result
 
 
-def determine_missing_images(image_dir):
-    """
-    最少必须：
+# ======================================================================
+# 20. 缺失图片
+# ======================================================================
 
-        首图
-        插图1
-        插图2
-
-    插图3：
-
-        如果已有并有效，保留。
-        如果没有，不强制生成。
-
-    因此默认最低 3 张。
-    """
+def determine_missing_images(
+    image_dir
+):
 
     required = [
         "首图.png",
@@ -1114,76 +1449,40 @@ def determine_missing_images(image_dir):
 
         path = image_dir / name
 
-        if not is_valid_png(path):
-            missing.append(name)
+        if not is_valid_png(
+            path
+        ):
+
+            missing.append(
+                name
+            )
 
     return missing
 
 
 # ======================================================================
-# 17. 图片数量
+# 21. 图片数量
 # ======================================================================
 
-def image_count(image_dir):
+def image_count(
+    image_dir
+):
+
     return len(
-        existing_valid_images(image_dir)
+        existing_valid_images(
+            image_dir
+        )
     )
 
 
 # ======================================================================
-# 18. 计算图片插入位置
+# 22. Markdown 图片相对路径
 # ======================================================================
 
-def get_insertion_positions(block_count, interior_count):
-    """
-    将插图分散到正文不同区域。
-
-    首图固定最前。
-
-    插图均匀穿插正文。
-    """
-
-    if interior_count <= 0:
-        return []
-
-    if block_count <= 1:
-        return [1] * interior_count
-
-    positions = []
-
-    for i in range(interior_count):
-
-        ratio = (i + 1) / (interior_count + 1)
-
-        pos = int(
-            round(
-                ratio * block_count
-            )
-        )
-
-        pos = max(
-            1,
-            min(
-                block_count,
-                pos
-            )
-        )
-
-        positions.append(pos)
-
-    return positions
-
-
-# ======================================================================
-# 19. Markdown 图片路径
-# ======================================================================
-
-def markdown_image_path(report_path, image_path):
-    """
-    必须使用 os.path.relpath。
-
-    不硬编码 ../../。
-    """
+def markdown_image_path(
+    report_path,
+    image_path
+):
 
     relative = os.path.relpath(
         image_path,
@@ -1197,14 +1496,70 @@ def markdown_image_path(report_path, image_path):
 
 
 # ======================================================================
-# 20. 构造带图 Markdown
+# 23. 正文图片插入位置
+# ======================================================================
+
+def get_insertion_positions(
+    block_count,
+    interior_count
+):
+
+    if interior_count <= 0:
+        return []
+
+    if block_count <= 1:
+
+        return [
+            1
+            for _ in range(
+                interior_count
+            )
+        ]
+
+    positions = []
+
+    for i in range(
+        interior_count
+    ):
+
+        ratio = (
+            (i + 1)
+            /
+            (interior_count + 1)
+        )
+
+        position = int(
+            round(
+                ratio
+                * block_count
+            )
+        )
+
+        position = max(
+            1,
+            min(
+                block_count,
+                position
+            )
+        )
+
+        positions.append(
+            position
+        )
+
+    return positions
+
+
+# ======================================================================
+# 24. 构建带图 Markdown
 # ======================================================================
 
 def build_image_markdown(
     report_path,
     original_text,
-    image_dir,
+    image_dir
 ):
+
     blocks = split_markdown_blocks(
         original_text
     )
@@ -1213,7 +1568,6 @@ def build_image_markdown(
         image_dir
     )
 
-    # 至少首图、插图1、插图2。
     ordered_images = [
         name
         for name in IMAGE_NAMES
@@ -1221,8 +1575,9 @@ def build_image_markdown(
     ]
 
     if len(ordered_images) < MIN_IMAGE_COUNT:
+
         raise RuntimeError(
-            f"Not enough valid images: "
+            "Not enough valid images: "
             f"{ordered_images}"
         )
 
@@ -1230,22 +1585,30 @@ def build_image_markdown(
     # 首图
     # --------------------------------------------------------------
 
-    output_parts = []
+    cover_path = (
+        image_dir
+        / "首图.png"
+    )
 
-    cover_path = image_dir / "首图.png"
+    if not is_valid_png(
+        cover_path
+    ):
 
-    if not is_valid_png(cover_path):
         raise RuntimeError(
             "Cover image is missing."
         )
 
-    cover_rel = markdown_image_path(
-        report_path,
-        cover_path
+    cover_relative = (
+        markdown_image_path(
+            report_path,
+            cover_path
+        )
     )
 
+    output_parts = []
+
     output_parts.append(
-        f"![首图]({cover_rel})"
+        f"![首图]({cover_relative})"
     )
 
     output_parts.append("")
@@ -1260,12 +1623,15 @@ def build_image_markdown(
             original_text.strip()
         )
 
-        return "\n".join(
-            output_parts
-        ).strip() + "\n"
+        return (
+            "\n".join(
+                output_parts
+            ).strip()
+            + "\n"
+        )
 
     # --------------------------------------------------------------
-    # 正文插图
+    # 插图
     # --------------------------------------------------------------
 
     interior_images = [
@@ -1289,7 +1655,13 @@ def build_image_markdown(
         insert_map.setdefault(
             position,
             []
-        ).append(name)
+        ).append(
+            name
+        )
+
+    # --------------------------------------------------------------
+    # 正文
+    # --------------------------------------------------------------
 
     for index, block in enumerate(
         blocks,
@@ -1300,24 +1672,30 @@ def build_image_markdown(
             block
         )
 
-        # 当前正文块后插入图片
-        images_here = insert_map.get(
-            index,
-            []
+        images_here = (
+            insert_map.get(
+                index,
+                []
+            )
         )
 
         for image_name in images_here:
 
             image_path = (
-                image_dir / image_name
+                image_dir
+                / image_name
             )
 
-            if not is_valid_png(image_path):
+            if not is_valid_png(
+                image_path
+            ):
                 continue
 
-            relative = markdown_image_path(
-                report_path,
-                image_path
+            relative = (
+                markdown_image_path(
+                    report_path,
+                    image_path
+                )
             )
 
             output_parts.append("")
@@ -1328,21 +1706,26 @@ def build_image_markdown(
 
             output_parts.append("")
 
-    return "\n\n".join(
-        output_parts
-    ).strip() + "\n"
+    return (
+        "\n\n".join(
+            output_parts
+        ).strip()
+        + "\n"
+    )
 
 
 # ======================================================================
-# 21. 验证带图报告
+# 25. 验证带图报告
 # ======================================================================
 
 def validate_image_report(
     report_path,
     image_dir,
-    image_report_path,
+    image_report_path
 ):
+
     if not image_report_path.exists():
+
         raise RuntimeError(
             "Image report was not created."
         )
@@ -1351,53 +1734,72 @@ def validate_image_report(
         image_report_path
     )
 
-    valid_images = existing_valid_images(
-        image_dir
+    valid_images = (
+        existing_valid_images(
+            image_dir
+        )
     )
 
-    count = len(valid_images)
+    count = len(
+        valid_images
+    )
 
     if count < MIN_IMAGE_COUNT:
+
         raise RuntimeError(
-            f"Image count {count} < {MIN_IMAGE_COUNT}"
+            f"Image count {count} "
+            f"< {MIN_IMAGE_COUNT}"
         )
 
     if count > MAX_IMAGE_COUNT:
+
         raise RuntimeError(
-            f"Image count {count} > {MAX_IMAGE_COUNT}"
+            f"Image count {count} "
+            f"> {MAX_IMAGE_COUNT}"
         )
 
     # --------------------------------------------------------------
-    # 所有图片必须存在
+    # 图片有效性
     # --------------------------------------------------------------
 
     for name in valid_images:
 
-        path = image_dir / name
+        path = (
+            image_dir / name
+        )
 
-        if not is_valid_png(path):
+        if not is_valid_png(
+            path
+        ):
+
             raise RuntimeError(
                 f"Invalid image: {path}"
             )
 
     # --------------------------------------------------------------
-    # 首图必须最先出现
+    # 首图
     # --------------------------------------------------------------
 
-    cover_path = image_dir / "首图.png"
+    cover_path = (
+        image_dir
+        / "首图.png"
+    )
 
-    cover_rel = markdown_image_path(
-        image_report_path,
-        cover_path
+    cover_relative = (
+        markdown_image_path(
+            image_report_path,
+            cover_path
+        )
     )
 
     expected_cover = (
-        f"![首图]({cover_rel})"
+        f"![首图]({cover_relative})"
     )
 
     if not text.startswith(
         expected_cover
     ):
+
         raise RuntimeError(
             "Cover image is not at the beginning."
         )
@@ -1410,34 +1812,43 @@ def validate_image_report(
 
     for name in valid_images:
 
-        image_path = image_dir / name
+        image_path = (
+            image_dir / name
+        )
 
-        relative = markdown_image_path(
-            image_report_path,
-            image_path
+        relative = (
+            markdown_image_path(
+                image_report_path,
+                image_path
+            )
         )
 
         marker = (
             f"]({relative})"
         )
 
-        index = text.find(marker)
+        index = text.find(
+            marker
+        )
 
         if index == -1:
+
             raise RuntimeError(
-                f"Image link missing in report: {name}"
+                "Image link missing: "
+                f"{name}"
             )
 
         if index < previous_index:
 
             raise RuntimeError(
-                f"Image order invalid: {name}"
+                f"Image order invalid: "
+                f"{name}"
             )
 
         previous_index = index
 
     log(
-        f"Validation passed: "
+        "Validation passed: "
         f"{image_report_path}"
     )
 
@@ -1445,66 +1856,78 @@ def validate_image_report(
 
 
 # ======================================================================
-# 22. 生成缺失图片
+# 26. 生成缺失图片
 # ======================================================================
 
 def generate_missing_images(
     report_type,
     report_identifier,
     report_text,
-    image_dir,
+    image_dir
 ):
+
     image_dir.mkdir(
         parents=True,
         exist_ok=True
     )
 
-    missing = determine_missing_images(
-        image_dir
-    )
-
-    current_valid = existing_valid_images(
-        image_dir
+    existing = (
+        existing_valid_images(
+            image_dir
+        )
     )
 
     log(
-        f"Existing valid images: "
-        f"{current_valid}"
+        "Existing valid images: "
+        f"{existing}"
+    )
+
+    missing = (
+        determine_missing_images(
+            image_dir
+        )
     )
 
     if not missing:
 
         log(
-            "Required images already exist. "
-            "No image generation needed."
+            "Required images already exist."
+        )
+
+        log(
+            "No AGNES generation needed."
         )
 
         return
+
+    log(
+        "Missing required images: "
+        f"{missing}"
+    )
 
     blocks = split_markdown_blocks(
         report_text
     )
 
-    # 默认最低 3 张：
-    # 首图 + 插图1 + 插图2
-    total_visual_images = max(
-        MIN_IMAGE_COUNT,
-        len(current_valid) + len(missing)
-    )
-
-    total_visual_images = min(
-        total_visual_images,
-        MAX_IMAGE_COUNT
-    )
-
-    log(
-        f"Missing required images: {missing}"
+    total_interior_images = (
+        max(
+            1,
+            len(
+                [
+                    x
+                    for x in missing
+                    if x != "首图.png"
+                ]
+            )
+        )
     )
 
     for image_name in missing:
 
+        log("-" * 70)
+
         log(
-            f"Generating {report_identifier} "
+            f"Preparing visual story: "
             f"{image_name}"
         )
 
@@ -1533,21 +1956,37 @@ def generate_missing_images(
 
             if match:
 
-                position = int(
+                image_number = int(
                     match.group(1)
                 )
 
             else:
 
-                position = 1
+                image_number = 1
 
             visual_context = (
                 get_visual_context_for_position(
                     blocks,
-                    position,
-                    total_visual_images
+                    image_number,
+                    total_interior_images
                 )
             )
+
+        # ----------------------------------------------------------
+        # 日志：让 GitHub Actions 明确显示
+        # 当前到底选了什么视觉上下文。
+        # ----------------------------------------------------------
+
+        log(
+            "VISUAL STORY SELECTED"
+        )
+
+        log(
+            truncate_text(
+                visual_context,
+                500
+            )
+        )
 
         prompt = build_image_prompt(
             report_type=report_type,
@@ -1557,19 +1996,36 @@ def generate_missing_images(
         )
 
         log(
-            f"Prompt prepared for {image_name}"
+            "Prompt prepared."
         )
+
+        # ----------------------------------------------------------
+        # AGNES
+        # ----------------------------------------------------------
 
         image_url = generate_image(
             prompt
+        )
+
+        # ----------------------------------------------------------
+        # 下载
+        # ----------------------------------------------------------
+
+        log(
+            "Downloading generated image..."
         )
 
         image_data = download_image(
             image_url
         )
 
+        # ----------------------------------------------------------
+        # 保存
+        # ----------------------------------------------------------
+
         target_path = (
-            image_dir / image_name
+            image_dir
+            / image_name
         )
 
         atomic_write_bytes(
@@ -1577,20 +2033,34 @@ def generate_missing_images(
             image_data
         )
 
+        # ----------------------------------------------------------
+        # 立即验证
+        # ----------------------------------------------------------
+
         if not is_valid_png(
             target_path
         ):
+
             raise RuntimeError(
-                f"Generated image failed "
-                f"PNG validation: {target_path}"
+                "Generated image failed PNG validation: "
+                f"{target_path}"
             )
 
         log(
-            f"Saved image: {target_path}"
+            "IMAGE SAVED SUCCESSFULLY"
+        )
+
+        log(
+            f"Path: {target_path}"
+        )
+
+        log(
+            f"Size: "
+            f"{target_path.stat().st_size} bytes"
         )
 
         # ----------------------------------------------------------
-        # 每张图片立即落盘。
+        # 每张图片完成后立即落盘。
         # ----------------------------------------------------------
 
         time.sleep(
@@ -1599,16 +2069,26 @@ def generate_missing_images(
 
 
 # ======================================================================
-# 23. 处理日报
+# 27. 处理日报
 # ======================================================================
 
-def process_daily_report(day):
-    report_path = daily_report_path(day)
+def process_daily_report(
+    day
+):
+
+    report_path = (
+        daily_report_path(
+            day
+        )
+    )
 
     log("=" * 70)
+
     log(
-        f"DAILY REPORT: {day.isoformat()}"
+        f"DAILY REPORT: "
+        f"{day.isoformat()}"
     )
+
     log(
         f"Path: {report_path}"
     )
@@ -1625,8 +2105,10 @@ def process_daily_report(day):
         report_path
     )
 
-    image_dir = daily_image_dir(
-        day
+    image_dir = (
+        daily_image_dir(
+            day
+        )
     )
 
     image_dir.mkdir(
@@ -1646,18 +2128,22 @@ def process_daily_report(day):
     )
 
     # --------------------------------------------------------------
-    # 每次重新从原始 Markdown 构建带图版本。
-    # 原始报告绝不修改。
+    # 带图报告
     # --------------------------------------------------------------
 
-    image_report_path = report_path.with_name(
-        report_path.stem + "_带图.md"
+    image_report_path = (
+        report_path.with_name(
+            report_path.stem
+            + "_带图.md"
+        )
     )
 
-    image_markdown = build_image_markdown(
-        report_path=report_path,
-        original_text=original_text,
-        image_dir=image_dir,
+    image_markdown = (
+        build_image_markdown(
+            report_path=report_path,
+            original_text=original_text,
+            image_dir=image_dir,
+        )
     )
 
     atomic_write_text(
@@ -1676,26 +2162,37 @@ def process_daily_report(day):
     )
 
     log(
-        f"Daily image report ready: "
-        f"{image_report_path}"
+        "DAILY IMAGE REPORT READY"
+    )
+
+    log(
+        f"Path: {image_report_path}"
     )
 
     return True
 
 
 # ======================================================================
-# 24. 处理周报
+# 28. 处理周报
 # ======================================================================
 
-def process_weekly_report(week_string):
-    report_path = weekly_report_path(
-        week_string
+def process_weekly_report(
+    week_string
+):
+
+    report_path = (
+        weekly_report_path(
+            week_string
+        )
     )
 
     log("=" * 70)
+
     log(
-        f"WEEKLY REPORT: {week_string}"
+        f"WEEKLY REPORT: "
+        f"{week_string}"
     )
+
     log(
         f"Path: {report_path}"
     )
@@ -1712,8 +2209,10 @@ def process_weekly_report(week_string):
         report_path
     )
 
-    image_dir = weekly_image_dir(
-        week_string
+    image_dir = (
+        weekly_image_dir(
+            week_string
+        )
     )
 
     image_dir.mkdir(
@@ -1722,7 +2221,7 @@ def process_weekly_report(week_string):
     )
 
     # --------------------------------------------------------------
-    # 生成缺失图片
+    # 图片
     # --------------------------------------------------------------
 
     generate_missing_images(
@@ -1733,17 +2232,22 @@ def process_weekly_report(week_string):
     )
 
     # --------------------------------------------------------------
-    # 构建带图版本
+    # 带图报告
     # --------------------------------------------------------------
 
-    image_report_path = report_path.with_name(
-        report_path.stem + "_带图.md"
+    image_report_path = (
+        report_path.with_name(
+            report_path.stem
+            + "_带图.md"
+        )
     )
 
-    image_markdown = build_image_markdown(
-        report_path=report_path,
-        original_text=original_text,
-        image_dir=image_dir,
+    image_markdown = (
+        build_image_markdown(
+            report_path=report_path,
+            original_text=original_text,
+            image_dir=image_dir,
+        )
     )
 
     atomic_write_text(
@@ -1762,54 +2266,70 @@ def process_weekly_report(week_string):
     )
 
     log(
-        f"Weekly image report ready: "
-        f"{image_report_path}"
+        "WEEKLY IMAGE REPORT READY"
+    )
+
+    log(
+        f"Path: {image_report_path}"
     )
 
     return True
 
 
 # ======================================================================
-# 25. 主程序
+# 29. Main
 # ======================================================================
 
 def main():
+
     log("=" * 70)
-    log("748686 KNOWLEDGE IMAGE GENERATOR V4.0")
-    log("ONE IMAGE = ONE SCENE = ONE VISUAL STORY")
+
+    log(
+        "748686 KNOWLEDGE IMAGE GENERATOR V4.1"
+    )
+
+    log(
+        "ONE IMAGE = ONE SCENE = ONE VISUAL STORY"
+    )
+
     log("=" * 70)
 
     today = utc_today()
 
-    day_before = today - timedelta(days=2)
-    yesterday = today - timedelta(days=1)
+    day_before = (
+        today
+        - timedelta(days=2)
+    )
+
+    yesterday = (
+        today
+        - timedelta(days=1)
+    )
 
     log(
         f"DAY_BEFORE : {day_before}"
     )
+
     log(
         f"YESTERDAY  : {yesterday}"
     )
+
     log(
         f"TODAY      : {today}"
     )
+
     log(
         "Timezone   : UTC"
     )
 
     processed_daily = 0
+
     processed_weekly = 0
+
     failed = 0
 
     # ==============================================================
-    # 日报：
-    #
-    # day before
-    # yesterday
-    # today
-    #
-    # 一个报告处理完、落盘、验证后，
-    # 才进入下一个报告。
+    # 日报
     # ==============================================================
 
     for day in [
@@ -1823,6 +2343,7 @@ def main():
             if process_daily_report(
                 day
             ):
+
                 processed_daily += 1
 
         except Exception as exc:
@@ -1836,9 +2357,6 @@ def main():
 
     # ==============================================================
     # 周报
-    #
-    # 只处理上述日期对应的 ISO 周。
-    # 同一周只处理一次。
     # ==============================================================
 
     weekly_weeks = []
@@ -1849,11 +2367,16 @@ def main():
         today,
     ]:
 
-        week_string = iso_week_string(
-            day
+        week_string = (
+            iso_week_string(
+                day
+            )
         )
 
-        if week_string not in weekly_weeks:
+        if (
+            week_string
+            not in weekly_weeks
+        ):
 
             weekly_weeks.append(
                 week_string
@@ -1866,6 +2389,7 @@ def main():
             if process_weekly_report(
                 week_string
             ):
+
                 processed_weekly += 1
 
         except Exception as exc:
@@ -1878,36 +2402,48 @@ def main():
             )
 
     # ==============================================================
-    # 最终状态
+    # 最终
     # ==============================================================
 
     log("=" * 70)
-    log("IMAGE GENERATION FINISHED")
+
     log(
-        f"Daily processed  : {processed_daily}"
+        "IMAGE GENERATION FINISHED"
     )
+
     log(
-        f"Weekly processed : {processed_weekly}"
+        f"Daily processed  : "
+        f"{processed_daily}"
     )
+
     log(
-        f"Failed           : {failed}"
+        f"Weekly processed : "
+        f"{processed_weekly}"
     )
+
+    log(
+        f"Failed           : "
+        f"{failed}"
+    )
+
     log("=" * 70)
 
-    # 即使某一个报告失败，
-    # 其他报告也继续处理。
+    # --------------------------------------------------------------
+    # 保持 0：
     #
-    # 这里保持 0，
-    # 避免一个报告的问题导致整个 GitHub Action
-    # 把已经成功落盘的其他结果全部判定失败。
+    # 单个日报/周报失败不阻断其他报告。
+    # 已成功落盘的结果仍然可以被 YAML 提交。
+    # --------------------------------------------------------------
+
     return 0
 
 
 # ======================================================================
-# 26. Entry
+# 30. Entry
 # ======================================================================
 
 if __name__ == "__main__":
+
     sys.exit(
         main()
     )
