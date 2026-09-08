@@ -3,10 +3,10 @@
 
 """
 748686 自生长知识系统
-Knowledge Image Engine V4
+Knowledge Image Engine V4.1
 ======================================================================
 
-V4 核心：
+V4.1 核心：
 
 1. 新闻锚定
 2. 一图一个场景
@@ -26,6 +26,8 @@ V4 核心：
 16. UTC
 17. 日报：前天 / 昨天 / 今天
 18. 周报：对应 ISO Week，去重
+19. 修复 daily_image_dir / weekly_image_dir
+20. 增强完整运行日志
 ======================================================================
 """
 
@@ -34,7 +36,6 @@ import re
 import sys
 import json
 import time
-import math
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from urllib.request import Request, urlopen
@@ -106,6 +107,7 @@ MAX_IMAGE_COUNT = 4
 try:
 
     from PIL import Image
+
     PIL_AVAILABLE = True
 
 except Exception:
@@ -137,12 +139,64 @@ def utc_today():
 
 
 # ======================================================================
+# IMAGE DIRECTORY
+# ======================================================================
+
+def daily_image_dir(
+    target_date
+):
+    """
+    日报图片目录：
+
+    04_图片/日报/YYYY-MM-DD/
+    """
+
+    path = (
+        DAILY_IMAGE_ROOT
+        / target_date.strftime("%Y-%m-%d")
+    )
+
+    path.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    return path
+
+
+def weekly_image_dir(
+    year,
+    week
+):
+    """
+    周报图片目录：
+
+    04_图片/周报/YYYY-Wxx/
+    """
+
+    path = (
+        WEEKLY_IMAGE_ROOT
+        / f"{year}-W{week:02d}"
+    )
+
+    path.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    return path
+
+
+# ======================================================================
 # MARKDOWN CLEAN
 # ======================================================================
 
-def clean_markdown_text(text):
+def clean_markdown_text(
+    text
+):
 
     if not text:
+
         return ""
 
     text = re.sub(
@@ -200,9 +254,21 @@ def find_daily_report(
         / f"{target_date:%Y-%m-%d}.md"
     )
 
+    log(
+        f"Daily report path: {path}"
+    )
+
     if path.exists():
 
+        log(
+            "Daily report: FOUND"
+        )
+
         return path
+
+    log(
+        "Daily report: NOT FOUND"
+    )
 
     return None
 
@@ -218,18 +284,39 @@ def find_weekly_report(
         / f"W{week:02d}.md"
     )
 
+    log(
+        f"Weekly report path: {path}"
+    )
+
     if path.exists():
 
+        log(
+            "Weekly report: FOUND"
+        )
+
         return path
+
+    log(
+        "Weekly report: NOT FOUND"
+    )
 
     return None
 
 
-def read_report(path):
+def read_report(
+    path
+):
 
-    return path.read_text(
+    content = path.read_text(
         encoding="utf-8"
     )
+
+    log(
+        f"Report size: "
+        f"{len(content)} characters"
+    )
+
+    return content
 
 
 def extract_report_title(
@@ -241,6 +328,7 @@ def extract_report_title(
         s = line.strip()
 
         if not s:
+
             continue
 
         match = re.match(
@@ -270,6 +358,7 @@ def is_noise_heading(
     )
 
     if not t:
+
         return True
 
     noise = [
@@ -293,16 +382,19 @@ def is_noise_heading(
     for keyword in noise:
 
         if t == keyword:
+
             return True
 
         if t.startswith(
             keyword + ":"
         ):
+
             return True
 
         if t.startswith(
             keyword + "："
         ):
+
             return True
 
     return False
@@ -383,7 +475,9 @@ def extract_news_items(
 
         title = section["title"]
 
-        if is_noise_heading(title):
+        if is_noise_heading(
+            title
+        ):
 
             continue
 
@@ -641,10 +735,6 @@ def build_image_prompt(
 
     role = plan_item["role"]
 
-    # --------------------------------------------------------------
-    # 每次失败后，进一步改变构图
-    # --------------------------------------------------------------
-
     retry_instruction = ""
 
     if attempt >= 2:
@@ -695,10 +785,6 @@ Avoid every object that can contain writing.
 Avoid every visual structure that can become
 a panel, grid, poster, collage, or infographic.
 """
-
-    # --------------------------------------------------------------
-    # 图片角色
-    # --------------------------------------------------------------
 
     if role == "latest":
 
@@ -1028,11 +1114,15 @@ def download_image(
     url
 ):
 
+    log(
+        "Downloading generated image..."
+    )
+
     request = Request(
         url,
         headers={
             "User-Agent":
-                "748686-Knowledge-Image-V4"
+                "748686-Knowledge-Image-V4.1"
         }
     )
 
@@ -1042,6 +1132,11 @@ def download_image(
     ) as response:
 
         data = response.read()
+
+    log(
+        f"Downloaded bytes: "
+        f"{len(data)}"
+    )
 
     if not data.startswith(
         b"\x89PNG\r\n\x1a\n"
@@ -1079,6 +1174,25 @@ def generate_image(
         payload,
         ensure_ascii=False
     ).encode("utf-8")
+
+    log(
+        "Calling AGNES image API..."
+    )
+
+    log(
+        f"AGNES MODEL: "
+        f"{AGNES_IMAGE_MODEL}"
+    )
+
+    log(
+        f"IMAGE SIZE: "
+        f"{IMAGE_SIZE}"
+    )
+
+    log(
+        f"IMAGE RATIO: "
+        f"{IMAGE_RATIO}"
+    )
 
     request = Request(
         AGNES_API_URL,
@@ -1121,13 +1235,21 @@ def generate_image(
             f"AGNES network error: {exc}"
         )
 
+    log(
+        f"AGNES response bytes: "
+        f"{len(raw)}"
+    )
+
     data = json.loads(
         raw.decode("utf-8")
     )
 
     image_url = None
 
-    if isinstance(data, dict):
+    if isinstance(
+        data,
+        dict
+    ):
 
         items = data.get(
             "data"
@@ -1151,6 +1273,10 @@ def generate_image(
         raise RuntimeError(
             "No data[0].url in AGNES response."
         )
+
+    log(
+        "AGNES image URL received."
+    )
 
     return download_image(
         image_url
@@ -1205,9 +1331,11 @@ def is_valid_png(
     try:
 
         if not path.exists():
+
             return False
 
         if path.stat().st_size < 100:
+
             return False
 
         with open(
@@ -1255,18 +1383,6 @@ def image_dimensions(
 def detect_extreme_grid_structure(
     image_path
 ):
-    """
-    轻量级结构检测。
-
-    目的不是判断“艺术质量”，
-    而是淘汰明显的：
-
-        多格
-        拼图
-        分屏
-        规则重复矩形
-
-    """
 
     if not PIL_AVAILABLE:
 
@@ -1293,7 +1409,6 @@ def detect_extreme_grid_structure(
                     "image too small"
                 )
 
-            # 缩小
             img.thumbnail(
                 (240, 240)
             )
@@ -1301,10 +1416,6 @@ def detect_extreme_grid_structure(
             pixels = img.load()
 
             w, h = img.size
-
-            # ------------------------------------------------------
-            # 检测明显的竖直 / 水平分隔线
-            # ------------------------------------------------------
 
             vertical_scores = []
 
@@ -1352,7 +1463,6 @@ def detect_extreme_grid_structure(
                 if score > 0.72
             )
 
-            # 多条贯穿线非常可疑
             if strong_vertical >= 2:
 
                 return True, (
@@ -1367,7 +1477,9 @@ def detect_extreme_grid_structure(
                     "horizontal separators"
                 )
 
-            return False, "grid structure not obvious"
+            return False, (
+                "grid structure not obvious"
+            )
 
     except Exception as exc:
 
@@ -1379,12 +1491,6 @@ def detect_extreme_grid_structure(
 def detect_text_like_structure(
     image_path
 ):
-    """
-    只做非常保守的“文字可能性”检测。
-
-    不把正常物体纹理直接判为文字。
-
-    """
 
     if not PIL_AVAILABLE:
 
@@ -1414,13 +1520,6 @@ def detect_text_like_structure(
                 return False, (
                     "image too small"
                 )
-
-            # ------------------------------------------------------
-            # 检测大量局部高频小块
-            #
-            # 这不是 OCR。
-            # 只是发现极端密集的小型高对比结构。
-            # ------------------------------------------------------
 
             small_regions = 0
 
@@ -1471,37 +1570,38 @@ def detect_text_like_structure(
                             )
 
                     if not values:
+
                         continue
 
-                    mean = sum(
-                        values
-                    ) / len(values)
+                    mean = (
+                        sum(values)
+                        /
+                        len(values)
+                    )
 
-                    variance = sum(
-                        (
-                            v - mean
-                        ) ** 2
-                        for v in values
-                    ) / len(values)
+                    variance = (
+                        sum(
+                            (
+                                v - mean
+                            ) ** 2
+                            for v in values
+                        )
+                        /
+                        len(values)
+                    )
 
                     if variance > 5000:
 
                         small_regions += 1
 
-            # ------------------------------------------------------
-            # 极端情况下才判定可疑
-            # ------------------------------------------------------
-
-            total_regions = (
-                max(
-                    1,
-                    (
-                        w // step_x
-                    )
-                    *
-                    (
-                        h // step_y
-                    )
+            total_regions = max(
+                1,
+                (
+                    w // step_x
+                )
+                *
+                (
+                    h // step_y
                 )
             )
 
@@ -1533,21 +1633,8 @@ def detect_text_like_structure(
 def visual_quality_check(
     image_path
 ):
-    """
-    返回：
-
-        True,  reasons
-
-    或：
-
-        False, reasons
-    """
 
     reasons = []
-
-    # --------------------------------------------------------------
-    # PNG
-    # --------------------------------------------------------------
 
     if not is_valid_png(
         image_path
@@ -1557,10 +1644,6 @@ def visual_quality_check(
             "invalid PNG"
         ]
 
-    # --------------------------------------------------------------
-    # 尺寸
-    # --------------------------------------------------------------
-
     dimensions = image_dimensions(
         image_path
     )
@@ -1569,20 +1652,26 @@ def visual_quality_check(
 
         width, height = dimensions
 
+        log(
+            f"Image dimensions: "
+            f"{width}x{height}"
+        )
+
         if width < 512 or height < 512:
 
             reasons.append(
                 "image resolution too small"
             )
 
-    # --------------------------------------------------------------
-    # Grid
-    # --------------------------------------------------------------
-
     grid_bad, grid_reason = (
         detect_extreme_grid_structure(
             image_path
         )
+    )
+
+    log(
+        f"Grid check: "
+        f"{grid_reason}"
     )
 
     if grid_bad:
@@ -1591,14 +1680,15 @@ def visual_quality_check(
             grid_reason
         )
 
-    # --------------------------------------------------------------
-    # Text-like
-    # --------------------------------------------------------------
-
     text_bad, text_reason = (
         detect_text_like_structure(
             image_path
         )
+    )
+
+    log(
+        f"Text-like check: "
+        f"{text_reason}"
     )
 
     if text_bad:
@@ -1606,10 +1696,6 @@ def visual_quality_check(
         reasons.append(
             text_reason
         )
-
-    # --------------------------------------------------------------
-    # PASS
-    # --------------------------------------------------------------
 
     if reasons:
 
@@ -1637,11 +1723,19 @@ def generate_verified_image(
 
         log("")
         log(
+            "=" * 60
+        )
+
+        log(
             f"GENERATE "
             f"{image_name} "
             f"ATTEMPT "
             f"{attempt}/"
             f"{MAX_GENERATION_ATTEMPTS}"
+        )
+
+        log(
+            f"Target: {image_path}"
         )
 
         prompt = build_image_prompt(
@@ -1656,10 +1750,6 @@ def generate_verified_image(
                 prompt
             )
 
-            # ------------------------------------------------------
-            # 临时候选文件
-            # ------------------------------------------------------
-
             candidate_path = (
                 image_path.with_name(
                     "."
@@ -1673,9 +1763,10 @@ def generate_verified_image(
                 image_bytes
             )
 
-            # ------------------------------------------------------
-            # 视觉检查
-            # ------------------------------------------------------
+            log(
+                f"Candidate saved: "
+                f"{candidate_path}"
+            )
 
             passed, reasons = (
                 visual_quality_check(
@@ -1717,10 +1808,6 @@ def generate_verified_image(
 
                 return True
 
-            # ------------------------------------------------------
-            # FAIL
-            # ------------------------------------------------------
-
             log(
                 "VISUAL CHECK: FAIL"
             )
@@ -1741,6 +1828,11 @@ def generate_verified_image(
 
             if attempt < MAX_GENERATION_ATTEMPTS:
 
+                log(
+                    f"Retrying in "
+                    f"{RETRY_SLEEP_SECONDS} seconds..."
+                )
+
                 time.sleep(
                     RETRY_SLEEP_SECONDS
                 )
@@ -1753,6 +1845,11 @@ def generate_verified_image(
             )
 
             if attempt < MAX_GENERATION_ATTEMPTS:
+
+                log(
+                    f"Retrying in "
+                    f"{RETRY_SLEEP_SECONDS} seconds..."
+                )
 
                 time.sleep(
                     RETRY_SLEEP_SECONDS
@@ -1824,6 +1921,11 @@ def generate_missing_images(
         exist_ok=True
     )
 
+    log(
+        f"Image directory: "
+        f"{image_dir}"
+    )
+
     existing, missing = (
         determine_missing_images(
             image_dir
@@ -1840,10 +1942,26 @@ def generate_missing_images(
         f"{len(existing)}"
     )
 
+    if existing:
+
+        for name in existing:
+
+            log(
+                f"  EXISTING: {name}"
+            )
+
     log(
         f"Missing: "
         f"{len(missing)}"
     )
+
+    if missing:
+
+        for name in missing:
+
+            log(
+                f"  MISSING: {name}"
+            )
 
     if not missing:
 
@@ -1888,6 +2006,11 @@ def generate_missing_images(
         log(
             f"NEWS INDEX: "
             f"{plan_item['news_index']}"
+        )
+
+        log(
+            f"NEWS ROLE: "
+            f"{plan_item['role']}"
         )
 
         log(
@@ -2356,6 +2479,11 @@ def create_image_report(
         )
     )
 
+    log("")
+    log(
+        "Creating image Markdown..."
+    )
+
     content = build_image_markdown(
         output_path,
         original_content,
@@ -2407,12 +2535,22 @@ def process_daily_report(
 
         return False
 
+    log(
+        f"Using daily report: "
+        f"{report_path}"
+    )
+
     content = read_report(
         report_path
     )
 
     image_dir = daily_image_dir(
         target_date
+    )
+
+    log(
+        f"Daily image directory: "
+        f"{image_dir}"
     )
 
     generate_missing_images(
@@ -2424,6 +2562,11 @@ def process_daily_report(
         report_path,
         image_dir,
         content
+    )
+
+    log(
+        f"DAILY SUCCESS: "
+        f"{target_date}"
     )
 
     return True
@@ -2459,6 +2602,11 @@ def process_weekly_report(
 
         return False
 
+    log(
+        f"Using weekly report: "
+        f"{report_path}"
+    )
+
     content = read_report(
         report_path
     )
@@ -2466,6 +2614,11 @@ def process_weekly_report(
     image_dir = weekly_image_dir(
         year,
         week
+    )
+
+    log(
+        f"Weekly image directory: "
+        f"{image_dir}"
     )
 
     generate_missing_images(
@@ -2477,6 +2630,11 @@ def process_weekly_report(
         report_path,
         image_dir,
         content
+    )
+
+    log(
+        f"WEEKLY SUCCESS: "
+        f"{year}-W{week:02d}"
     )
 
     return True
@@ -2491,12 +2649,44 @@ def main():
     log("")
     log("=" * 70)
     log(
-        "748686 KNOWLEDGE IMAGE ENGINE V4"
+        "748686 KNOWLEDGE IMAGE ENGINE V4.1"
     )
     log(
         "NEWS ANCHOR + VISUAL QUALITY CHECK"
     )
     log("=" * 70)
+
+    log(
+        f"Script directory : {SCRIPT_DIR}"
+    )
+
+    log(
+        f"System root      : {SYSTEM_ROOT}"
+    )
+
+    log(
+        f"Daily root       : {DAILY_ROOT}"
+    )
+
+    log(
+        f"Weekly root      : {WEEKLY_ROOT}"
+    )
+
+    log(
+        f"Image root       : {IMAGE_ROOT}"
+    )
+
+    log(
+        f"AGNES API        : {AGNES_API_URL}"
+    )
+
+    log(
+        f"AGNES model      : {AGNES_IMAGE_MODEL}"
+    )
+
+    log(
+        f"Pillow available : {PIL_AVAILABLE}"
+    )
 
     today = utc_today()
 
@@ -2516,6 +2706,7 @@ def main():
         today,
     ]
 
+    log("")
     log(
         f"UTC TODAY  : {today}"
     )
@@ -2536,15 +2727,31 @@ def main():
     # DAILY
     # ==============================================================
 
+    daily_success = 0
+    daily_failed = 0
+
     for target_date in daily_dates:
 
         try:
 
-            process_daily_report(
+            success = process_daily_report(
                 target_date
             )
 
+            if success:
+
+                daily_success += 1
+
+            else:
+
+                log(
+                    f"DAILY SKIPPED: "
+                    f"{target_date}"
+                )
+
         except Exception as exc:
+
+            daily_failed += 1
 
             log(
                 f"DAILY FAILED "
@@ -2571,6 +2778,12 @@ def main():
 
             weeks.append(key)
 
+    log("")
+    log(
+        f"Unique ISO weeks: "
+        f"{len(weeks)}"
+    )
+
     for year, week in weeks:
 
         try:
@@ -2588,11 +2801,32 @@ def main():
                 f"{exc}"
             )
 
+    # ==============================================================
+    # SUMMARY
+    # ==============================================================
+
     log("")
     log("=" * 70)
     log(
-        "KNOWLEDGE IMAGE ENGINE V4 FINISHED"
+        "KNOWLEDGE IMAGE ENGINE V4.1 FINISHED"
     )
+    log("=" * 70)
+
+    log(
+        f"Daily success : "
+        f"{daily_success}"
+    )
+
+    log(
+        f"Daily failed  : "
+        f"{daily_failed}"
+    )
+
+    log(
+        f"Weekly count  : "
+        f"{len(weeks)}"
+    )
+
     log("=" * 70)
 
     return 0
