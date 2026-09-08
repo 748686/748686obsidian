@@ -599,458 +599,531 @@ def build_image_prompt(
     image_name: str,
 ) -> str:
     """
-    重点：
+    V3 单场景强锁定版
 
-    一篇报告保持统一主题。
+    核心原则：
 
-    但每张图片必须是一个完整独立场景。
+        一张图片 = 一个真实摄影镜头
+
+    不允许：
+
+        多场景
+        拼图
+        分屏
+        格子
+        文字
+        信息图
+        海报
     """
+
+    # ==============================================================
+    # 图片角色
+    # ==============================================================
 
     if image_name == "首图.png":
 
         role = """
-【首图】
+SELECT ONE SINGLE REAL-WORLD SCENE FROM THE REPORT.
 
-这是整篇报告的视觉开场。
+The cover must NOT summarize the entire report visually.
 
-请从整篇报告中识别：
+Choose only ONE concrete physical situation that best represents
+the central theme.
 
-    一个最核心的主题。
+The entire image must look like ONE photograph taken by ONE camera
+at ONE place and ONE moment.
 
-然后用：
-
-    一个地点
-    一个时间状态
-    一个主要主体
-    一个镜头
-    一个视觉中心
-
-建立这篇报告的视觉世界。
-
-首图不是新闻拼贴。
-
-不是多个事件集合。
-
-不是把文章所有内容都塞进一张图片。
-
-只选择最能代表整篇报告核心主题的：
-
-    一个场景。
-
-这个场景必须具有：
-
-    强烈主体
-    明确环境
-    清晰空间关系
-    明确视觉焦点
-    新闻纪录片感
-    电影级摄影语言
+ONE SUBJECT.
+ONE ACTION.
+ONE LOCATION.
+ONE MOMENT.
+ONE CAMERA VIEW.
+ONE VISUAL CENTER.
 """
 
     elif image_name == "插图1.png":
 
         role = """
-【插图1】
+SELECT ONE SINGLE CONCRETE SCENE RELATED TO THE CENTRAL THEME.
 
-这是正文中的第一张插图。
+Do not combine different events.
 
-它必须与整篇报告的核心主题保持一致。
+Do not combine different locations.
 
-但是必须是：
+Do not summarize multiple parts of the report.
 
-    一个全新的完整场景。
+Show only ONE physical situation.
 
-不要复制首图。
-
-不要把首图拆成多个小画面。
-
-可以从核心主题的另一个重要角度观察。
-
-例如：
-
-    现场细节
-    核心设备
-    关键人物行动
-    生产现场
-    关键空间
-
-但最终只能选择：
-
-    一个地点
-    一个时刻
-    一个镜头
-    一个视觉中心。
-
-不要加入第二个场景。
+ONE SUBJECT.
+ONE ACTION.
+ONE LOCATION.
+ONE MOMENT.
+ONE CAMERA VIEW.
+ONE VISUAL CENTER.
 """
 
     elif image_name == "插图2.png":
 
         role = """
-【插图2】
+SELECT ONE DIFFERENT SINGLE SCENE RELATED TO THE SAME CENTRAL THEME.
 
-这是正文中的第二张插图。
+This image may show a different physical moment from the cover,
+but it must still be ONE complete photographic scene.
 
-继续服务于整篇报告的核心主题。
+Show only ONE place.
 
-选择核心主题中的另一个重要视觉关系。
+Show only ONE moment.
 
-例如：
+Show only ONE dominant subject.
 
-    人与环境
-    人与设备
-    产业与基础设施
-    城市与事件
-    自然与事件
-    生产与影响
+Show only ONE main action.
 
-但是：
-
-    只能表现一个完整场景。
-
-必须：
-
-    一个地点
-    一个时刻
-    一个镜头
-    一个视觉中心。
-
-不能在一张图里表现多个地点或多个时间。
+ONE SUBJECT.
+ONE ACTION.
+ONE LOCATION.
+ONE MOMENT.
+ONE CAMERA VIEW.
+ONE VISUAL CENTER.
 """
 
     else:
 
         role = """
-【插图3】
+SELECT ONE SINGLE REAL-WORLD SCENE RELATED TO THE SAME CENTRAL THEME.
 
-这是正文中的第三张插图。
+Do not create a summary image.
 
-它仍然属于整篇报告的同一个核心主题。
+Do not combine several consequences or events.
 
-可以选择：
+Choose one concrete physical situation and photograph only that.
 
-    更宏观的现场
-    事件结果
-    产业影响
-    社会环境
-    基础设施
-    长期变化的视觉表现
-
-但是仍然只能：
-
-    一个地点
-    一个时刻
-    一个镜头
-    一个视觉中心。
-
-不要制作总结型信息图。
-
-不要把多个场景拼在一起。
+ONE SUBJECT.
+ONE ACTION.
+ONE LOCATION.
+ONE MOMENT.
+ONE CAMERA VIEW.
+ONE VISUAL CENTER.
 """
 
+    # ==============================================================
+    # 最强核心约束
+    # ==============================================================
+
     prompt = f"""
-你是一名顶级新闻摄影师、纪录片摄影师和电影摄影指导。
+IMPORTANT: THIS IS A SINGLE PHOTOGRAPH.
 
-你的任务是：
+THE IMAGE MUST CONTAIN ONLY ONE SINGLE CONTINUOUS REAL-WORLD SCENE.
 
-    为一篇知识日报或周报生成真实、
-    专业、统一的新闻视觉图片。
+DO NOT CREATE A COLLAGE.
 
-================================================================
-第一原则：一个报告，一个核心主题
-================================================================
+DO NOT CREATE A COMPOSITE IMAGE.
 
-整篇报告只有一个：
+DO NOT CREATE MULTIPLE SCENES.
 
-    CORE VISUAL THEME
+DO NOT CREATE MULTIPLE PANELS.
 
-当前图片必须服务于这个核心主题。
+DO NOT CREATE A GRID.
 
-不要因为文章中存在多个新闻事件，
-就把多个新闻事件放入当前图片。
+DO NOT CREATE A SPLIT SCREEN.
 
-必须找到整篇报告最核心的视觉方向。
+DO NOT CREATE A FOUR-PANEL IMAGE.
 
-================================================================
-第二原则：一图一场景
-================================================================
+DO NOT CREATE A TRIPTYCH.
 
-这是绝对规则。
+DO NOT CREATE A DIPTYCH.
 
-当前图片必须只有：
+DO NOT CREATE A MONTAGE.
 
-    一个场景
-    一个地点
-    一个时刻
-    一个镜头
-    一个视觉中心
+DO NOT CREATE A STORYBOARD.
 
-画面应该像：
+DO NOT CREATE AN INFOGRAPHIC.
 
-    一张真实新闻照片
-    或
-    一帧高质量纪录片电影画面。
+DO NOT CREATE A POSTER.
 
-================================================================
-绝对禁止多场景
-================================================================
+DO NOT CREATE A NEWS COLLAGE.
 
-禁止：
+DO NOT CREATE A SUMMARY BOARD.
 
-    collage
-    grid
-    split screen
-    multi-panel
-    four-panel
-    diptych
-    triptych
-    montage
-    storyboard
-    infographic
-    visual timeline
-    multiple scenes
-    multiple locations
-    multiple time periods
+DO NOT VISUALIZE MULTIPLE EVENTS AT ONCE.
 
-禁止：
+DO NOT VISUALIZE MULTIPLE LOCATIONS AT ONCE.
 
-    左边一个场景，右边另一个场景。
+DO NOT VISUALIZE MULTIPLE TIME PERIODS AT ONCE.
 
-禁止：
+======================================================================
+SINGLE SCENE RULE
+======================================================================
 
-    上面一个场景，下面另一个场景。
+ONE IMAGE
 
-禁止：
+ONE PHYSICAL LOCATION
 
-    四宫格。
+ONE MOMENT IN TIME
 
-禁止：
+ONE CAMERA
 
-    把多个新闻事件拼在一起。
+ONE CAMERA ANGLE
 
-禁止：
+ONE CONTINUOUS ENVIRONMENT
 
-    多个小场景组成一个大画面。
+ONE DOMINANT SUBJECT
 
-================================================================
-第三原则：一个视觉中心
-================================================================
+ONE MAIN ACTION
 
-画面必须存在一个最重要的视觉主体。
+ONE VISUAL CENTER
 
-例如：
+The viewer must be able to believe that a real photographer stood
+in one physical place and captured this exact single moment with
+one camera.
 
-    一个人
-    一台设备
-    一座建筑
-    一辆车辆
-    一处设施
-    一个工业现场
-    一个自然现象
-    一个核心物体
+The image must look like one untouched documentary photograph.
 
-其他元素只能服务于这个主体。
+If several ideas are present in the report, DO NOT combine them.
 
-不要出现：
+Choose ONLY ONE concrete visual situation.
 
-    多个同等重要的主体。
+Everything else must be excluded.
 
-================================================================
-第四原则：地点和时间统一
-================================================================
+======================================================================
+NO MULTIPLE VISUAL CENTERS
+======================================================================
 
-一张图只能发生在：
+There must be ONE dominant subject.
 
-    一个地点。
+There must be ONE dominant action.
 
-一张图只能表现：
+Secondary objects may exist naturally in the same environment,
+but they must remain background elements.
 
-    一个时间状态。
+Do not create several equally important subjects.
 
-不能把：
+Do not place several important objects around the frame as separate
+visual stories.
 
-    白天 + 夜晚
+Do not divide the image into visual sections.
 
-或者：
+Do not create left-side story + right-side story.
 
-    城市 + 工厂
+Do not create foreground story + background story.
 
-或者：
+The background must remain a natural background.
 
-    两个国家
+======================================================================
+ABSOLUTELY NO TEXT
+======================================================================
 
-或者：
+THE IMAGE MUST CONTAIN ZERO READABLE TEXT.
 
-    两个不同地点
+NO CHINESE CHARACTERS.
 
-同时塞进一张图片。
+NO HANZI.
 
-================================================================
-第五原则：摄影语言
-================================================================
+NO CHINESE WRITING.
 
-采用：
+NO ENGLISH.
 
-    新闻摄影
-    纪录片摄影
-    电影级摄影
+NO LETTERS.
 
-要求：
+NO WORDS.
 
-    真实
-    克制
-    专业
-    高级
-    可信
-    有空间层次
-    有景深
-    有自然光影
-    有明确构图
+NO HEADLINES.
 
-不要：
+NO TITLES.
 
-    卡通
-    儿童插画
-    廉价商业广告
-    PPT
-    游戏概念图
-    过度赛博朋克
-    过度科幻
-    海报
-    信息图
+NO LABELS.
 
-================================================================
-文字绝对禁止
-================================================================
+NO CAPTIONS.
 
-图片中绝对不能出现任何可读文字。
+NO SUBTITLES.
 
-禁止：
+NO LOGOS.
 
-    中文
-    汉字
-    英文字母
-    英文单词
-    标题
-    标签
-    注释
-    图例
-    UI文字
-    Logo
-    品牌名称
-    品牌文字
-    水印
-    字幕
-    路牌文字
-    屏幕文字
-    报纸文字
-    书本文字
-    包装文字
-    广告文字
+NO WATERMARKS.
 
-如果场景中自然存在：
+NO BRAND NAMES.
 
-    手机
-    电脑
-    屏幕
-    报纸
-    文件
-    书籍
-    广告牌
-    路牌
-    包装
-    建筑招牌
+NO SIGNAGE.
 
-必须让这些物体：
+NO ROAD SIGNS.
 
-    没有文字
-    不可读
-    模糊
-    抽象化
+NO SHOP SIGNS.
 
-不要主动生成任何文字。
+NO BUILDING SIGNS.
 
-不要生成 Logo。
+NO NEWSPAPERS.
 
-不要生成水印。
+NO BOOKS.
 
-阿拉伯数字 0-9 只有在真实场景确实需要时才允许出现。
+NO DOCUMENTS.
 
-不要为了装饰主动添加数字。
+NO PRESENTATIONS.
 
-================================================================
-当前报告
-================================================================
+NO POSTERS.
 
-报告类型：
+NO ADVERTISEMENTS.
+
+NO COMPUTER SCREEN TEXT.
+
+NO PHONE SCREEN TEXT.
+
+NO TELEVISION TEXT.
+
+NO UI TEXT.
+
+NO CHART LABELS.
+
+NO LEGENDS.
+
+NO DIAGRAM TEXT.
+
+NO PACKAGING TEXT.
+
+NO WRITTEN SYMBOLS USED AS DECORATION.
+
+======================================================================
+AVOID TEXT-BEARING OBJECTS
+======================================================================
+
+Whenever possible, DO NOT SHOW:
+
+phones
+
+computer monitors
+
+television screens
+
+newspapers
+
+books
+
+documents
+
+printed papers
+
+advertising boards
+
+shop signs
+
+road signs
+
+billboards
+
+product packaging
+
+name badges
+
+uniforms with logos
+
+walls containing writing
+
+digital displays
+
+screens containing information
+
+If such an object is physically necessary for the scene,
+make the surface completely blank, dark, distant, out of focus,
+or positioned so that no writing can be visible.
+
+DO NOT INVENT TEXT.
+
+DO NOT INVENT LETTERS.
+
+DO NOT INVENT CHINESE CHARACTERS.
+
+DO NOT INVENT LOGOS.
+
+======================================================================
+VISUAL STYLE
+======================================================================
+
+Create a realistic high-end documentary photograph.
+
+Professional photojournalism.
+
+Natural lighting.
+
+Real physical materials.
+
+Realistic human proportions.
+
+Realistic environment.
+
+Natural depth of field.
+
+Cinematic but believable.
+
+Subtle color grading.
+
+Authentic photographic texture.
+
+Serious.
+
+Professional.
+
+Credible.
+
+Not commercial advertising.
+
+Not fantasy.
+
+Not illustration.
+
+Not cartoon.
+
+Not game concept art.
+
+Not futuristic poster art.
+
+Not infographic design.
+
+======================================================================
+REPORT CONTEXT
+======================================================================
+
+Report type:
 
 {report_type}
 
-报告标题：
+Report title:
 
 {report_title}
 
-================================================================
-当前图片角色
-================================================================
+The following text is ONLY background information used to understand
+the report's central subject.
+
+DO NOT reproduce any words from it inside the image.
+
+DO NOT place the title inside the image.
+
+DO NOT place report text inside the image.
+
+DO NOT create a visual summary of every paragraph.
+
+DO NOT combine different events from the report.
+
+======================================================================
+CURRENT IMAGE
+======================================================================
 
 {role}
 
-================================================================
-报告内容
-================================================================
-
-下面内容只用于理解主题。
-
-绝对不要把其中的文字直接绘制进图片。
+======================================================================
+BACKGROUND INFORMATION
+======================================================================
 
 {report_content}
 
-================================================================
-最终生成要求
-================================================================
+======================================================================
+FINAL CAMERA INSTRUCTION
+======================================================================
 
-生成：
+Before generating the image, mentally remove every secondary event.
 
-    一张
-    16:9
-    横版
-    2K
-    高清
-    新闻纪录片级
-    纯视觉图片。
+Keep only:
 
-最终检查：
+ONE LOCATION.
 
-    是否只有一个场景？
-    是否只有一个地点？
-    是否只有一个时刻？
-    是否只有一个镜头？
-    是否只有一个视觉中心？
-    是否与整篇报告核心主题一致？
-    是否没有拼图？
-    是否没有分屏？
-    是否没有格子？
-    是否没有多场景？
-    是否没有中文？
-    是否没有英文？
-    是否没有 Logo？
-    是否没有水印？
-    是否没有标题？
-    是否没有标签？
-    是否没有信息图文字？
+ONE MOMENT.
 
-如果画面中存在多个场景，
-请重新构图为：
+ONE SUBJECT.
 
-    一个场景。
+ONE ACTION.
 
-如果画面存在多个视觉中心，
-请重新构图为：
+ONE CAMERA.
 
-    一个视觉中心。
+ONE VIEWPOINT.
 
-只输出纯视觉图片。
+ONE VISUAL CENTER.
+
+Then generate ONLY that single photographic scene.
+
+The final result must look like ONE photograph,
+not a collection of photographs.
+
+======================================================================
+FINAL NEGATIVE CHECK
+======================================================================
+
+If the planned image contains:
+
+multiple scenes
+
+multiple locations
+
+multiple moments
+
+multiple panels
+
+multiple frames
+
+multiple visual stories
+
+a collage
+
+a grid
+
+a split screen
+
+a montage
+
+an infographic
+
+Chinese characters
+
+English letters
+
+words
+
+logos
+
+watermarks
+
+titles
+
+labels
+
+signs
+
+screens with text
+
+documents
+
+newspapers
+
+posters
+
+advertisements
+
+THEN DO NOT GENERATE THAT COMPOSITION.
+
+Simplify it until there is ONLY ONE SINGLE REAL-WORLD
+PHOTOGRAPHIC SCENE.
+
+ONE SCENE.
+
+ONE LOCATION.
+
+ONE MOMENT.
+
+ONE CAMERA.
+
+ONE SUBJECT.
+
+ONE ACTION.
+
+ONE VISUAL CENTER.
+
+NO TEXT.
+
+NO COLLAGE.
+
+NO GRID.
+
+NO SPLIT SCREEN.
+
+NO MULTIPLE SCENES.
+
+Generate only the clean photographic image.
 """
 
     return prompt.strip()
