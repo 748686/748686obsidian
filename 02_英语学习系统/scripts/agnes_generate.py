@@ -3,18 +3,20 @@
 
 """
 02_英语学习系统
-Agnes 英语短文生成器 V2
+Agnes 英语短文生成器 V2.1
 
 职责
 ======================================================================
 1. 根据难度生成英语学习短文
 2. 根据指定文章类型生成对应文体
 3. 强制目标词汇以原形出现在英文正文
-4. 为每篇文章自动生成与内容匹配的英文标题
+4. 自动生成与文章内容匹配的英文标题
 5. 生成中文翻译
 6. 生成结构化学习解析
 7. 为 render_markdown.py 提供稳定 JSON 数据
-8. Agnes 返回 JSON 异常时自动修复 / 重试
+8. Agnes 返回 JSON 异常时自动恢复 / 重试
+9. 防止 Agnes 长 JSON 输出被截断
+10. JSON 截断后使用独立恢复请求重新补全完整结构
 
 输出数据结构
 ======================================================================
@@ -68,6 +70,35 @@ Agnes 英语短文生成器 V2
         }
     ]
 }
+
+======================================================================
+V2.1 重要修复
+======================================================================
+
+原 V2 的问题：
+
+Agnes 返回：
+
+    {
+        ...
+        "grammar_points": [
+            {
+                ...
+                "explanation": "can 表示能力，说明身体具备自我
+
+即 JSON 在中途被截断。
+
+V2.1：
+
+1. 增大模型输出空间
+2. 限制学习解析长度
+3. JSON 截断后不再只做语法修复
+4. 使用“完整结构恢复请求”
+5. 恢复请求要求保留已经生成的 article_en / article_zh
+6. 恢复请求必须重新输出完整 JSON
+7. 最终仍然执行严格数据验证
+
+======================================================================
 """
 
 import json
@@ -271,17 +302,27 @@ ARTICLE_TYPE_RULES = {
 
 
 # ======================================================================
-# JSON 最大重试次数
+# JSON 重试
 # ======================================================================
 
 JSON_RETRIES = 3
 
+# ======================================================================
+# Agnes 最大输出 token
+#
+# 重点：
+#
+# 你的 100 词文章本身并不长，
+# 但完整 JSON 包含大量学习解析。
+#
+# 因此必须给模型足够输出空间。
+# ======================================================================
+
+MAX_OUTPUT_TOKENS = 6000
+
 
 # ======================================================================
 # 标题禁止列表
-#
-# 这些标题属于明显的占位标题，
-# 不允许 Agnes 返回。
 # ======================================================================
 
 FORBIDDEN_TITLES = {
@@ -313,10 +354,6 @@ def normalize_target_words(words):
     if words is None:
         return result
 
-    # ------------------------------------------------------------------
-    # 单个字符串
-    # ------------------------------------------------------------------
-
     if isinstance(words, str):
 
         for item in words.split(","):
@@ -332,10 +369,6 @@ def normalize_target_words(words):
 
         return result
 
-    # ------------------------------------------------------------------
-    # 列表
-    # ------------------------------------------------------------------
-
     if not isinstance(words, (list, tuple)):
 
         raise ValueError(
@@ -344,10 +377,6 @@ def normalize_target_words(words):
         )
 
     for item in words:
-
-        # --------------------------------------------------------------
-        # 标准结构
-        # --------------------------------------------------------------
 
         if isinstance(item, dict):
 
@@ -368,10 +397,6 @@ def normalize_target_words(words):
 
             continue
 
-        # --------------------------------------------------------------
-        # 兼容纯字符串
-        # --------------------------------------------------------------
-
         word = str(item).strip()
 
         if word:
@@ -385,7 +410,7 @@ def normalize_target_words(words):
 
 
 # ======================================================================
-# 目标词名称列表
+# 目标词名称
 # ======================================================================
 
 def target_word_names(words):
@@ -406,7 +431,8 @@ def clean_json_content(content: str):
     if not isinstance(content, str):
 
         raise ValueError(
-            f"模型返回内容不是字符串：{type(content).__name__}"
+            f"模型返回内容不是字符串："
+            f"{type(content).__name__}"
         )
 
     text = content.strip()
@@ -502,142 +528,55 @@ def parse_json_response(content: str):
 
 
 # ======================================================================
-# 构造 JSON 修复请求
+# 标题验证
 # ======================================================================
 
-def build_repair_payload(original_content: str):
+def validate_title(title):
 
-    return {
+    if not isinstance(
+        title,
+        str,
+    ):
 
-        "model": CONFIG["agnes"]["model"],
+        raise ValueError(
+            "字段 title 必须是字符串。"
+        )
 
-        "temperature": 0,
+    title = title.strip()
 
-        "messages": [
+    if not title:
 
-            {
-                "role": "system",
+        raise ValueError(
+            "字段 title 不能为空。"
+        )
 
-                "content": (
-                    "你是严格的JSON修复器。"
-                    "只输出一个合法JSON对象。"
-                    "不要Markdown。"
-                    "不要```。"
-                    "不要解释。"
-                    "不要增加字段。"
-                    "不要删除字段。"
-                    "不要修改文章内容。"
-                    "只修复JSON语法错误。"
-                ),
-            },
+    if re.match(
+        r"^(title|标题)\s*[:：]",
+        title,
+        flags=re.IGNORECASE,
+    ):
 
-            {
-                "role": "user",
+        raise ValueError(
+            f"title 不应包含 Title:/标题：前缀：{title}"
+        )
 
-                "content": (
-                    "下面的内容本来应该是一个JSON对象，"
-                    "但存在JSON语法错误。\n\n"
-                    "请修复为严格合法的JSON。\n\n"
-                    "原始内容：\n"
-                    f"{original_content}"
-                ),
-            },
+    normalized = re.sub(
+        r"\s+",
+        " ",
+        title,
+    ).strip().lower()
 
-        ],
+    if normalized in FORBIDDEN_TITLES:
 
-    }
+        raise ValueError(
+            f"title 不能使用泛化或占位标题：{title}"
+        )
 
-
-# ======================================================================
-# 请求 Agnes
-# ======================================================================
-
-def request_article(
-    key,
-    url,
-    payload,
-):
-
-    return request_json(
-        "POST",
-        url,
-        headers={
-            "Authorization": f"Bearer {key}",
-            "Content-Type": "application/json",
-        },
-        json=payload,
-    )
+    return title
 
 
 # ======================================================================
-# 从 Agnes message 中提取 content
-# ======================================================================
-
-def extract_message_content(message):
-
-    if not isinstance(message, dict):
-
-        return ""
-
-    content = message.get(
-        "content",
-        "",
-    )
-
-    # ------------------------------------------------------------------
-    # 最常见情况：
-    #
-    # "content": "......"
-    # ------------------------------------------------------------------
-
-    if isinstance(content, str):
-
-        return content.strip()
-
-    # ------------------------------------------------------------------
-    # 某些 API 可能返回：
-    #
-    # "content": [
-    #     {"type": "text", "text": "..."}
-    # ]
-    # ------------------------------------------------------------------
-
-    if isinstance(content, list):
-
-        text_parts = []
-
-        for item in content:
-
-            if isinstance(item, str):
-
-                text_parts.append(item)
-
-                continue
-
-            if not isinstance(item, dict):
-
-                continue
-
-            text = item.get(
-                "text",
-                "",
-            )
-
-            if isinstance(text, str) and text.strip():
-
-                text_parts.append(
-                    text.strip()
-                )
-
-        return "\n".join(
-            text_parts
-        ).strip()
-
-    return ""
-
-
-# ======================================================================
-# 验证数组
+# 数组验证
 # ======================================================================
 
 def ensure_list(
@@ -664,73 +603,7 @@ def ensure_list(
 
 
 # ======================================================================
-# 验证文章标题
-# ======================================================================
-
-def validate_title(title):
-    """
-    严格验证 AI 自动生成的文章标题。
-
-    要求：
-
-    1. 必须是字符串。
-    2. 不能为空。
-    3. 不能使用明显的占位标题。
-    4. 不允许把 Title: / 标题：当成标题内容。
-    """
-
-    if not isinstance(
-        title,
-        str,
-    ):
-
-        raise ValueError(
-            "字段 title 必须是字符串。"
-        )
-
-    title = title.strip()
-
-    if not title:
-
-        raise ValueError(
-            "字段 title 不能为空。"
-        )
-
-    # ------------------------------------------------------------------
-    # 禁止 "Title: xxx"
-    # ------------------------------------------------------------------
-
-    if re.match(
-        r"^(title|标题)\s*[:：]",
-        title,
-        flags=re.IGNORECASE,
-    ):
-
-        raise ValueError(
-            f"title 不应包含 Title:/标题：前缀：{title}"
-        )
-
-    # ------------------------------------------------------------------
-    # 禁止占位标题
-    # ------------------------------------------------------------------
-
-    normalized = re.sub(
-        r"\s+",
-        " ",
-        title,
-    ).strip().lower()
-
-    if normalized in FORBIDDEN_TITLES:
-
-        raise ValueError(
-            f"title 不能使用泛化或占位标题：{title}"
-        )
-
-    return title
-
-
-# ======================================================================
-# 验证文章结果
+# 文章结果验证
 # ======================================================================
 
 def validate_result(
@@ -741,28 +614,18 @@ def validate_result(
     required_fields = [
 
         "title",
-
         "article_en",
-
         "article_zh",
 
         "target_vocabulary",
-
         "added_vocabulary",
-
         "phrases",
 
         "grammar_points",
-
         "sentence_patterns",
-
         "knowledge_structure",
 
     ]
-
-    # ------------------------------------------------------------------
-    # 字段存在
-    # ------------------------------------------------------------------
 
     missing = [
 
@@ -782,7 +645,7 @@ def validate_result(
         )
 
     # ------------------------------------------------------------------
-    # 字符串字段
+    # 字符串
     # ------------------------------------------------------------------
 
     for field in [
@@ -806,25 +669,23 @@ def validate_result(
                 f"字段 {field} 不能为空。"
             )
 
-    # ------------------------------------------------------------------
-    # 标题质量验证
-    # ------------------------------------------------------------------
-
     result["title"] = validate_title(
         result["title"]
     )
 
     # ------------------------------------------------------------------
-    # 数组字段
+    # 数组
     # ------------------------------------------------------------------
 
     for field in [
+
         "target_vocabulary",
         "added_vocabulary",
         "phrases",
         "grammar_points",
         "sentence_patterns",
         "knowledge_structure",
+
     ]:
 
         ensure_list(
@@ -832,19 +693,15 @@ def validate_result(
             field,
         )
 
-    # ------------------------------------------------------------------
-    # 目标词汇验证
-    # ------------------------------------------------------------------
-
     article_en = result["article_en"]
 
-    target_vocabulary = result[
-        "target_vocabulary"
-    ]
+    # ------------------------------------------------------------------
+    # target_vocabulary
+    # ------------------------------------------------------------------
 
     target_vocab_words = set()
 
-    for item in target_vocabulary:
+    for item in result["target_vocabulary"]:
 
         if not isinstance(item, dict):
 
@@ -876,10 +733,6 @@ def validate_result(
             word.lower()
         )
 
-        # --------------------------------------------------------------
-        # 目标词必须以独立原形出现在文章中
-        # --------------------------------------------------------------
-
         pattern = (
             r"(?<![A-Za-z])"
             + re.escape(word)
@@ -897,7 +750,7 @@ def validate_result(
             )
 
     # ------------------------------------------------------------------
-    # YML 目标词验证
+    # YML 目标词
     # ------------------------------------------------------------------
 
     normalized_words = normalize_target_words(
@@ -928,6 +781,7 @@ def validate_result(
         if item.get("word")
         and item["word"].strip().lower()
         not in target_vocab_words
+
     ]
 
     if missing_yml_words:
@@ -938,7 +792,7 @@ def validate_result(
         )
 
     # ------------------------------------------------------------------
-    # YML目标词必须真实出现在 article_en
+    # 目标词必须出现在正文
     # ------------------------------------------------------------------
 
     missing_in_article = []
@@ -978,7 +832,7 @@ def validate_result(
         )
 
     # ------------------------------------------------------------------
-    # 验证重点短语
+    # phrases
     # ------------------------------------------------------------------
 
     for item in result["phrases"]:
@@ -1020,7 +874,7 @@ def validate_result(
             )
 
     # ------------------------------------------------------------------
-    # 验证新增词汇
+    # added_vocabulary
     # ------------------------------------------------------------------
 
     for item in result["added_vocabulary"]:
@@ -1052,7 +906,7 @@ def validate_result(
             )
 
     # ------------------------------------------------------------------
-    # 验证语法知识点
+    # grammar_points
     # ------------------------------------------------------------------
 
     for item in result["grammar_points"]:
@@ -1094,7 +948,7 @@ def validate_result(
             )
 
     # ------------------------------------------------------------------
-    # 验证重点句型
+    # sentence_patterns
     # ------------------------------------------------------------------
 
     for item in result["sentence_patterns"]:
@@ -1136,7 +990,7 @@ def validate_result(
             )
 
     # ------------------------------------------------------------------
-    # 验证知识结构
+    # knowledge_structure
     # ------------------------------------------------------------------
 
     for item in result["knowledge_structure"]:
@@ -1171,43 +1025,96 @@ def validate_result(
 
 
 # ======================================================================
-# 主生成函数
+# API 请求
 # ======================================================================
 
-def generate(
+def request_article(
+    key,
+    url,
+    payload,
+):
+
+    return request_json(
+        "POST",
+        url,
+        headers={
+            "Authorization": f"Bearer {key}",
+            "Content-Type": "application/json",
+        },
+        json=payload,
+    )
+
+
+# ======================================================================
+# 提取 message.content
+# ======================================================================
+
+def extract_message_content(message):
+
+    if not isinstance(message, dict):
+
+        return ""
+
+    content = message.get(
+        "content",
+        "",
+    )
+
+    if isinstance(content, str):
+
+        return content.strip()
+
+    if isinstance(content, list):
+
+        text_parts = []
+
+        for item in content:
+
+            if isinstance(item, str):
+
+                text_parts.append(item)
+
+                continue
+
+            if not isinstance(item, dict):
+
+                continue
+
+            text = item.get(
+                "text",
+                "",
+            )
+
+            if isinstance(
+                text,
+                str,
+            ) and text.strip():
+
+                text_parts.append(
+                    text.strip()
+                )
+
+        return "\n".join(
+            text_parts
+        ).strip()
+
+    return ""
+
+
+# ======================================================================
+# 构造完整任务
+# ======================================================================
+
+def build_task(
     words,
     difficulty,
     article_type,
     length,
 ):
 
-    # ==================================================================
-    # 基础检查
-    # ==================================================================
-
-    if article_type not in ARTICLE_TYPES:
-
-        raise ValueError(
-            f"未知文章类型：{article_type}"
-        )
-
-    if difficulty not in DIFFICULTIES:
-
-        raise ValueError(
-            f"未知难度：{difficulty}"
-        )
-
-    # ==================================================================
-    # 难度信息
-    # ==================================================================
-
     difficulty_info = DIFFICULTIES[
         difficulty
     ]
-
-    # ==================================================================
-    # 文体信息
-    # ==================================================================
 
     article_type_name = ARTICLE_TYPES[
         article_type
@@ -1217,58 +1124,11 @@ def generate(
         article_type
     ]
 
-    # ==================================================================
-    # API
-    # ==================================================================
-
-    key = env_required(
-        CONFIG["agnes"]["api_key_env"]
-    )
-
-    url = (
-        CONFIG["agnes"]["base_url"]
-        .rstrip("/")
-        + "/chat/completions"
-    )
-
-    # ==================================================================
-    # 目标词标准化
-    # ==================================================================
-
-    words = normalize_target_words(words)
-
-    print(
-        f"✓ 目标词标准化完成：{len(words)} 个",
-        flush=True,
-    )
-
-    for item in words:
-
-        print(
-            f"  - {item['word']}："
-            f"{item.get('meaning', '')}",
-            flush=True,
-        )
-
-    # ==================================================================
-    # 提取真正给 Agnes 的目标词名称
-    # ==================================================================
-
     target_word_list = target_word_names(
         words
     )
 
-    if not target_word_list:
-
-        raise ValueError(
-            "没有有效目标词汇，无法生成英语短文。"
-        )
-
-    # ==================================================================
-    # 任务定义
-    # ==================================================================
-
-    task = {
+    return {
 
         "task": "生成英语学习短文",
 
@@ -1302,59 +1162,29 @@ def generate(
 
         "requirements": [
 
-            # ----------------------------------------------------------
-            # 标题
-            # ----------------------------------------------------------
+            "必须根据文章实际内容自行生成一个具体、自然、简洁的英文标题。",
 
-            "必须根据文章实际内容自行生成一个英文文章标题。",
+            "标题必须真实反映 article_en 的主题。",
 
-            "标题必须与 article_en 的实际主题和内容高度相关。",
+            "禁止使用 Article、English Article、English Learning Article、My Article、Untitled、A Story、An Article 等占位标题。",
 
-            "标题必须符合指定文章类型、指定难度和文章主题。",
-
-            "标题应该自然、简洁、像真实英语文章的标题。",
-
-            "每篇文章必须重新根据实际内容命名，禁止使用固定标题模板。",
-
-            "禁止使用 Article、English Article、English Learning Article、My Article、Untitled、A Story、An Article 等泛化或占位标题。",
-
-            "title 字段必须是非空字符串。",
-
-            "title 字段中不要加入 Title:、标题：等前缀。",
-
-            # ----------------------------------------------------------
-            # 目标词
-            # ----------------------------------------------------------
+            "title 不得包含 Title: 或 标题：前缀。",
 
             "所有 target_words 必须进入 target_vocabulary。",
 
             "所有目标词必须以原形出现在 article_en 中。",
 
-            "目标词必须自然地融入文章，不得机械堆砌。",
-
-            # ----------------------------------------------------------
-            # 文章
-            # ----------------------------------------------------------
+            "目标词必须自然融入文章，不得机械堆砌。",
 
             "article_en 必须是一篇完整、自然、连贯的英语短文。",
 
-            "article_zh 必须完整准确地翻译 article_en。",
+            "article_zh 必须完整准确翻译 article_en。",
 
-            "英文文章实际内容必须符合指定文章类型。",
-
-            # ----------------------------------------------------------
-            # 难度
-            # ----------------------------------------------------------
+            "英文文章必须符合指定文章类型。",
 
             "难度必须真实改变词汇、句法、句子长度、逻辑复杂度和文章结构。",
 
-            "不得仅通过增加生僻词来伪造高难度。",
-
-            # ----------------------------------------------------------
-            # 学习解析
-            # ----------------------------------------------------------
-
-            "phrases 中的重点短语必须真实存在于 article_en 中。",
+            "phrases 中的重点短语必须真实存在于 article_en。",
 
             "grammar_points 必须分析 article_en 中真实出现的语法。",
 
@@ -1363,23 +1193,40 @@ def generate(
             "knowledge_structure 必须总结 article_en 的真实结构。",
 
             # ----------------------------------------------------------
-            # JSON
+            # 非常重要：
+            #
+            # 控制 JSON 大小。
             # ----------------------------------------------------------
 
-            "所有字段必须严格按照 schema 返回。",
+            "学习解析必须简洁，不要写长篇解释。",
 
-            "只返回合法JSON对象。",
+            "grammar_points 建议生成 3-5 个，每个 explanation 简洁。",
 
-            "不要Markdown。",
+            "sentence_patterns 建议生成 3-5 个，每个 meaning 简洁。",
 
-            "不要```。",
+            "knowledge_structure 建议生成 3-5 个，每个 content 简洁。",
 
-            "不要JSON之外的任何文字。",
+            "added_vocabulary 建议控制在 3-8 个。",
+
+            "phrases 建议控制在 3-6 个。",
+
+            "所有 example 应直接使用文章中的真实句子。",
+
+            "不要重复文章内容。",
+
+            "不要输出任何额外说明。",
+
+            "只返回一个完整合法的 JSON 对象。",
+
+            "禁止 Markdown。",
+
+            "禁止 ```。",
+
+            "禁止 JSON 之外的任何文字。",
+
+            "绝对不能在 JSON 尚未结束时停止输出。",
+
         ],
-
-        # ==================================================================
-        # JSON Schema
-        # ==================================================================
 
         "schema": {
 
@@ -1449,15 +1296,20 @@ def generate(
 
     }
 
-    # ==================================================================
-    # Agnes Prompt
-    # ==================================================================
 
-    payload = {
+# ======================================================================
+# 构造主 Prompt
+# ======================================================================
+
+def build_payload(task):
+
+    return {
 
         "model": CONFIG["agnes"]["model"],
 
         "temperature": 0.4,
+
+        "max_tokens": MAX_OUTPUT_TOKENS,
 
         "messages": [
 
@@ -1471,22 +1323,21 @@ def generate(
 
                     "你必须严格按照用户提供的难度、文章类型、目标词汇和长度生成文章。"
 
-                    "你必须为每一篇文章自行生成一个与文章实际内容匹配的英文标题。"
+                    "你必须根据实际文章内容生成具体英文标题。"
 
-                    "标题必须具体、自然、简洁，并且真实反映文章主题。"
+                    "标题必须自然、简洁、真实反映主题。"
 
-                    "禁止使用Article、English Article、English Learning Article、"
-                    "My Article、Untitled、A Story、An Article等泛化或占位标题。"
+                    "禁止使用泛化标题或固定标题模板。"
 
-                    "禁止使用固定标题模板。"
+                    "你的输出将由Python程序直接解析。"
 
-                    "不要在title中加入Title:或标题：前缀。"
+                    "因此必须一次性输出完整合法JSON。"
 
-                    "你不是普通聊天助手。"
+                    "不能输出半截JSON。"
 
-                    "你的输出将被Python程序直接解析。"
+                    "不能在字段中途停止。"
 
-                    "因此只能输出一个严格合法的JSON对象。"
+                    "所有字段都必须完成后才能结束。"
 
                     "禁止Markdown。"
 
@@ -1494,7 +1345,7 @@ def generate(
 
                     "禁止解释。"
 
-                    "禁止JSON前后添加任何文字。"
+                    "禁止JSON之外的任何文字。"
 
                 ),
 
@@ -1516,8 +1367,195 @@ def generate(
 
     }
 
+
+# ======================================================================
+# 构造 JSON 恢复请求
+# ======================================================================
+
+def build_recovery_payload(
+    original_content,
+    task,
+):
+
+    return {
+
+        "model": CONFIG["agnes"]["model"],
+
+        "temperature": 0.1,
+
+        "max_tokens": MAX_OUTPUT_TOKENS,
+
+        "messages": [
+
+            {
+
+                "role": "system",
+
+                "content": (
+
+                    "你是748686英语学习系统的JSON恢复专家。"
+
+                    "你收到的是一次被截断或损坏的英语学习文章JSON。"
+
+                    "你的任务不是解释问题。"
+
+                    "你的任务是重新输出一个完整合法的JSON对象。"
+
+                    "必须严格按照原始任务schema。"
+
+                    "必须保留原始返回中已经生成的title、article_en、article_zh和目标词。"
+
+                    "如果原始JSON在grammar_points等字段中途被截断，"
+                    "必须根据文章内容补全缺失内容。"
+
+                    "所有字段都必须完整结束。"
+
+                    "不要输出Markdown。"
+
+                    "不要输出```。"
+
+                    "不要输出解释。"
+
+                    "不要输出JSON之外的任何文字。"
+
+                    "最终只能输出完整合法JSON。"
+
+                ),
+
+            },
+
+            {
+
+                "role": "user",
+
+                "content": (
+
+                    "下面是原始任务：\n\n"
+
+                    + json.dumps(
+                        task,
+                        ensure_ascii=False,
+                        indent=2,
+                    )
+
+                    + "\n\n"
+
+                    "下面是被截断或损坏的原始Agnes返回：\n\n"
+
+                    + original_content
+
+                    + "\n\n"
+
+                    "请现在重新构造并输出完整JSON。"
+
+                    "已经生成的文章正文必须尽量原样保留。"
+
+                    "缺失的字段请根据文章内容补齐。"
+
+                    "必须输出完整JSON，不能再次截断。"
+
+                ),
+
+            },
+
+        ],
+
+    }
+
+
+# ======================================================================
+# 生成函数
+# ======================================================================
+
+def generate(
+    words,
+    difficulty,
+    article_type,
+    length,
+):
+
     # ==================================================================
-    # JSON 解析循环
+    # 基础检查
+    # ==================================================================
+
+    if article_type not in ARTICLE_TYPES:
+
+        raise ValueError(
+            f"未知文章类型：{article_type}"
+        )
+
+    if difficulty not in DIFFICULTIES:
+
+        raise ValueError(
+            f"未知难度：{difficulty}"
+        )
+
+    # ==================================================================
+    # Agnes API
+    # ==================================================================
+
+    key = env_required(
+        CONFIG["agnes"]["api_key_env"]
+    )
+
+    url = (
+        CONFIG["agnes"]["base_url"]
+        .rstrip("/")
+        + "/chat/completions"
+    )
+
+    # ==================================================================
+    # 目标词标准化
+    # ==================================================================
+
+    words = normalize_target_words(
+        words
+    )
+
+    print(
+        f"✓ 目标词标准化完成：{len(words)} 个",
+        flush=True,
+    )
+
+    for item in words:
+
+        print(
+            f"  - {item['word']}："
+            f"{item.get('meaning', '')}",
+            flush=True,
+        )
+
+    target_word_list = target_word_names(
+        words
+    )
+
+    if not target_word_list:
+
+        raise ValueError(
+            "没有有效目标词汇，无法生成英语短文。"
+        )
+
+    # ==================================================================
+    # 构造任务
+    # ==================================================================
+
+    task = build_task(
+        words,
+        difficulty,
+        article_type,
+        length,
+    )
+
+    # ==================================================================
+    # 主 Prompt
+    # ==================================================================
+
+    payload = build_payload(
+        task
+    )
+
+    # ==================================================================
+    # 重试
     # ==================================================================
 
     last_content = ""
@@ -1546,10 +1584,6 @@ def generate(
                 url,
                 payload,
             )
-
-            # ----------------------------------------------------------
-            # API 返回检查
-            # ----------------------------------------------------------
 
             if not isinstance(
                 data,
@@ -1583,8 +1617,10 @@ def generate(
                     "Agnes 返回的 choices 不是数组。"
                 )
 
+            first_choice = choices[0]
+
             if not isinstance(
-                choices[0],
+                first_choice,
                 dict,
             ):
 
@@ -1593,10 +1629,26 @@ def generate(
                 )
 
             # ----------------------------------------------------------
-            # 获取 message
+            # 判断是否因为 token 限制结束
             # ----------------------------------------------------------
 
-            message = choices[0].get(
+            finish_reason = first_choice.get(
+                "finish_reason",
+                "",
+            )
+
+            if finish_reason:
+
+                print(
+                    f"Agnes finish_reason：{finish_reason}",
+                    flush=True,
+                )
+
+            # ----------------------------------------------------------
+            # message
+            # ----------------------------------------------------------
+
+            message = first_choice.get(
                 "message",
                 {},
             )
@@ -1611,16 +1663,12 @@ def generate(
                 )
 
             # ----------------------------------------------------------
-            # 提取 content
+            # content
             # ----------------------------------------------------------
 
             content = extract_message_content(
                 message
             )
-
-            # ==========================================================
-            # Agnes 返回诊断
-            # ==========================================================
 
             if not content:
 
@@ -1630,13 +1678,13 @@ def generate(
                 )
 
                 print(
-                    "================ Agnes API 原始 choices[0] ================",
+                    "================ Agnes 原始 choices[0] ================",
                     flush=True,
                 )
 
                 print(
                     json.dumps(
-                        choices[0],
+                        first_choice,
                         ensure_ascii=False,
                         indent=2,
                     ),
@@ -1644,31 +1692,7 @@ def generate(
                 )
 
                 print(
-                    "============================================================",
-                    flush=True,
-                )
-
-                print(
-                    "",
-                    flush=True,
-                )
-
-                print(
-                    "================ Agnes API 原始 message ================",
-                    flush=True,
-                )
-
-                print(
-                    json.dumps(
-                        message,
-                        ensure_ascii=False,
-                        indent=2,
-                    ),
-                    flush=True,
-                )
-
-                print(
-                    "=========================================================",
+                    "========================================================",
                     flush=True,
                 )
 
@@ -1676,14 +1700,21 @@ def generate(
                     "Agnes 返回的 message.content 为空。"
                 )
 
-            # ----------------------------------------------------------
-            # 保存原始内容
-            # ----------------------------------------------------------
-
             last_content = content
 
             # ----------------------------------------------------------
-            # JSON 解析
+            # 如果 finish_reason 明确是 length，
+            # 直接进入恢复机制。
+            # ----------------------------------------------------------
+
+            if finish_reason == "length":
+
+                raise ValueError(
+                    "Agnes 输出达到 max_tokens，JSON 被截断。"
+                )
+
+            # ----------------------------------------------------------
+            # JSON
             # ----------------------------------------------------------
 
             result = parse_json_response(
@@ -1691,7 +1722,7 @@ def generate(
             )
 
             # ----------------------------------------------------------
-            # 数据契约验证
+            # 数据验证
             # ----------------------------------------------------------
 
             result = validate_result(
@@ -1714,14 +1745,15 @@ def generate(
             )
 
             print(
-                f"✓ 文体：{article_type_name}",
+                f"✓ 文体："
+                f"{ARTICLE_TYPES[article_type]}",
                 flush=True,
             )
 
             print(
                 f"✓ 难度："
-                f"{difficulty_info['star']} "
-                f"({difficulty_info['level']})",
+                f"{DIFFICULTIES[difficulty]['star']} "
+                f"({DIFFICULTIES[difficulty]['level']})",
                 flush=True,
             )
 
@@ -1765,10 +1797,6 @@ def generate(
 
         except Exception as e:
 
-            # ==========================================================
-            # 统一错误处理
-            # ==========================================================
-
             last_error = e
 
             print(
@@ -1786,115 +1814,100 @@ def generate(
                 flush=True,
             )
 
-            # ----------------------------------------------------------
-            # 最后一次
-            # ----------------------------------------------------------
+            # ==========================================================
+            # 最后一次不再恢复
+            # ==========================================================
 
             if attempt >= JSON_RETRIES:
 
                 break
 
             # ==========================================================
-            # JSON 修复
+            # JSON 恢复
             # ==========================================================
 
             if last_content:
 
                 print(
-                    "🔧 请求 Agnes 修复 JSON...",
+                    "🔧 请求 Agnes 恢复完整 JSON...",
                     flush=True,
                 )
 
                 try:
 
-                    repair_payload = (
-                        build_repair_payload(
-                            last_content
+                    recovery_payload = (
+                        build_recovery_payload(
+                            last_content,
+                            task,
                         )
                     )
 
-                    repair_data = request_article(
+                    recovery_data = request_article(
                         key,
                         url,
-                        repair_payload,
+                        recovery_payload,
                     )
 
                     if not isinstance(
-                        repair_data,
+                        recovery_data,
                         dict,
                     ):
 
                         raise ValueError(
-                            "JSON 修复请求返回不是 JSON 对象。"
+                            "JSON 恢复请求返回不是 JSON 对象。"
                         )
 
-                    repair_choices = (
-                        repair_data.get(
+                    recovery_choices = (
+                        recovery_data.get(
                             "choices"
                         )
                     )
 
-                    if not repair_choices:
+                    if not recovery_choices:
 
                         raise ValueError(
-                            "JSON 修复请求没有返回 choices。"
+                            "JSON 恢复请求没有返回 choices。"
                         )
 
                     if not isinstance(
-                        repair_choices[0],
+                        recovery_choices[0],
                         dict,
                     ):
 
                         raise ValueError(
-                            "JSON 修复请求的 choices[0] 不是对象。"
+                            "JSON 恢复请求的 choices[0] 不是对象。"
                         )
 
-                    repair_message = (
-                        repair_choices[0].get(
+                    recovery_message = (
+                        recovery_choices[0].get(
                             "message",
                             {},
                         )
                     )
 
-                    repair_content = (
+                    recovery_content = (
                         extract_message_content(
-                            repair_message
+                            recovery_message
                         )
                     )
 
-                    if not repair_content:
-
-                        print(
-                            "",
-                            flush=True,
-                        )
-
-                        print(
-                            "============= Agnes JSON修复原始 choices[0] =============",
-                            flush=True,
-                        )
-
-                        print(
-                            json.dumps(
-                                repair_choices[0],
-                                ensure_ascii=False,
-                                indent=2,
-                            ),
-                            flush=True,
-                        )
-
-                        print(
-                            "=========================================================",
-                            flush=True,
-                        )
+                    if not recovery_content:
 
                         raise ValueError(
-                            "JSON 修复结果为空。"
+                            "JSON 恢复结果为空。"
                         )
 
+                    # --------------------------------------------------
+                    # 解析恢复后的 JSON
+                    # --------------------------------------------------
+
                     result = parse_json_response(
-                        repair_content
+                        recovery_content
                     )
+
+                    # --------------------------------------------------
+                    # 严格验证
+                    # --------------------------------------------------
 
                     result = validate_result(
                         result,
@@ -1902,29 +1915,54 @@ def generate(
                     )
 
                     print(
-                        "✓ Agnes JSON 修复成功",
+                        "✓ Agnes JSON 恢复成功",
                         flush=True,
                     )
 
                     print(
-                        f"✓ 文章标题：{result['title']}",
+                        f"✓ 文章标题："
+                        f"{result['title']}",
+                        flush=True,
+                    )
+
+                    print(
+                        f"✓ 目标词汇："
+                        f"{len(result['target_vocabulary'])}",
+                        flush=True,
+                    )
+
+                    print(
+                        f"✓ 语法知识点："
+                        f"{len(result['grammar_points'])}",
+                        flush=True,
+                    )
+
+                    print(
+                        f"✓ 重点句型："
+                        f"{len(result['sentence_patterns'])}",
+                        flush=True,
+                    )
+
+                    print(
+                        f"✓ 知识结构："
+                        f"{len(result['knowledge_structure'])}",
                         flush=True,
                     )
 
                     return result
 
-                except Exception as repair_error:
+                except Exception as recovery_error:
 
                     print(
-                        "⚠️ JSON 自动修复失败："
-                        f"{type(repair_error).__name__}: "
-                        f"{repair_error}",
+                        "⚠️ Agnes JSON 恢复失败："
+                        f"{type(recovery_error).__name__}: "
+                        f"{recovery_error}",
                         flush=True,
                     )
 
-            # ----------------------------------------------------------
+            # ==========================================================
             # 等待后重新请求
-            # ----------------------------------------------------------
+            # ==========================================================
 
             wait_seconds = 2 * attempt
 
