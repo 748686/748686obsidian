@@ -1,1440 +1,1328 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
+#!/usr/bin/envpython3
+#-*-coding:utf-8-*-
 
 """
-748686 自生长知识系统
-Knowledge Image Generator
+02_英语学习系统
+knowledge_image.py
 ======================================================================
 
-用途
-----------------------------------------------------------------------
-为已经生成完成的：
+功能：
+根据英语学习文章生成ONE张配套知识图片。
 
-    05_日报
-    06_周报
+核心规则：
+1.一篇文章只生成一张图片
+2.根据文章标题+正文决定画面内容
+3.图片中加入文章原始英文标题
+4.视觉风格：
+-1970s–1990s日本复古动画电影感
+-手绘赛璐珞动画质感
+-复古背景绘画
+-电影感构图
+-温暖、诗意、怀旧
+-细腻胶片颗粒
+5.不直接模仿具体艺术家的名字
+6.图片中除了文章英文标题，不允许出现其他文字
+7.使用AgnesImageAPI
+8.模型：
+agnes-image-2.5-flash
+9.输出：
+2K/16:9
+实际输出约为2624×1472
+10.Agnes返回URL后立即下载并落盘
+11.单张图片失败自动重试
+12.图片失败不影响文章、试卷、音频等其他系统
+13.APIKey从环境变量AGNES_API_KEY获取
 
-自动生成配套图片，并将图片引用写回 Markdown。
-
-核心规则
-----------------------------------------------------------------------
-1. 日报最多 4 张图片
-2. 周报最多 4 张图片
-3. 第一张必须是封面图
-4. 其余 2~3 张为内容图
-5. 图片根据对应 Markdown 实际内容生成
-6. 使用 AGNES Image API
-7. 模型固定：
-
-       agnes-image-2.5-flash
-
-8. 图片规格固定：
-
-       size  = 2K
-       ratio = 16:9
-
-9. response_format 必须放在：
-
-       extra_body.response_format
-
-10. 图片 API 返回 URL 后，下载到本地 PNG
-11. 所有图片成功生成并下载后，才修改 Markdown
-12. 使用 _IMAGE_COMPLETE 防止重复生成
-13. 不成功不创建 _IMAGE_COMPLETE
-14. 不删除原 Markdown
-15. 不覆盖已经存在的图片
-16. 可重复运行
-17. 只处理已经存在的日报/周报
-18. 不负责日报、周报内容本身的生成
-
-环境变量
-----------------------------------------------------------------------
-必须：
-
-    AGNES_API_KEY
-
-可选：
-
-    AGNES_BASE_URL
-
-默认：
-
-    https://api.agnes-ai.cn/v1
-
-使用方式
-----------------------------------------------------------------------
-python knowledge_image.py
-
-也可以指定日期：
-
-    python knowledge_image.py 2026-09-08
-
-也可以处理三个日期：
-
-    python knowledge_image.py 2026-09-06 2026-09-07 2026-09-08
+======================================================================
 """
 
-from __future__ import annotations
+importargparse
+importjson
+importos
+importre
+importsys
+importtime
+frompathlibimportPath
+fromurllib.errorimportHTTPError,URLError
+fromurllib.requestimportRequest,urlopen
 
-import os
-import re
-import sys
-import json
-import time
-from pathlib import Path
-from urllib.request import Request, urlopen
-from urllib.error import HTTPError, URLError
 
+#======================================================================
+#路径
+#======================================================================
 
-# ======================================================================
-# 基础配置
-# ======================================================================
+SCRIPT_DIR=Path(__file__).resolve().parent
+SYSTEM_DIR=SCRIPT_DIR.parent
 
-ROOT = Path("01_自生长知识系统")
+CONFIG_PATH=SYSTEM_DIR/"config"/"config.json"
+OUTPUT_DIR=SYSTEM_DIR/"output"
 
-DAILY_ROOT = ROOT / "05_日报"
-WEEKLY_ROOT = ROOT / "06_周报"
 
-AGNES_BASE_URL = os.getenv(
-    "AGNES_BASE_URL",
-    "https://api.agnes-ai.cn/v1"
-).rstrip("/")
+#======================================================================
+#Agnes图片参数
+#======================================================================
+
+DEFAULT_AGNES_IMAGE_MODEL="agnes-image-2.5-flash"
 
-AGNES_API_KEY = os.getenv("AGNES_API_KEY", "").strip()
+DEFAULT_IMAGE_SIZE="2K"
+DEFAULT_IMAGE_RATIO="16:9"
 
-IMAGE_MODEL = "agnes-image-2.5-flash"
+MAX_RETRIES=5
+RETRY_BASE_SECONDS=5
 
-IMAGE_SIZE = "2K"
-IMAGE_RATIO = "16:9"
+IMAGE_FILENAME="文章配图.png"
 
-MAX_IMAGES_PER_REPORT = 4
 
-IMAGE_DIR_NAME = "images"
-IMAGE_COMPLETE_MARKER = "_IMAGE_COMPLETE"
+#======================================================================
+#日志
+#======================================================================
 
-REQUEST_TIMEOUT = 180
+deflog(message:str):
+print(message,flush=True)
 
-# 防止连续图片请求过于集中
-IMAGE_REQUEST_INTERVAL = 2.0
 
+#======================================================================
+#配置
+#======================================================================
 
-# ======================================================================
-# 工具函数
-# ======================================================================
+defload_config()->dict:
+ifnotCONFIG_PATH.exists():
+raiseFileNotFoundError(
+f"找不到配置文件：{CONFIG_PATH}"
+)
 
-def log(message: str) -> None:
-    print(message, flush=True)
+withCONFIG_PATH.open(
+"r",
+encoding="utf-8"
+)asf:
+returnjson.load(f)
 
 
-def fail(message: str) -> None:
-    log("")
-    log("=" * 70)
-    log("❌ KNOWLEDGE IMAGE FAILED")
-    log(message)
-    log("=" * 70)
-    raise RuntimeError(message)
+defget_required_env(name:str)->str:
+value=os.getenv(name,"").strip()
 
+ifnotvalue:
+raiseRuntimeError(
+f"环境变量{name}未设置或为空。"
+)
 
-def ensure_api_key() -> None:
-    if not AGNES_API_KEY:
-        fail(
-            "环境变量 AGNES_API_KEY 未配置。\n"
-            "请在 GitHub Actions 中使用 secrets.AGnes API Key。"
-        )
+returnvalue
 
 
-def read_text(path: Path) -> str:
-    return path.read_text(encoding="utf-8")
+#======================================================================
+#Markdown清理
+#======================================================================
 
+defclean_text(text:str)->str:
 
-def write_text(path: Path, text: str) -> None:
-    path.write_text(text, encoding="utf-8")
+ifnottext:
+return""
 
+#删除代码块
+text=re.sub(
+r"```.*?```",
+"",
+text,
+flags=re.DOTALL
+)
 
-def safe_filename(text: str) -> str:
-    """
-    将标题转换成适合作为文件名的形式。
-    """
+#删除Markdown图片
+text=re.sub(
+r"!\[[^\]]*\]\([^)]+\)",
+"",
+text
+)
 
-    text = text.strip()
+#Markdown链接只保留文字
+text=re.sub(
+r"\[([^\]]+)\]\([^)]+\)",
+r"\1",
+text
+)
 
-    text = re.sub(
-        r'[\\/:*?"<>|]+',
-        "_",
-        text
-    )
+#删除Markdown标题符号
+text=re.sub(
+r"^\s*#+\s*",
+"",
+text,
+flags=re.MULTILINE
+)
 
-    text = re.sub(
-        r"\s+",
-        "_",
-        text
-    )
+#删除HTML
+text=re.sub(
+r"<[^>]+>",
+"",
+text
+)
 
-    return text[:80] or "image"
+#压缩空白
+text=re.sub(
+r"\s+",
+"",
+text
+)
 
+returntext.strip()
 
-def extract_title(markdown: str, fallback: str) -> str:
-    """
-    获取 Markdown 第一层标题。
-    """
 
-    match = re.search(
-        r"(?m)^#\s+(.+?)\s*$",
-        markdown
-    )
+#======================================================================
+#提取标题和正文
+#======================================================================
 
-    if match:
-        return match.group(1).strip()
+defextract_title_and_body(markdown_text:str):
 
-    return fallback
+lines=markdown_text.splitlines()
 
+title=""
 
-def strip_existing_image_lines(markdown: str) -> str:
-    """
-    删除之前由本脚本插入的 Markdown 图片引用。
+#------------------------------------------------------------------
+#1.Markdown标题
+#------------------------------------------------------------------
 
-    只删除：
-        ![日报首图](images/xxx.png)
-        ![重点主题](images/xxx.png)
+forlineinlines:
 
-    不碰其它 Markdown 图片。
-    """
+stripped=line.strip()
 
-    pattern = re.compile(
-        r"(?m)^\s*!\[[^\]]*\]\(images/[^)\n]+\)\s*\n?"
-    )
+match=re.match(
+r"^#{1,6}\s+(.+?)\s*$",
+stripped
+)
 
-    return pattern.sub("", markdown)
+ifmatch:
 
+title=clean_text(
+match.group(1)
+)
 
-def truncate_for_prompt(text: str, limit: int = 18000) -> str:
-    """
-    防止超长 Markdown 直接进入图片 Prompt。
-    """
+break
 
-    text = text.strip()
+#------------------------------------------------------------------
+#2.Title:
+#------------------------------------------------------------------
 
-    if len(text) <= limit:
-        return text
+ifnottitle:
 
-    return text[:limit] + "\n\n[后续内容省略]"
+forlineinlines:
 
+stripped=line.strip()
 
-# ======================================================================
-# 报告发现
-# ======================================================================
+match=re.match(
+r"^(?:Title|TITLE|title)\s*[:：]\s*(.+)$",
+stripped
+)
 
-def find_daily_reports(dates: list[str]) -> list[Path]:
-    """
-    查找指定日期的日报。
+ifmatch:
 
-    兼容当前目录结构：
+title=clean_text(
+match.group(1)
+)
 
-        05_日报/YYYY/MM/YYYY-MM-DD.md
-    """
+break
 
-    reports: list[Path] = []
+#------------------------------------------------------------------
+#3.中文标题：
+#------------------------------------------------------------------
 
-    for date in dates:
+ifnottitle:
 
-        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
-            continue
+forlineinlines:
 
-        year = date[:4]
-        month = date[5:7]
+stripped=line.strip()
 
-        path = DAILY_ROOT / year / month / f"{date}.md"
+match=re.match(
+r"^标题\s*[:：]\s*(.+)$",
+stripped
+)
 
-        if path.is_file():
-            reports.append(path)
-            continue
+ifmatch:
 
-        # 备用搜索，防止目录结构未来稍有变化
-        candidates = list(
-            DAILY_ROOT.rglob(f"{date}.md")
-        )
+title=clean_text(
+match.group(1)
+)
 
-        if candidates:
-            reports.append(candidates[0])
+break
 
-    return unique_paths(reports)
+#------------------------------------------------------------------
+#4.第一行非空文本
+#------------------------------------------------------------------
 
+ifnottitle:
 
-def find_weekly_reports(dates: list[str]) -> list[Path]:
-    """
-    根据日报日期所在周，寻找对应周报。
+forlineinlines:
 
-    当前周报结构兼容：
+stripped=clean_text(line)
 
-        06_周报/YYYY/Wxx/Wxx.md
+ifstripped:
 
-    同时也会进行递归搜索。
-    """
+title=stripped
 
-    reports: list[Path] = []
+break
 
-    for date in dates:
+#------------------------------------------------------------------
+#正文
+#------------------------------------------------------------------
 
-        try:
-            year, month, day = map(int, date.split("-"))
-            import datetime
+body_lines=[]
 
-            dt = datetime.date(year, month, day)
-            iso = dt.isocalendar()
+forlineinlines:
 
-            iso_year = iso.year
-            week = iso.week
+stripped=line.strip()
 
-            week_name = f"W{week:02d}"
+ifnotstripped:
+continue
 
-            candidates = [
-                WEEKLY_ROOT
-                / str(iso_year)
-                / week_name
-                / f"{week_name}.md",
+cleaned=clean_text(stripped)
 
-                WEEKLY_ROOT
-                / str(iso_year)
-                / week_name
-                / f"{week_name}.MD",
-            ]
+ifnotcleaned:
+continue
 
-            found = False
+#跳过标题
+iftitleandcleaned==title:
+continue
 
-            for path in candidates:
-                if path.is_file():
-                    reports.append(path)
-                    found = True
-                    break
+#跳过Title:
+ifre.match(
+r"^(?:Title|TITLE|title|标题)\s*[:：]",
+cleaned
+):
+continue
 
-            if found:
-                continue
+body_lines.append(cleaned)
 
-            recursive = list(
-                WEEKLY_ROOT.rglob(f"{week_name}.md")
-            )
+body=clean_text(
+"\n".join(body_lines)
+)
 
-            if recursive:
-                reports.append(recursive[0])
+returntitle,body
 
-        except Exception as exc:
-            log(
-                f"⚠️ 无法根据日期 {date} 查找周报：{exc}"
-            )
 
-    return unique_paths(reports)
+#======================================================================
+#自动寻找文章
+#======================================================================
 
+deffind_article_file(run_date:str)->Path:
 
-def unique_paths(paths: list[Path]) -> list[Path]:
+date_dir=OUTPUT_DIR/run_date
 
-    result: list[Path] = []
-    seen: set[str] = set()
+ifnotdate_dir.exists():
 
-    for path in paths:
+raiseFileNotFoundError(
+f"找不到当天输出目录：{date_dir}"
+)
 
-        key = str(path.resolve())
+candidates=[]
 
-        if key in seen:
-            continue
+#------------------------------------------------------------------
+#优先搜索文章目录
+#------------------------------------------------------------------
 
-        seen.add(key)
-        result.append(path)
+article_dirs=[
 
-    return result
+date_dir/"文章",
 
+date_dir/"英语文章",
 
-# ======================================================================
-# 图片数量判断
-# ======================================================================
+date_dir/"article",
 
-def determine_image_count(markdown: str) -> int:
-    """
-    根据报告内容决定生成 2~4 张。
+date_dir/"articles",
 
-    规则：
+]
 
-    内容很短：
-        2 张
+fordirectoryinarticle_dirs:
 
-    正常报告：
-        3 张
+ifdirectory.exists():
 
-    内容丰富：
-        4 张
+candidates.extend(
+sorted(
+directory.glob("*.md")
+)
+)
 
-    第一张永远是封面。
-    """
+#------------------------------------------------------------------
+#如果没找到，则搜索当天所有Markdown
+#------------------------------------------------------------------
 
-    text_length = len(markdown)
+ifnotcandidates:
 
-    headings = re.findall(
-        r"(?m)^#{2,4}\s+.+$",
-        markdown
-    )
+candidates=sorted(
 
-    heading_count = len(headings)
+p
 
-    if text_length < 5000 and heading_count < 4:
-        return 2
+forpindate_dir.rglob("*.md")
 
-    if text_length < 12000 and heading_count < 8:
-        return 3
+if"配图"notinstr(p)
 
-    return 4
+)
 
+ifnotcandidates:
 
-# ======================================================================
-# 内容主题提取
-# ======================================================================
+raiseFileNotFoundError(
+f"在{date_dir}中没有找到Markdown文章。"
+)
 
-def extract_sections(markdown: str) -> list[tuple[str, str]]:
-    """
-    从 Markdown 中提取主要章节。
+#------------------------------------------------------------------
+#优先文章类文件
+#------------------------------------------------------------------
 
-    返回：
+priority=[]
 
-        [
-            ("AI 与科技", "..."),
-            ("国际与经济", "..."),
-        ]
-    """
+forpathincandidates:
 
-    pattern = re.compile(
-        r"(?ms)^#{2,4}\s+(.+?)\s*$"
-        r"(.*?)(?=^#{2,4}\s+|\Z)"
-    )
+name=path.stem.lower()
 
-    sections = []
+if(
+"article"inname
+or"english"inname
+or"文章"inname
+):
 
-    for match in pattern.finditer(markdown):
+priority.append(path)
 
-        title = match.group(1).strip()
-        content = match.group(2).strip()
+ifpriority:
 
-        if not content:
-            continue
+returnpriority[0]
 
-        sections.append(
-            (
-                title,
-                content[:5000]
-            )
-        )
+returncandidates[0]
 
-    return sections
 
+#======================================================================
+#图片Prompt
+#======================================================================
 
-def choose_content_sections(
-    markdown: str,
-    count: int
-) -> list[tuple[str, str]]:
-    """
-    选择最适合生成图片的章节。
+defbuild_image_prompt(
+title:str,
+body:str
+)->str:
 
-    count 包含封面。
+#防止正文过长
+body_for_prompt=body[:12000]
 
-    例如：
+prompt=f"""
+CreateONEcinematiceditorialillustrationbasedonthe
+followingEnglishlearningarticle.
 
-        count = 4
+============================================================
+ARTICLETITLE
+============================================================
 
-    则最多选择 3 个内容主题。
-    """
+{title}
 
-    wanted = max(0, count - 1)
+============================================================
+ARTICLECONTENT
+============================================================
 
-    sections = extract_sections(markdown)
+{body_for_prompt}
 
-    if not sections:
-        return []
+============================================================
+MAINREQUIREMENT
+============================================================
 
-    # 优先选择内容较丰富的章节
-    sections.sort(
-        key=lambda item: len(item[1]),
-        reverse=True
-    )
+Firstunderstandthearticle.
 
-    return sections[:wanted]
+ThencreateONEspecific,meaningfulvisualscenethat
+communicatesthecentralsubject,situation,people,
+environment,action,andemotionalatmosphereofthearticle.
 
+TheimagemustNOTbeagenericstockillustration.
 
-# ======================================================================
-# Prompt 生成
-# ======================================================================
+Thevisualscenemustclearlyfeelconnectedtothearticle.
 
-def build_cover_prompt(
-    report_type: str,
-    report_title: str,
-    markdown: str
-) -> str:
+Ifthearticledescribespeople,showappropriatepeople
+andnaturalinteraction.
 
-    content = truncate_for_prompt(
-        markdown,
-        12000
-    )
+Ifitdescribesaplace,maketheenvironmentimportant.
 
-    return f"""
-Create a premium editorial cover image for a knowledge report.
+Ifitdescribeseducation,work,technology,nature,travel,
+society,family,relationships,history,dailylife,oranother
+topic,visuallycommunicatethattopicthroughacoherent
+cinematicscene.
 
-Report type:
-{report_type}
+============================================================
+VISUALSTYLE
+============================================================
 
-Report title:
-{report_title}
+Japaneseretroanimatedfeature-filmaestheticinspiredby
+thevisuallanguageofthe1970s,1980s,andearly1990s.
 
-The image must visually represent the real themes of this report.
+Traditionalhand-drawncelanimationfeeling.
 
-Report content:
-{content}
+Hand-paintedbackgrounds.
 
-Visual requirements:
+Classicpaintedanimationbackgrounds.
 
-- cinematic editorial illustration
-- sophisticated professional knowledge-report aesthetic
-- realistic but slightly conceptual
-- strong visual hierarchy
-- clean composition
-- high information density without clutter
-- suitable as a report cover
-- no readable text
-- no logos
-- no watermark
-- no UI screenshot
-- no fake charts
-- no random unrelated objects
-- 16:9 landscape composition
-- polished magazine-quality visual
-""".strip()
+Subtleanalogfilmgrain.
 
+Slightlysoftenededges.
 
-def build_content_prompt(
-    report_type: str,
-    report_title: str,
-    section_title: str,
-    section_content: str
-) -> str:
+Naturalhand-drawnlinequality.
 
-    content = truncate_for_prompt(
-        section_content,
-        7000
-    )
+Warmatmosphericlighting.
 
-    return f"""
-Create a premium editorial illustration for one section of a knowledge report.
+Poeticcinematiccomposition.
 
-Report type:
-{report_type}
+Nostalgiclate-Showaandearly-Heiseimood.
 
-Report title:
-{report_title}
+Beautifulenvironmentalstorytelling.
 
-Section:
-{section_title}
+Naturalhumanexpressions.
 
-Section content:
-{content}
+Believableanatomy.
 
-Visual requirements:
+Detailedenvironments.
 
-- directly visualize the actual meaning of the section
-- cinematic editorial illustration
-- sophisticated professional style
-- realistic and conceptually clear
-- strong composition
-- visually memorable
-- suitable for a high-quality knowledge report
-- no readable text
-- no logos
-- no watermark
-- no UI screenshot
-- no random decorative objects
-- 16:9 landscape composition
-""".strip()
+Quietemotionalatmosphere.
 
+Asenseofwonder,warmth,youth,memory,andeverydaylife.
 
-# ======================================================================
-# AGNES 图片 API
-# ======================================================================
+Useslightlymutedvintagecolors.
 
-def call_image_api(prompt: str) -> str:
-    """
-    调用：
+Avoidmodernglossydigital-artappearance.
 
-        POST /v1/images/generations
+Avoidphotorealism.
 
-    使用：
+Avoid3D-renderedappearance.
 
-        model = agnes-image-2.5-flash
-        size  = 2K
-        ratio = 16:9
+Thefinalimageshouldfeellikeacarefullypaintedframe
+fromaclassicJapaneseanimatedfeaturefilm.
 
-    注意：
+============================================================
+COMPOSITION
+============================================================
 
-        response_format 必须放在 extra_body。
-    """
+16:9widescreencinematiccomposition.
 
-    url = (
-        f"{AGNES_BASE_URL}"
-        "/images/generations"
-    )
+Strongforeground,middleground,andbackground.
 
-    payload = {
-        "model": IMAGE_MODEL,
-        "prompt": prompt,
-        "size": IMAGE_SIZE,
-        "ratio": IMAGE_RATIO,
-        "extra_body": {
-            "response_format": "url"
-        }
-    }
+Clearfocalsubject.
 
-    data = json.dumps(
-        payload,
-        ensure_ascii=False
-    ).encode("utf-8")
+Naturaldepth.
 
-    request = Request(
-        url,
-        data=data,
-        method="POST",
-        headers={
-            "Authorization": (
-                f"Bearer {AGNES_API_KEY}"
-            ),
-            "Content-Type": "application/json",
-        },
-    )
+Elegantvisualbalance.
 
-    last_error = None
+LeavesufficientcleannegativespacefortheEnglish
+articletitle.
 
-    for attempt in range(1, 4):
+Thearticletitleshouldfeellikepartofabeautiful
+vintageanimated-filmposter.
 
-        try:
+Theartworkremainstheprimaryvisualelement.
 
-            log(
-                f"    🎨 图片 API 请求 "
-                f"(第 {attempt}/3 次)"
-            )
+============================================================
+ARTICLETITLEINIMAGE
+============================================================
 
-            with urlopen(
-                request,
-                timeout=REQUEST_TIMEOUT
-            ) as response:
+TheONLYintentionalreadabletextintheimagemustbe:
 
-                raw = response.read()
+"{title}"
 
-            result = json.loads(
-                raw.decode("utf-8")
-            )
+RenderthetitleEXACTLYasprovided.
 
-            image_url = (
-                result
-                .get("data", [{}])[0]
-                .get("url")
-            )
+DoNOT:
 
-            if not image_url:
-                raise RuntimeError(
-                    "AGNES 图片 API 没有返回 data[0].url"
-                )
+-translateit
+-rewriteit
+-shortenit
+-abbreviateit
+-replaceit
+-paraphraseit
+-misspellit
+-inventanothertitle
 
-            return image_url
+UseelegantvintagecinematicEnglishtypography.
 
-        except HTTPError as exc:
+Thetitleshouldbehighlyreadable.
 
-            body = ""
+Placeitnaturallyinthenegativespaceofthecomposition.
 
-            try:
-                body = exc.read().decode(
-                    "utf-8",
-                    errors="replace"
-                )
-            except Exception:
-                pass
+Userestrained,tastefultypography.
 
-            last_error = (
-                f"HTTP {exc.code}: {body[:2000]}"
-            )
+============================================================
+TEXTRESTRICTIONS
+============================================================
 
-            log(
-                f"    ⚠️ 图片 API 错误："
-                f"{last_error}"
-            )
+AbsolutelyNOotherreadabletext.
 
-        except URLError as exc:
+Nosubtitles.
 
-            last_error = (
-                f"网络错误：{exc}"
-            )
+Nocaptions.
 
-            log(
-                f"    ⚠️ {last_error}"
-            )
+Nodialogue.
 
-        except Exception as exc:
+Nospeechbubbles.
 
-            last_error = str(exc)
+NoadditionalEnglishwords.
 
-            log(
-                f"    ⚠️ {last_error}"
-            )
+NoChinesetext.
 
-        if attempt < 3:
+NoJapanesetext.
 
-            wait_seconds = attempt * 5
+Nologos.
 
-            log(
-                f"    ⏳ {wait_seconds} 秒后重试..."
-            )
+Nobrandnames.
 
-            time.sleep(wait_seconds)
+Nowatermarks.
 
-    raise RuntimeError(
-        f"AGNES 图片生成失败：{last_error}"
-    )
+Nosignatures.
 
+Norandomletters.
 
-# ======================================================================
-# 图片下载
-# ======================================================================
+Nofakenewspapertext.
 
-def download_image(
-    image_url: str,
-    output_path: Path
-) -> None:
+Nofakesignswithreadablewriting.
 
-    log(
-        f"    ⬇️ 下载图片：{output_path.name}"
-    )
+TheONLYreadabletextis:
 
-    request = Request(
-        image_url,
-        headers={
-            "User-Agent":
-                "Mozilla/5.0 "
-                "748686-Knowledge-System"
-        }
-    )
+"{title}"
 
-    with urlopen(
-        request,
-        timeout=REQUEST_TIMEOUT
-    ) as response:
+============================================================
+FINALIMAGE
+============================================================
 
-        image_data = response.read()
+Onefinishedimage.
 
-    if not image_data:
-        raise RuntimeError(
-            "下载到的图片为空"
-        )
+Cinematic.
 
-    output_path.parent.mkdir(
-        parents=True,
-        exist_ok=True
-    )
+Hand-painted.
 
-    output_path.write_bytes(
-        image_data
-    )
+Nostalgic.
 
-    # 基础文件完整性检查
-    size = output_path.stat().st_size
+Elegant.
 
-    if size < 1024:
-        raise RuntimeError(
-            f"图片文件异常，大小只有 {size} bytes"
-        )
+Emotionallymeaningful.
 
-    log(
-        f"    ✅ 图片保存成功："
-        f"{output_path} "
-        f"({size:,} bytes)"
-    )
+Visuallyconnectedtothearticle.
 
+16:9widescreen.
 
-# ======================================================================
-# Markdown 图片引用
-# ======================================================================
+Highdetail.
 
-def build_image_markdown(
-    image_filename: str,
-    alt_text: str
-) -> str:
+RetroJapaneseanimationatmosphere.
+"""
 
-    return (
-        f"![{alt_text}]"
-        f"(images/{image_filename})"
-    )
+returnprompt.strip()
 
 
-def insert_images_into_markdown(
-    markdown: str,
-    image_entries: list[tuple[str, str]]
-) -> str:
-    """
-    image_entries：
+#======================================================================
+#AgnesAPI请求
+#======================================================================
 
-        [
-            ("cover.png", "日报首图"),
-            ("image-01.png", "AI 与科技"),
-        ]
+defagnes_generate_image(
+api_key:str,
+base_url:str,
+model:str,
+prompt:str,
+):
+"""
+调用AgnesImageAPI。
 
-    插入原则：
+请求：
 
-    第一张：
-        放在第一个标题之后。
+POST/images/generations
 
-    后续图片：
-        尽可能插入对应章节标题之前。
-    """
+参数：
 
-    # --------------------------------------------------------------
-    # 先清理本脚本以前生成的图片引用
-    # --------------------------------------------------------------
+model
+prompt
+n
+size=2K
+ratio=16:9
+extra_body.response_format=url
+"""
 
-    cleaned = strip_existing_image_lines(
-        markdown
-    )
+url=(
+base_url.rstrip("/")
++"/images/generations"
+)
 
-    if not image_entries:
-        return cleaned
+payload={
 
-    cover_filename, cover_alt = image_entries[0]
+"model":model,
 
-    cover_md = build_image_markdown(
-        cover_filename,
-        cover_alt
-    )
+"prompt":prompt,
 
-    # --------------------------------------------------------------
-    # 封面插入第一个一级标题之后
-    # --------------------------------------------------------------
+"n":1,
 
-    heading_match = re.search(
-        r"(?m)^#\s+.+?$",
-        cleaned
-    )
+"size":DEFAULT_IMAGE_SIZE,
 
-    if heading_match:
+"ratio":DEFAULT_IMAGE_RATIO,
 
-        insert_pos = heading_match.end()
+"extra_body":{
 
-        cleaned = (
-            cleaned[:insert_pos]
-            + "\n\n"
-            + cover_md
-            + "\n"
-            + cleaned[insert_pos:]
-        )
+"response_format":"url"
 
-    else:
+},
 
-        cleaned = (
-            cover_md
-            + "\n\n"
-            + cleaned
-        )
+}
 
-    # --------------------------------------------------------------
-    # 内容图片
-    # --------------------------------------------------------------
+data=json.dumps(
+payload,
+ensure_ascii=False
+).encode("utf-8")
 
-    content_entries = image_entries[1:]
+request=Request(
 
-    if not content_entries:
-        return cleaned
+url,
 
-    # 找所有二级及以下章节
-    section_matches = list(
-        re.finditer(
-            r"(?m)^#{2,4}\s+(.+?)\s*$",
-            cleaned
-        )
-    )
+data=data,
 
-    if not section_matches:
-        return cleaned
+method="POST",
 
-    # 从后往前插入，避免位置偏移
-    insertions = []
+headers={
 
-    for index, (filename, alt_text) in enumerate(
-        content_entries
-    ):
+"Authorization":
+f"Bearer{api_key}",
 
-        if index >= len(section_matches):
-            break
+"Content-Type":
+"application/json",
 
-        match = section_matches[index]
+"Accept":
+"application/json",
 
-        image_md = build_image_markdown(
-            filename,
-            alt_text
-        )
+},
 
-        insertions.append(
-            (
-                match.start(),
-                "\n"
-                + image_md
-                + "\n"
-            )
-        )
+)
 
-    for position, text in reversed(insertions):
+log("")
+log("CallingAgnesImageAPI...")
+log(f"Endpoint:{url}")
+log(f"Model:{model}")
+log(f"Size:{DEFAULT_IMAGE_SIZE}")
+log(f"Ratio:{DEFAULT_IMAGE_RATIO}")
 
-        cleaned = (
-            cleaned[:position]
-            + text
-            + cleaned[position:]
-        )
+withurlopen(
+request,
+timeout=600
+)asresponse:
 
-    return cleaned
+raw=response.read()
 
+result=json.loads(
+raw.decode("utf-8")
+)
 
-# ======================================================================
-# 完整性检查
-# ======================================================================
+#------------------------------------------------------------------
+#API基本检查
+#------------------------------------------------------------------
 
-def validate_images(
-    image_dir: Path,
-    filenames: list[str]
-) -> bool:
+ifnotisinstance(result,dict):
 
-    for filename in filenames:
+raiseRuntimeError(
+f"Agnes返回格式异常：{result}"
+)
 
-        path = image_dir / filename
+data_list=result.get("data")
 
-        if not path.is_file():
-            log(
-                f"    ❌ 图片不存在：{path}"
-            )
-            return False
+ifnotdata_list:
 
-        size = path.stat().st_size
+raiseRuntimeError(
+f"Agnes没有返回图片：{result}"
+)
 
-        if size < 1024:
-            log(
-                f"    ❌ 图片文件异常："
-                f"{path} ({size} bytes)"
-            )
-            return False
+item=data_list[0]
 
-    return True
+#------------------------------------------------------------------
+#URL
+#------------------------------------------------------------------
 
+image_url=item.get("url")
 
-def validate_markdown_references(
-    markdown: str,
-    image_dir: Path,
-    filenames: list[str]
-) -> bool:
+ifimage_url:
 
-    for filename in filenames:
+return{
+"type":"url",
+"value":image_url,
+}
 
-        reference = (
-            f"images/{filename}"
-        )
+#------------------------------------------------------------------
+#Base64备用
+#------------------------------------------------------------------
 
-        if reference not in markdown:
-            log(
-                f"    ❌ Markdown 缺少图片引用："
-                f"{reference}"
-            )
-            return False
+b64_json=item.get("b64_json")
 
-        if not (
-            image_dir / filename
-        ).is_file():
-            log(
-                f"    ❌ 引用图片不存在："
-                f"{image_dir / filename}"
-            )
-            return False
+ifb64_json:
 
-    return True
+return{
+"type":"base64",
+"value":b64_json,
+}
 
+raiseRuntimeError(
+f"Agnes返回中没有url或b64_json：{result}"
+)
 
-# ======================================================================
-# 单份报告处理
-# ======================================================================
 
-def process_report(
-    report_path: Path,
-    report_type: str
-) -> bool:
+#======================================================================
+#下载图片
+#======================================================================
 
-    log("")
-    log("=" * 70)
-    log(
-        f"📄 {report_type}："
-        f"{report_path}"
-    )
-    log("=" * 70)
+defdownload_image(
+image_url:str
+)->bytes:
 
-    markdown = read_text(
-        report_path
-    )
+log("")
+log("Downloadinggeneratedimage...")
 
-    if not markdown.strip():
-        log("⚠️ Markdown 为空，跳过")
-        return False
+request=Request(
 
-    image_dir = (
-        report_path.parent
-        / IMAGE_DIR_NAME
-    )
+image_url,
 
-    marker = (
-        report_path.parent
-        / IMAGE_COMPLETE_MARKER
-    )
+headers={
 
-    # --------------------------------------------------------------
-    # 已完成
-    # --------------------------------------------------------------
+"User-Agent":
+"748686-English-Learning-System"
 
-    if marker.is_file():
+},
 
-        log(
-            "⏭️ 检测到 _IMAGE_COMPLETE"
-        )
+)
 
-        log(
-            "   已完成图片生成，跳过 API 请求。"
-        )
+withurlopen(
+request,
+timeout=600
+)asresponse:
 
-        return False
+image_bytes=response.read()
 
-    # --------------------------------------------------------------
-    # 报告标题
-    # --------------------------------------------------------------
+ifnotimage_bytes:
 
-    fallback_title = (
-        report_path.stem
-    )
+raiseRuntimeError(
+"下载到的图片为空。"
+)
 
-    report_title = extract_title(
-        markdown,
-        fallback_title
-    )
+returnimage_bytes
 
-    # --------------------------------------------------------------
-    # 图片数量
-    # --------------------------------------------------------------
 
-    image_count = determine_image_count(
-        markdown
-    )
+#======================================================================
+#Base64解码
+#======================================================================
 
-    image_count = min(
-        MAX_IMAGES_PER_REPORT,
-        max(2, image_count)
-    )
+defdecode_base64_image(
+b64_data:str
+)->bytes:
 
-    log(
-        f"🖼️ 计划生成："
-        f"{image_count} 张图片"
-    )
+importbase64
 
-    log(
-        f"   封面：1"
-    )
+image_bytes=base64.b64decode(
+b64_data
+)
 
-    log(
-        f"   内容图："
-        f"{image_count - 1}"
-    )
+ifnotimage_bytes:
 
-    # --------------------------------------------------------------
-    # 选择内容章节
-    # --------------------------------------------------------------
+raiseRuntimeError(
+"Base64图片为空。"
+)
 
-    sections = choose_content_sections(
-        markdown,
-        image_count
-    )
+returnimage_bytes
 
-    # 如果章节太少，则降低实际图片数量
-    actual_count = 1 + len(sections)
 
-    if actual_count < 2:
-        log(
-            "⚠️ 报告缺少足够内容章节，"
-            "至少生成 1 张封面。"
-        )
+#======================================================================
+#安全保存
+#======================================================================
 
-    # --------------------------------------------------------------
-    # 准备目录
-    # --------------------------------------------------------------
+defsave_image(
+image_bytes:bytes,
+output_path:Path
+):
 
-    image_dir.mkdir(
-        parents=True,
-        exist_ok=True
-    )
+output_path.parent.mkdir(
+parents=True,
+exist_ok=True
+)
 
-    generated: list[
-        tuple[str, str]
-    ] = []
+#--------------------------------------------------------------
+#临时文件
+#--------------------------------------------------------------
 
-    downloaded_files: list[str] = []
+temp_path=output_path.with_suffix(
+".tmp"
+)
 
-    # --------------------------------------------------------------
-    # 1. 生成封面
-    # --------------------------------------------------------------
+withtemp_path.open(
+"wb"
+)asf:
 
-    cover_filename = (
-        f"{report_path.stem}-cover.png"
-    )
+f.write(image_bytes)
 
-    cover_path = (
-        image_dir
-        / cover_filename
-    )
+f.flush()
 
-    log("")
-    log("🎬 生成封面图")
+os.fsync(
+f.fileno()
+)
 
-    cover_prompt = build_cover_prompt(
-        report_type,
-        report_title,
-        markdown
-    )
+#--------------------------------------------------------------
+#原子替换
+#--------------------------------------------------------------
 
-    image_url = call_image_api(
-        cover_prompt
-    )
+temp_path.replace(
+output_path
+)
 
-    download_image(
-        image_url,
-        cover_path
-    )
 
-    generated.append(
-        (
-            cover_filename,
-            f"{report_type}首图"
-        )
-    )
+#======================================================================
+#生成图片
+#======================================================================
 
-    downloaded_files.append(
-        cover_filename
-    )
+defgenerate_image(
+run_date:str,
+article_path:Path,
+config:dict,
+):
 
-    time.sleep(
-        IMAGE_REQUEST_INTERVAL
-    )
+#------------------------------------------------------------------
+#读取文章
+#------------------------------------------------------------------
 
-    # --------------------------------------------------------------
-    # 2. 生成内容图片
-    # --------------------------------------------------------------
+markdown=article_path.read_text(
+encoding="utf-8"
+)
 
-    for index, (
-        section_title,
-        section_content
-    ) in enumerate(
-        sections,
-        start=1
-    ):
+title,body=extract_title_and_body(
+markdown
+)
 
-        filename = (
-            f"{report_path.stem}"
-            f"-image-{index:02d}.png"
-        )
+ifnottitle:
 
-        output_path = (
-            image_dir
-            / filename
-        )
+raiseRuntimeError(
+"无法从文章中提取英文标题。"
+)
 
-        log("")
-        log(
-            f"🖼️ 生成内容图 "
-            f"{index}/{len(sections)}："
-            f"{section_title}"
-        )
+ifnotbody:
 
-        prompt = build_content_prompt(
-            report_type,
-            report_title,
-            section_title,
-            section_content
-        )
+raiseRuntimeError(
+"文章正文为空。"
+)
 
-        image_url = call_image_api(
-            prompt
-        )
+#------------------------------------------------------------------
+#日志
+#------------------------------------------------------------------
 
-        download_image(
-            image_url,
-            output_path
-        )
+log("")
+log("="*72)
+log("748686·02_英语学习系统")
+log("KNOWLEDGEIMAGE")
+log("="*72)
 
-        generated.append(
-            (
-                filename,
-                section_title
-            )
-        )
+log(f"DATE:{run_date}")
+log(f"ARTICLE:{article_path}")
+log(f"TITLE:{title}")
 
-        downloaded_files.append(
-            filename
-        )
+log("="*72)
 
-        if index < len(sections):
-            time.sleep(
-                IMAGE_REQUEST_INTERVAL
-            )
+#------------------------------------------------------------------
+#Agnes配置
+#------------------------------------------------------------------
 
-    # --------------------------------------------------------------
-    # 3. 验证所有图片
-    # --------------------------------------------------------------
+agnes_config=config.get(
+"agnes",
+{}
+)
 
-    log("")
-    log("🔍 验证生成图片")
+base_url=(
+agnes_config
+.get(
+"base_url",
+"https://api.agnes-ai.cn/v1"
+)
+.strip()
+)
 
-    if not validate_images(
-        image_dir,
-        downloaded_files
-    ):
-        fail(
-            f"{report_path} 图片完整性验证失败"
-        )
+#------------------------------------------------------------------
+#图片模型
+#
+#这里明确使用：
+#agnes-image-2.5-flash
+#
+#不使用文字模型agnes-3.0-flash
+#------------------------------------------------------------------
 
-    log(
-        "✅ 所有图片文件验证通过"
-    )
+model=(
+agnes_config
+.get(
+"image_model",
+DEFAULT_AGNES_IMAGE_MODEL
+)
+.strip()
+)
 
-    # --------------------------------------------------------------
-    # 4. 生成新的 Markdown
-    # --------------------------------------------------------------
+ifnotmodel:
 
-    log("")
-    log("📝 写入 Markdown 图片引用")
+model=DEFAULT_AGNES_IMAGE_MODEL
 
-    new_markdown = insert_images_into_markdown(
-        markdown,
-        generated
-    )
+#------------------------------------------------------------------
+#APIKey环境变量名称
+#------------------------------------------------------------------
 
-    # --------------------------------------------------------------
-    # 5. 验证 Markdown
-    # --------------------------------------------------------------
+api_key_env=(
+agnes_config
+.get(
+"api_key_env",
+"AGNES_API_KEY"
+)
+.strip()
+)
 
-    if not validate_markdown_references(
-        new_markdown,
-        image_dir,
-        downloaded_files
-    ):
-        fail(
-            f"{report_path} Markdown 图片引用验证失败"
-        )
+api_key=get_required_env(
+api_key_env
+)
 
-    log(
-        "✅ Markdown 图片引用验证通过"
-    )
+#------------------------------------------------------------------
+#输出
+#------------------------------------------------------------------
 
-    # --------------------------------------------------------------
-    # 6. 最后才覆盖原 Markdown
-    # --------------------------------------------------------------
+image_dir=(
+OUTPUT_DIR
+/run_date
+/"配图"
+)
 
-    write_text(
-        report_path,
-        new_markdown
-    )
+output_path=(
+image_dir
+/IMAGE_FILENAME
+)
 
-    log(
-        f"✅ Markdown 已更新："
-        f"{report_path}"
-    )
+#------------------------------------------------------------------
+#如果已经生成过
+#------------------------------------------------------------------
 
-    # --------------------------------------------------------------
-    # 7. 最后才创建完成标记
-    # --------------------------------------------------------------
+ifoutput_path.exists():
 
-    marker.write_text(
-        "IMAGE_GENERATION_COMPLETE\n",
-        encoding="utf-8"
-    )
+log("")
+log("✓配图已经存在")
+log(f"✓{output_path}")
 
-    log(
-        f"✅ 已创建：{marker}"
-    )
+returnoutput_path
 
-    log("")
-    log(
-        f"🎉 {report_type} 图片处理完成"
-    )
+#------------------------------------------------------------------
+#Prompt
+#------------------------------------------------------------------
 
-    return True
+prompt=build_image_prompt(
+title,
+body
+)
 
+log("")
+log("IMAGEPROMPT")
+log("-"*72)
+log(prompt)
+log("-"*72)
 
-# ======================================================================
-# 日期参数
-# ======================================================================
+#------------------------------------------------------------------
+#重试
+#------------------------------------------------------------------
 
-def get_dates_from_args() -> list[str]:
-    """
-    如果命令行提供日期：
+last_error=None
 
-        python knowledge_image.py 2026-09-06 2026-09-07
+forattemptinrange(
+1,
+MAX_RETRIES+1
+):
 
-    则只处理这些日期。
+log("")
+log(
+f"🖼️Agnes图片生成"
+f"{attempt}/{MAX_RETRIES}"
+)
 
-    如果没有参数：
+try:
 
-        自动使用今天 UTC 日期及前两天。
-    """
+result=agnes_generate_image(
 
-    if len(sys.argv) > 1:
+api_key=api_key,
 
-        dates = []
+base_url=base_url,
 
-        for value in sys.argv[1:]:
+model=model,
 
-            value = value.strip()
+prompt=prompt,
 
-            if re.fullmatch(
-                r"\d{4}-\d{2}-\d{2}",
-                value
-            ):
-                dates.append(value)
-            else:
-                log(
-                    f"⚠️ 忽略非法日期：{value}"
-                )
+)
 
-        if dates:
-            return dates
+#----------------------------------------------------------
+#URL
+#----------------------------------------------------------
 
-    import datetime
+ifresult["type"]=="url":
 
-    today = datetime.datetime.now(
-        datetime.timezone.utc
-    ).date()
+image_bytes=download_image(
+result["value"]
+)
 
-    return [
-        str(today - datetime.timedelta(days=2)),
-        str(today - datetime.timedelta(days=1)),
-        str(today),
-    ]
+#----------------------------------------------------------
+#Base64
+#----------------------------------------------------------
 
+elifresult["type"]=="base64":
 
-# ======================================================================
-# 主程序
-# ======================================================================
+image_bytes=decode_base64_image(
+result["value"]
+)
 
-def main() -> None:
+else:
 
-    log("")
-    log("=" * 70)
-    log("748686 KNOWLEDGE IMAGE GENERATOR")
-    log("=" * 70)
-    log(
-        f"Model : {IMAGE_MODEL}"
-    )
-    log(
-        f"Size  : {IMAGE_SIZE}"
-    )
-    log(
-        f"Ratio : {IMAGE_RATIO}"
-    )
-    log(
-        f"Base  : {AGNES_BASE_URL}"
-    )
-    log("=" * 70)
+raiseRuntimeError(
+f"未知图片返回类型："
+f"{result['type']}"
+)
 
-    ensure_api_key()
+#----------------------------------------------------------
+#立即保存
+#----------------------------------------------------------
 
-    dates = get_dates_from_args()
+save_image(
+image_bytes,
+output_path
+)
 
-    log("")
-    log(
-        "📅 处理日期："
-        + ", ".join(dates)
-    )
+log("")
+log("✓图片生成成功")
+log("✓图片已经立即落盘")
+log(f"✓{output_path}")
 
-    # --------------------------------------------------------------
-    # 查找日报
-    # --------------------------------------------------------------
+log("")
+log("="*72)
+log("KNOWLEDGEIMAGESUCCESS")
+log("="*72)
 
-    daily_reports = find_daily_reports(
-        dates
-    )
+returnoutput_path
 
-    # --------------------------------------------------------------
-    # 查找周报
-    # --------------------------------------------------------------
+exceptHTTPErrorase:
 
-    weekly_reports = find_weekly_reports(
-        dates
-    )
+error_body=""
 
-    log("")
-    log(
-        f"📊 找到日报："
-        f"{len(daily_reports)}"
-    )
+try:
 
-    for path in daily_reports:
-        log(f"   • {path}")
+error_body=(
+e.read()
+.decode(
+"utf-8",
+errors="replace"
+)
+)
 
-    log("")
-    log(
-        f"📊 找到周报："
-        f"{len(weekly_reports)}"
-    )
+exceptException:
 
-    for path in weekly_reports:
-        log(f"   • {path}")
+pass
 
-    processed = 0
-    skipped = 0
+last_error=(
+f"HTTP{e.code}:"
+f"{error_body}"
+)
 
-    # --------------------------------------------------------------
-    # 日报
-    # --------------------------------------------------------------
+log("")
+log("❌AgnesAPI请求失败")
+log(last_error)
 
-    for report in daily_reports:
+exceptURLErrorase:
 
-        result = process_report(
-            report,
-            "知识日报"
-        )
+last_error=(
+f"网络错误：{e}"
+)
 
-        if result:
-            processed += 1
-        else:
-            skipped += 1
+log("")
+log("❌图片下载/网络错误")
+log(last_error)
 
-    # --------------------------------------------------------------
-    # 周报
-    # --------------------------------------------------------------
+exceptExceptionase:
 
-    for report in weekly_reports:
+last_error=(
+f"{type(e).__name__}:{e}"
+)
 
-        result = process_report(
-            report,
-            "知识周报"
-        )
+log("")
+log("❌图片生成失败")
+log(last_error)
 
-        if result:
-            processed += 1
-        else:
-            skipped += 1
+#--------------------------------------------------------------
+#重试
+#--------------------------------------------------------------
 
-    # --------------------------------------------------------------
-    # 最终结果
-    # --------------------------------------------------------------
+ifattempt<MAX_RETRIES:
 
-    log("")
-    log("=" * 70)
-    log("748686 KNOWLEDGE IMAGE GENERATOR COMPLETE")
-    log("=" * 70)
-    log(
-        f"处理完成：{processed}"
-    )
-    log(
-        f"跳过：{skipped}"
-    )
-    log("=" * 70)
+wait_seconds=(
+RETRY_BASE_SECONDS
+*attempt
+)
 
+log(
+f"⏳{wait_seconds}秒后重试..."
+)
 
-if __name__ == "__main__":
-    main()
+time.sleep(
+wait_seconds
+)
+
+#------------------------------------------------------------------
+#全部失败
+#------------------------------------------------------------------
+
+raiseRuntimeError(
+"Agnes图片生成最终失败。\n"
+f"最后错误：{last_error}"
+)
+
+
+#======================================================================
+#MAIN
+#======================================================================
+
+defmain():
+
+parser=argparse.ArgumentParser(
+
+description=(
+"02_英语学习系统："
+"使用AgnesImage2.5Flash"
+"生成一张英语文章配图"
+)
+
+)
+
+parser.add_argument(
+
+"--date",
+
+required=True,
+
+help=(
+"文章日期，例如：2026-09-09"
+)
+
+)
+
+parser.add_argument(
+
+"--article",
+
+required=False,
+
+default="",
+
+help=(
+"可选：直接指定文章Markdown文件"
+)
+
+)
+
+args=parser.parse_args()
+
+run_date=args.date.strip()
+
+#------------------------------------------------------------------
+#日期格式
+#------------------------------------------------------------------
+
+ifnotre.fullmatch(
+r"\d{4}-\d{2}-\d{2}",
+run_date
+):
+
+raiseValueError(
+f"日期格式错误：{run_date}"
+)
+
+#------------------------------------------------------------------
+#读取配置
+#------------------------------------------------------------------
+
+config=load_config()
+
+#------------------------------------------------------------------
+#找文章
+#------------------------------------------------------------------
+
+ifargs.article:
+
+article_path=Path(
+args.article
+)
+
+ifnotarticle_path.is_absolute():
+
+article_path=(
+SYSTEM_DIR
+/article_path
+)
+
+article_path=(
+article_path.resolve()
+)
+
+ifnotarticle_path.exists():
+
+raiseFileNotFoundError(
+f"指定文章不存在："
+f"{article_path}"
+)
+
+else:
+
+article_path=find_article_file(
+run_date
+)
+
+#------------------------------------------------------------------
+#生成
+#------------------------------------------------------------------
+
+output_path=generate_image(
+
+run_date=run_date,
+
+article_path=article_path,
+
+config=config,
+
+)
+
+#------------------------------------------------------------------
+#最终
+#------------------------------------------------------------------
+
+log("")
+log("="*72)
+log("IMAGEGENERATIONFINISHED")
+log("="*72)
+log(f"ARTICLE:{article_path}")
+log(f"IMAGE:{output_path}")
+log("="*72)
+
+return0
+
+
+#======================================================================
+#程序入口
+#======================================================================
+
+if__name__=="__main__":
+
+try:
+
+sys.exit(
+main()
+)
+
+exceptKeyboardInterrupt:
+
+log("")
+log("❌用户中断。")
+
+sys.exit(130)
+
+exceptExceptionase:
+
+log("")
+log("="*72)
+log("KNOWLEDGEIMAGEFAILED")
+log("="*72)
+log(
+f"❌{type(e).__name__}:{e}"
+)
+log("="*72)
+
+#--------------------------------------------------------------
+#图片属于附加材料。
+#
+#图片失败不让整个英语学习系统失败。
+#--------------------------------------------------------------
+
+sys.exit(0)
