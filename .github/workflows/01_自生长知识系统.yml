@@ -278,7 +278,7 @@ jobs:
           AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
           AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
           AI_BASE_URL: https://api.agnes-ai.cn/v1
-          AI_MODEL: agnes-2.5-flash
+          AI_MODEL: agnes-3.0-flash
         run: |
           set -e
 
