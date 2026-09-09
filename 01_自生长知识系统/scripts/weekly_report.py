@@ -99,7 +99,7 @@ AGNES_BASE_URL = os.getenv(
 
 AGNES_MODEL = os.getenv(
     "AGNES_MODEL",
-    "agnes-2.5-flash"
+    "agnes-3.0-flash"
 )
 
 AGNES_API_KEY = os.getenv(
