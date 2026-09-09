@@ -608,15 +608,15 @@ def main():
     )
 
     parser.add_argument(
-        "--audio",
-        choices=["mp3", "m4a", "wav"],
-        default="mp3",
+    "--audio",
+    choices=["yes", "no"],
+    default="no",
     )
 
     parser.add_argument(
-        "--audio-format",
-        choices=["mp3", "m4a", "wav"],
-        default="mp3",
+    "--audio-format",
+    choices=["mp3", "m4a", "wav"],
+    default="mp3",
     )
 
     parser.add_argument(
