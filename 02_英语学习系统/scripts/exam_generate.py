@@ -3,7 +3,7 @@
 
 """
 748686 英语学习系统
-exam_generate.py V3
+exam_generate.py V3.1
 
 ============================================================
 职责
@@ -39,40 +39,33 @@ exam_generate.py V3
     1题
 
 ============================================================
-重要契约
+V3.1 修复
 ============================================================
 
-1. 必须围绕本次生成的 article_en 命题。
+1. 修复 request_json() 参数调用错误。
 
-2. Listening Part C 必须直接使用 article_en，
-   不允许 AI 另写一篇听力短文。
+   common.py：
 
-3. Cloze 必须直接从 article_en 原文挖空，
-   不允许重新写一篇完形文章。
+       request_json(method, url, headers=None, **kwargs)
 
-4. Reading 必须直接使用 article_en。
+   正确调用：
 
-5. Translation 必须从 article_en / article_zh
-   的原文或核心句子中选择。
+       request_json(
+           "POST",
+           url,
+           headers=headers,
+           json=body,
+       )
 
-6. Listening Part A：
-   每题对应一个完整英文听力句子。
-   题面不能出现中文听力句子。
+2. API 请求失败时，不进入 Repair。
 
-7. Listening Part B：
-   每题必须有完整英文对话。
+3. 只有已经成功取得并解析 JSON，
+   但试卷内容验收失败时，才进入 Repair。
 
-8. 所有选择题必须有 A/B/C/D 四个选项。
+4. 保留最后一个已经成功解析但验收失败的 exam，
+   用于 Repair，避免无意义的额外 API 请求。
 
-9. 单项选择每题只能有一个正确答案。
-
-10. 多选题每题必须至少有两个正确答案。
-
-11. 所有题目必须有答案和解析。
-
-12. 题量不符合要求时，整份考试判定失败。
-
-13. main.py 接口保持不变：
+5. main.py 接口完全保持不变：
 
        generate(article, difficulty, article_type, words)
 
@@ -80,9 +73,7 @@ exam_generate.py V3
 """
 
 import json
-import os
 import re
-import time
 from pathlib import Path
 from typing import Any
 
@@ -272,16 +263,11 @@ def _clean_text(value: Any) -> str:
 # ============================================================
 
 def clean_json_content(content: str) -> str:
-    """
-    清理 Agnes 返回的 JSON。
-    """
-
     content = _to_text(content)
 
     if not content:
         raise ValueError("AI 返回内容为空")
 
-    # 去 Markdown JSON fence
     content = re.sub(
         r"^```(?:json)?\s*",
         "",
@@ -298,7 +284,6 @@ def clean_json_content(content: str) -> str:
 
     content = content.strip()
 
-    # 提取第一个 JSON object
     start = content.find("{")
     end = content.rfind("}")
 
@@ -329,9 +314,6 @@ def parse_json_response(content: str) -> dict:
 # ============================================================
 
 def extract_content(response: Any) -> str:
-    """
-    兼容常见 OpenAI / Agnes Chat Completions 返回结构。
-    """
 
     if isinstance(response, str):
         return response
@@ -363,8 +345,11 @@ def extract_content(response: Any) -> str:
             for item in content:
                 if isinstance(item, dict):
                     text = item.get("text")
+
                     if text:
-                        parts.append(_to_text(text))
+                        parts.append(
+                            _to_text(text)
+                        )
 
             if parts:
                 return "\n".join(parts)
@@ -374,7 +359,9 @@ def extract_content(response: Any) -> str:
     if isinstance(text, str):
         return text
 
-    raise ValueError("无法从 AI 返回结果中提取 content")
+    raise ValueError(
+        "无法从 AI 返回结果中提取 content"
+    )
 
 
 # ============================================================
@@ -382,6 +369,7 @@ def extract_content(response: Any) -> str:
 # ============================================================
 
 def _question_text(question: Any) -> str:
+
     if not isinstance(question, dict):
         return ""
 
@@ -400,7 +388,28 @@ def _question_text(question: Any) -> str:
     return ""
 
 
+def _option_text(option: Any) -> str:
+
+    if isinstance(option, str):
+        return option.strip()
+
+    if isinstance(option, dict):
+        for key in (
+            "text",
+            "option",
+            "content",
+            "value",
+        ):
+            value = option.get(key)
+
+            if value:
+                return _to_text(value)
+
+    return ""
+
+
 def _options(question: Any) -> list:
+
     if not isinstance(question, dict):
         return []
 
@@ -420,26 +429,8 @@ def _options(question: Any) -> list:
     return result
 
 
-def _option_text(option: Any) -> str:
-    if isinstance(option, str):
-        return option.strip()
-
-    if isinstance(option, dict):
-        for key in (
-            "text",
-            "option",
-            "content",
-            "value",
-        ):
-            value = option.get(key)
-
-            if value:
-                return _to_text(value)
-
-    return ""
-
-
 def _answer(question: Any) -> Any:
+
     if not isinstance(question, dict):
         return None
 
@@ -447,6 +438,7 @@ def _answer(question: Any) -> Any:
 
 
 def _analysis(question: Any) -> str:
+
     if not isinstance(question, dict):
         return ""
 
@@ -458,14 +450,17 @@ def _analysis(question: Any) -> str:
 
 
 # ============================================================
-# 文章字段验证
+# 文章字段
 # ============================================================
 
 def _get_article_en(article: dict) -> str:
+
     if not isinstance(article, dict):
         raise ValueError("article 必须是 dict")
 
-    article_en = _to_text(article.get("article_en"))
+    article_en = _to_text(
+        article.get("article_en")
+    )
 
     if not article_en:
         raise ValueError("article_en 为空")
@@ -474,23 +469,33 @@ def _get_article_en(article: dict) -> str:
 
 
 def _get_article_zh(article: dict) -> str:
+
     if not isinstance(article, dict):
         return ""
 
-    return _to_text(article.get("article_zh"))
+    return _to_text(
+        article.get("article_zh")
+    )
 
 
 # ============================================================
-# 听力脚本验证
+# 听力验证
 # ============================================================
 
 def _get_listening_script(exam: dict) -> dict:
+
     script = exam.get("listening_script")
 
     if not isinstance(script, dict):
-        raise ValueError("listening_script 必须是 object")
+        raise ValueError(
+            "listening_script 必须是 object"
+        )
 
-    for part in ("part_a", "part_b", "part_c"):
+    for part in (
+        "part_a",
+        "part_b",
+        "part_c",
+    ):
         if not _to_text(script.get(part)):
             raise ValueError(
                 f"听力原文 {part} 为空"
@@ -507,7 +512,9 @@ def _validate_listening(
     listening = exam.get("listening")
 
     if not isinstance(listening, list):
-        raise ValueError("listening 必须是 list")
+        raise ValueError(
+            "listening 必须是 list"
+        )
 
     if len(listening) != 3:
         raise ValueError(
@@ -517,10 +524,15 @@ def _validate_listening(
     parts = {}
 
     for item in listening:
-        if not isinstance(item, dict):
-            raise ValueError("听力部分格式错误")
 
-        part = _to_text(item.get("part")).upper()
+        if not isinstance(item, dict):
+            raise ValueError(
+                "听力部分格式错误"
+            )
+
+        part = _to_text(
+            item.get("part")
+        ).upper()
 
         if part not in {"A", "B", "C"}:
             raise ValueError(
@@ -547,7 +559,9 @@ def _validate_listening(
                 f"缺少听力 Part {part}"
             )
 
-        questions = parts[part].get("questions")
+        questions = parts[part].get(
+            "questions"
+        )
 
         if not isinstance(questions, list):
             raise ValueError(
@@ -556,7 +570,8 @@ def _validate_listening(
 
         if len(questions) != required_count:
             raise ValueError(
-                f"听力 Part {part} 必须 {required_count} 题，"
+                f"听力 Part {part} 必须 "
+                f"{required_count} 题，"
                 f"实际 {len(questions)} 题"
             )
 
@@ -564,49 +579,73 @@ def _validate_listening(
             questions,
             start=1,
         ):
-            qtext = _question_text(question)
+
+            qtext = _question_text(
+                question
+            )
 
             if not qtext:
                 raise ValueError(
-                    f"听力 Part {part} 第 {index} 题题干为空"
+                    f"听力 Part {part} "
+                    f"第 {index} 题题干为空"
                 )
 
             options = _options(question)
 
             if len(options) != 4:
                 raise ValueError(
-                    f"听力 Part {part} 第 {index} 题必须有 "
+                    f"听力 Part {part} "
+                    f"第 {index} 题必须有 "
                     f"A/B/C/D 四个选项"
                 )
 
-            answer = _to_text(_answer(question)).upper()
+            answer = _to_text(
+                _answer(question)
+            ).upper()
 
-            if answer not in {"A", "B", "C", "D"}:
+            if answer not in {
+                "A",
+                "B",
+                "C",
+                "D",
+            }:
                 raise ValueError(
-                    f"听力 Part {part} 第 {index} 题答案非法："
+                    f"听力 Part {part} "
+                    f"第 {index} 题答案非法："
                     f"{answer}"
                 )
 
             if not _analysis(question):
                 raise ValueError(
-                    f"听力 Part {part} 第 {index} 题缺少解析"
+                    f"听力 Part {part} "
+                    f"第 {index} 题缺少解析"
                 )
 
     script = _get_listening_script(exam)
 
     # Part C 必须直接使用 article_en
-    part_c_script = _clean_text(script["part_c"])
-    article_clean = _clean_text(article_en)
+    part_c_script = _clean_text(
+        script["part_c"]
+    )
+
+    article_clean = _clean_text(
+        article_en
+    )
 
     if part_c_script != article_clean:
         raise ValueError(
-            "听力 Part C 原文必须与 article_en 完全一致"
+            "听力 Part C 原文必须与 "
+            "article_en 完全一致"
         )
 
     # Part A 禁止中文
-    chinese_pattern = re.compile(r"[\u4e00-\u9fff]")
+    chinese_pattern = re.compile(
+        r"[\u4e00-\u9fff]"
+    )
 
-    if chinese_pattern.search(script["part_a"]):
+    if chinese_pattern.search(
+        script["part_a"]
+    ):
         raise ValueError(
             "听力 Part A 原文不能出现中文"
         )
@@ -625,12 +664,14 @@ def _validate_listening(
 
 
 # ============================================================
-# 选择题验证
+# 单项选择验证
 # ============================================================
 
 def _validate_single_choice(exam: dict) -> None:
 
-    questions = exam.get("single_choice")
+    questions = exam.get(
+        "single_choice"
+    )
 
     if not isinstance(questions, list):
         raise ValueError(
@@ -639,7 +680,8 @@ def _validate_single_choice(exam: dict) -> None:
 
     if len(questions) != SINGLE_CHOICE_COUNT:
         raise ValueError(
-            f"单项选择必须 {SINGLE_CHOICE_COUNT} 题，"
+            f"单项选择必须 "
+            f"{SINGLE_CHOICE_COUNT} 题，"
             f"实际 {len(questions)} 题"
         )
 
@@ -647,7 +689,10 @@ def _validate_single_choice(exam: dict) -> None:
         questions,
         start=1,
     ):
-        qtext = _question_text(question)
+
+        qtext = _question_text(
+            question
+        )
 
         if not qtext:
             raise ValueError(
@@ -665,7 +710,12 @@ def _validate_single_choice(exam: dict) -> None:
             _answer(question)
         ).upper()
 
-        if answer not in {"A", "B", "C", "D"}:
+        if answer not in {
+            "A",
+            "B",
+            "C",
+            "D",
+        }:
             raise ValueError(
                 f"单项选择第 {index} 题答案非法"
             )
@@ -680,32 +730,52 @@ def _validate_single_choice(exam: dict) -> None:
 # 多选题验证
 # ============================================================
 
-def _normalize_answers(value: Any) -> list[str]:
+def _normalize_answers(
+    value: Any,
+) -> list[str]:
 
     if isinstance(value, list):
+
         result = []
 
         for item in value:
-            letter = _to_text(item).upper()
 
-            if letter in {"A", "B", "C", "D"}:
+            letter = _to_text(
+                item
+            ).upper()
+
+            if letter in {
+                "A",
+                "B",
+                "C",
+                "D",
+            }:
                 result.append(letter)
 
         return sorted(set(result))
 
-    text = _to_text(value).upper()
+    text = _to_text(
+        value
+    ).upper()
 
     if not text:
         return []
 
-    letters = re.findall(r"[ABCD]", text)
+    letters = re.findall(
+        r"[ABCD]",
+        text,
+    )
 
     return sorted(set(letters))
 
 
-def _validate_multiple_choice(exam: dict) -> None:
+def _validate_multiple_choice(
+    exam: dict,
+) -> None:
 
-    questions = exam.get("multiple_choice")
+    questions = exam.get(
+        "multiple_choice"
+    )
 
     if not isinstance(questions, list):
         raise ValueError(
@@ -714,7 +784,8 @@ def _validate_multiple_choice(exam: dict) -> None:
 
     if len(questions) != MULTIPLE_CHOICE_COUNT:
         raise ValueError(
-            f"多选题必须 {MULTIPLE_CHOICE_COUNT} 题，"
+            f"多选题必须 "
+            f"{MULTIPLE_CHOICE_COUNT} 题，"
             f"实际 {len(questions)} 题"
         )
 
@@ -722,7 +793,10 @@ def _validate_multiple_choice(exam: dict) -> None:
         questions,
         start=1,
     ):
-        qtext = _question_text(question)
+
+        qtext = _question_text(
+            question
+        )
 
         if not qtext:
             raise ValueError(
@@ -755,7 +829,9 @@ def _validate_multiple_choice(exam: dict) -> None:
 # 完形填空
 # ============================================================
 
-def _extract_cloze_numbers(passage: str) -> list[int]:
+def _extract_cloze_numbers(
+    passage: str,
+) -> list[int]:
 
     if not passage:
         return []
@@ -769,6 +845,7 @@ def _extract_cloze_numbers(passage: str) -> list[int]:
     numbers = []
 
     for pattern in patterns:
+
         found = re.findall(
             pattern,
             passage,
@@ -807,14 +884,18 @@ def _validate_cloze(
             "cloze 第一项格式错误"
         )
 
-    passage = _to_text(item.get("passage"))
+    passage = _to_text(
+        item.get("passage")
+    )
 
     if not passage:
         raise ValueError(
             "完形填空 passage 为空"
         )
 
-    questions = item.get("questions")
+    questions = item.get(
+        "questions"
+    )
 
     if not isinstance(questions, list):
         raise ValueError(
@@ -823,13 +904,10 @@ def _validate_cloze(
 
     if len(questions) != CLOZE_COUNT:
         raise ValueError(
-            f"完形填空必须 {CLOZE_COUNT} 空，"
+            f"完形填空必须 "
+            f"{CLOZE_COUNT} 空，"
             f"实际 {len(questions)} 题"
         )
-
-    # --------------------------------------------------------
-    # 必须有明确的编号下划线
-    # --------------------------------------------------------
 
     blank_numbers = _extract_cloze_numbers(
         passage
@@ -842,14 +920,12 @@ def _validate_cloze(
     if blank_numbers != expected_numbers:
         raise ValueError(
             "完形填空必须包含连续的 "
-            "____ (1) ____ 到 ____ (10) ____"
+            "____ (1) ____ 到 "
+            "____ (10) ____"
         )
 
     # --------------------------------------------------------
-    # article_en 必须作为原文基础
-    #
-    # AI 可能因为插入空格/编号而导致文本不完全一致，
-    # 因此采用去除挖空标记后进行核心文本匹配。
+    # 去掉挖空标记后检查文章主体
     # --------------------------------------------------------
 
     normalized_passage = passage
@@ -878,61 +954,70 @@ def _validate_cloze(
         article_en,
     ).strip()
 
-    # 允许 AI 对挖空位置产生少量空格差异，
-    # 但 article_en 的主体必须存在。
     if normalized_article not in normalized_passage:
-        # 如果整体无法匹配，则至少要求 article_en 的
-        # 大部分连续句子存在，防止 AI 偷换文章。
-        article_words = normalized_article.split()
-        passage_words = normalized_passage.split()
+
+        article_words = (
+            normalized_article.split()
+        )
+
+        passage_words = (
+            normalized_passage.split()
+        )
 
         if len(article_words) < 10:
             raise ValueError(
-                "article_en 太短，无法验证完形原文"
+                "article_en 太短，"
+                "无法验证完形原文"
             )
+
+        passage_word_set = {
+            x.lower()
+            for x in passage_words
+        }
 
         matched = sum(
             1
             for word in article_words
-            if word.lower() in {
-                x.lower()
-                for x in passage_words
-            }
+            if word.lower()
+            in passage_word_set
         )
 
-        ratio = matched / len(article_words)
+        ratio = (
+            matched / len(article_words)
+        )
 
         if ratio < 0.85:
             raise ValueError(
-                "完形填空没有直接使用生成的 article_en 原文"
+                "完形填空没有直接使用生成的 "
+                "article_en 原文"
             )
-
-    # --------------------------------------------------------
-    # 每一道完形题
-    # --------------------------------------------------------
 
     for index, question in enumerate(
         questions,
         start=1,
     ):
+
         if not isinstance(question, dict):
             raise ValueError(
                 f"完形第 {index} 题格式错误"
             )
 
-        number = question.get("number")
+        number = question.get(
+            "number"
+        )
 
         try:
             number = int(number)
-        except Exception:
+        except Exception as exc:
             raise ValueError(
                 f"完形第 {index} 题缺少正确编号"
-            )
+            ) from exc
 
         if number != index:
             raise ValueError(
                 f"完形题编号错误："
-                f"期望 {index}，实际 {number}"
+                f"期望 {index}，"
+                f"实际 {number}"
             )
 
         options = _options(question)
@@ -946,7 +1031,12 @@ def _validate_cloze(
             _answer(question)
         ).upper()
 
-        if answer not in {"A", "B", "C", "D"}:
+        if answer not in {
+            "A",
+            "B",
+            "C",
+            "D",
+        }:
             raise ValueError(
                 f"完形第 {index} 题答案非法"
             )
@@ -958,12 +1048,16 @@ def _validate_cloze(
 
 
 # ============================================================
-# 阅读理解验证
+# 阅读理解
 # ============================================================
 
-def _validate_reading(exam: dict) -> None:
+def _validate_reading(
+    exam: dict,
+) -> None:
 
-    questions = exam.get("reading")
+    questions = exam.get(
+        "reading"
+    )
 
     if not isinstance(questions, list):
         raise ValueError(
@@ -972,7 +1066,8 @@ def _validate_reading(exam: dict) -> None:
 
     if len(questions) != READING_COUNT:
         raise ValueError(
-            f"阅读理解必须 {READING_COUNT} 题，"
+            f"阅读理解必须 "
+            f"{READING_COUNT} 题，"
             f"实际 {len(questions)} 题"
         )
 
@@ -980,7 +1075,10 @@ def _validate_reading(exam: dict) -> None:
         questions,
         start=1,
     ):
-        qtext = _question_text(question)
+
+        qtext = _question_text(
+            question
+        )
 
         if not qtext:
             raise ValueError(
@@ -998,7 +1096,12 @@ def _validate_reading(exam: dict) -> None:
             _answer(question)
         ).upper()
 
-        if answer not in {"A", "B", "C", "D"}:
+        if answer not in {
+            "A",
+            "B",
+            "C",
+            "D",
+        }:
             raise ValueError(
                 f"阅读理解第 {index} 题答案非法"
             )
@@ -1010,20 +1113,29 @@ def _validate_reading(exam: dict) -> None:
 
 
 # ============================================================
-# 翻译验证
+# 翻译
 # ============================================================
 
-def _validate_translation(exam: dict) -> None:
+def _validate_translation(
+    exam: dict,
+) -> None:
 
-    translation = exam.get("translation")
+    translation = exam.get(
+        "translation"
+    )
 
     if not isinstance(translation, dict):
         raise ValueError(
             "translation 必须是 object"
         )
 
-    part_a = translation.get("part_a")
-    part_b = translation.get("part_b")
+    part_a = translation.get(
+        "part_a"
+    )
+
+    part_b = translation.get(
+        "part_b"
+    )
 
     if not isinstance(part_a, list):
         raise ValueError(
@@ -1037,13 +1149,15 @@ def _validate_translation(exam: dict) -> None:
 
     if len(part_a) != TRANSLATION_A_COUNT:
         raise ValueError(
-            f"汉译英必须 {TRANSLATION_A_COUNT} 题，"
+            f"汉译英必须 "
+            f"{TRANSLATION_A_COUNT} 题，"
             f"实际 {len(part_a)} 题"
         )
 
     if len(part_b) != TRANSLATION_B_COUNT:
         raise ValueError(
-            f"英译汉必须 {TRANSLATION_B_COUNT} 题，"
+            f"英译汉必须 "
+            f"{TRANSLATION_B_COUNT} 题，"
             f"实际 {len(part_b)} 题"
         )
 
@@ -1051,13 +1165,19 @@ def _validate_translation(exam: dict) -> None:
         ("part_a", part_a),
         ("part_b", part_b),
     ):
+
         for index, question in enumerate(
             questions,
             start=1,
         ):
-            if not isinstance(question, dict):
+
+            if not isinstance(
+                question,
+                dict,
+            ):
                 raise ValueError(
-                    f"翻译 {part_name} 第 {index} 题格式错误"
+                    f"翻译 {part_name} "
+                    f"第 {index} 题格式错误"
                 )
 
             source = (
@@ -1079,27 +1199,34 @@ def _validate_translation(exam: dict) -> None:
 
             if not _to_text(source):
                 raise ValueError(
-                    f"翻译 {part_name} 第 {index} 题原句为空"
+                    f"翻译 {part_name} "
+                    f"第 {index} 题原句为空"
                 )
 
             if not _to_text(answer):
                 raise ValueError(
-                    f"翻译 {part_name} 第 {index} 题缺少标准答案"
+                    f"翻译 {part_name} "
+                    f"第 {index} 题缺少标准答案"
                 )
 
             if not _to_text(analysis):
                 raise ValueError(
-                    f"翻译 {part_name} 第 {index} 题缺少解析"
+                    f"翻译 {part_name} "
+                    f"第 {index} 题缺少解析"
                 )
 
 
 # ============================================================
-# 写作验证
+# 写作
 # ============================================================
 
-def _validate_writing(exam: dict) -> None:
+def _validate_writing(
+    exam: dict,
+) -> None:
 
-    writing = exam.get("writing")
+    writing = exam.get(
+        "writing"
+    )
 
     if not isinstance(writing, list):
         raise ValueError(
@@ -1108,7 +1235,8 @@ def _validate_writing(exam: dict) -> None:
 
     if len(writing) != WRITING_COUNT:
         raise ValueError(
-            f"写作必须 {WRITING_COUNT} 题，"
+            f"写作必须 "
+            f"{WRITING_COUNT} 题，"
             f"实际 {len(writing)} 题"
         )
 
@@ -1157,11 +1285,18 @@ def _validate_writing(exam: dict) -> None:
 # 顶层答案验证
 # ============================================================
 
-def _validate_answers(exam: dict) -> None:
+def _validate_answers(
+    exam: dict,
+) -> None:
 
-    answers = exam.get("answers")
+    answers = exam.get(
+        "answers"
+    )
 
-    if not isinstance(answers, dict):
+    if not isinstance(
+        answers,
+        dict,
+    ):
         raise ValueError(
             "answers 必须是 object"
         )
@@ -1177,6 +1312,7 @@ def _validate_answers(exam: dict) -> None:
     )
 
     for key in required:
+
         if key not in answers:
             raise ValueError(
                 f"answers 缺少 {key}"
@@ -1187,17 +1323,22 @@ def _validate_answers(exam: dict) -> None:
 # 顶层解析验证
 # ============================================================
 
-def _validate_analysis(exam: dict) -> None:
+def _validate_analysis(
+    exam: dict,
+) -> None:
 
-    analysis = exam.get("analysis")
+    analysis = exam.get(
+        "analysis"
+    )
 
-    if not isinstance(analysis, dict):
+    if not isinstance(
+        analysis,
+        dict,
+    ):
         raise ValueError(
             "analysis 必须是 object"
         )
 
-    # 不强制只有 general。
-    # 题目本身已经验证每题 analysis。
     if not any(
         _to_text(value)
         for value in analysis.values()
@@ -1217,11 +1358,11 @@ def validate_exam(
     difficulty: int,
     article_type: str,
 ) -> None:
-    """
-    对完整试卷执行严格结构验收。
-    """
 
-    if not isinstance(exam, dict):
+    if not isinstance(
+        exam,
+        dict,
+    ):
         raise ValueError(
             "考试结果必须是 dict"
         )
@@ -1241,19 +1382,24 @@ def validate_exam(
     ]
 
     for field in required_fields:
+
         if field not in exam:
             raise ValueError(
                 f"考试结果缺少字段：{field}"
             )
 
-    title = _to_text(exam.get("title"))
+    title = _to_text(
+        exam.get("title")
+    )
 
     if not title:
         raise ValueError(
             "考试标题为空"
         )
 
-    article_en = _get_article_en(article)
+    article_en = _get_article_en(
+        article
+    )
 
     if difficulty not in DIFFICULTIES:
         raise ValueError(
@@ -1265,33 +1411,43 @@ def validate_exam(
             f"非法文章类型：{article_type}"
         )
 
-    # --------------------------------------------------------
-    # 七大题型严格验收
-    # --------------------------------------------------------
-
     _validate_listening(
         exam,
         article_en,
     )
 
-    _validate_single_choice(exam)
+    _validate_single_choice(
+        exam
+    )
 
-    _validate_multiple_choice(exam)
+    _validate_multiple_choice(
+        exam
+    )
 
     _validate_cloze(
         exam,
         article_en,
     )
 
-    _validate_reading(exam)
+    _validate_reading(
+        exam
+    )
 
-    _validate_translation(exam)
+    _validate_translation(
+        exam
+    )
 
-    _validate_writing(exam)
+    _validate_writing(
+        exam
+    )
 
-    _validate_answers(exam)
+    _validate_answers(
+        exam
+    )
 
-    _validate_analysis(exam)
+    _validate_analysis(
+        exam
+    )
 
 
 # ============================================================
@@ -1305,10 +1461,17 @@ def build_exam_payload(
     words: list,
 ) -> dict:
 
-    article_en = _get_article_en(article)
-    article_zh = _get_article_zh(article)
+    article_en = _get_article_en(
+        article
+    )
 
-    difficulty_info = DIFFICULTIES[difficulty]
+    article_zh = _get_article_zh(
+        article
+    )
+
+    difficulty_info = DIFFICULTIES[
+        difficulty
+    ]
 
     article_type_name = ARTICLE_TYPES.get(
         article_type,
@@ -1320,9 +1483,16 @@ def build_exam_payload(
     for item in _ensure_list(
         article.get("target_vocabulary")
     ):
+
         if isinstance(item, dict):
-            word = _to_text(item.get("word"))
-            meaning = _to_text(item.get("meaning"))
+
+            word = _to_text(
+                item.get("word")
+            )
+
+            meaning = _to_text(
+                item.get("meaning")
+            )
 
             if word:
                 target_words.append({
@@ -1331,9 +1501,17 @@ def build_exam_payload(
                 })
 
     if not target_words:
-        for item in _ensure_list(words):
+
+        for item in _ensure_list(
+            words
+        ):
+
             if isinstance(item, dict):
-                word = _to_text(item.get("word"))
+
+                word = _to_text(
+                    item.get("word")
+                )
+
                 meaning = _to_text(
                     item.get("meaning")
                 )
@@ -1418,14 +1596,11 @@ Part B 英译汉：5题
 Part A：
 “听句子，选出你所听到的单词”。
 
-必须严格生成5题。
+严格5题。
 
 每题必须对应一个完整、自然、纯英文的听力句子。
 
 不能出现中文听力句子。
-
-例如：
-“The boy developed a healthy habit of exercising every morning.”
 
 题面可以只显示：
 Which word did you hear?
@@ -1444,58 +1619,47 @@ Part A 的5个句子必须分别与5道题一一对应。
 Part B：
 “听对话，选择正确答案”。
 
-必须严格生成5题。
+严格5题。
 
 每题必须对应一个真正完整的英文对话。
 
 对话必须至少包含两个说话者。
 
-例如：
-
-Boy: Did you exercise this morning?
-Girl: Yes. I went for a short walk before breakfast.
-Boy: That sounds like a healthy habit.
-Girl: I think so, and it helps me feel strong.
-
-然后针对这个对话命题。
+完整5段对话必须全部写入 listening_script.part_b。
 
 不能只生成一个问题。
 
 不能只生成一句话。
-
-完整5段对话必须全部写入 listening_script.part_b。
 
 ------------------------------------------------------------
 
 Part C：
 “听短文，选择正确答案”。
 
-必须严格生成5题。
+严格5题。
 
-最重要：
+Part C 的听力原文必须直接使用 ARTICLE EN。
 
-Part C 的听力原文必须直接使用下面的 ARTICLE EN。
-
-绝对禁止重新写一篇文章。
+绝对禁止重新写一篇听力短文。
 
 listening_script.part_c 必须与 article_en 完全一致。
 
-5道 Part C 题目必须全部可以直接从 article_en 找到依据。
+5道 Part C 题目必须全部能够从 article_en 找到依据。
 
 ============================================================
 二、单项选择
 ============================================================
 
-必须严格生成10题。
+必须严格10题。
 
-每题必须：
+每题：
 
 1. 完整题干
 2. A/B/C/D 四个选项
-3. 只能有一个正确答案
+3. 只能一个正确答案
 4. 必须有解析
 
-题目可以考查：
+可以考查：
 
 - 词汇
 - 语法
@@ -1505,32 +1669,28 @@ listening_script.part_c 必须与 article_en 完全一致。
 - 目标词
 - 文章相关语言点
 
-但必须符合当前考试难度。
+必须符合当前考试难度。
 
 ============================================================
 三、多选题
 ============================================================
 
-必须严格生成10题。
+必须严格10题。
 
-每题必须：
+每题：
 
-1. 有完整题干
+1. 完整题干
 2. A/B/C/D 四个选项
 3. 至少两个正确答案
 4. 必须有作答位置
 5. 必须有答案
 6. 必须有解析
 
-题干不要压缩成只有几个选项。
-
 题目必须围绕文章内容、词汇、语言知识或核心主题。
 
 ============================================================
 四、完形填空
 ============================================================
-
-这是最重要的硬性要求之一。
 
 必须直接使用 ARTICLE EN。
 
@@ -1542,40 +1702,34 @@ listening_script.part_c 必须与 article_en 完全一致。
 
 ____ (1) ____
 
-____ (2) ____
-
 一直到：
 
 ____ (10) ____
 
 必须严格存在1到10的10个编号空。
 
-然后下面生成10道选择题。
+下面生成10道选择题。
 
 每题：
 
 A/B/C/D 四个选项。
 
-每题只能有一个正确答案。
+每题只能一个正确答案。
 
 每题必须有解析。
 
-注意：
-
-完形填空的 passage 必须是 ARTICLE EN 的原文，
+完形 passage 必须是 ARTICLE EN 原文，
 只是在原文中挖掉10个词或短语。
 
 不要改写文章。
 
 不要重新写文章。
 
-不要改变文章核心句子。
-
 ============================================================
 五、阅读理解
 ============================================================
 
-必须严格生成5题。
+必须严格5题。
 
 阅读理解文章直接使用 ARTICLE EN。
 
@@ -1591,22 +1745,13 @@ A/B/C/D
 
 每题必须有解析。
 
-可以考查：
-
-- 主旨
-- 细节
-- 推断
-- 词义
-- 作者观点
-- 文章结构
-
 ============================================================
 六、翻译
 ============================================================
 
-Part A：汉译英，5题。
+Part A：汉译英5题。
 
-Part B：英译汉，5题。
+Part B：英译汉5题。
 
 一共10题。
 
@@ -1634,8 +1779,6 @@ Part B：英译汉，5题。
 必须有参考范文。
 
 必须有写作解析。
-
-不能只输出“—”。
 
 ============================================================
 答案
@@ -1699,113 +1842,28 @@ JSON 必须严格符合下面 schema：
           "analysis": "string"
         }}
       ]
-    }},
-    {{
-      "part": "B",
-      "instruction": "string",
-      "score": 10,
-      "questions": []
-    }},
-    {{
-      "part": "C",
-      "instruction": "string",
-      "score": 10,
-      "questions": []
     }}
   ],
 
-  "single_choice": [
-    {{
-      "number": 1,
-      "question": "string",
-      "options": [
-        "A. string",
-        "B. string",
-        "C. string",
-        "D. string"
-      ],
-      "answer": "A",
-      "analysis": "string"
-    }}
-  ],
+  "single_choice": [],
 
-  "multiple_choice": [
-    {{
-      "number": 1,
-      "question": "string",
-      "answer_instruction": "请在下面选择所有正确答案：________",
-      "options": [
-        "A. string",
-        "B. string",
-        "C. string",
-        "D. string"
-      ],
-      "answer": ["A", "C"],
-      "analysis": "string"
-    }}
-  ],
+  "multiple_choice": [],
 
   "cloze": [
     {{
       "passage": "ARTICLE EN，其中10处变成 ____ (1) ____ 到 ____ (10) ____",
-      "questions": [
-        {{
-          "number": 1,
-          "options": [
-            "A. string",
-            "B. string",
-            "C. string",
-            "D. string"
-          ],
-          "answer": "A",
-          "analysis": "string"
-        }}
-      ]
+      "questions": []
     }}
   ],
 
-  "reading": [
-    {{
-      "number": 1,
-      "question": "string",
-      "options": [
-        "A. string",
-        "B. string",
-        "C. string",
-        "D. string"
-      ],
-      "answer": "A",
-      "analysis": "string"
-    }}
-  ],
+  "reading": [],
 
   "translation": {{
-    "part_a": [
-      {{
-        "number": 1,
-        "sentence": "中文句子",
-        "answer": "英文标准答案",
-        "analysis": "string"
-      }}
-    ],
-    "part_b": [
-      {{
-        "number": 1,
-        "sentence": "English sentence",
-        "answer": "中文标准答案",
-        "analysis": "string"
-      }}
-    ]
+    "part_a": [],
+    "part_b": []
   }},
 
-  "writing": [
-    {{
-      "number": 1,
-      "question": "完整写作要求",
-      "answer": "参考范文",
-      "analysis": "写作解析"
-    }}
-  ],
+  "writing": [],
 
   "listening_script": {{
     "part_a": "5个完整英文听力句子",
@@ -1834,10 +1892,6 @@ JSON 必须严格符合下面 schema：
 ============================================================
 最后再次强调
 ============================================================
-
-不能少题。
-
-必须：
 
 A=5
 B=5
@@ -1872,7 +1926,7 @@ C=5
 
 
 # ============================================================
-# 修复 Prompt
+# Repair Prompt
 # ============================================================
 
 def build_repair_payload(
@@ -1882,7 +1936,9 @@ def build_repair_payload(
     article_type: str,
 ) -> dict:
 
-    article_en = _get_article_en(article)
+    article_en = _get_article_en(
+        article
+    )
 
     prompt = f"""
 请修复下面这份英语试卷。
@@ -1893,7 +1949,7 @@ def build_repair_payload(
 
 不要改变文章主题。
 
-必须严格满足以下数量：
+必须严格满足：
 
 Listening A = 5
 Listening B = 5
@@ -1917,7 +1973,7 @@ Writing = 1
    ____ (1) ____
    到
    ____ (10) ____
-7. Reading 必须围绕 ARTICLE EN。
+7. Reading 必须使用 ARTICLE EN。
 8. Translation 必须从文章原文/核心内容选择。
 9. 所有选择题必须有 A/B/C/D。
 10. 单选每题只能一个正确答案。
@@ -1970,7 +2026,9 @@ def request_exam(
         CONFIG["agnes"]["model"]
     )
 
-    url = f"{base_url}/chat/completions"
+    url = (
+        f"{base_url}/chat/completions"
+    )
 
     body = {
         "model": model,
@@ -1987,15 +2045,30 @@ def request_exam(
         "temperature": 0.3,
     }
 
+    # ========================================================
+    # V3.1 关键修复
+    #
+    # common.py：
+    #
+    # request_json(
+    #     method,
+    #     url,
+    #     headers=None,
+    #     **kwargs
+    # )
+    #
+    # 所以 body 必须通过 json= 传入，
+    # 不能作为第三个位置参数。
+    # ========================================================
+
     return request_json(
         "POST",
         url,
-        body,
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
         },
-        timeout=180,
+        json=body,
     )
 
 
@@ -2009,33 +2082,36 @@ def generate(
     article_type: str,
     words: list,
 ) -> dict:
-    """
-    main.py 使用的正式接口。
-
-    保持原接口不变。
-    """
 
     api_key_env = CONFIG["agnes"]["api_key_env"]
-    api_key = env_required(api_key_env)
+
+    api_key = env_required(
+        api_key_env
+    )
 
     print()
     print("=" * 60)
-    print("EXAM GENERATION V3")
+    print("EXAM GENERATION V3.1")
     print("=" * 60)
 
     print(
-        f"✓ 难度：{DIFFICULTIES[difficulty]['star_name']} "
+        f"✓ 难度："
+        f"{DIFFICULTIES[difficulty]['star_name']} "
         f"{DIFFICULTIES[difficulty]['stars']}"
     )
 
     print(
-        f"✓ 类型：{ARTICLE_TYPES.get(article_type, article_type)}"
+        f"✓ 类型："
+        f"{ARTICLE_TYPES.get(article_type, article_type)}"
     )
 
-    article_en = _get_article_en(article)
+    article_en = _get_article_en(
+        article
+    )
 
     print(
-        f"✓ 原文长度：{len(article_en.split())} words"
+        f"✓ 原文长度："
+        f"{len(article_en.split())} words"
     )
 
     print()
@@ -2060,9 +2136,24 @@ def generate(
 
     last_error = None
 
-    # --------------------------------------------------------
+    # ========================================================
+    # 重要：
+    #
+    # last_valid_json_exam：
+    # 已经成功完成 API 请求并成功解析 JSON，
+    # 但是 validate_exam() 失败的最后一份试卷。
+    #
+    # 它可以直接进入 Repair。
+    #
+    # 如果 API 一直失败，则它保持 None，
+    # 绝对不进入 Repair。
+    # ========================================================
+
+    last_invalid_exam = None
+
+    # ========================================================
     # 第一阶段：生成
-    # --------------------------------------------------------
+    # ========================================================
 
     for attempt in range(1, 4):
 
@@ -2071,26 +2162,52 @@ def generate(
         )
 
         try:
+
+            # ------------------------------------------------
+            # API 请求
+            # ------------------------------------------------
+
             response = request_exam(
                 payload,
                 api_key,
             )
 
+            print(
+                "✓ Agnes API 请求成功"
+            )
+
+            # ------------------------------------------------
+            # 提取 AI 内容
+            # ------------------------------------------------
+
             content = extract_content(
                 response
             )
+
+            # ------------------------------------------------
+            # JSON 解析
+            # ------------------------------------------------
 
             exam = parse_json_response(
                 content
             )
 
-            print("✓ JSON 解析成功")
+            print(
+                "✓ JSON 解析成功"
+            )
 
             # ------------------------------------------------
-            # 严格验收
+            # 注意：
+            # API 成功 + JSON 成功
+            # 但验收失败
+            # 才允许进入 Repair。
             # ------------------------------------------------
 
-            print("🔍 开始严格题量与内容验收...")
+            last_invalid_exam = exam
+
+            print(
+                "🔍 开始严格题量与内容验收..."
+            )
 
             validate_exam(
                 exam,
@@ -2099,7 +2216,9 @@ def generate(
                 article_type,
             )
 
-            print("✓ 试卷严格验收通过")
+            print(
+                "✓ 试卷严格验收通过"
+            )
 
             print()
             print("题量验收：")
@@ -2122,6 +2241,7 @@ def generate(
             return exam
 
         except Exception as exc:
+
             last_error = exc
 
             print(
@@ -2132,45 +2252,59 @@ def generate(
                 print(
                     "↻ 将重新生成..."
                 )
+
+                # 只在生成失败时短暂等待。
+                # common.py 本身已经负责 API retry。
+                import time
                 time.sleep(2)
 
-    # --------------------------------------------------------
-    # 第二阶段：结构修复
-    # --------------------------------------------------------
+    # ========================================================
+    # 三次结束
+    # ========================================================
 
-    if last_error is not None:
-        print()
-        print("=" * 60)
-        print("EXAM REPAIR")
-        print("=" * 60)
-
-    # 如果前三次没有成功，需要基于最后一次可解析结果修复。
+    # 如果连 JSON 都没有成功拿到：
     #
-    # 为了避免未定义 exam，这里再请求一次完整结果作为修复输入。
-    repair_exam = None
+    # last_invalid_exam is None
+    #
+    # 说明：
+    #
+    # API 请求失败
+    # 或 JSON 解析失败
+    #
+    # 此时绝对不能进入 Repair。
+    # ========================================================
 
-    try:
-        response = request_exam(
-            payload,
-            api_key,
-        )
+    if last_invalid_exam is None:
 
-        content = extract_content(
-            response
-        )
-
-        repair_exam = parse_json_response(
-            content
-        )
-
-    except Exception as exc:
         raise RuntimeError(
-            "英语试卷生成失败，且无法进入修复阶段："
-            f"{exc}"
-        ) from exc
+            "英语试卷生成失败："
+            "连续3次均未获得可用于验收的有效JSON。"
+            f"最后错误：{last_error}"
+        )
+
+    # ========================================================
+    # 第二阶段：结构修复
+    # ========================================================
+
+    print()
+    print("=" * 60)
+    print("EXAM REPAIR")
+    print("=" * 60)
+
+    print(
+        "✓ 已取得可解析试卷"
+    )
+
+    print(
+        "✓ 原始试卷内容验收失败"
+    )
+
+    print(
+        "↻ 使用最后一份试卷进入 Repair"
+    )
 
     repair_payload = build_repair_payload(
-        repair_exam,
+        last_invalid_exam,
         article,
         difficulty,
         article_type,
@@ -2183,9 +2317,14 @@ def generate(
         )
 
         try:
+
             response = request_exam(
                 repair_payload,
                 api_key,
+            )
+
+            print(
+                "✓ Repair API 请求成功"
             )
 
             content = extract_content(
@@ -2196,6 +2335,10 @@ def generate(
                 content
             )
 
+            print(
+                "✓ Repair JSON 解析成功"
+            )
+
             validate_exam(
                 exam,
                 article,
@@ -2203,7 +2346,9 @@ def generate(
                 article_type,
             )
 
-            print("✓ 修复后严格验收通过")
+            print(
+                "✓ 修复后严格验收通过"
+            )
 
             return exam
 
@@ -2216,6 +2361,12 @@ def generate(
             )
 
             if attempt < 3:
+
+                print(
+                    "↻ 将继续修复..."
+                )
+
+                import time
                 time.sleep(2)
 
     raise RuntimeError(
@@ -2228,7 +2379,9 @@ def generate(
 # Markdown 辅助
 # ============================================================
 
-def _render_options(options: list) -> str:
+def _render_options(
+    options: list,
+) -> str:
 
     lines = []
 
@@ -2245,26 +2398,38 @@ def _render_question(
     question: dict,
 ) -> str:
 
-    qtext = _question_text(question)
+    qtext = _question_text(
+        question
+    )
 
-    options = _options(question)
+    options = _options(
+        question
+    )
 
     lines = [
         f"### {number}. {qtext}",
         "",
     ]
 
-    if question.get("answer_instruction"):
-        lines.extend([
-            _to_text(
-                question["answer_instruction"]
-            ),
-            "",
-        ])
+    if question.get(
+        "answer_instruction"
+    ):
+        lines.extend(
+            [
+                _to_text(
+                    question[
+                        "answer_instruction"
+                    ]
+                ),
+                "",
+            ]
+        )
 
     lines.extend(
         [
-            _render_options(options),
+            _render_options(
+                options
+            ),
             "",
         ]
     )
@@ -2276,12 +2441,16 @@ def _render_question(
 # Markdown：听力
 # ============================================================
 
-def _render_listening(exam: dict) -> str:
+def _render_listening(
+    exam: dict,
+) -> str:
 
     listening = exam["listening"]
 
     parts = {
-        _to_text(item.get("part")).upper(): item
+        _to_text(
+            item.get("part")
+        ).upper(): item
         for item in listening
     }
 
@@ -2290,7 +2459,11 @@ def _render_listening(exam: dict) -> str:
         "",
     ]
 
-    for part in ("A", "B", "C"):
+    for part in (
+        "A",
+        "B",
+        "C",
+    ):
 
         item = parts[part]
 
@@ -2304,15 +2477,20 @@ def _render_listening(exam: dict) -> str:
         )
 
         if instruction:
-            lines.append(instruction)
+            lines.append(
+                instruction
+            )
             lines.append("")
 
-        questions = item["questions"]
+        questions = item[
+            "questions"
+        ]
 
         for index, question in enumerate(
             questions,
             start=1,
         ):
+
             lines.append(
                 _render_question(
                     index,
@@ -2342,7 +2520,10 @@ def _render_choice_section(
         questions,
         start=1,
     ):
-        qtext = _question_text(question)
+
+        qtext = _question_text(
+            question
+        )
 
         lines.append(
             f"### {index}. {qtext}"
@@ -2360,6 +2541,7 @@ def _render_choice_section(
                 _options(question)
             )
         )
+
         lines.append("")
 
     return "\n".join(lines)
@@ -2369,15 +2551,21 @@ def _render_choice_section(
 # Markdown：完形
 # ============================================================
 
-def _render_cloze(exam: dict) -> str:
+def _render_cloze(
+    exam: dict,
+) -> str:
 
-    item = exam["cloze"][0]
+    item = exam[
+        "cloze"
+    ][0]
 
     passage = _to_text(
         item.get("passage")
     )
 
-    questions = item["questions"]
+    questions = item[
+        "questions"
+    ]
 
     lines = [
         "# 四、完形填空",
@@ -2392,9 +2580,11 @@ def _render_cloze(exam: dict) -> str:
         questions,
         start=1,
     ):
+
         lines.append(
             f"### {index}."
         )
+
         lines.append("")
 
         lines.append(
@@ -2412,7 +2602,9 @@ def _render_cloze(exam: dict) -> str:
 # Markdown：阅读
 # ============================================================
 
-def _render_reading(exam: dict) -> str:
+def _render_reading(
+    exam: dict,
+) -> str:
 
     lines = [
         "# 五、阅读理解",
@@ -2425,6 +2617,7 @@ def _render_reading(exam: dict) -> str:
         exam["reading"],
         start=1,
     ):
+
         lines.append(
             _render_question(
                 index,
@@ -2461,9 +2654,13 @@ def _translation_answer(
     )
 
 
-def _render_translation(exam: dict) -> str:
+def _render_translation(
+    exam: dict,
+) -> str:
 
-    translation = exam["translation"]
+    translation = exam[
+        "translation"
+    ]
 
     lines = [
         "# 六、翻译",
@@ -2476,9 +2673,11 @@ def _render_translation(exam: dict) -> str:
         translation["part_a"],
         start=1,
     ):
+
         lines.extend(
             [
-                f"### {index}. {_translation_source(question)}",
+                f"### {index}. "
+                f"{_translation_source(question)}",
                 "",
                 "翻译：____________________________",
                 "",
@@ -2496,9 +2695,11 @@ def _render_translation(exam: dict) -> str:
         translation["part_b"],
         start=1,
     ):
+
         lines.extend(
             [
-                f"### {index}. {_translation_source(question)}",
+                f"### {index}. "
+                f"{_translation_source(question)}",
                 "",
                 "翻译：____________________________",
                 "",
@@ -2512,9 +2713,13 @@ def _render_translation(exam: dict) -> str:
 # Markdown：写作
 # ============================================================
 
-def _render_writing(exam: dict) -> str:
+def _render_writing(
+    exam: dict,
+) -> str:
 
-    item = exam["writing"][0]
+    item = exam[
+        "writing"
+    ][0]
 
     question = _to_text(
         item.get("question")
@@ -2550,7 +2755,9 @@ def _render_listening_script(
     exam: dict,
 ) -> str:
 
-    script = exam["listening_script"]
+    script = exam[
+        "listening_script"
+    ]
 
     lines = [
         "# 参考答案与听力原文",
@@ -2559,15 +2766,21 @@ def _render_listening_script(
         "",
         "### Part A",
         "",
-        _to_text(script["part_a"]),
+        _to_text(
+            script["part_a"]
+        ),
         "",
         "### Part B",
         "",
-        _to_text(script["part_b"]),
+        _to_text(
+            script["part_b"]
+        ),
         "",
         "### Part C",
         "",
-        _to_text(script["part_c"]),
+        _to_text(
+            script["part_c"]
+        ),
         "",
     ]
 
@@ -2578,14 +2791,18 @@ def _render_listening_script(
 # Markdown：答案
 # ============================================================
 
-def _render_answers(exam: dict) -> str:
+def _render_answers(
+    exam: dict,
+) -> str:
 
     lines = [
         "## 一、听力答案",
         "",
     ]
 
-    listening = exam["listening"]
+    listening = exam[
+        "listening"
+    ]
 
     for item in listening:
 
@@ -2602,6 +2819,7 @@ def _render_answers(exam: dict) -> str:
             item["questions"],
             start=1,
         ):
+
             answer = _to_text(
                 _answer(question)
             ).upper()
@@ -2623,6 +2841,7 @@ def _render_answers(exam: dict) -> str:
         exam["single_choice"],
         start=1,
     ):
+
         lines.append(
             f"{index}. "
             f"{_to_text(_answer(question)).upper()}"
@@ -2640,12 +2859,14 @@ def _render_answers(exam: dict) -> str:
         exam["multiple_choice"],
         start=1,
     ):
+
         answers = _normalize_answers(
             _answer(question)
         )
 
         lines.append(
-            f"{index}. {', '.join(answers)}"
+            f"{index}. "
+            f"{', '.join(answers)}"
         )
 
     lines.extend(
@@ -2660,6 +2881,7 @@ def _render_answers(exam: dict) -> str:
         exam["cloze"][0]["questions"],
         start=1,
     ):
+
         lines.append(
             f"{index}. "
             f"{_to_text(_answer(question)).upper()}"
@@ -2677,6 +2899,7 @@ def _render_answers(exam: dict) -> str:
         exam["reading"],
         start=1,
     ):
+
         lines.append(
             f"{index}. "
             f"{_to_text(_answer(question)).upper()}"
@@ -2696,9 +2919,11 @@ def _render_answers(exam: dict) -> str:
         exam["translation"]["part_a"],
         start=1,
     ):
+
         lines.extend(
             [
-                f"{index}. {_translation_answer(question)}",
+                f"{index}. "
+                f"{_translation_answer(question)}",
                 "",
             ]
         )
@@ -2714,9 +2939,11 @@ def _render_answers(exam: dict) -> str:
         exam["translation"]["part_b"],
         start=1,
     ):
+
         lines.extend(
             [
-                f"{index}. {_translation_answer(question)}",
+                f"{index}. "
+                f"{_translation_answer(question)}",
                 "",
             ]
         )
@@ -2728,7 +2955,9 @@ def _render_answers(exam: dict) -> str:
         ]
     )
 
-    writing = exam["writing"][0]
+    writing = exam[
+        "writing"
+    ][0]
 
     lines.extend(
         [
@@ -2749,7 +2978,9 @@ def _render_answers(exam: dict) -> str:
 # Markdown：解析
 # ============================================================
 
-def _render_analysis(exam: dict) -> str:
+def _render_analysis(
+    exam: dict,
+) -> str:
 
     lines = [
         "# 答案解析",
@@ -2758,7 +2989,9 @@ def _render_analysis(exam: dict) -> str:
         "",
     ]
 
-    listening = exam["listening"]
+    listening = exam[
+        "listening"
+    ]
 
     for item in listening:
 
@@ -2777,6 +3010,7 @@ def _render_analysis(exam: dict) -> str:
             item["questions"],
             start=1,
         ):
+
             lines.extend(
                 [
                     f"**{index}.** "
@@ -2796,6 +3030,7 @@ def _render_analysis(exam: dict) -> str:
         exam["single_choice"],
         start=1,
     ):
+
         lines.extend(
             [
                 f"**{index}.** "
@@ -2815,6 +3050,7 @@ def _render_analysis(exam: dict) -> str:
         exam["multiple_choice"],
         start=1,
     ):
+
         lines.extend(
             [
                 f"**{index}.** "
@@ -2834,6 +3070,7 @@ def _render_analysis(exam: dict) -> str:
         exam["cloze"][0]["questions"],
         start=1,
     ):
+
         lines.extend(
             [
                 f"**{index}.** "
@@ -2853,6 +3090,7 @@ def _render_analysis(exam: dict) -> str:
         exam["reading"],
         start=1,
     ):
+
         lines.extend(
             [
                 f"**{index}.** "
@@ -2874,6 +3112,7 @@ def _render_analysis(exam: dict) -> str:
         exam["translation"]["part_a"],
         start=1,
     ):
+
         lines.extend(
             [
                 f"**{index}.** "
@@ -2893,6 +3132,7 @@ def _render_analysis(exam: dict) -> str:
         exam["translation"]["part_b"],
         start=1,
     ):
+
         lines.extend(
             [
                 f"**{index}.** "
@@ -2908,7 +3148,9 @@ def _render_analysis(exam: dict) -> str:
         ]
     )
 
-    writing = exam["writing"][0]
+    writing = exam[
+        "writing"
+    ][0]
 
     lines.extend(
         [
@@ -2921,10 +3163,14 @@ def _render_analysis(exam: dict) -> str:
     )
 
     general = _to_text(
-        exam.get("analysis", {}).get("general")
+        exam.get(
+            "analysis",
+            {}
+        ).get("general")
     )
 
     if general:
+
         lines.extend(
             [
                 "## 总体说明",
@@ -2947,11 +3193,6 @@ def render(
     difficulty: int,
     article_type_name: str,
 ) -> str:
-    """
-    main.py 使用的正式接口。
-
-    返回完整 Markdown。
-    """
 
     title = _to_text(
         exam.get("title")
@@ -2965,10 +3206,12 @@ def render(
     lines = [
         f"# {title}",
         "",
-        f"> 难度：{DIFFICULTIES[difficulty]['star_name']} "
+        f"> 难度："
+        f"{DIFFICULTIES[difficulty]['star_name']} "
         f"{DIFFICULTIES[difficulty]['stars']}",
         "",
-        f"> 级别：{DIFFICULTIES[difficulty]['level']}",
+        f"> 级别："
+        f"{DIFFICULTIES[difficulty]['level']}",
         "",
         f"> 文体：{article_type_name}",
         "",
@@ -2979,7 +3222,9 @@ def render(
     ]
 
     lines.append(
-        _render_listening(exam)
+        _render_listening(
+            exam
+        )
     )
 
     lines.extend(
@@ -2996,24 +3241,40 @@ def render(
                 show_answer_blank=True,
             ),
             "",
-            _render_cloze(exam),
+            _render_cloze(
+                exam
+            ),
             "",
-            _render_reading(exam),
+            _render_reading(
+                exam
+            ),
             "",
-            _render_translation(exam),
+            _render_translation(
+                exam
+            ),
             "",
-            _render_writing(exam),
+            _render_writing(
+                exam
+            ),
             "",
             "---",
             "",
-            _render_listening_script(exam),
+            _render_listening_script(
+                exam
+            ),
             "",
-            _render_answers(exam),
+            _render_answers(
+                exam
+            ),
             "",
             "---",
             "",
-            _render_analysis(exam),
+            _render_analysis(
+                exam
+            ),
         ]
     )
 
-    return "\n".join(lines).strip() + "\n"
+    return "\n".join(
+        lines
+    ).strip() + "\n"
