@@ -3,7 +3,7 @@
 
 """
 02_英语学习系统
-Markdown 渲染器 V2
+Markdown 渲染器 V3
 
 ======================================================================
 职责
@@ -18,32 +18,45 @@ Markdown 渲染器 V2
     日期    文体    约XXX词    难度：XXX ★★★★★
 
     ┌──────────────────────────────┬──────────────────────┐
-    │ 📖 英语文章                  │ 🎯 学习解析           │
-    │                              │                      │
-    │ English Article              │ 目标词汇             │
+    │ 📖 English Article           │ 🎯 学习解析           │
+    │ 文章标题                     │ 目标词汇             │
     │ 英文正文                     │ 新增词汇             │
-    │ 目标词蓝色高亮               │ 重点短语             │
+    │ 目标词天蓝色文字             │ 重点短语             │
     │                              │ 语法知识点           │
     │ 中文翻译                     │ 重点句型             │
     │                              │ 文章结构             │
     └──────────────────────────────┴──────────────────────┘
 
 ======================================================================
-重要规则
+V3 修复
 ======================================================================
 
-1. 不再使用文章标题作为 Markdown 一级标题。
-2. 页面第一行直接使用“英语短文注记”抬头。
-3. 主体使用两列表格。
-4. 英文正文中的目标词自动蓝色高亮。
-5. 高亮由 Python 完成，不依赖 Agnes 输出 HTML。
-6. 目标词使用单词边界匹配，避免误伤其他单词。
-7. 支持 string / list / dict / 混合结构。
-8. Agnes 新数据结构优先，旧数据结构自动兼容。
+1. 左栏始终顶部对齐。
+2. 左栏全部内容始终左对齐。
+3. 显示 Agnes 自动生成的文章标题。
+4. 文章标题不写死，直接使用 a["title"]。
+5. 目标词使用天蓝色文字 + 加粗。
+6. 普通正文保持默认颜色。
+7. 修复目标词替换过程中空格被吞掉的问题。
+8. 使用独立英文单词边界，避免：
+       sleep     -> sleeping
+       strong    -> stronger
+       exercise  -> exercises
+9. 保留原始大小写。
+10. HTML 特殊字符安全转义。
+11. 支持 string / list / dict / 混合结构。
+12. Agnes 新数据结构优先，旧数据结构自动兼容。
 """
 
 import html
 import re
+
+
+# ======================================================================
+# 目标词高亮颜色
+# ======================================================================
+
+TARGET_WORD_COLOR = "#38BDF8"
 
 
 # ======================================================================
@@ -224,7 +237,6 @@ def _to_text(value):
         ]
 
         parts = []
-
         used = set()
 
         for key in preferred_keys:
@@ -241,7 +253,6 @@ def _to_text(value):
                 parts.append(text)
                 used.add(key)
 
-        # 如果没有识别到常见字段
         if not parts:
 
             for key, val in value.items():
@@ -349,7 +360,6 @@ def _get_difficulty_info(difficulty):
             )
 
             if not match:
-
                 raise ValueError
 
             difficulty = int(
@@ -387,17 +397,6 @@ def _get_difficulty_info(difficulty):
 def _render_stars(difficulty):
     """
     总共 17 个位置。
-
-    例如：
-
-    1星：
-    ★☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆
-
-    8星：
-    ★★★★★★★★☆☆☆☆☆☆☆☆☆
-
-    17星：
-    ★★★★★★★★★★★★★★★★★
     """
 
     filled = "★" * difficulty
@@ -444,13 +443,7 @@ def _extract_target_words(
     fallback_words=None,
 ):
     """
-    从：
-
-        target_vocabulary
-
-    中提取：
-
-        word
+    从 target_vocabulary 中提取 word。
 
     如果没有 target_vocabulary，
     则回退到 YML 传入的 words。
@@ -484,12 +477,14 @@ def _extract_target_words(
             word
         ).strip()
 
-        if word and word not in words:
+        if word and word.lower() not in {
+            x.lower() for x in words
+        }:
 
             words.append(word)
 
     # ------------------------------------------------------------------
-    # 没有则使用 words
+    # 没有则使用 YML words
     # ------------------------------------------------------------------
 
     if not words:
@@ -516,7 +511,9 @@ def _extract_target_words(
                 word
             ).strip()
 
-            if word and word not in words:
+            if word and word.lower() not in {
+                x.lower() for x in words
+            }:
 
                 words.append(word)
 
@@ -534,27 +531,25 @@ def _highlight_target_words(
     """
     将英文正文中的目标词自动高亮。
 
-    例如：
+    目标词：
 
         beautiful
 
-    变成：
+    输出：
 
-        <span style="color:#3498db;"><strong>beautiful</strong></span>
+        <span style="color:#38BDF8;"><strong>beautiful</strong></span>
 
-    使用单词边界，避免：
+    注意：
 
-        sleep
-
-    错误匹配：
-
-        sleeping
-
-    同时保留原始大小写。
+    1. 只改变目标词本身。
+    2. 前后空格完全保留。
+    3. 原始大小写完全保留。
+    4. 不会把 sleep 匹配到 sleeping。
+    5. 不会把 strong 匹配到 stronger。
+    6. 多词目标短语也支持。
     """
 
     if not article_en:
-
         return ""
 
     text = str(
@@ -562,6 +557,8 @@ def _highlight_target_words(
     )
 
     valid_words = []
+
+    seen = set()
 
     for word in target_words:
 
@@ -572,9 +569,15 @@ def _highlight_target_words(
         if not word:
             continue
 
-        if word not in valid_words:
+        key = word.lower()
 
-            valid_words.append(word)
+        if key not in seen:
+
+            valid_words.append(
+                word
+            )
+
+            seen.add(key)
 
     if not valid_words:
 
@@ -583,14 +586,14 @@ def _highlight_target_words(
         )
 
     # ------------------------------------------------------------------
-    # 按长度从长到短
+    # 长词优先
     #
-    # 防止：
+    # 例如：
     #
-    # "important"
-    # "more important"
+    # "healthy habits"
+    # "healthy"
     #
-    # 等情况下短词先匹配。
+    # 先匹配完整短语。
     # ------------------------------------------------------------------
 
     valid_words.sort(
@@ -600,15 +603,31 @@ def _highlight_target_words(
 
     # ------------------------------------------------------------------
     # 构造正则
+    #
+    # 不使用 \b。
+    #
+    # 因为：
+    #
+    #   sleep
+    #
+    # 在：
+    #
+    #   sleeping
+    #
+    # 中不应该匹配。
+    #
+    # 使用：
+    #
+    #   (?<![A-Za-z])
+    #   ...
+    #   (?![A-Za-z])
+    #
     # ------------------------------------------------------------------
 
-    patterns = []
-
-    for word in valid_words:
-
-        patterns.append(
-            re.escape(word)
-        )
+    patterns = [
+        re.escape(word)
+        for word in valid_words
+    ]
 
     combined = (
         r"(?<![A-Za-z])("
@@ -621,19 +640,23 @@ def _highlight_target_words(
         flags=re.IGNORECASE,
     )
 
-    # ------------------------------------------------------------------
-    # 逐段处理
-    # ------------------------------------------------------------------
-
     parts = []
 
     last_end = 0
 
-    for match in regex.finditer(
-        text
-    ):
+    # ------------------------------------------------------------------
+    # 逐段处理
+    # ------------------------------------------------------------------
 
+    for match in regex.finditer(text):
+
+        # --------------------------------------------------------------
         # 普通文字
+        #
+        # 这里完整保留 match 前面的所有内容，
+        # 包括空格、换行、标点。
+        # --------------------------------------------------------------
+
         before = text[
             last_end:
             match.start()
@@ -647,18 +670,26 @@ def _highlight_target_words(
                 )
             )
 
+        # --------------------------------------------------------------
         # 目标词
+        #
+        # match.group(0) 保留原始大小写。
+        # --------------------------------------------------------------
+
         matched_word = match.group(
             0
         )
 
         parts.append(
-            '<span style="color:#3498db;">'
+            '<span style="color:'
+            + TARGET_WORD_COLOR
+            + ';">'
             '<strong>'
             + _escape_text(
                 matched_word
             )
-            + "</strong></span>"
+            + '</strong>'
+            '</span>'
         )
 
         last_end = match.end()
@@ -706,8 +737,6 @@ def _render_target_vocabulary(
         vocabulary
     )
 
-    # 如果 Agnes 没返回 target_vocabulary
-    # 则用 words 构造
     if not items:
 
         items = _to_items(
@@ -787,9 +816,7 @@ def _render_added_vocabulary(
     vocabulary,
 ):
     """
-    新增词汇：
-
-        <strong>disagree</strong> — 不同意
+    新增词汇。
     """
 
     items = _to_items(
@@ -869,10 +896,7 @@ def _render_phrases(
     phrases,
 ):
     """
-    重点短语：
-
-        <strong>make a big difference</strong>
-        — 产生巨大不同
+    重点短语。
     """
 
     items = _to_items(
@@ -914,9 +938,7 @@ def _render_phrases(
                         phrase
                     )
                     + "</strong> — "
-                    + _escape_text(
-                        meaning
-                    )
+                    + _escape_text(meaning)
                 )
 
             elif phrase:
@@ -1070,11 +1092,7 @@ def _render_sentence_patterns(
     patterns,
 ):
     """
-    重点句型：
-
-        句型
-        含义
-        原文例句
+    重点句型。
     """
 
     items = _to_items(
@@ -1182,9 +1200,7 @@ def _render_knowledge_structure(
     structure,
 ):
     """
-    文章结构：
-
-        标题 — 内容
+    文章结构。
     """
 
     items = _to_items(
@@ -1275,6 +1291,11 @@ def _cell(
 ):
     """
     统一生成 HTML table 单元格。
+
+    关键：
+        vertical-align:top
+
+    保证左右两栏永远从表格顶部开始。
     """
 
     return (
@@ -1359,15 +1380,31 @@ def render(
     )
 
     # ==================================================================
-    # 文章内容
+    # 文章标题
+    #
+    # 这里必须使用 Agnes 自动生成的 title。
+    #
+    # 不写死默认标题。
     # ==================================================================
 
     title = _to_text(
         a.get(
             "title",
-            "英语学习文章",
+            "",
         )
     )
+
+    if not title:
+
+        raise ValueError(
+            "Agnes 返回的文章标题为空。"
+            "文章必须由 AI 自动生成标题，"
+            "不能使用固定默认标题。"
+        )
+
+    # ==================================================================
+    # 英文正文
+    # ==================================================================
 
     article_en = _to_text(
         a.get(
@@ -1376,12 +1413,28 @@ def render(
         )
     )
 
+    if not article_en:
+
+        raise ValueError(
+            "Agnes 返回的 article_en 为空。"
+        )
+
+    # ==================================================================
+    # 中文翻译
+    # ==================================================================
+
     article_zh = _to_text(
         a.get(
             "article_zh",
             "",
         )
     )
+
+    if not article_zh:
+
+        raise ValueError(
+            "Agnes 返回的 article_zh 为空。"
+        )
 
     # ==================================================================
     # 学习数据
@@ -1446,6 +1499,14 @@ def render(
     )
 
     # ==================================================================
+    # 标题
+    # ==================================================================
+
+    title_html = _escape_text(
+        title
+    )
+
+    # ==================================================================
     # 右栏内容
     # ==================================================================
 
@@ -1498,8 +1559,6 @@ def render(
 
     else:
 
-        # 如果 main.py 没有传 length，
-        # 尝试简单计算英文单词数量。
         length_text = str(
             len(
                 re.findall(
@@ -1511,26 +1570,43 @@ def render(
 
     # ==================================================================
     # 左栏
+    #
+    # 关键：
+    #
+    # text-align:left
+    #
+    # 保证：
+    #
+    # English Article
+    # 文章标题
+    # 英文正文
+    # 中文翻译
+    #
+    # 全部从左侧开始。
     # ==================================================================
 
     left_column = f"""
-<div style="font-size:1.05em; line-height:1.75;">
+<div style="font-size:1.05em; line-height:1.75; text-align:left; vertical-align:top;">
 
-<div style="font-size:1.15em; font-weight:700; margin-bottom:12px;">
+<div style="font-size:1.15em; font-weight:700; margin-bottom:12px; text-align:left;">
 📖 English Article
 </div>
 
-<div style="margin-bottom:24px;">
+<div style="font-size:1.25em; font-weight:700; line-height:1.5; margin-bottom:18px; text-align:left;">
+{title_html}
+</div>
+
+<div style="margin-bottom:24px; text-align:left; white-space:normal;">
 {article_en_html}
 </div>
 
 <hr>
 
-<div style="font-size:1.15em; font-weight:700; margin-top:20px; margin-bottom:12px;">
+<div style="font-size:1.15em; font-weight:700; margin-top:20px; margin-bottom:12px; text-align:left;">
 中文翻译
 </div>
 
-<div>
+<div style="text-align:left; white-space:normal;">
 {article_zh_html}
 </div>
 
@@ -1542,9 +1618,9 @@ def render(
     # ==================================================================
 
     right_column = f"""
-<div style="font-size:0.98em; line-height:1.65;">
+<div style="font-size:0.98em; line-height:1.65; text-align:left; vertical-align:top;">
 
-<div style="font-size:1.15em; font-weight:700; margin-bottom:16px;">
+<div style="font-size:1.15em; font-weight:700; margin-bottom:16px; text-align:left;">
 🎯 学习解析
 </div>
 
