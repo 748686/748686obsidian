@@ -219,18 +219,78 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
 
+          case "${{ inputs.article_type }}" in
+            "记叙文")
+              ARTICLE_TYPE="narration"
+              ;;
+            "议论文")
+              ARTICLE_TYPE="argumentation"
+              ;;
+            "说明文")
+              ARTICLE_TYPE="exposition"
+              ;;
+            "描写文")
+              ARTICLE_TYPE="description"
+              ;;
+            "应用文-书信")
+              ARTICLE_TYPE="letter"
+              ;;
+            "应用文-日记")
+              ARTICLE_TYPE="diary"
+              ;;
+            "应用文-通知")
+              ARTICLE_TYPE="notice"
+              ;;
+            "应用文-海报")
+              ARTICLE_TYPE="poster"
+              ;;
+            "应用文-演讲稿")
+              ARTICLE_TYPE="speech"
+              ;;
+            "散文")
+              ARTICLE_TYPE="prose"
+              ;;
+            "科技文")
+              ARTICLE_TYPE="science"
+              ;;
+            "新闻报道")
+              ARTICLE_TYPE="news"
+              ;;
+            "评论文")
+              ARTICLE_TYPE="review"
+              ;;
+            "故事")
+              ARTICLE_TYPE="story"
+              ;;
+            "对比文")
+              ARTICLE_TYPE="comparison"
+              ;;
+            "童话故事")
+              ARTICLE_TYPE="fairy_tale"
+              ;;
+            "采访")
+              ARTICLE_TYPE="interview"
+              ;;
+            *)
+              echo "ERROR: Unknown article type: ${{ inputs.article_type }}"
+              exit 1
+              ;;
+          esac
+
+          echo "ARTICLE TYPE:"
+          echo "  Chinese : ${{ inputs.article_type }}"
+          echo "  English : ${ARTICLE_TYPE}"
+
           python scripts/main.py \
             --date "${RUN_DATE}" \
             --difficulty "${{ inputs.difficulty }}" \
-            --article-type "${{ inputs.article_type }}" \
+            --article-type "${ARTICLE_TYPE}" \
             --length "${{ inputs.length }}" \
             --exam "${{ inputs.exam }}" \
             --image "${{ inputs.image }}" \
             --audio "${{ inputs.audio }}" \
             --audio-format "${{ inputs.audio_format }}" \
             --speed "${{ inputs.speed }}"
-
-
       # ==========================================================
       # 7. Show generated files
       # ==========================================================
