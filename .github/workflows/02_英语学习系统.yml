@@ -1,0 +1,583 @@
+name: 02_英语学习系统
+
+on:
+  workflow_dispatch:
+    inputs:
+
+      date:
+        description: "📅 日期（留空=今天）"
+        required: false
+        default: ""
+        type: string
+
+      difficulty:
+        description: "⭐ 难度"
+        required: true
+        default: "1"
+        type: choice
+        options:
+          - "1"
+          - "2"
+          - "3"
+          - "4"
+          - "5"
+          - "6"
+          - "7"
+          - "8"
+          - "9"
+          - "10"
+          - "11"
+          - "12"
+          - "13"
+          - "14"
+          - "15"
+          - "16"
+          - "17"
+
+      article_type:
+        description: "📝 文体"
+        required: true
+        default: "议论文"
+        type: choice
+        options:
+          - "记叙文"
+          - "议论文"
+          - "说明文"
+          - "描写文"
+          - "应用文-书信"
+          - "应用文-日记"
+          - "应用文-通知"
+          - "应用文-海报"
+          - "应用文-演讲稿"
+          - "散文"
+          - "科技文"
+          - "新闻报道"
+          - "评论文"
+          - "故事"
+          - "对比文"
+          - "童话故事"
+          - "采访"
+
+      length:
+        description: "📏 文章长度"
+        required: true
+        default: "100"
+        type: choice
+        options:
+          - "80"
+          - "100"
+          - "120"
+          - "150"
+          - "200"
+          - "300"
+          - "500"
+          - "800"
+          - "1000"
+
+      exam:
+        description: "📄 是否生成试卷"
+        required: true
+        default: "yes"
+        type: choice
+        options:
+          - "yes"
+          - "no"
+
+      image:
+        description: "🖼️ 是否生成配套图片"
+        required: true
+        default: "yes"
+        type: choice
+        options:
+          - "yes"
+          - "no"
+
+      audio:
+        description: "🎧 是否生成听力音频"
+        required: true
+        default: "yes"
+        type: choice
+        options:
+          - "yes"
+          - "no"
+
+      audio_format:
+        description: "🔊 音频格式"
+        required: true
+        default: "mp3"
+        type: choice
+        options:
+          - "mp3"
+          - "m4a"
+          - "wav"
+
+      speed:
+        description: "🐢🔊 语速"
+        required: true
+        default: "1.0"
+        type: choice
+        options:
+          - "0.75"
+          - "0.9"
+          - "1.0"
+          - "1.1"
+          - "1.25"
+
+
+permissions:
+  contents: write
+
+
+jobs:
+
+  english-learning:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # ==========================================================
+      # 1. Checkout
+      # ==========================================================
+
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+
+      # ==========================================================
+      # 2. Python
+      # ==========================================================
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+
+      # ==========================================================
+      # 3. Install dependencies
+      # ==========================================================
+
+      - name: 📦 Install dependencies
+        working-directory: 02_英语学习系统
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+
+      # ==========================================================
+      # 4. Install ffmpeg when M4A is required
+      # ==========================================================
+
+      - name: 🎧 Install ffmpeg
+        if: ${{ inputs.audio == 'yes' && inputs.audio_format == 'm4a' }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+
+      # ==========================================================
+      # 5. Resolve base date
+      #
+      # 如果手动输入 date：
+      #     使用手动日期
+      #
+      # 如果留空：
+      #     使用 GitHub Actions UTC 今天
+      #
+      # 后面自动检查：
+      #     前天
+      #     昨天
+      #     今天
+      # ==========================================================
+
+      - name: 📅 Resolve three dates
+        id: resolve_dates
+        shell: bash
+        run: |
+
+          set -e
+
+          if [ -n "${{ inputs.date }}" ]; then
+            BASE_DATE="${{ inputs.date }}"
+          else
+            BASE_DATE="$(date -u +%F)"
+          fi
+
+          if ! date -u -d "${BASE_DATE}" "+%F" >/dev/null 2>&1; then
+            echo "ERROR: 无法识别日期：${BASE_DATE}"
+            exit 1
+          fi
+
+          DAY_2="$(date -u -d "${BASE_DATE} -1 day" +%F)"
+          DAY_1="$(date -u -d "${BASE_DATE} -2 days" +%F)"
+          DAY_3="${BASE_DATE}"
+
+          echo "BASE_DATE=${BASE_DATE}" >> "$GITHUB_ENV"
+          echo "DAY_1=${DAY_1}" >> "$GITHUB_ENV"
+          echo "DAY_2=${DAY_2}" >> "$GITHUB_ENV"
+          echo "DAY_3=${DAY_3}" >> "$GITHUB_ENV"
+
+          echo "=========================================="
+          echo "02 英语学习系统"
+          echo "=========================================="
+          echo "基准日期 : ${BASE_DATE}"
+          echo
+          echo "处理日期 :"
+          echo "  1. ${DAY_1}"
+          echo "  2. ${DAY_2}"
+          echo "  3. ${DAY_3}"
+          echo
+          echo "难度     : ${{ inputs.difficulty }}"
+          echo "文体     : ${{ inputs.article_type }}"
+          echo "长度     : ${{ inputs.length }}"
+          echo "试卷     : ${{ inputs.exam }}"
+          echo "图片     : ${{ inputs.image }}"
+          echo "音频     : ${{ inputs.audio }}"
+          echo "格式     : ${{ inputs.audio_format }}"
+          echo "语速     : ${{ inputs.speed }}"
+          echo "=========================================="
+
+
+      # ==========================================================
+      # 6. Convert article type
+      #
+      # 只转换一次。
+      # 三天使用同一个 workflow input 配置。
+      # ==========================================================
+
+      - name: 📝 Resolve article type
+        shell: bash
+        run: |
+
+          set -e
+
+          case "${{ inputs.article_type }}" in
+            "记叙文")
+              ARTICLE_TYPE="narration"
+              ;;
+            "议论文")
+              ARTICLE_TYPE="argumentation"
+              ;;
+            "说明文")
+              ARTICLE_TYPE="exposition"
+              ;;
+            "描写文")
+              ARTICLE_TYPE="description"
+              ;;
+            "应用文-书信")
+              ARTICLE_TYPE="letter"
+              ;;
+            "应用文-日记")
+              ARTICLE_TYPE="diary"
+              ;;
+            "应用文-通知")
+              ARTICLE_TYPE="notice"
+              ;;
+            "应用文-海报")
+              ARTICLE_TYPE="poster"
+              ;;
+            "应用文-演讲稿")
+              ARTICLE_TYPE="speech"
+              ;;
+            "散文")
+              ARTICLE_TYPE="prose"
+              ;;
+            "科技文")
+              ARTICLE_TYPE="science"
+              ;;
+            "新闻报道")
+              ARTICLE_TYPE="news"
+              ;;
+            "评论文")
+              ARTICLE_TYPE="review"
+              ;;
+            "故事")
+              ARTICLE_TYPE="story"
+              ;;
+            "对比文")
+              ARTICLE_TYPE="comparison"
+              ;;
+            "童话故事")
+              ARTICLE_TYPE="fairy_tale"
+              ;;
+            "采访")
+              ARTICLE_TYPE="interview"
+              ;;
+            *)
+              echo "ERROR: Unknown article type: ${{ inputs.article_type }}"
+              exit 1
+              ;;
+          esac
+
+          echo "ARTICLE_TYPE=${ARTICLE_TYPE}" >> "$GITHUB_ENV"
+
+          echo "=========================================="
+          echo "ARTICLE TYPE"
+          echo "=========================================="
+          echo "Chinese : ${{ inputs.article_type }}"
+          echo "English : ${ARTICLE_TYPE}"
+          echo "=========================================="
+
+
+      # ==========================================================
+      # 7. Process Day 1
+      #
+      # 核心规则：
+      #
+      # 文件存在且非空：
+      #     SKIP
+      #     不调用 main.py
+      #     不调用 AI
+      #
+      # 文件不存在：
+      #     调 main.py
+      #     main.py 内部生成
+      #     main.py 内部 Stage 1 commit/push
+      #     然后才继续 Day 2
+      # ==========================================================
+
+      - name: 🚀 Day 1 - ${{ env.DAY_1 }}
+        working-directory: 02_英语学习系统
+        env:
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        shell: bash
+        run: |
+
+          set -e
+
+          TARGET_FILE="output/${DAY_1}/英语短文注记/${{ inputs.difficulty }}星_${{ inputs.article_type }}.md"
+
+          echo
+          echo "============================================================"
+          echo "DAY 1"
+          echo "日期：${DAY_1}"
+          echo "============================================================"
+
+          if [ -s "${TARGET_FILE}" ]; then
+
+            echo "✓ 已存在：${TARGET_FILE}"
+            echo "✓ 本日跳过"
+            echo "✓ 不调用 AI"
+            echo "✓ 不重新生成文章"
+
+          else
+
+            echo "✗ 文件不存在：${TARGET_FILE}"
+            echo "→ 开始生成 ${DAY_1}"
+            echo "→ 生成完成后由 main.py 立即保存并 push"
+
+            python scripts/main.py \
+              --date "${DAY_1}" \
+              --difficulty "${{ inputs.difficulty }}" \
+              --article-type "${ARTICLE_TYPE}" \
+              --length "${{ inputs.length }}" \
+              --exam "${{ inputs.exam }}" \
+              --image "${{ inputs.image }}" \
+              --audio "${{ inputs.audio }}" \
+              --audio-format "${{ inputs.audio_format }}" \
+              --speed "${{ inputs.speed }}"
+
+            if [ ! -s "${TARGET_FILE}" ]; then
+              echo "ERROR: ${DAY_1} 生成后目标文章仍不存在或为空。"
+              exit 1
+            fi
+
+            echo "✓ ${DAY_1} 生成成功"
+            echo "✓ 已确认文件存在"
+            echo "✓ 继续下一天"
+
+          fi
+
+
+      # ==========================================================
+      # 8. Process Day 2
+      # ==========================================================
+
+      - name: 🚀 Day 2 - ${{ env.DAY_2 }}
+        working-directory: 02_英语学习系统
+        env:
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        shell: bash
+        run: |
+
+          set -e
+
+          TARGET_FILE="output/${DAY_2}/英语短文注记/${{ inputs.difficulty }}星_${{ inputs.article_type }}.md"
+
+          echo
+          echo "============================================================"
+          echo "DAY 2"
+          echo "日期：${DAY_2}"
+          echo "============================================================"
+
+          if [ -s "${TARGET_FILE}" ]; then
+
+            echo "✓ 已存在：${TARGET_FILE}"
+            echo "✓ 本日跳过"
+            echo "✓ 不调用 AI"
+            echo "✓ 不重新生成文章"
+
+          else
+
+            echo "✗ 文件不存在：${TARGET_FILE}"
+            echo "→ 开始生成 ${DAY_2}"
+            echo "→ 生成完成后由 main.py 立即保存并 push"
+
+            python scripts/main.py \
+              --date "${DAY_2}" \
+              --difficulty "${{ inputs.difficulty }}" \
+              --article-type "${ARTICLE_TYPE}" \
+              --length "${{ inputs.length }}" \
+              --exam "${{ inputs.exam }}" \
+              --image "${{ inputs.image }}" \
+              --audio "${{ inputs.audio }}" \
+              --audio-format "${{ inputs.audio_format }}" \
+              --speed "${{ inputs.speed }}"
+
+            if [ ! -s "${TARGET_FILE}" ]; then
+              echo "ERROR: ${DAY_2} 生成后目标文章仍不存在或为空。"
+              exit 1
+            fi
+
+            echo "✓ ${DAY_2} 生成成功"
+            echo "✓ 已确认文件存在"
+            echo "✓ 继续下一天"
+
+          fi
+
+
+      # ==========================================================
+      # 9. Process Day 3
+      # ==========================================================
+
+      - name: 🚀 Day 3 - ${{ env.DAY_3 }}
+        working-directory: 02_英语学习系统
+        env:
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        shell: bash
+        run: |
+
+          set -e
+
+          TARGET_FILE="output/${DAY_3}/英语短文注记/${{ inputs.difficulty }}星_${{ inputs.article_type }}.md"
+
+          echo
+          echo "============================================================"
+          echo "DAY 3"
+          echo "日期：${DAY_3}"
+          echo "============================================================"
+
+          if [ -s "${TARGET_FILE}" ]; then
+
+            echo "✓ 已存在：${TARGET_FILE}"
+            echo "✓ 本日跳过"
+            echo "✓ 不调用 AI"
+            echo "✓ 不重新生成文章"
+
+          else
+
+            echo "✗ 文件不存在：${TARGET_FILE}"
+            echo "→ 开始生成 ${DAY_3}"
+            echo "→ 生成完成后由 main.py 立即保存并 push"
+
+            python scripts/main.py \
+              --date "${DAY_3}" \
+              --difficulty "${{ inputs.difficulty }}" \
+              --article-type "${ARTICLE_TYPE}" \
+              --length "${{ inputs.length }}" \
+              --exam "${{ inputs.exam }}" \
+              --image "${{ inputs.image }}" \
+              --audio "${{ inputs.audio }}" \
+              --audio-format "${{ inputs.audio_format }}" \
+              --speed "${{ inputs.speed }}"
+
+            if [ ! -s "${TARGET_FILE}" ]; then
+              echo "ERROR: ${DAY_3} 生成后目标文章仍不存在或为空。"
+              exit 1
+            fi
+
+            echo "✓ ${DAY_3} 生成成功"
+            echo "✓ 已确认文件存在"
+
+          fi
+
+
+      # ==========================================================
+      # 10. Final verification
+      #
+      # 注意：
+      # 不再执行 git commit / git push。
+      #
+      # 因为 main.py V2.3 已经负责阶段性保存。
+      # ==========================================================
+
+      - name: 🔍 Verify three-day outputs
+        working-directory: 02_英语学习系统
+        shell: bash
+        run: |
+
+          set -e
+
+          echo
+          echo "============================================================"
+          echo "THREE-DAY OUTPUT VERIFICATION"
+          echo "============================================================"
+
+          FAILED=0
+
+          for CHECK_DATE in "${DAY_1}" "${DAY_2}" "${DAY_3}"; do
+
+            TARGET_FILE="output/${CHECK_DATE}/英语短文注记/${{ inputs.difficulty }}星_${{ inputs.article_type }}.md"
+
+            if [ -s "${TARGET_FILE}" ]; then
+
+              echo "✓ ${CHECK_DATE}"
+              echo "  ${TARGET_FILE}"
+
+            else
+
+              echo "✗ ${CHECK_DATE}"
+              echo "  缺失：${TARGET_FILE}"
+              FAILED=1
+
+            fi
+
+          done
+
+          echo
+          echo "============================================================"
+          echo "GENERATED FILES"
+          echo "============================================================"
+
+          for CHECK_DATE in "${DAY_1}" "${DAY_2}" "${DAY_3}"; do
+
+            if [ -d "output/${CHECK_DATE}" ]; then
+
+              echo
+              echo "----- ${CHECK_DATE} -----"
+
+              find "output/${CHECK_DATE}" \
+                -type f \
+                -print \
+                | sort
+
+            fi
+
+          done
+
+          echo
+          echo "============================================================"
+
+          if [ "${FAILED}" -ne 0 ]; then
+            echo "ERROR: 三天文章检查未通过。"
+            exit 1
+          fi
+
+          echo "✓ 三天目标文章全部存在且非空"
+          echo "✓ Workflow 完成"
