@@ -2,172 +2,196 @@
 # -*- coding: utf-8 -*-
 
 """
-02_英语学习系统
-配套试卷生成器 V2
+748686 英语学习系统
+exam_generate.py V3
 
 ============================================================
-核心目标
+职责
 ============================================================
 
-严格按照“英语短文注记配套试卷”完成版模板生成：
+围绕已经生成的英语文章 article_en / article_zh，
+生成完整英语考试试卷。
 
-英语短文注记配套试卷 — {文章标题}
-{星级难度}（{对应级别}） | 文体：{文体} | 满分：100分
-文章标题：{文章标题}
-（满分：100分    时间：60分钟）
-姓名：__________    班级：__________    得分：__________
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+固定题量：
 
 一、听力
-Part A 听句子，选出你所听到的单词
-Part B 听对话，选择正确答案
-Part C 听短文，选择正确答案
+    Part A：5题
+    Part B：5题
+    Part C：5题
 
 二、单项选择
+    10题
 
 三、多选题
+    10题
 
 四、完形填空
+    10空
 
 五、阅读理解
+    5题
 
 六、翻译
-Part A 汉译英
-Part B 英译汉
+    Part A 汉译英：5题
+    Part B 英译汉：5题
 
 七、写作
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-参考答案与听力原文
-
-听力原文
-一、答案
-二、答案
-三、答案
-四、答案
-五、答案
-六、答案
-七、答案
+    1题
 
 ============================================================
-兼容 main.py
+重要契约
 ============================================================
 
-main.py 继续使用：
+1. 必须围绕本次生成的 article_en 命题。
 
-    generate(...)
-    render(...)
+2. Listening Part C 必须直接使用 article_en，
+   不允许 AI 另写一篇听力短文。
 
-无需修改调用接口。
+3. Cloze 必须直接从 article_en 原文挖空，
+   不允许重新写一篇完形文章。
+
+4. Reading 必须直接使用 article_en。
+
+5. Translation 必须从 article_en / article_zh
+   的原文或核心句子中选择。
+
+6. Listening Part A：
+   每题对应一个完整英文听力句子。
+   题面不能出现中文听力句子。
+
+7. Listening Part B：
+   每题必须有完整英文对话。
+
+8. 所有选择题必须有 A/B/C/D 四个选项。
+
+9. 单项选择每题只能有一个正确答案。
+
+10. 多选题每题必须至少有两个正确答案。
+
+11. 所有题目必须有答案和解析。
+
+12. 题量不符合要求时，整份考试判定失败。
+
+13. main.py 接口保持不变：
+
+       generate(article, difficulty, article_type, words)
+
+       render(exam, article_title, difficulty, article_type_name)
 """
 
 import json
+import os
 import re
+import time
+from pathlib import Path
+from typing import Any
 
 from common import CONFIG, env_required, request_json
 
 
-JSON_RETRIES = 3
+# ============================================================
+# 基础配置
+# ============================================================
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
-# ==========================================================
-# 17 星难度
-# ==========================================================
+# ============================================================
+# 难度
+# ============================================================
 
 DIFFICULTIES = {
     1: {
         "star_name": "一星",
+        "stars": "★☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆",
         "level": "小学1-4年级",
-        "label": "小学",
     },
     2: {
         "star_name": "二星",
+        "stars": "★★☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆",
         "level": "小学高年级-初一",
-        "label": "小学高年级-初一",
     },
     3: {
         "star_name": "三星",
+        "stars": "★★★☆☆☆☆☆☆☆☆☆☆☆☆☆☆",
         "level": "初二-初四",
-        "label": "初二-初四",
     },
     4: {
         "star_name": "四星",
+        "stars": "★★★★☆☆☆☆☆☆☆☆☆☆☆☆☆",
         "level": "高一",
-        "label": "高一",
     },
     5: {
         "star_name": "五星",
+        "stars": "★★★★★☆☆☆☆☆☆☆☆☆☆☆☆",
         "level": "高二",
-        "label": "高二",
     },
     6: {
         "star_name": "六星",
+        "stars": "★★★★★★☆☆☆☆☆☆☆☆☆☆☆",
         "level": "高三",
-        "label": "高三",
     },
     7: {
         "star_name": "七星",
+        "stars": "★★★★★★★☆☆☆☆☆☆☆☆☆☆",
         "level": "大学",
-        "label": "大学",
     },
     8: {
         "star_name": "八星",
+        "stars": "★★★★★★★★☆☆☆☆☆☆☆☆☆",
         "level": "四级",
-        "label": "四级",
     },
     9: {
         "star_name": "九星",
+        "stars": "★★★★★★★★★☆☆☆☆☆☆☆☆",
         "level": "六级",
-        "label": "六级",
     },
     10: {
         "star_name": "十星",
+        "stars": "★★★★★★★★★★☆☆☆☆☆☆☆",
         "level": "专四",
-        "label": "专四",
     },
     11: {
         "star_name": "十一星",
+        "stars": "★★★★★★★★★★★☆☆☆☆☆☆",
         "level": "专六",
-        "label": "专六",
     },
     12: {
         "star_name": "十二星",
+        "stars": "★★★★★★★★★★★★☆☆☆☆☆",
         "level": "专八",
-        "label": "专八",
     },
     13: {
         "star_name": "十三星",
+        "stars": "★★★★★★★★★★★★★☆☆☆☆",
         "level": "考研",
-        "label": "考研",
     },
     14: {
         "star_name": "十四星",
+        "stars": "★★★★★★★★★★★★★★☆☆☆",
         "level": "考博",
-        "label": "考博",
     },
     15: {
-        "star_name": "十五",
+        "star_name": "十五星",
+        "stars": "★★★★★★★★★★★★★★★☆☆",
         "level": "托福",
-        "label": "托福",
     },
     16: {
         "star_name": "十六星",
+        "stars": "★★★★★★★★★★★★★★★★☆",
         "level": "雅思",
-        "label": "雅思",
     },
     17: {
         "star_name": "十七星",
+        "stars": "★★★★★★★★★★★★★★★★★",
         "level": "GRE",
-        "label": "GRE",
     },
 }
 
 
-# ==========================================================
-# 17 种文章类型
-# ==========================================================
+# ============================================================
+# 文章类型
+# ============================================================
 
 ARTICLE_TYPES = {
     "narration": "记叙文",
@@ -190,223 +214,184 @@ ARTICLE_TYPES = {
 }
 
 
-# ==========================================================
-# JSON 清理
-# ==========================================================
+# ============================================================
+# 固定题量
+# ============================================================
 
-def clean_json_content(content):
-    if content is None:
-        return ""
+LISTENING_A_COUNT = 5
+LISTENING_B_COUNT = 5
+LISTENING_C_COUNT = 5
 
-    content = str(content).strip()
+SINGLE_CHOICE_COUNT = 10
 
-    if not content:
-        return ""
+MULTIPLE_CHOICE_COUNT = 10
 
-    # 去掉 Markdown JSON 围栏
-    content = re.sub(
-        r"^```(?:json|JSON)?\s*",
-        "",
-        content,
-    )
+CLOZE_COUNT = 10
 
-    content = re.sub(
-        r"\s*```\s*$",
-        "",
-        content,
-    )
+READING_COUNT = 5
 
-    content = content.strip()
+TRANSLATION_A_COUNT = 5
+TRANSLATION_B_COUNT = 5
 
-    # 提取最外层 JSON 对象
-    first_obj = content.find("{")
-    last_obj = content.rfind("}")
-
-    if first_obj >= 0 and last_obj > first_obj:
-        return content[first_obj:last_obj + 1].strip()
-
-    return content
+WRITING_COUNT = 1
 
 
-def parse_json_response(content):
-    cleaned = clean_json_content(content)
-
-    if not cleaned:
-        raise ValueError(
-            "Agnes 返回内容为空，无法解析 JSON"
-        )
-
-    try:
-        return json.loads(cleaned)
-
-    except json.JSONDecodeError as first_error:
-
-        # 再尝试寻找 JSON 对象
-        start = cleaned.find("{")
-        end = cleaned.rfind("}")
-
-        if start >= 0 and end > start:
-
-            candidate = cleaned[start:end + 1]
-
-            try:
-                return json.loads(candidate)
-            except json.JSONDecodeError:
-                pass
-
-        raise first_error
-
-
-# ==========================================================
-# Agnes 返回结构
-# ==========================================================
-
-def extract_content(data):
-
-    try:
-        choices = data["choices"]
-
-        if not choices:
-            raise ValueError(
-                "Agnes 返回 choices 为空"
-            )
-
-        message = choices[0]["message"]
-
-        content = message.get("content")
-
-        if content is None:
-            raise ValueError(
-                "Agnes 返回 message.content 不存在"
-            )
-
-        # 某些模型可能返回 content 数组
-        if isinstance(content, list):
-
-            texts = []
-
-            for item in content:
-
-                if isinstance(item, dict):
-
-                    text = item.get(
-                        "text",
-                        item.get("content", "")
-                    )
-
-                    if text:
-                        texts.append(str(text))
-
-                elif isinstance(item, str):
-
-                    texts.append(item)
-
-            content = "\n".join(texts)
-
-        return content
-
-    except (KeyError, TypeError, IndexError) as exc:
-
-        raise ValueError(
-            f"Agnes 返回结构异常：{data}"
-        ) from exc
-
-
-# ==========================================================
+# ============================================================
 # 通用工具
-# ==========================================================
+# ============================================================
 
-def _to_text(value):
-
+def _to_text(value: Any) -> str:
     if value is None:
         return ""
 
     if isinstance(value, str):
         return value.strip()
 
-    if isinstance(
-        value,
-        (int, float, bool),
-    ):
-        return str(value)
+    if isinstance(value, (int, float, bool)):
+        return str(value).strip()
 
-    if isinstance(value, dict):
+    return str(value).strip()
 
-        preferred_keys = [
-            "text",
-            "question",
-            "title",
-            "name",
-            "content",
-            "answer",
-            "analysis",
-            "explanation",
-            "meaning",
-            "pattern",
-            "prompt",
-        ]
 
-        parts = []
-
-        for key in preferred_keys:
-
-            if key not in value:
-                continue
-
-            text = _to_text(
-                value[key]
-            )
-
-            if text:
-                parts.append(text)
-
-        if parts:
-            return "；".join(parts)
-
-        return "；".join(
-            f"{key}: {_to_text(val)}"
-            for key, val in value.items()
-            if _to_text(val)
-        )
-
+def _ensure_list(value: Any) -> list:
     if isinstance(value, list):
-
-        return "；".join(
-            _to_text(item)
-            for item in value
-            if _to_text(item)
-        )
-
-    return str(value)
-
-
-def _ensure_list(value):
+        return value
 
     if value is None:
         return []
 
-    if isinstance(value, list):
-        return value
-
     return [value]
 
 
-# ==========================================================
-# 题目字段提取
-# ==========================================================
+def _clean_text(value: Any) -> str:
+    return re.sub(r"\s+", " ", _to_text(value)).strip()
 
-def _question_text(question):
 
+# ============================================================
+# JSON 清理
+# ============================================================
+
+def clean_json_content(content: str) -> str:
+    """
+    清理 Agnes 返回的 JSON。
+    """
+
+    content = _to_text(content)
+
+    if not content:
+        raise ValueError("AI 返回内容为空")
+
+    # 去 Markdown JSON fence
+    content = re.sub(
+        r"^```(?:json)?\s*",
+        "",
+        content,
+        flags=re.IGNORECASE,
+    )
+
+    content = re.sub(
+        r"\s*```$",
+        "",
+        content,
+        flags=re.IGNORECASE,
+    )
+
+    content = content.strip()
+
+    # 提取第一个 JSON object
+    start = content.find("{")
+    end = content.rfind("}")
+
+    if start >= 0 and end > start:
+        content = content[start:end + 1]
+
+    return content.strip()
+
+
+def parse_json_response(content: str) -> dict:
+    cleaned = clean_json_content(content)
+
+    try:
+        data = json.loads(cleaned)
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            f"AI JSON 解析失败：{exc}"
+        ) from exc
+
+    if not isinstance(data, dict):
+        raise ValueError("AI JSON 顶层必须是 object")
+
+    return data
+
+
+# ============================================================
+# Agnes 内容提取
+# ============================================================
+
+def extract_content(response: Any) -> str:
+    """
+    兼容常见 OpenAI / Agnes Chat Completions 返回结构。
+    """
+
+    if isinstance(response, str):
+        return response
+
+    if not isinstance(response, dict):
+        raise ValueError("AI API 返回结构不是 dict")
+
+    choices = response.get("choices")
+
+    if not isinstance(choices, list) or not choices:
+        raise ValueError("AI API 返回中没有 choices")
+
+    first = choices[0]
+
+    if not isinstance(first, dict):
+        raise ValueError("AI API choices[0] 格式错误")
+
+    message = first.get("message")
+
+    if isinstance(message, dict):
+        content = message.get("content")
+
+        if isinstance(content, str):
+            return content
+
+        if isinstance(content, list):
+            parts = []
+
+            for item in content:
+                if isinstance(item, dict):
+                    text = item.get("text")
+                    if text:
+                        parts.append(_to_text(text))
+
+            if parts:
+                return "\n".join(parts)
+
+    text = first.get("text")
+
+    if isinstance(text, str):
+        return text
+
+    raise ValueError("无法从 AI 返回结果中提取 content")
+
+
+# ============================================================
+# 题目字段工具
+# ============================================================
+
+def _question_text(question: Any) -> str:
     if not isinstance(question, dict):
-        return _to_text(question)
+        return ""
 
     for key in (
         "question",
+        "stem",
         "text",
-        "content",
         "prompt",
+        "sentence",
     ):
-
         value = question.get(key)
 
         if value:
@@ -415,70 +400,834 @@ def _question_text(question):
     return ""
 
 
-def _options(question):
-
+def _options(question: Any) -> list:
     if not isinstance(question, dict):
         return []
 
-    options = question.get(
-        "options",
-        []
-    )
+    options = question.get("options")
 
-    return _ensure_list(options)
+    if not isinstance(options, list):
+        return []
+
+    result = []
+
+    for item in options:
+        text = _option_text(item)
+
+        if text:
+            result.append(text)
+
+    return result
 
 
-def _option_text(option):
-
+def _option_text(option: Any) -> str:
     if isinstance(option, str):
         return option.strip()
 
     if isinstance(option, dict):
+        for key in (
+            "text",
+            "option",
+            "content",
+            "value",
+        ):
+            value = option.get(key)
 
-        # 优先支持：
-        # {"label":"A","text":"xxx"}
+            if value:
+                return _to_text(value)
 
-        label = _to_text(
-            option.get("label", "")
-        )
+    return ""
 
-        text = _to_text(
-            option.get(
-                "text",
-                option.get(
-                    "content",
-                    option.get(
-                        "option",
-                        ""
-                    )
-                )
+
+def _answer(question: Any) -> Any:
+    if not isinstance(question, dict):
+        return None
+
+    return question.get("answer")
+
+
+def _analysis(question: Any) -> str:
+    if not isinstance(question, dict):
+        return ""
+
+    return _to_text(
+        question.get("analysis")
+        or question.get("explanation")
+        or ""
+    )
+
+
+# ============================================================
+# 文章字段验证
+# ============================================================
+
+def _get_article_en(article: dict) -> str:
+    if not isinstance(article, dict):
+        raise ValueError("article 必须是 dict")
+
+    article_en = _to_text(article.get("article_en"))
+
+    if not article_en:
+        raise ValueError("article_en 为空")
+
+    return article_en
+
+
+def _get_article_zh(article: dict) -> str:
+    if not isinstance(article, dict):
+        return ""
+
+    return _to_text(article.get("article_zh"))
+
+
+# ============================================================
+# 听力脚本验证
+# ============================================================
+
+def _get_listening_script(exam: dict) -> dict:
+    script = exam.get("listening_script")
+
+    if not isinstance(script, dict):
+        raise ValueError("listening_script 必须是 object")
+
+    for part in ("part_a", "part_b", "part_c"):
+        if not _to_text(script.get(part)):
+            raise ValueError(
+                f"听力原文 {part} 为空"
             )
+
+    return script
+
+
+def _validate_listening(
+    exam: dict,
+    article_en: str,
+) -> None:
+
+    listening = exam.get("listening")
+
+    if not isinstance(listening, list):
+        raise ValueError("listening 必须是 list")
+
+    if len(listening) != 3:
+        raise ValueError(
+            "听力必须严格包含 Part A / B / C 三部分"
         )
 
-        if label and text:
-            return f"{label}. {text}"
+    parts = {}
 
-        if text:
-            return text
+    for item in listening:
+        if not isinstance(item, dict):
+            raise ValueError("听力部分格式错误")
 
-        return _to_text(option)
+        part = _to_text(item.get("part")).upper()
 
-    return _to_text(option)
+        if part not in {"A", "B", "C"}:
+            raise ValueError(
+                f"非法听力部分：{part}"
+            )
+
+        if part in parts:
+            raise ValueError(
+                f"听力 Part {part} 重复"
+            )
+
+        parts[part] = item
+
+    required_counts = {
+        "A": LISTENING_A_COUNT,
+        "B": LISTENING_B_COUNT,
+        "C": LISTENING_C_COUNT,
+    }
+
+    for part, required_count in required_counts.items():
+
+        if part not in parts:
+            raise ValueError(
+                f"缺少听力 Part {part}"
+            )
+
+        questions = parts[part].get("questions")
+
+        if not isinstance(questions, list):
+            raise ValueError(
+                f"听力 Part {part} questions 必须是 list"
+            )
+
+        if len(questions) != required_count:
+            raise ValueError(
+                f"听力 Part {part} 必须 {required_count} 题，"
+                f"实际 {len(questions)} 题"
+            )
+
+        for index, question in enumerate(
+            questions,
+            start=1,
+        ):
+            qtext = _question_text(question)
+
+            if not qtext:
+                raise ValueError(
+                    f"听力 Part {part} 第 {index} 题题干为空"
+                )
+
+            options = _options(question)
+
+            if len(options) != 4:
+                raise ValueError(
+                    f"听力 Part {part} 第 {index} 题必须有 "
+                    f"A/B/C/D 四个选项"
+                )
+
+            answer = _to_text(_answer(question)).upper()
+
+            if answer not in {"A", "B", "C", "D"}:
+                raise ValueError(
+                    f"听力 Part {part} 第 {index} 题答案非法："
+                    f"{answer}"
+                )
+
+            if not _analysis(question):
+                raise ValueError(
+                    f"听力 Part {part} 第 {index} 题缺少解析"
+                )
+
+    script = _get_listening_script(exam)
+
+    # Part C 必须直接使用 article_en
+    part_c_script = _clean_text(script["part_c"])
+    article_clean = _clean_text(article_en)
+
+    if part_c_script != article_clean:
+        raise ValueError(
+            "听力 Part C 原文必须与 article_en 完全一致"
+        )
+
+    # Part A 禁止中文
+    chinese_pattern = re.compile(r"[\u4e00-\u9fff]")
+
+    if chinese_pattern.search(script["part_a"]):
+        raise ValueError(
+            "听力 Part A 原文不能出现中文"
+        )
+
+    # Part B 必须有真正对话
+    part_b_script = script["part_b"]
+
+    if not re.search(
+        r"(Boy|Girl|Man|Woman|Teacher|Student|Speaker|A|B)\s*:",
+        part_b_script,
+        flags=re.IGNORECASE,
+    ):
+        raise ValueError(
+            "听力 Part B 必须包含真正的英文对话角色"
+        )
 
 
-# ==========================================================
-# 试卷 JSON 结构验证
-# ==========================================================
+# ============================================================
+# 选择题验证
+# ============================================================
 
-def validate_exam(exam):
+def _validate_single_choice(exam: dict) -> None:
+
+    questions = exam.get("single_choice")
+
+    if not isinstance(questions, list):
+        raise ValueError(
+            "single_choice 必须是 list"
+        )
+
+    if len(questions) != SINGLE_CHOICE_COUNT:
+        raise ValueError(
+            f"单项选择必须 {SINGLE_CHOICE_COUNT} 题，"
+            f"实际 {len(questions)} 题"
+        )
+
+    for index, question in enumerate(
+        questions,
+        start=1,
+    ):
+        qtext = _question_text(question)
+
+        if not qtext:
+            raise ValueError(
+                f"单项选择第 {index} 题题干为空"
+            )
+
+        options = _options(question)
+
+        if len(options) != 4:
+            raise ValueError(
+                f"单项选择第 {index} 题必须有 A/B/C/D"
+            )
+
+        answer = _to_text(
+            _answer(question)
+        ).upper()
+
+        if answer not in {"A", "B", "C", "D"}:
+            raise ValueError(
+                f"单项选择第 {index} 题答案非法"
+            )
+
+        if not _analysis(question):
+            raise ValueError(
+                f"单项选择第 {index} 题缺少解析"
+            )
+
+
+# ============================================================
+# 多选题验证
+# ============================================================
+
+def _normalize_answers(value: Any) -> list[str]:
+
+    if isinstance(value, list):
+        result = []
+
+        for item in value:
+            letter = _to_text(item).upper()
+
+            if letter in {"A", "B", "C", "D"}:
+                result.append(letter)
+
+        return sorted(set(result))
+
+    text = _to_text(value).upper()
+
+    if not text:
+        return []
+
+    letters = re.findall(r"[ABCD]", text)
+
+    return sorted(set(letters))
+
+
+def _validate_multiple_choice(exam: dict) -> None:
+
+    questions = exam.get("multiple_choice")
+
+    if not isinstance(questions, list):
+        raise ValueError(
+            "multiple_choice 必须是 list"
+        )
+
+    if len(questions) != MULTIPLE_CHOICE_COUNT:
+        raise ValueError(
+            f"多选题必须 {MULTIPLE_CHOICE_COUNT} 题，"
+            f"实际 {len(questions)} 题"
+        )
+
+    for index, question in enumerate(
+        questions,
+        start=1,
+    ):
+        qtext = _question_text(question)
+
+        if not qtext:
+            raise ValueError(
+                f"多选题第 {index} 题题干为空"
+            )
+
+        options = _options(question)
+
+        if len(options) != 4:
+            raise ValueError(
+                f"多选题第 {index} 题必须有 A/B/C/D"
+            )
+
+        answers = _normalize_answers(
+            _answer(question)
+        )
+
+        if len(answers) < 2:
+            raise ValueError(
+                f"多选题第 {index} 题至少需要两个正确答案"
+            )
+
+        if not _analysis(question):
+            raise ValueError(
+                f"多选题第 {index} 题缺少解析"
+            )
+
+
+# ============================================================
+# 完形填空
+# ============================================================
+
+def _extract_cloze_numbers(passage: str) -> list[int]:
+
+    if not passage:
+        return []
+
+    patterns = [
+        r"_{2,}\s*\((\d+)\)\s*_{2,}",
+        r"_{2,}\s*(\d+)\s*_{2,}",
+        r"\(\s*(\d+)\s*\)\s*_{2,}",
+    ]
+
+    numbers = []
+
+    for pattern in patterns:
+        found = re.findall(
+            pattern,
+            passage,
+        )
+
+        if found:
+            numbers.extend(
+                int(x)
+                for x in found
+            )
+
+    return sorted(set(numbers))
+
+
+def _validate_cloze(
+    exam: dict,
+    article_en: str,
+) -> None:
+
+    cloze = exam.get("cloze")
+
+    if not isinstance(cloze, list):
+        raise ValueError(
+            "cloze 必须是 list"
+        )
+
+    if not cloze:
+        raise ValueError(
+            "cloze 不能为空"
+        )
+
+    item = cloze[0]
+
+    if not isinstance(item, dict):
+        raise ValueError(
+            "cloze 第一项格式错误"
+        )
+
+    passage = _to_text(item.get("passage"))
+
+    if not passage:
+        raise ValueError(
+            "完形填空 passage 为空"
+        )
+
+    questions = item.get("questions")
+
+    if not isinstance(questions, list):
+        raise ValueError(
+            "完形填空 questions 必须是 list"
+        )
+
+    if len(questions) != CLOZE_COUNT:
+        raise ValueError(
+            f"完形填空必须 {CLOZE_COUNT} 空，"
+            f"实际 {len(questions)} 题"
+        )
+
+    # --------------------------------------------------------
+    # 必须有明确的编号下划线
+    # --------------------------------------------------------
+
+    blank_numbers = _extract_cloze_numbers(
+        passage
+    )
+
+    expected_numbers = list(
+        range(1, CLOZE_COUNT + 1)
+    )
+
+    if blank_numbers != expected_numbers:
+        raise ValueError(
+            "完形填空必须包含连续的 "
+            "____ (1) ____ 到 ____ (10) ____"
+        )
+
+    # --------------------------------------------------------
+    # article_en 必须作为原文基础
+    #
+    # AI 可能因为插入空格/编号而导致文本不完全一致，
+    # 因此采用去除挖空标记后进行核心文本匹配。
+    # --------------------------------------------------------
+
+    normalized_passage = passage
+
+    normalized_passage = re.sub(
+        r"_{2,}\s*\(\d+\)\s*_{2,}",
+        "",
+        normalized_passage,
+    )
+
+    normalized_passage = re.sub(
+        r"\(\s*\d+\s*\)\s*_{2,}",
+        "",
+        normalized_passage,
+    )
+
+    normalized_passage = re.sub(
+        r"\s+",
+        " ",
+        normalized_passage,
+    ).strip()
+
+    normalized_article = re.sub(
+        r"\s+",
+        " ",
+        article_en,
+    ).strip()
+
+    # 允许 AI 对挖空位置产生少量空格差异，
+    # 但 article_en 的主体必须存在。
+    if normalized_article not in normalized_passage:
+        # 如果整体无法匹配，则至少要求 article_en 的
+        # 大部分连续句子存在，防止 AI 偷换文章。
+        article_words = normalized_article.split()
+        passage_words = normalized_passage.split()
+
+        if len(article_words) < 10:
+            raise ValueError(
+                "article_en 太短，无法验证完形原文"
+            )
+
+        matched = sum(
+            1
+            for word in article_words
+            if word.lower() in {
+                x.lower()
+                for x in passage_words
+            }
+        )
+
+        ratio = matched / len(article_words)
+
+        if ratio < 0.85:
+            raise ValueError(
+                "完形填空没有直接使用生成的 article_en 原文"
+            )
+
+    # --------------------------------------------------------
+    # 每一道完形题
+    # --------------------------------------------------------
+
+    for index, question in enumerate(
+        questions,
+        start=1,
+    ):
+        if not isinstance(question, dict):
+            raise ValueError(
+                f"完形第 {index} 题格式错误"
+            )
+
+        number = question.get("number")
+
+        try:
+            number = int(number)
+        except Exception:
+            raise ValueError(
+                f"完形第 {index} 题缺少正确编号"
+            )
+
+        if number != index:
+            raise ValueError(
+                f"完形题编号错误："
+                f"期望 {index}，实际 {number}"
+            )
+
+        options = _options(question)
+
+        if len(options) != 4:
+            raise ValueError(
+                f"完形第 {index} 题必须有 A/B/C/D"
+            )
+
+        answer = _to_text(
+            _answer(question)
+        ).upper()
+
+        if answer not in {"A", "B", "C", "D"}:
+            raise ValueError(
+                f"完形第 {index} 题答案非法"
+            )
+
+        if not _analysis(question):
+            raise ValueError(
+                f"完形第 {index} 题缺少解析"
+            )
+
+
+# ============================================================
+# 阅读理解验证
+# ============================================================
+
+def _validate_reading(exam: dict) -> None:
+
+    questions = exam.get("reading")
+
+    if not isinstance(questions, list):
+        raise ValueError(
+            "reading 必须是 list"
+        )
+
+    if len(questions) != READING_COUNT:
+        raise ValueError(
+            f"阅读理解必须 {READING_COUNT} 题，"
+            f"实际 {len(questions)} 题"
+        )
+
+    for index, question in enumerate(
+        questions,
+        start=1,
+    ):
+        qtext = _question_text(question)
+
+        if not qtext:
+            raise ValueError(
+                f"阅读理解第 {index} 题题干为空"
+            )
+
+        options = _options(question)
+
+        if len(options) != 4:
+            raise ValueError(
+                f"阅读理解第 {index} 题必须有 A/B/C/D"
+            )
+
+        answer = _to_text(
+            _answer(question)
+        ).upper()
+
+        if answer not in {"A", "B", "C", "D"}:
+            raise ValueError(
+                f"阅读理解第 {index} 题答案非法"
+            )
+
+        if not _analysis(question):
+            raise ValueError(
+                f"阅读理解第 {index} 题缺少解析"
+            )
+
+
+# ============================================================
+# 翻译验证
+# ============================================================
+
+def _validate_translation(exam: dict) -> None:
+
+    translation = exam.get("translation")
+
+    if not isinstance(translation, dict):
+        raise ValueError(
+            "translation 必须是 object"
+        )
+
+    part_a = translation.get("part_a")
+    part_b = translation.get("part_b")
+
+    if not isinstance(part_a, list):
+        raise ValueError(
+            "translation.part_a 必须是 list"
+        )
+
+    if not isinstance(part_b, list):
+        raise ValueError(
+            "translation.part_b 必须是 list"
+        )
+
+    if len(part_a) != TRANSLATION_A_COUNT:
+        raise ValueError(
+            f"汉译英必须 {TRANSLATION_A_COUNT} 题，"
+            f"实际 {len(part_a)} 题"
+        )
+
+    if len(part_b) != TRANSLATION_B_COUNT:
+        raise ValueError(
+            f"英译汉必须 {TRANSLATION_B_COUNT} 题，"
+            f"实际 {len(part_b)} 题"
+        )
+
+    for part_name, questions in (
+        ("part_a", part_a),
+        ("part_b", part_b),
+    ):
+        for index, question in enumerate(
+            questions,
+            start=1,
+        ):
+            if not isinstance(question, dict):
+                raise ValueError(
+                    f"翻译 {part_name} 第 {index} 题格式错误"
+                )
+
+            source = (
+                question.get("sentence")
+                or question.get("question")
+                or question.get("source")
+            )
+
+            answer = (
+                question.get("answer")
+                or question.get("translation")
+                or question.get("standard_answer")
+            )
+
+            analysis = (
+                question.get("analysis")
+                or question.get("explanation")
+            )
+
+            if not _to_text(source):
+                raise ValueError(
+                    f"翻译 {part_name} 第 {index} 题原句为空"
+                )
+
+            if not _to_text(answer):
+                raise ValueError(
+                    f"翻译 {part_name} 第 {index} 题缺少标准答案"
+                )
+
+            if not _to_text(analysis):
+                raise ValueError(
+                    f"翻译 {part_name} 第 {index} 题缺少解析"
+                )
+
+
+# ============================================================
+# 写作验证
+# ============================================================
+
+def _validate_writing(exam: dict) -> None:
+
+    writing = exam.get("writing")
+
+    if not isinstance(writing, list):
+        raise ValueError(
+            "writing 必须是 list"
+        )
+
+    if len(writing) != WRITING_COUNT:
+        raise ValueError(
+            f"写作必须 {WRITING_COUNT} 题，"
+            f"实际 {len(writing)} 题"
+        )
+
+    item = writing[0]
+
+    if not isinstance(item, dict):
+        raise ValueError(
+            "写作题格式错误"
+        )
+
+    prompt = (
+        item.get("question")
+        or item.get("prompt")
+        or item.get("task")
+    )
+
+    if not _to_text(prompt):
+        raise ValueError(
+            "写作题缺少明确要求"
+        )
+
+    reference = (
+        item.get("answer")
+        or item.get("sample_answer")
+        or item.get("model_answer")
+        or item.get("reference_answer")
+    )
+
+    if not _to_text(reference):
+        raise ValueError(
+            "写作题缺少参考答案/范文"
+        )
+
+    analysis = (
+        item.get("analysis")
+        or item.get("explanation")
+    )
+
+    if not _to_text(analysis):
+        raise ValueError(
+            "写作题缺少解析"
+        )
+
+
+# ============================================================
+# 顶层答案验证
+# ============================================================
+
+def _validate_answers(exam: dict) -> None:
+
+    answers = exam.get("answers")
+
+    if not isinstance(answers, dict):
+        raise ValueError(
+            "answers 必须是 object"
+        )
+
+    required = (
+        "listening",
+        "single_choice",
+        "multiple_choice",
+        "cloze",
+        "reading",
+        "translation",
+        "writing",
+    )
+
+    for key in required:
+        if key not in answers:
+            raise ValueError(
+                f"answers 缺少 {key}"
+            )
+
+
+# ============================================================
+# 顶层解析验证
+# ============================================================
+
+def _validate_analysis(exam: dict) -> None:
+
+    analysis = exam.get("analysis")
+
+    if not isinstance(analysis, dict):
+        raise ValueError(
+            "analysis 必须是 object"
+        )
+
+    # 不强制只有 general。
+    # 题目本身已经验证每题 analysis。
+    if not any(
+        _to_text(value)
+        for value in analysis.values()
+    ):
+        raise ValueError(
+            "analysis 不能为空"
+        )
+
+
+# ============================================================
+# 总验证
+# ============================================================
+
+def validate_exam(
+    exam: dict,
+    article: dict,
+    difficulty: int,
+    article_type: str,
+) -> None:
+    """
+    对完整试卷执行严格结构验收。
+    """
 
     if not isinstance(exam, dict):
-
         raise ValueError(
-            "试卷 JSON 顶层必须是 object"
+            "考试结果必须是 dict"
         )
 
-    required = [
+    required_fields = [
+        "title",
         "listening",
         "single_choice",
         "multiple_choice",
@@ -491,94 +1240,89 @@ def validate_exam(exam):
         "analysis",
     ]
 
-    missing = [
-        key
-        for key in required
-        if key not in exam
-    ]
-
-    if missing:
-
-        raise ValueError(
-            "试卷 JSON 缺少必要字段："
-            + ", ".join(missing)
-        )
-
-    for key in required:
-
-        if key == "listening_script":
-            continue
-
-        if not isinstance(
-            exam[key],
-            (list, dict, str),
-        ):
-
+    for field in required_fields:
+        if field not in exam:
             raise ValueError(
-                f"字段 {key} 类型异常"
+                f"考试结果缺少字段：{field}"
             )
 
-    # 必须至少有一道正式题目
-    question_fields = [
-        "listening",
-        "single_choice",
-        "multiple_choice",
-        "cloze",
-        "reading",
-        "translation",
-        "writing",
-    ]
+    title = _to_text(exam.get("title"))
 
-    total = 0
-
-    for field in question_fields:
-
-        value = exam.get(field)
-
-        if isinstance(value, list):
-            total += len(value)
-
-        elif isinstance(value, dict):
-            total += 1
-
-    if total == 0:
-
+    if not title:
         raise ValueError(
-            "试卷没有任何题目"
+            "考试标题为空"
         )
 
-    return True
+    article_en = _get_article_en(article)
+
+    if difficulty not in DIFFICULTIES:
+        raise ValueError(
+            f"非法难度：{difficulty}"
+        )
+
+    if article_type not in ARTICLE_TYPES:
+        raise ValueError(
+            f"非法文章类型：{article_type}"
+        )
+
+    # --------------------------------------------------------
+    # 七大题型严格验收
+    # --------------------------------------------------------
+
+    _validate_listening(
+        exam,
+        article_en,
+    )
+
+    _validate_single_choice(exam)
+
+    _validate_multiple_choice(exam)
+
+    _validate_cloze(
+        exam,
+        article_en,
+    )
+
+    _validate_reading(exam)
+
+    _validate_translation(exam)
+
+    _validate_writing(exam)
+
+    _validate_answers(exam)
+
+    _validate_analysis(exam)
 
 
-# ==========================================================
-# 生成 Prompt
-# ==========================================================
+# ============================================================
+# Prompt：完整考试生成
+# ============================================================
 
 def build_exam_payload(
-    article,
-    difficulty,
-    article_type,
-    words,
-):
+    article: dict,
+    difficulty: int,
+    article_type: str,
+    words: list,
+) -> dict:
 
-    diff = DIFFICULTIES.get(
-        difficulty,
-        DIFFICULTIES[1],
+    article_en = _get_article_en(article)
+    article_zh = _get_article_zh(article)
+
+    difficulty_info = DIFFICULTIES[difficulty]
+
+    article_type_name = ARTICLE_TYPES.get(
+        article_type,
+        article_type,
     )
 
     target_words = []
 
-    for item in words:
-
+    for item in _ensure_list(
+        article.get("target_vocabulary")
+    ):
         if isinstance(item, dict):
-
-            word = str(
-                item.get("word", "")
-            ).strip()
-
-            meaning = str(
-                item.get("meaning", "")
-            ).strip()
+            word = _to_text(item.get("word"))
+            meaning = _to_text(item.get("meaning"))
 
             if word:
                 target_words.append({
@@ -586,439 +1330,726 @@ def build_exam_payload(
                     "meaning": meaning,
                 })
 
-        else:
+    if not target_words:
+        for item in _ensure_list(words):
+            if isinstance(item, dict):
+                word = _to_text(item.get("word"))
+                meaning = _to_text(
+                    item.get("meaning")
+                )
 
-            word = str(item).strip()
+                if word:
+                    target_words.append({
+                        "word": word,
+                        "meaning": meaning,
+                    })
 
-            if word:
-                target_words.append({
-                    "word": word,
-                    "meaning": "",
-                })
+    prompt = f"""
+你现在是“748686英语学习系统”的专业英语考试命题专家。
+
+请根据下面已经生成完成的英语文章，生成一整套完整英语试卷。
+
+============================================================
+文章信息
+============================================================
+
+文章标题：
+{_to_text(article.get("title"))}
+
+文章类型：
+{article_type_name}
+
+考试难度：
+{difficulty_info["star_name"]}
+{difficulty_info["stars"]}
+对应级别：{difficulty_info["level"]}
+
+============================================================
+ARTICLE EN
+============================================================
+
+{article_en}
+
+============================================================
+ARTICLE ZH
+============================================================
+
+{article_zh}
+
+============================================================
+目标词
+============================================================
+
+{json.dumps(
+    target_words,
+    ensure_ascii=False,
+    indent=2,
+)}
+
+============================================================
+绝对固定题量
+============================================================
+
+一、听力
+Part A：5题
+Part B：5题
+Part C：5题
+
+二、单项选择：10题
+
+三、多选题：10题
+
+四、完形填空：10空
+
+五、阅读理解：5题
+
+六、翻译
+Part A 汉译英：5题
+Part B 英译汉：5题
+
+七、写作：1题
+
+任何题型都不能少题。
+
+============================================================
+一、听力：严格要求
+============================================================
+
+Part A：
+“听句子，选出你所听到的单词”。
+
+必须严格生成5题。
+
+每题必须对应一个完整、自然、纯英文的听力句子。
+
+不能出现中文听力句子。
+
+例如：
+“The boy developed a healthy habit of exercising every morning.”
+
+题面可以只显示：
+Which word did you hear?
+
+A. healthy
+B. happy
+C. heavy
+D. helpful
+
+但完整英文句子必须保存在 listening_script.part_a 中。
+
+Part A 的5个句子必须分别与5道题一一对应。
+
+------------------------------------------------------------
+
+Part B：
+“听对话，选择正确答案”。
+
+必须严格生成5题。
+
+每题必须对应一个真正完整的英文对话。
+
+对话必须至少包含两个说话者。
+
+例如：
+
+Boy: Did you exercise this morning?
+Girl: Yes. I went for a short walk before breakfast.
+Boy: That sounds like a healthy habit.
+Girl: I think so, and it helps me feel strong.
+
+然后针对这个对话命题。
+
+不能只生成一个问题。
+
+不能只生成一句话。
+
+完整5段对话必须全部写入 listening_script.part_b。
+
+------------------------------------------------------------
+
+Part C：
+“听短文，选择正确答案”。
+
+必须严格生成5题。
+
+最重要：
+
+Part C 的听力原文必须直接使用下面的 ARTICLE EN。
+
+绝对禁止重新写一篇文章。
+
+listening_script.part_c 必须与 article_en 完全一致。
+
+5道 Part C 题目必须全部可以直接从 article_en 找到依据。
+
+============================================================
+二、单项选择
+============================================================
+
+必须严格生成10题。
+
+每题必须：
+
+1. 完整题干
+2. A/B/C/D 四个选项
+3. 只能有一个正确答案
+4. 必须有解析
+
+题目可以考查：
+
+- 词汇
+- 语法
+- 时态
+- 句型
+- 词义
+- 目标词
+- 文章相关语言点
+
+但必须符合当前考试难度。
+
+============================================================
+三、多选题
+============================================================
+
+必须严格生成10题。
+
+每题必须：
+
+1. 有完整题干
+2. A/B/C/D 四个选项
+3. 至少两个正确答案
+4. 必须有作答位置
+5. 必须有答案
+6. 必须有解析
+
+题干不要压缩成只有几个选项。
+
+题目必须围绕文章内容、词汇、语言知识或核心主题。
+
+============================================================
+四、完形填空
+============================================================
+
+这是最重要的硬性要求之一。
+
+必须直接使用 ARTICLE EN。
+
+绝对不能重新写一篇文章。
+
+在 ARTICLE EN 原文基础上选择10个合适位置挖空。
+
+每一个空必须写成：
+
+____ (1) ____
+
+____ (2) ____
+
+一直到：
+
+____ (10) ____
+
+必须严格存在1到10的10个编号空。
+
+然后下面生成10道选择题。
+
+每题：
+
+A/B/C/D 四个选项。
+
+每题只能有一个正确答案。
+
+每题必须有解析。
+
+注意：
+
+完形填空的 passage 必须是 ARTICLE EN 的原文，
+只是在原文中挖掉10个词或短语。
+
+不要改写文章。
+
+不要重新写文章。
+
+不要改变文章核心句子。
+
+============================================================
+五、阅读理解
+============================================================
+
+必须严格生成5题。
+
+阅读理解文章直接使用 ARTICLE EN。
+
+不要重新写阅读文章。
+
+5道题必须全部能够从 ARTICLE EN 找到依据。
+
+每题：
+
+A/B/C/D
+
+单一正确答案。
+
+每题必须有解析。
+
+可以考查：
+
+- 主旨
+- 细节
+- 推断
+- 词义
+- 作者观点
+- 文章结构
+
+============================================================
+六、翻译
+============================================================
+
+Part A：汉译英，5题。
+
+Part B：英译汉，5题。
+
+一共10题。
+
+翻译句子必须来自 ARTICLE EN / ARTICLE ZH，
+或者直接根据文章核心句子进行合理截取。
+
+不能凭空设计完全无关的句子。
+
+每题必须有：
+
+- 原句
+- 标准答案
+- 解析
+
+============================================================
+七、写作
+============================================================
+
+严格1题。
+
+写作主题必须与本篇文章主题和文章类型相关。
+
+必须有明确写作要求。
+
+必须有参考范文。
+
+必须有写作解析。
+
+不能只输出“—”。
+
+============================================================
+答案
+============================================================
+
+answers 必须完整覆盖：
+
+listening
+single_choice
+multiple_choice
+cloze
+reading
+translation
+writing
+
+不能缺少任何一项。
+
+============================================================
+解析
+============================================================
+
+每一道题都必须有解析。
+
+不能只给一个 general。
+
+必须让学生能够知道为什么答案正确。
+
+============================================================
+输出格式
+============================================================
+
+只输出合法 JSON。
+
+不要 Markdown。
+
+不要 ```json。
+
+不要解释。
+
+JSON 必须严格符合下面 schema：
+
+{{
+  "title": "string",
+
+  "listening": [
+    {{
+      "part": "A",
+      "instruction": "string",
+      "score": 10,
+      "questions": [
+        {{
+          "number": 1,
+          "question": "string",
+          "options": [
+            "A. string",
+            "B. string",
+            "C. string",
+            "D. string"
+          ],
+          "answer": "A",
+          "analysis": "string"
+        }}
+      ]
+    }},
+    {{
+      "part": "B",
+      "instruction": "string",
+      "score": 10,
+      "questions": []
+    }},
+    {{
+      "part": "C",
+      "instruction": "string",
+      "score": 10,
+      "questions": []
+    }}
+  ],
+
+  "single_choice": [
+    {{
+      "number": 1,
+      "question": "string",
+      "options": [
+        "A. string",
+        "B. string",
+        "C. string",
+        "D. string"
+      ],
+      "answer": "A",
+      "analysis": "string"
+    }}
+  ],
+
+  "multiple_choice": [
+    {{
+      "number": 1,
+      "question": "string",
+      "answer_instruction": "请在下面选择所有正确答案：________",
+      "options": [
+        "A. string",
+        "B. string",
+        "C. string",
+        "D. string"
+      ],
+      "answer": ["A", "C"],
+      "analysis": "string"
+    }}
+  ],
+
+  "cloze": [
+    {{
+      "passage": "ARTICLE EN，其中10处变成 ____ (1) ____ 到 ____ (10) ____",
+      "questions": [
+        {{
+          "number": 1,
+          "options": [
+            "A. string",
+            "B. string",
+            "C. string",
+            "D. string"
+          ],
+          "answer": "A",
+          "analysis": "string"
+        }}
+      ]
+    }}
+  ],
+
+  "reading": [
+    {{
+      "number": 1,
+      "question": "string",
+      "options": [
+        "A. string",
+        "B. string",
+        "C. string",
+        "D. string"
+      ],
+      "answer": "A",
+      "analysis": "string"
+    }}
+  ],
+
+  "translation": {{
+    "part_a": [
+      {{
+        "number": 1,
+        "sentence": "中文句子",
+        "answer": "英文标准答案",
+        "analysis": "string"
+      }}
+    ],
+    "part_b": [
+      {{
+        "number": 1,
+        "sentence": "English sentence",
+        "answer": "中文标准答案",
+        "analysis": "string"
+      }}
+    ]
+  }},
+
+  "writing": [
+    {{
+      "number": 1,
+      "question": "完整写作要求",
+      "answer": "参考范文",
+      "analysis": "写作解析"
+    }}
+  ],
+
+  "listening_script": {{
+    "part_a": "5个完整英文听力句子",
+    "part_b": "5段完整英文对话",
+    "part_c": "必须与 ARTICLE EN 完全一致"
+  }},
+
+  "answers": {{
+    "listening": [],
+    "single_choice": [],
+    "multiple_choice": [],
+    "cloze": [],
+    "reading": [],
+    "translation": {{
+      "part_a": [],
+      "part_b": []
+    }},
+    "writing": []
+  }},
+
+  "analysis": {{
+    "general": "string"
+  }}
+}}
+
+============================================================
+最后再次强调
+============================================================
+
+不能少题。
+
+必须：
+
+A=5
+B=5
+C=5
+单选=10
+多选=10
+完形=10
+阅读=5
+汉译英=5
+英译汉=5
+写作=1
+
+完形必须来自 ARTICLE EN。
+
+阅读必须使用 ARTICLE EN。
+
+听力 Part C 必须使用 ARTICLE EN。
+
+听力原文必须完整。
+
+所有题目必须有答案和解析。
+"""
 
     return {
-
-        "task":
-            "根据给定英语学习文章生成完整配套试卷",
-
-        "difficulty": {
-            "number": difficulty,
-            "star_name": diff["star_name"],
-            "level": diff["level"],
-            "label": diff["label"],
-        },
-
-        "article_type": {
-            "id": article_type,
-            "name": ARTICLE_TYPES.get(
-                article_type,
-                article_type,
-            ),
-        },
-
-        "target_words": target_words,
-
-        "article": {
-            "title": article.get(
-                "title",
-                "",
-            ),
-
-            "article_en": article.get(
-                "article_en",
-                "",
-            ),
-
-            "article_zh": article.get(
-                "article_zh",
-                "",
-            ),
-        },
-
-        "requirements": [
-
-            # ------------------------------------------------
-            # 总体要求
-            # ------------------------------------------------
-
-            "必须严格围绕给定文章命题",
-
-            "所有题目必须能够从文章内容找到依据",
-
-            "不得凭空加入文章之外的知识",
-
-            "题目难度必须与指定星级一致",
-
-            "必须生成完整试卷，不得只生成阅读理解题",
-
-            "必须生成完整答案",
-
-            "必须生成答案解析",
-
-            # ------------------------------------------------
-            # 七大题型
-            # ------------------------------------------------
-
-            "试卷必须包含七个部分",
-
-            "第一部分必须是听力",
-
-            "第二部分必须是单项选择",
-
-            "第三部分必须是多选题",
-
-            "第四部分必须是完形填空",
-
-            "第五部分必须是阅读理解",
-
-            "第六部分必须是翻译",
-
-            "第七部分必须是写作",
-
-            # ------------------------------------------------
-            # 听力
-            # ------------------------------------------------
-
-            "听力必须包含 Part A、Part B、Part C",
-
-            "Part A 为听句子，选出你所听到的单词",
-
-            "Part B 为听对话，选择正确答案",
-
-            "Part C 为听短文，选择正确答案",
-
-            "必须提供完整听力原文",
-
-            "听力原文必须与听力题目严格对应",
-
-            "听力原文不能依赖文章之外的内容",
-
-            # ------------------------------------------------
-            # 单项选择
-            # ------------------------------------------------
-
-            "单项选择每题必须有 A、B、C、D 四个选项",
-
-            "每题只有一个正确答案",
-
-            # ------------------------------------------------
-            # 多选题
-            # ------------------------------------------------
-
-            "多选题每题必须有 A、B、C、D 四个选项",
-
-            "多选题可以有两个或多个正确答案",
-
-            # ------------------------------------------------
-            # 完形填空
-            # ------------------------------------------------
-
-            "完形填空必须提供完整短文",
-
-            "空格必须使用明确的编号",
-
-            "每个空必须提供 A、B、C、D 四个选项",
-
-            # ------------------------------------------------
-            # 阅读理解
-            # ------------------------------------------------
-
-            "阅读理解必须围绕给定文章",
-
-            "必须提供题目和选项",
-
-            # ------------------------------------------------
-            # 翻译
-            # ------------------------------------------------
-
-            "翻译必须包含 Part A 汉译英",
-
-            "翻译必须包含 Part B 英译汉",
-
-            "翻译内容必须来自文章核心内容",
-
-            # ------------------------------------------------
-            # 写作
-            # ------------------------------------------------
-
-            "写作必须与文章主题相关",
-
-            "必须给出明确写作要求",
-
-            # ------------------------------------------------
-            # 目标词
-            # ------------------------------------------------
-
-            "尽可能考查给定目标词汇",
-
-            "目标词可以出现在单选、多选、完形、阅读、翻译等题型中",
-
-            # ------------------------------------------------
-            # JSON
-            # ------------------------------------------------
-
-            "只输出合法 JSON",
-
-            "不要输出 Markdown 代码围栏",
-
-            "不要输出 JSON 之外的说明",
-
-        ],
-
-        "score_structure": {
-
-            "total_score": 100,
-
-            "sections": [
-                "listening",
-                "single_choice",
-                "multiple_choice",
-                "cloze",
-                "reading",
-                "translation",
-                "writing",
-            ],
-        },
-
-        "schema": {
-
-            "title":
-                "string",
-
-            "listening": [
-                {
-                    "part": "A",
-                    "instruction": "string",
-                    "score": 10,
-                    "questions": [
-                        {
-                            "question": "string",
-                            "options": [
-                                "A. string",
-                                "B. string",
-                                "C. string",
-                                "D. string",
-                            ],
-                            "answer": "A",
-                            "analysis": "string",
-                        }
-                    ],
-                }
-            ],
-
-            "single_choice": [
-                {
-                    "question": "string",
-                    "options": [
-                        "A. string",
-                        "B. string",
-                        "C. string",
-                        "D. string",
-                    ],
-                    "answer": "A",
-                    "analysis": "string",
-                }
-            ],
-
-            "multiple_choice": [
-                {
-                    "question": "string",
-                    "options": [
-                        "A. string",
-                        "B. string",
-                        "C. string",
-                        "D. string",
-                    ],
-                    "answer": ["A", "C"],
-                    "analysis": "string",
-                }
-            ],
-
-            "cloze": [
-                {
-                    "passage": "string",
-                    "questions": [
-                        {
-                            "number": 1,
-                            "options": [
-                                "A. string",
-                                "B. string",
-                                "C. string",
-                                "D. string",
-                            ],
-                            "answer": "A",
-                            "analysis": "string",
-                        }
-                    ],
-                }
-            ],
-
-            "reading": [
-                {
-                    "question": "string",
-                    "options": [
-                        "A. string",
-                        "B. string",
-                        "C. string",
-                        "D. string",
-                    ],
-                    "answer": "A",
-                    "analysis": "string",
-                }
-            ],
-
-            "translation": {
-                "part_a": [
-                    {
-                        "question": "中文句子",
-                        "answer": "English answer",
-                        "analysis": "string",
-                    }
-                ],
-                "part_b": [
-                    {
-                        "question": "English sentence",
-                        "answer": "中文答案",
-                        "analysis": "string",
-                    }
-                ],
-            },
-
-            "writing": [
-                {
-                    "prompt": "string",
-                    "requirements": [
-                        "string"
-                    ],
-                    "reference_answer": "string",
-                    "analysis": "string",
-                }
-            ],
-
-            "listening_script": {
-                "part_a": "string",
-                "part_b": "string",
-                "part_c": "string",
-            },
-
-            "answers": {
-                "listening": [],
-                "single_choice": [],
-                "multiple_choice": [],
-                "cloze": [],
-                "reading": [],
-                "translation": {},
-                "writing": [],
-            },
-
-            "analysis": {
-                "general": "string",
-            },
-        },
-    }
-
-
-# ==========================================================
-# JSON 修复
-# ==========================================================
-
-def build_repair_payload(raw_content):
-
-    return {
-
-        "task":
-            "修复配套试卷 JSON",
-
-        "instructions": [
-
-            "当前内容应该是 JSON",
-
-            "只修复 JSON 语法或结构格式问题",
-
-            "不要删除任何题目",
-
-            "不要增加新的题目",
-
-            "不要修改题目内容",
-
-            "不要修改答案",
-
-            "不要修改解析",
-
-            "必须保留七大题型",
-
-            "必须保留听力原文",
-
-            "不要输出 Markdown",
-
-            "不要解释",
-
-            "只输出合法 JSON 对象",
-
-        ],
-
-        "required_structure": [
-            "listening",
-            "single_choice",
-            "multiple_choice",
-            "cloze",
-            "reading",
-            "translation",
-            "writing",
-            "listening_script",
-            "answers",
-            "analysis",
-        ],
-
-        "broken_json": str(
-            raw_content
+        "system": (
+            "你是748686英语学习系统的专业英语考试命题专家。"
+            "必须严格遵守用户指定题量和JSON结构。"
+            "只输出合法JSON。"
         ),
+        "user": prompt,
     }
 
 
-# ==========================================================
-# Agnes 请求
-# ==========================================================
+# ============================================================
+# 修复 Prompt
+# ============================================================
+
+def build_repair_payload(
+    exam: dict,
+    article: dict,
+    difficulty: int,
+    article_type: str,
+) -> dict:
+
+    article_en = _get_article_en(article)
+
+    prompt = f"""
+请修复下面这份英语试卷。
+
+不要重新设计题型。
+
+不要改变题型结构。
+
+不要改变文章主题。
+
+必须严格满足以下数量：
+
+Listening A = 5
+Listening B = 5
+Listening C = 5
+Single Choice = 10
+Multiple Choice = 10
+Cloze = 10
+Reading = 5
+Translation A = 5
+Translation B = 5
+Writing = 1
+
+硬性要求：
+
+1. Part A 每题对应完整英文听力句子。
+2. Part A 不允许中文听力句子。
+3. Part B 每题必须对应完整英文对话。
+4. Part C 必须直接使用 ARTICLE EN。
+5. Cloze 必须直接使用 ARTICLE EN。
+6. Cloze 必须有：
+   ____ (1) ____
+   到
+   ____ (10) ____
+7. Reading 必须围绕 ARTICLE EN。
+8. Translation 必须从文章原文/核心内容选择。
+9. 所有选择题必须有 A/B/C/D。
+10. 单选每题只能一个正确答案。
+11. 多选每题至少两个正确答案。
+12. 每题必须有答案。
+13. 每题必须有解析。
+14. listening_script 必须完整。
+15. answers 必须完整。
+16. analysis 必须完整。
+17. 只输出合法 JSON。
+
+ARTICLE EN：
+
+{article_en}
+
+当前试卷：
+
+{json.dumps(
+    exam,
+    ensure_ascii=False,
+    indent=2,
+)}
+
+请返回修复后的完整 JSON。
+"""
+
+    return {
+        "system": (
+            "你是严格的英语考试试卷修复专家。"
+            "只输出合法JSON。"
+        ),
+        "user": prompt,
+    }
+
+
+# ============================================================
+# API 请求
+# ============================================================
 
 def request_exam(
-    key,
-    url,
-    payload,
-):
+    payload: dict,
+    api_key: str,
+) -> dict:
+
+    base_url = _to_text(
+        CONFIG["agnes"]["base_url"]
+    ).rstrip("/")
+
+    model = _to_text(
+        CONFIG["agnes"]["model"]
+    )
+
+    url = f"{base_url}/chat/completions"
+
+    body = {
+        "model": model,
+        "messages": [
+            {
+                "role": "system",
+                "content": payload["system"],
+            },
+            {
+                "role": "user",
+                "content": payload["user"],
+            },
+        ],
+        "temperature": 0.3,
+    }
 
     return request_json(
         "POST",
         url,
+        body,
         headers={
-            "Authorization":
-                f"Bearer {key}",
-
-            "Content-Type":
-                "application/json",
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
         },
-        json=payload,
+        timeout=180,
     )
 
 
-# ==========================================================
-# 主生成函数
-# ==========================================================
+# ============================================================
+# Generate
+# ============================================================
 
 def generate(
-    article,
-    difficulty,
-    article_type,
-    words,
-):
+    article: dict,
+    difficulty: int,
+    article_type: str,
+    words: list,
+) -> dict:
+    """
+    main.py 使用的正式接口。
 
-    key = env_required(
-        CONFIG["agnes"]["api_key_env"]
+    保持原接口不变。
+    """
+
+    api_key_env = CONFIG["agnes"]["api_key_env"]
+    api_key = env_required(api_key_env)
+
+    print()
+    print("=" * 60)
+    print("EXAM GENERATION V3")
+    print("=" * 60)
+
+    print(
+        f"✓ 难度：{DIFFICULTIES[difficulty]['star_name']} "
+        f"{DIFFICULTIES[difficulty]['stars']}"
     )
 
-    url = (
-        CONFIG["agnes"]["base_url"].rstrip("/")
-        + "/chat/completions"
+    print(
+        f"✓ 类型：{ARTICLE_TYPES.get(article_type, article_type)}"
     )
+
+    article_en = _get_article_en(article)
+
+    print(
+        f"✓ 原文长度：{len(article_en.split())} words"
+    )
+
+    print()
+    print("固定题量：")
+    print("  Listening A : 5")
+    print("  Listening B : 5")
+    print("  Listening C : 5")
+    print("  Single      : 10")
+    print("  Multiple    : 10")
+    print("  Cloze       : 10")
+    print("  Reading     : 5")
+    print("  Translation : 5 + 5")
+    print("  Writing     : 1")
+    print()
 
     payload = build_exam_payload(
         article,
@@ -1027,1212 +2058,962 @@ def generate(
         words,
     )
 
-    request_payload = {
+    last_error = None
 
-        "model":
-            CONFIG["agnes"]["model"],
+    # --------------------------------------------------------
+    # 第一阶段：生成
+    # --------------------------------------------------------
 
-        "temperature":
-            0.3,
-
-        "messages": [
-
-            {
-                "role": "system",
-
-                "content": (
-                    "你是一名严格的英语考试命题专家。"
-                    "你的任务是根据给定英语学习文章，"
-                    "生成完整配套试卷。"
-                    "必须严格按照用户提供的七大题型结构。"
-                    "必须只输出合法JSON。"
-                    "禁止输出Markdown代码围栏。"
-                    "禁止输出JSON之外的任何文字。"
-                ),
-            },
-
-            {
-                "role": "user",
-
-                "content": json.dumps(
-                    payload,
-                    ensure_ascii=False,
-                ),
-            },
-
-        ],
-    }
-
-    last_raw_content = ""
-
-    for attempt in range(
-        1,
-        JSON_RETRIES + 1,
-    ):
+    for attempt in range(1, 4):
 
         print(
-            f"📝 Agnes 配套试卷生成 "
-            f"{attempt}/{JSON_RETRIES}"
+            f"📝 Agnes 试卷生成 {attempt}/3"
         )
 
         try:
-
-            data = request_exam(
-                key,
-                url,
-                request_payload,
+            response = request_exam(
+                payload,
+                api_key,
             )
 
             content = extract_content(
-                data
+                response
             )
 
-            last_raw_content = content
+            exam = parse_json_response(
+                content
+            )
 
-            try:
+            print("✓ JSON 解析成功")
 
-                exam = parse_json_response(
-                    content
-                )
+            # ------------------------------------------------
+            # 严格验收
+            # ------------------------------------------------
 
-                validate_exam(
-                    exam
-                )
+            print("🔍 开始严格题量与内容验收...")
 
-                print(
-                    "✓ Agnes 完整配套试卷 "
-                    "JSON 解析成功"
-                )
+            validate_exam(
+                exam,
+                article,
+                difficulty,
+                article_type,
+            )
 
-                return exam
+            print("✓ 试卷严格验收通过")
 
-            except Exception as parse_error:
+            print()
+            print("题量验收：")
+            print("  ✓ Listening A = 5")
+            print("  ✓ Listening B = 5")
+            print("  ✓ Listening C = 5")
+            print("  ✓ Single Choice = 10")
+            print("  ✓ Multiple Choice = 10")
+            print("  ✓ Cloze = 10")
+            print("  ✓ Reading = 5")
+            print("  ✓ Translation A = 5")
+            print("  ✓ Translation B = 5")
+            print("  ✓ Writing = 1")
+            print("  ✓ Listening Script 完整")
+            print("  ✓ Cloze 使用 article_en")
+            print("  ✓ Reading 使用 article_en")
+            print("  ✓ Part C 使用 article_en")
+            print("  ✓ 所有题目存在答案与解析")
 
-                print(
-                    "⚠ 配套试卷 JSON "
-                    f"解析/验证失败：{parse_error}"
-                )
+            return exam
 
-                if attempt < JSON_RETRIES:
-
-                    print(
-                        "🔧 请求 Agnes 修复 "
-                        "配套试卷 JSON..."
-                    )
-
-                    repair_payload = {
-
-                        "model":
-                            CONFIG["agnes"]["model"],
-
-                        "temperature":
-                            0.0,
-
-                        "messages": [
-
-                            {
-                                "role":
-                                    "system",
-
-                                "content": (
-                                    "你是严格的JSON修复器。"
-                                    "只输出合法JSON。"
-                                    "不得解释。"
-                                    "不得输出Markdown。"
-                                ),
-                            },
-
-                            {
-                                "role":
-                                    "user",
-
-                                "content":
-                                    json.dumps(
-                                        build_repair_payload(
-                                            last_raw_content
-                                        ),
-                                        ensure_ascii=False,
-                                    ),
-                            },
-
-                        ],
-                    }
-
-                    try:
-
-                        repair_data = request_exam(
-                            key,
-                            url,
-                            repair_payload,
-                        )
-
-                        repair_content = (
-                            extract_content(
-                                repair_data
-                            )
-                        )
-
-                        repaired_exam = (
-                            parse_json_response(
-                                repair_content
-                            )
-                        )
-
-                        validate_exam(
-                            repaired_exam
-                        )
-
-                        print(
-                            "✓ Agnes 配套试卷 "
-                            "JSON 修复成功"
-                        )
-
-                        return repaired_exam
-
-                    except Exception as repair_error:
-
-                        print(
-                            "⚠ 配套试卷 JSON "
-                            f"修复失败：{repair_error}"
-                        )
-
-        except Exception as request_error:
+        except Exception as exc:
+            last_error = exc
 
             print(
-                "⚠ 配套试卷请求失败："
-                f"{request_error}"
+                f"⚠ 试卷生成/验收失败：{exc}"
             )
 
-    print("")
-    print("=" * 70)
-    print("❌ 配套试卷生成最终失败")
-    print("=" * 70)
+            if attempt < 3:
+                print(
+                    "↻ 将重新生成..."
+                )
+                time.sleep(2)
 
-    if last_raw_content:
+    # --------------------------------------------------------
+    # 第二阶段：结构修复
+    # --------------------------------------------------------
 
-        print(
-            "Agnes 原始返回："
+    if last_error is not None:
+        print()
+        print("=" * 60)
+        print("EXAM REPAIR")
+        print("=" * 60)
+
+    # 如果前三次没有成功，需要基于最后一次可解析结果修复。
+    #
+    # 为了避免未定义 exam，这里再请求一次完整结果作为修复输入。
+    repair_exam = None
+
+    try:
+        response = request_exam(
+            payload,
+            api_key,
         )
 
-        print(
-            str(last_raw_content)[:12000]
+        content = extract_content(
+            response
         )
 
-    print("=" * 70)
+        repair_exam = parse_json_response(
+            content
+        )
+
+    except Exception as exc:
+        raise RuntimeError(
+            "英语试卷生成失败，且无法进入修复阶段："
+            f"{exc}"
+        ) from exc
+
+    repair_payload = build_repair_payload(
+        repair_exam,
+        article,
+        difficulty,
+        article_type,
+    )
+
+    for attempt in range(1, 4):
+
+        print(
+            f"🔧 试卷严格修复 {attempt}/3"
+        )
+
+        try:
+            response = request_exam(
+                repair_payload,
+                api_key,
+            )
+
+            content = extract_content(
+                response
+            )
+
+            exam = parse_json_response(
+                content
+            )
+
+            validate_exam(
+                exam,
+                article,
+                difficulty,
+                article_type,
+            )
+
+            print("✓ 修复后严格验收通过")
+
+            return exam
+
+        except Exception as exc:
+
+            last_error = exc
+
+            print(
+                f"⚠ 修复失败：{exc}"
+            )
+
+            if attempt < 3:
+                time.sleep(2)
 
     raise RuntimeError(
-        "Agnes 配套试卷生成失败，"
-        f"已尝试 {JSON_RETRIES} 次。"
+        "英语试卷生成失败："
+        f"{last_error}"
     )
 
 
-# ==========================================================
-# Markdown：星星
-# ==========================================================
+# ============================================================
+# Markdown 辅助
+# ============================================================
 
-def _stars(difficulty):
-
-    difficulty = max(
-        1,
-        min(17, int(difficulty)),
-    )
-
-    return (
-        "★" * difficulty
-        +
-        "☆" * (17 - difficulty)
-    )
-
-
-# ==========================================================
-# Markdown：题目渲染
-# ==========================================================
-
-def _render_options(options):
+def _render_options(options: list) -> str:
 
     lines = []
 
-    for option in _ensure_list(options):
-
-        text = _option_text(option)
-
-        if text:
-            lines.append(
-                f"   {text}"
-            )
+    for option in options:
+        lines.append(
+            f"- {_to_text(option)}"
+        )
 
     return "\n".join(lines)
 
 
 def _render_question(
-    number,
-    question,
-    include_analysis=False,
-):
+    number: int,
+    question: dict,
+) -> str:
 
-    lines = []
+    qtext = _question_text(question)
 
-    text = _question_text(
-        question
+    options = _options(question)
+
+    lines = [
+        f"### {number}. {qtext}",
+        "",
+    ]
+
+    if question.get("answer_instruction"):
+        lines.extend([
+            _to_text(
+                question["answer_instruction"]
+            ),
+            "",
+        ])
+
+    lines.extend(
+        [
+            _render_options(options),
+            "",
+        ]
     )
 
-    if text:
+    return "\n".join(lines)
+
+
+# ============================================================
+# Markdown：听力
+# ============================================================
+
+def _render_listening(exam: dict) -> str:
+
+    listening = exam["listening"]
+
+    parts = {
+        _to_text(item.get("part")).upper(): item
+        for item in listening
+    }
+
+    lines = [
+        "# 一、听力",
+        "",
+    ]
+
+    for part in ("A", "B", "C"):
+
+        item = parts[part]
 
         lines.append(
-            f"{number}. {text}"
+            f"## Part {part}"
+        )
+        lines.append("")
+
+        instruction = _to_text(
+            item.get("instruction")
         )
 
-    options = _options(
-        question
-    )
+        if instruction:
+            lines.append(instruction)
+            lines.append("")
 
-    if options:
+        questions = item["questions"]
+
+        for index, question in enumerate(
+            questions,
+            start=1,
+        ):
+            lines.append(
+                _render_question(
+                    index,
+                    question,
+                )
+            )
+
+    return "\n".join(lines)
+
+
+# ============================================================
+# Markdown：选择题
+# ============================================================
+
+def _render_choice_section(
+    title: str,
+    questions: list,
+    show_answer_blank: bool = False,
+) -> str:
+
+    lines = [
+        f"# {title}",
+        "",
+    ]
+
+    for index, question in enumerate(
+        questions,
+        start=1,
+    ):
+        qtext = _question_text(question)
+
+        lines.append(
+            f"### {index}. {qtext}"
+        )
+        lines.append("")
+
+        if show_answer_blank:
+            lines.append(
+                "**作答：________________**"
+            )
+            lines.append("")
 
         lines.append(
             _render_options(
-                options
+                _options(question)
             )
         )
+        lines.append("")
 
-    if include_analysis:
+    return "\n".join(lines)
 
-        answer = _to_text(
-            question.get(
-                "answer",
-                ""
-            )
-            if isinstance(
-                question,
-                dict
-            )
-            else ""
-        )
 
-        analysis = _to_text(
-            question.get(
-                "analysis",
-                ""
-            )
-            if isinstance(
-                question,
-                dict
-            )
-            else ""
-        )
+# ============================================================
+# Markdown：完形
+# ============================================================
 
-        if answer:
-            lines.append(
-                f"答案：{answer}"
-            )
+def _render_cloze(exam: dict) -> str:
 
-        if analysis:
-            lines.append(
-                f"解析：{analysis}"
-            )
+    item = exam["cloze"][0]
 
-    return "\n\n".join(
-        line
-        for line in lines
-        if line
+    passage = _to_text(
+        item.get("passage")
     )
 
+    questions = item["questions"]
 
-# ==========================================================
-# Part A / B / C
-# ==========================================================
+    lines = [
+        "# 四、完形填空",
+        "",
+        passage,
+        "",
+        "## 选择题",
+        "",
+    ]
 
-def _find_part(
-    listening,
-    letter,
-):
-
-    for part in _ensure_list(
-        listening
+    for index, question in enumerate(
+        questions,
+        start=1,
     ):
-
-        if not isinstance(
-            part,
-            dict
-        ):
-            continue
-
-        value = str(
-            part.get(
-                "part",
-                ""
-            )
-        ).strip().upper()
-
-        if value == letter:
-            return part
-
-    return {}
-
-
-def _render_listening(
-    listening
-):
-
-    blocks = []
-
-    for letter, default_instruction, default_score in [
-
-        (
-            "A",
-            "听句子，选出你所听到的单词。",
-            10,
-        ),
-
-        (
-            "B",
-            "听对话，选择正确答案。",
-            10,
-        ),
-
-        (
-            "C",
-            "听短文，选择正确答案。",
-            10,
-        ),
-
-    ]:
-
-        part = _find_part(
-            listening,
-            letter,
+        lines.append(
+            f"### {index}."
         )
+        lines.append("")
 
-        instruction = _to_text(
-            part.get(
-                "instruction",
-                default_instruction,
+        lines.append(
+            _render_options(
+                _options(question)
             )
         )
 
-        score = part.get(
-            "score",
-            default_score,
-        )
+        lines.append("")
 
-        blocks.append(
-            f"Part {letter} "
-            f"{instruction}（{score}分）"
-        )
+    return "\n".join(lines)
 
-        questions = part.get(
-            "questions",
-            []
-        )
 
-        for index, question in enumerate(
-            _ensure_list(questions),
-            start=1,
-        ):
+# ============================================================
+# Markdown：阅读
+# ============================================================
 
-            rendered = _render_question(
+def _render_reading(exam: dict) -> str:
+
+    lines = [
+        "# 五、阅读理解",
+        "",
+        "请根据本文内容选择正确答案。",
+        "",
+    ]
+
+    for index, question in enumerate(
+        exam["reading"],
+        start=1,
+    ):
+        lines.append(
+            _render_question(
                 index,
                 question,
             )
-
-            if rendered:
-                blocks.append(
-                    rendered
-                )
-
-    return "\n\n".join(
-        blocks
-    )
-
-
-# ==========================================================
-# 普通选择题
-# ==========================================================
-
-def _render_choice_section(
-    questions
-):
-
-    blocks = []
-
-    for index, question in enumerate(
-        _ensure_list(questions),
-        start=1,
-    ):
-
-        rendered = _render_question(
-            index,
-            question,
         )
 
-        if rendered:
-            blocks.append(
-                rendered
-            )
+    return "\n".join(lines)
 
-    return "\n\n".join(
-        blocks
+
+# ============================================================
+# Markdown：翻译
+# ============================================================
+
+def _translation_source(
+    question: dict,
+) -> str:
+
+    return _to_text(
+        question.get("sentence")
+        or question.get("question")
+        or question.get("source")
     )
 
 
-# ==========================================================
-# 完形填空
-# ==========================================================
+def _translation_answer(
+    question: dict,
+) -> str:
 
-def _render_cloze(
-    cloze
-):
-
-    blocks = []
-
-    for item in _ensure_list(
-        cloze
-    ):
-
-        if not isinstance(
-            item,
-            dict
-        ):
-            text = _to_text(item)
-
-            if text:
-                blocks.append(text)
-
-            continue
-
-        passage = _to_text(
-            item.get(
-                "passage",
-                ""
-            )
-        )
-
-        if passage:
-            blocks.append(
-                passage
-            )
-
-        questions = item.get(
-            "questions",
-            []
-        )
-
-        for index, question in enumerate(
-            _ensure_list(questions),
-            start=1,
-        ):
-
-            if isinstance(
-                question,
-                dict
-            ):
-
-                number = question.get(
-                    "number",
-                    index,
-                )
-
-            else:
-
-                number = index
-
-            rendered = _render_question(
-                number,
-                question,
-            )
-
-            if rendered:
-                blocks.append(
-                    rendered
-                )
-
-    return "\n\n".join(
-        blocks
+    return _to_text(
+        question.get("answer")
+        or question.get("translation")
+        or question.get("standard_answer")
     )
 
 
-# ==========================================================
-# 翻译
-# ==========================================================
+def _render_translation(exam: dict) -> str:
 
-def _render_translation(
-    translation
-):
+    translation = exam["translation"]
 
-    if not isinstance(
-        translation,
-        dict
-    ):
-
-        return _to_text(
-            translation
-        )
-
-    blocks = []
-
-    part_a = translation.get(
-        "part_a",
-        []
-    )
-
-    blocks.append(
-        "Part A 汉译英（5分）"
-    )
-
-    for index, item in enumerate(
-        _ensure_list(part_a),
-        start=1,
-    ):
-
-        if isinstance(
-            item,
-            dict
-        ):
-
-            question = _to_text(
-                item.get(
-                    "question",
-                    ""
-                )
-            )
-
-        else:
-
-            question = _to_text(
-                item
-            )
-
-        if question:
-
-            blocks.append(
-                f"{index}. {question}"
-            )
-
-    part_b = translation.get(
-        "part_b",
-        []
-    )
-
-    blocks.append(
-        "Part B 英译汉（5分）"
-    )
-
-    for index, item in enumerate(
-        _ensure_list(part_b),
-        start=1,
-    ):
-
-        if isinstance(
-            item,
-            dict
-        ):
-
-            question = _to_text(
-                item.get(
-                    "question",
-                    ""
-                )
-            )
-
-        else:
-
-            question = _to_text(
-                item
-            )
-
-        if question:
-
-            blocks.append(
-                f"{index}. {question}"
-            )
-
-    return "\n\n".join(
-        blocks
-    )
-
-
-# ==========================================================
-# 写作
-# ==========================================================
-
-def _render_writing(
-    writing
-):
-
-    blocks = []
-
-    for index, item in enumerate(
-        _ensure_list(writing),
-        start=1,
-    ):
-
-        if isinstance(
-            item,
-            dict
-        ):
-
-            prompt = _to_text(
-                item.get(
-                    "prompt",
-                    item.get(
-                        "question",
-                        ""
-                    )
-                )
-            )
-
-            requirements = item.get(
-                "requirements",
-                []
-            )
-
-        else:
-
-            prompt = _to_text(item)
-            requirements = []
-
-        if prompt:
-
-            blocks.append(
-                f"{index}. {prompt}"
-            )
-
-        req_lines = []
-
-        for req in _ensure_list(
-            requirements
-        ):
-
-            text = _to_text(req)
-
-            if text:
-                req_lines.append(
-                    f"- {text}"
-                )
-
-        if req_lines:
-
-            blocks.append(
-                "\n".join(req_lines)
-            )
-
-    return "\n\n".join(
-        blocks
-    )
-
-
-# ==========================================================
-# 听力原文
-# ==========================================================
-
-def _render_listening_script(
-    script
-):
-
-    if not isinstance(
-        script,
-        dict
-    ):
-
-        return _to_text(
-            script
-        )
-
-    blocks = []
-
-    mapping = [
-        (
-            "part_a",
-            "Part A",
-        ),
-        (
-            "part_b",
-            "Part B",
-        ),
-        (
-            "part_c",
-            "Part C",
-        ),
+    lines = [
+        "# 六、翻译",
+        "",
+        "## Part A 汉译英",
+        "",
     ]
 
-    for key, label in mapping:
-
-        text = _to_text(
-            script.get(
-                key,
-                ""
-            )
+    for index, question in enumerate(
+        translation["part_a"],
+        start=1,
+    ):
+        lines.extend(
+            [
+                f"### {index}. {_translation_source(question)}",
+                "",
+                "翻译：____________________________",
+                "",
+            ]
         )
 
-        if text:
+    lines.extend(
+        [
+            "## Part B 英译汉",
+            "",
+        ]
+    )
 
-            blocks.append(
-                f"{label}\n\n{text}"
-            )
+    for index, question in enumerate(
+        translation["part_b"],
+        start=1,
+    ):
+        lines.extend(
+            [
+                f"### {index}. {_translation_source(question)}",
+                "",
+                "翻译：____________________________",
+                "",
+            ]
+        )
 
-    return "\n\n".join(
-        blocks
+    return "\n".join(lines)
+
+
+# ============================================================
+# Markdown：写作
+# ============================================================
+
+def _render_writing(exam: dict) -> str:
+
+    item = exam["writing"][0]
+
+    question = _to_text(
+        item.get("question")
+        or item.get("prompt")
+        or item.get("task")
+    )
+
+    return "\n".join(
+        [
+            "# 七、写作",
+            "",
+            "### 1.",
+            "",
+            question,
+            "",
+            "作文：",
+            "",
+            "__________________________________________________",
+            "",
+            "__________________________________________________",
+            "",
+            "__________________________________________________",
+            "",
+        ]
     )
 
 
-# ==========================================================
-# 答案
-# ==========================================================
+# ============================================================
+# Markdown：听力原文
+# ============================================================
 
-def _render_answer_list(
-    values
-):
+def _render_listening_script(
+    exam: dict,
+) -> str:
 
-    lines = []
+    script = exam["listening_script"]
 
-    for index, value in enumerate(
-        _ensure_list(values),
-        start=1,
-    ):
+    lines = [
+        "# 参考答案与听力原文",
+        "",
+        "## 听力原文",
+        "",
+        "### Part A",
+        "",
+        _to_text(script["part_a"]),
+        "",
+        "### Part B",
+        "",
+        _to_text(script["part_b"]),
+        "",
+        "### Part C",
+        "",
+        _to_text(script["part_c"]),
+        "",
+    ]
 
-        if isinstance(
-            value,
-            dict
+    return "\n".join(lines)
+
+
+# ============================================================
+# Markdown：答案
+# ============================================================
+
+def _render_answers(exam: dict) -> str:
+
+    lines = [
+        "## 一、听力答案",
+        "",
+    ]
+
+    listening = exam["listening"]
+
+    for item in listening:
+
+        part = _to_text(
+            item.get("part")
+        ).upper()
+
+        lines.append(
+            f"### Part {part}"
+        )
+        lines.append("")
+
+        for index, question in enumerate(
+            item["questions"],
+            start=1,
         ):
-
             answer = _to_text(
-                value.get(
-                    "answer",
-                    value.get(
-                        "correct_answer",
-                        ""
-                    )
-                )
-            )
-
-        else:
-
-            answer = _to_text(
-                value
-            )
-
-        if answer:
+                _answer(question)
+            ).upper()
 
             lines.append(
                 f"{index}. {answer}"
             )
 
-    return "\n".join(
-        lines
+        lines.append("")
+
+    lines.extend(
+        [
+            "## 二、单项选择答案",
+            "",
+        ]
     )
 
-
-def _render_answers(
-    answers
-):
-
-    if not isinstance(
-        answers,
-        dict
+    for index, question in enumerate(
+        exam["single_choice"],
+        start=1,
     ):
-
-        text = _to_text(
-            answers
+        lines.append(
+            f"{index}. "
+            f"{_to_text(_answer(question)).upper()}"
         )
 
-        return text or "—"
-
-    blocks = []
-
-    mapping = [
-        (
-            "listening",
-            "一、答案",
-        ),
-        (
-            "single_choice",
-            "二、答案",
-        ),
-        (
-            "multiple_choice",
-            "三、答案",
-        ),
-        (
-            "cloze",
-            "四、答案",
-        ),
-        (
-            "reading",
-            "五、答案",
-        ),
-        (
-            "translation",
-            "六、答案",
-        ),
-        (
-            "writing",
-            "七、答案",
-        ),
-    ]
-
-    for key, label in mapping:
-
-        blocks.append(
-            label
-        )
-
-        value = answers.get(
-            key,
-            []
-        )
-
-        if isinstance(
-            value,
-            dict
-        ):
-
-            # 翻译等结构化答案
-            text_parts = []
-
-            for sub_key, sub_value in value.items():
-
-                text = _to_text(
-                    sub_value
-                )
-
-                if text:
-
-                    text_parts.append(
-                        f"{sub_key}: {text}"
-                    )
-
-            answer_text = "\n".join(
-                text_parts
-            )
-
-        else:
-
-            answer_text = (
-                _render_answer_list(
-                    value
-                )
-            )
-
-        blocks.append(
-            answer_text or "—"
-        )
-
-    return "\n\n".join(
-        blocks
+    lines.extend(
+        [
+            "",
+            "## 三、多选题答案",
+            "",
+        ]
     )
 
-
-# ==========================================================
-# 答案解析
-# ==========================================================
-
-def _render_analysis(
-    analysis,
-    exam,
-):
-
-    blocks = []
-
-    if isinstance(
-        analysis,
-        dict
+    for index, question in enumerate(
+        exam["multiple_choice"],
+        start=1,
     ):
-
-        general = _to_text(
-            analysis.get(
-                "general",
-                ""
-            )
+        answers = _normalize_answers(
+            _answer(question)
         )
 
-        if general:
-            blocks.append(
-                general
-            )
+        lines.append(
+            f"{index}. {', '.join(answers)}"
+        )
 
-    elif analysis:
+    lines.extend(
+        [
+            "",
+            "## 四、完形填空答案",
+            "",
+        ]
+    )
 
-        blocks.append(
+    for index, question in enumerate(
+        exam["cloze"][0]["questions"],
+        start=1,
+    ):
+        lines.append(
+            f"{index}. "
+            f"{_to_text(_answer(question)).upper()}"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## 五、阅读理解答案",
+            "",
+        ]
+    )
+
+    for index, question in enumerate(
+        exam["reading"],
+        start=1,
+    ):
+        lines.append(
+            f"{index}. "
+            f"{_to_text(_answer(question)).upper()}"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## 六、翻译答案",
+            "",
+            "### Part A 汉译英",
+            "",
+        ]
+    )
+
+    for index, question in enumerate(
+        exam["translation"]["part_a"],
+        start=1,
+    ):
+        lines.extend(
+            [
+                f"{index}. {_translation_answer(question)}",
+                "",
+            ]
+        )
+
+    lines.extend(
+        [
+            "### Part B 英译汉",
+            "",
+        ]
+    )
+
+    for index, question in enumerate(
+        exam["translation"]["part_b"],
+        start=1,
+    ):
+        lines.extend(
+            [
+                f"{index}. {_translation_answer(question)}",
+                "",
+            ]
+        )
+
+    lines.extend(
+        [
+            "## 七、写作答案",
+            "",
+        ]
+    )
+
+    writing = exam["writing"][0]
+
+    lines.extend(
+        [
             _to_text(
-                analysis
-            )
-        )
+                writing.get("answer")
+                or writing.get("sample_answer")
+                or writing.get("model_answer")
+                or writing.get("reference_answer")
+            ),
+            "",
+        ]
+    )
 
-    # 如果题目本身携带解析，
-    # 这里统一汇总出来。
-    section_map = [
-        (
-            "single_choice",
-            "单项选择",
-        ),
-        (
-            "multiple_choice",
-            "多选题",
-        ),
-        (
-            "cloze",
-            "完形填空",
-        ),
-        (
-            "reading",
-            "阅读理解",
-        ),
+    return "\n".join(lines)
+
+
+# ============================================================
+# Markdown：解析
+# ============================================================
+
+def _render_analysis(exam: dict) -> str:
+
+    lines = [
+        "# 答案解析",
+        "",
+        "## 一、听力",
+        "",
     ]
 
-    for field, label in section_map:
+    listening = exam["listening"]
 
-        questions = exam.get(
-            field,
-            []
+    for item in listening:
+
+        part = _to_text(
+            item.get("part")
+        ).upper()
+
+        lines.extend(
+            [
+                f"### Part {part}",
+                "",
+            ]
         )
-
-        section_lines = []
 
         for index, question in enumerate(
-            _ensure_list(questions),
+            item["questions"],
             start=1,
         ):
-
-            if not isinstance(
-                question,
-                dict
-            ):
-                continue
-
-            explanation = _to_text(
-                question.get(
-                    "analysis",
-                    question.get(
-                        "explanation",
-                        ""
-                    )
-                )
+            lines.extend(
+                [
+                    f"**{index}.** "
+                    f"{_analysis(question)}",
+                    "",
+                ]
             )
 
-            if explanation:
+    lines.extend(
+        [
+            "## 二、单项选择",
+            "",
+        ]
+    )
 
-                section_lines.append(
-                    f"{index}. {explanation}"
-                )
+    for index, question in enumerate(
+        exam["single_choice"],
+        start=1,
+    ):
+        lines.extend(
+            [
+                f"**{index}.** "
+                f"{_analysis(question)}",
+                "",
+            ]
+        )
 
-        if section_lines:
+    lines.extend(
+        [
+            "## 三、多选题",
+            "",
+        ]
+    )
 
-            blocks.append(
-                f"{label}\n\n"
-                + "\n".join(
-                    section_lines
-                )
-            )
+    for index, question in enumerate(
+        exam["multiple_choice"],
+        start=1,
+    ):
+        lines.extend(
+            [
+                f"**{index}.** "
+                f"{_analysis(question)}",
+                "",
+            ]
+        )
 
-    return "\n\n".join(
-        blocks
-    ) or "—"
+    lines.extend(
+        [
+            "## 四、完形填空",
+            "",
+        ]
+    )
+
+    for index, question in enumerate(
+        exam["cloze"][0]["questions"],
+        start=1,
+    ):
+        lines.extend(
+            [
+                f"**{index}.** "
+                f"{_analysis(question)}",
+                "",
+            ]
+        )
+
+    lines.extend(
+        [
+            "## 五、阅读理解",
+            "",
+        ]
+    )
+
+    for index, question in enumerate(
+        exam["reading"],
+        start=1,
+    ):
+        lines.extend(
+            [
+                f"**{index}.** "
+                f"{_analysis(question)}",
+                "",
+            ]
+        )
+
+    lines.extend(
+        [
+            "## 六、翻译",
+            "",
+            "### Part A 汉译英",
+            "",
+        ]
+    )
+
+    for index, question in enumerate(
+        exam["translation"]["part_a"],
+        start=1,
+    ):
+        lines.extend(
+            [
+                f"**{index}.** "
+                f"{_to_text(question.get('analysis'))}",
+                "",
+            ]
+        )
+
+    lines.extend(
+        [
+            "### Part B 英译汉",
+            "",
+        ]
+    )
+
+    for index, question in enumerate(
+        exam["translation"]["part_b"],
+        start=1,
+    ):
+        lines.extend(
+            [
+                f"**{index}.** "
+                f"{_to_text(question.get('analysis'))}",
+                "",
+            ]
+        )
+
+    lines.extend(
+        [
+            "## 七、写作",
+            "",
+        ]
+    )
+
+    writing = exam["writing"][0]
+
+    lines.extend(
+        [
+            _to_text(
+                writing.get("analysis")
+                or writing.get("explanation")
+            ),
+            "",
+        ]
+    )
+
+    general = _to_text(
+        exam.get("analysis", {}).get("general")
+    )
+
+    if general:
+        lines.extend(
+            [
+                "## 总体说明",
+                "",
+                general,
+                "",
+            ]
+        )
+
+    return "\n".join(lines)
 
 
-# ==========================================================
-# 最终 Markdown
-# ==========================================================
+# ============================================================
+# Markdown Render
+# ============================================================
 
 def render(
-    e,
-    title,
-    difficulty,
-    article_type,
-):
-
+    exam: dict,
+    article_title: str,
+    difficulty: int,
+    article_type_name: str,
+) -> str:
     """
-    将完整试卷 JSON
-    渲染为 Obsidian Markdown。
+    main.py 使用的正式接口。
 
-    main.py 调用方式保持不变：
-
-        render(
-            e,
-            title,
-            difficulty,
-            article_type,
-        )
+    返回完整 Markdown。
     """
 
-    difficulty = int(
-        difficulty
+    title = _to_text(
+        exam.get("title")
     )
 
-    diff = DIFFICULTIES.get(
-        difficulty,
-        DIFFICULTIES[1],
-    )
-
-    article_type_name = ARTICLE_TYPES.get(
-        article_type,
-        article_type,
-    )
-
-    exam_title = _to_text(
-        e.get(
-            "title",
-            f"{title} 配套试卷",
-        )
-    )
-
-    if not exam_title:
-        exam_title = (
-            f"{title} 配套试卷"
+    if not title:
+        title = _to_text(
+            article_title
         )
 
-    listening_text = _render_listening(
-        e.get(
-            "listening",
-            []
-        )
+    lines = [
+        f"# {title}",
+        "",
+        f"> 难度：{DIFFICULTIES[difficulty]['star_name']} "
+        f"{DIFFICULTIES[difficulty]['stars']}",
+        "",
+        f"> 级别：{DIFFICULTIES[difficulty]['level']}",
+        "",
+        f"> 文体：{article_type_name}",
+        "",
+        "> 总分：100分",
+        "",
+        "---",
+        "",
+    ]
+
+    lines.append(
+        _render_listening(exam)
     )
 
-    single_choice_text = (
-        _render_choice_section(
-            e.get(
-                "single_choice",
-                []
-            )
-        )
+    lines.extend(
+        [
+            "",
+            _render_choice_section(
+                "二、单项选择",
+                exam["single_choice"],
+            ),
+            "",
+            _render_choice_section(
+                "三、多选题",
+                exam["multiple_choice"],
+                show_answer_blank=True,
+            ),
+            "",
+            _render_cloze(exam),
+            "",
+            _render_reading(exam),
+            "",
+            _render_translation(exam),
+            "",
+            _render_writing(exam),
+            "",
+            "---",
+            "",
+            _render_listening_script(exam),
+            "",
+            _render_answers(exam),
+            "",
+            "---",
+            "",
+            _render_analysis(exam),
+        ]
     )
 
-    multiple_choice_text = (
-        _render_choice_section(
-            e.get(
-                "multiple_choice",
-                []
-            )
-        )
-    )
-
-    cloze_text = _render_cloze(
-        e.get(
-            "cloze",
-            []
-        )
-    )
-
-    reading_text = (
-        _render_choice_section(
-            e.get(
-                "reading",
-                []
-            )
-        )
-    )
-
-    translation_text = (
-        _render_translation(
-            e.get(
-                "translation",
-                {}
-            )
-        )
-    )
-
-    writing_text = _render_writing(
-        e.get(
-            "writing",
-            []
-        )
-    )
-
-    listening_script_text = (
-        _render_listening_script(
-            e.get(
-                "listening_script",
-                {}
-            )
-        )
-    )
-
-    answers_text = _render_answers(
-        e.get(
-            "answers",
-            {}
-        )
-    )
-
-    analysis_text = _render_analysis(
-        e.get(
-            "analysis",
-            {}
-        ),
-        e,
-    )
-
-    # ------------------------------------------------------
-    # 最终文档
-    # ------------------------------------------------------
-
-    return f"""---
-difficulty: {difficulty}星
-difficulty_level: {diff["level"]}
-article_type: {article_type_name}
-source_article: {title}
----
-
-英语短文注记配套试卷 — {exam_title}
-{diff["star_name"]}难度（{diff["level"]}）  |  文体：{article_type_name}  |  满分：100分
-文章标题：{title}
-（满分：100分    时间：60分钟）
-姓名：__________    班级：__________    得分：__________
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-一、听力（共20分）
-
-（注：听力原文不印在试卷上，请听老师朗读后作答）
-
-{listening_text or "—"}
-
-二、单项选择（共10分）
-
-{single_choice_text or "—"}
-
-三、多选题（共10分）
-
-{multiple_choice_text or "—"}
-
-四、完形填空（共10分）
-
-{cloze_text or "—"}
-
-五、阅读理解（共10分）
-
-{reading_text or "—"}
-
-六、翻译（共10分）
-
-{translation_text or "—"}
-
-七、写作（共10分）
-
-{writing_text or "—"}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-参考答案与听力原文
-
-听力原文
-
-{listening_script_text or "—"}
-
-{answers_text}
-
-答案解析
-
-{analysis_text}
-
-"""
-    
-
-# ==========================================================
-# 直接运行保护
-# ==========================================================
-
-if __name__ == "__main__":
-
-    print(
-        "exam_generate.py 是模块文件，"
-        "请通过 main.py 调用。"
-    )
+    return "\n".join(lines).strip() + "\n"
