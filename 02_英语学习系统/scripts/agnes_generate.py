@@ -279,22 +279,6 @@ JSON_RETRIES = 3
 # ======================================================================
 # 目标词标准化
 # ======================================================================
-#
-# 重要：
-# 上游 input_parser 现在可能传入：
-#
-#     {"word": "beautiful", "meaning": "美丽的"}
-#
-# 也可能传入：
-#
-#     "beautiful"
-#
-# 内部统一转换成：
-#
-#     {"word": "beautiful", "meaning": "美丽的"}
-#
-# 绝对不能直接 str(dict)。
-# ======================================================================
 
 def normalize_target_words(words):
 
@@ -303,9 +287,9 @@ def normalize_target_words(words):
     if words is None:
         return result
 
-    # --------------------------------------------------------------
+    # ------------------------------------------------------------------
     # 单个字符串
-    # --------------------------------------------------------------
+    # ------------------------------------------------------------------
 
     if isinstance(words, str):
 
@@ -314,6 +298,7 @@ def normalize_target_words(words):
             word = item.strip()
 
             if word:
+
                 result.append({
                     "word": word,
                     "meaning": "",
@@ -321,9 +306,9 @@ def normalize_target_words(words):
 
         return result
 
-    # --------------------------------------------------------------
+    # ------------------------------------------------------------------
     # 列表
-    # --------------------------------------------------------------
+    # ------------------------------------------------------------------
 
     if not isinstance(words, (list, tuple)):
 
@@ -334,9 +319,9 @@ def normalize_target_words(words):
 
     for item in words:
 
-        # ----------------------------------------------------------
+        # --------------------------------------------------------------
         # 标准结构
-        # ----------------------------------------------------------
+        # --------------------------------------------------------------
 
         if isinstance(item, dict):
 
@@ -357,9 +342,9 @@ def normalize_target_words(words):
 
             continue
 
-        # ----------------------------------------------------------
+        # --------------------------------------------------------------
         # 兼容纯字符串
-        # ----------------------------------------------------------
+        # --------------------------------------------------------------
 
         word = str(item).strip()
 
@@ -559,6 +544,79 @@ def request_article(
 
 
 # ======================================================================
+# 从 Agnes message 中提取 content
+# ======================================================================
+
+def extract_message_content(message):
+
+    if not isinstance(message, dict):
+
+        return ""
+
+    content = message.get(
+        "content",
+        "",
+    )
+
+    # ------------------------------------------------------------------
+    # 最常见情况：
+    #
+    # "content": "......"
+    # ------------------------------------------------------------------
+
+    if isinstance(content, str):
+
+        return content.strip()
+
+    # ------------------------------------------------------------------
+    # 某些 API 可能返回：
+    #
+    # "content": [
+    #     {"type": "text", "text": "..."}
+    # ]
+    #
+    # 这里兼容这种结构。
+    # ------------------------------------------------------------------
+
+    if isinstance(content, list):
+
+        text_parts = []
+
+        for item in content:
+
+            if isinstance(item, str):
+
+                text_parts.append(item)
+
+                continue
+
+            if not isinstance(item, dict):
+
+                continue
+
+            text = item.get(
+                "text",
+                "",
+            )
+
+            if isinstance(text, str) and text.strip():
+
+                text_parts.append(
+                    text.strip()
+                )
+
+        return "\n".join(
+            text_parts
+        ).strip()
+
+    # ------------------------------------------------------------------
+    # 其他结构暂时转换失败，交给上层诊断。
+    # ------------------------------------------------------------------
+
+    return ""
+
+
+# ======================================================================
 # 验证数组
 # ======================================================================
 
@@ -746,10 +804,6 @@ def validate_result(
 
     # ------------------------------------------------------------------
     # YML 目标词验证
-    #
-    # 注意：
-    # words 已经在 generate() 开头标准化成 dict。
-    # 所以这里绝对不能再 str(item)。
     # ------------------------------------------------------------------
 
     normalized_words = normalize_target_words(words)
@@ -762,6 +816,14 @@ def validate_result(
 
         if item.get("word")
     }
+
+    # 防止变量被静态检查认为未使用，
+    # 同时明确记录当前 YML 要求的目标词集合。
+    if not required_word_names:
+
+        raise ValueError(
+            "YML 没有提供有效目标词汇。"
+        )
 
     missing_yml_words = [
 
@@ -782,16 +844,17 @@ def validate_result(
         )
 
     # ------------------------------------------------------------------
-    # 额外验证：
-    # YML目标词不能只是进入 target_vocabulary，
-    # 还必须真实出现在 article_en。
+    # YML目标词必须真实出现在 article_en
     # ------------------------------------------------------------------
 
     missing_in_article = []
 
     for item in normalized_words:
 
-        word = item.get("word", "").strip()
+        word = item.get(
+            "word",
+            "",
+        ).strip()
 
         if not word:
 
@@ -809,7 +872,9 @@ def validate_result(
             flags=re.IGNORECASE,
         ):
 
-            missing_in_article.append(word)
+            missing_in_article.append(
+                word
+            )
 
     if missing_in_article:
 
@@ -850,7 +915,6 @@ def validate_result(
                 f"重点短语 {phrase} 缺少 meaning。"
             )
 
-        # 短语应该真实出现在正文中
         if not re.search(
             re.escape(phrase),
             article_en,
@@ -1074,22 +1138,7 @@ def generate(
     )
 
     # ==================================================================
-    # 目标词
-    #
-    # 这里是本次修复的核心。
-    #
-    # 无论输入：
-    #
-    #   ["beautiful", "healthy"]
-    #
-    # 还是：
-    #
-    #   [
-    #       {"word":"beautiful","meaning":"美丽的"},
-    #       {"word":"healthy","meaning":"健康的"}
-    #   ]
-    #
-    # 最终统一成 dict。
+    # 目标词标准化
     # ==================================================================
 
     words = normalize_target_words(words)
@@ -1111,7 +1160,15 @@ def generate(
     # 提取真正给 Agnes 的目标词名称
     # ==================================================================
 
-    target_word_list = target_word_names(words)
+    target_word_list = target_word_names(
+        words
+    )
+
+    if not target_word_list:
+
+        raise ValueError(
+            "没有有效目标词汇，无法生成英语短文。"
+        )
 
     # ==================================================================
     # 任务定义
@@ -1355,6 +1412,10 @@ def generate(
 
         try:
 
+            # ----------------------------------------------------------
+            # 请求 Agnes
+            # ----------------------------------------------------------
+
             data = request_article(
                 key,
                 url,
@@ -1381,57 +1442,131 @@ def generate(
             if not choices:
 
                 raise ValueError(
-                    f"Agnes 返回中没有 choices：{data}"
+                    "Agnes 返回中没有 choices："
+                    + json.dumps(
+                        data,
+                        ensure_ascii=False,
+                    )
                 )
 
-        message = choices[0].get(
-            "message",
-            {},
-        )
+            if not isinstance(
+                choices,
+                list,
+            ):
 
-        content = message.get(
-            "content",
-            "",
-        )
+                raise ValueError(
+                    "Agnes 返回的 choices 不是数组。"
+                )
 
-        # ==============================================================
-        # Agnes 返回诊断
-        # ==============================================================
+            if not isinstance(
+                choices[0],
+                dict,
+            ):
 
-        if not content:
+                raise ValueError(
+                    "Agnes 返回的 choices[0] 不是对象。"
+                )
 
-            print(
-                "",
-                flush=True,
+            # ----------------------------------------------------------
+            # 获取 message
+            # ----------------------------------------------------------
+
+            message = choices[0].get(
+                "message",
+                {},
             )
 
-            print(
-                "================ Agnes API 原始 choices[0] ================",
-                flush=True,
+            if not isinstance(
+                message,
+                dict,
+            ):
+
+                raise ValueError(
+                    "Agnes 返回的 message 不是对象。"
+                )
+
+            # ----------------------------------------------------------
+            # 提取 content
+            # ----------------------------------------------------------
+
+            content = extract_message_content(
+                message
             )
 
-            print(
-                json.dumps(
-                    choices[0],
-                    ensure_ascii=False,
-                    indent=2,
-                ),
-                flush=True,
-            )
+            # ==========================================================
+            # Agnes 返回诊断
+            #
+            # 如果 content 为空：
+            # 不猜测 Agnes 返回结构。
+            # 直接把 choices[0] 原样打印出来。
+            # ==========================================================
 
-            print(
-                "============================================================",
-                flush=True,
-            )
+            if not content:
 
-            raise ValueError(
-                "Agnes 返回的 message.content 为空。"
-            )
+                print(
+                    "",
+                    flush=True,
+                )
+
+                print(
+                    "================ Agnes API 原始 choices[0] ================",
+                    flush=True,
+                )
+
+                print(
+                    json.dumps(
+                        choices[0],
+                        ensure_ascii=False,
+                        indent=2,
+                    ),
+                    flush=True,
+                )
+
+                print(
+                    "============================================================",
+                    flush=True,
+                )
+
+                # ------------------------------------------------------
+                # 同时打印 message，方便确认 content 的真实类型。
+                # ------------------------------------------------------
+
+                print(
+                    "",
+                    flush=True,
+                )
+
+                print(
+                    "================ Agnes API 原始 message ================",
+                    flush=True,
+                )
+
+                print(
+                    json.dumps(
+                        message,
+                        ensure_ascii=False,
+                        indent=2,
+                    ),
+                    flush=True,
+                )
+
+                print(
+                    "=========================================================",
+                    flush=True,
+                )
+
+                raise ValueError(
+                    "Agnes 返回的 message.content 为空。"
+                )
+
+            # ----------------------------------------------------------
+            # 保存原始内容
+            # ----------------------------------------------------------
 
             last_content = content
 
             # ----------------------------------------------------------
-            # JSON
+            # JSON 解析
             # ----------------------------------------------------------
 
             result = parse_json_response(
@@ -1498,9 +1633,22 @@ def generate(
                 flush=True,
             )
 
+            print(
+                f"✓ 知识结构："
+                f"{len(result['knowledge_structure'])}",
+                flush=True,
+            )
+
             return result
 
         except Exception as e:
+
+            # ==========================================================
+            # 统一错误处理
+            #
+            # 注意：
+            # 这里必须和 try 保持同一级缩进。
+            # ==========================================================
 
             last_error = e
 
@@ -1552,6 +1700,15 @@ def generate(
                         repair_payload,
                     )
 
+                    if not isinstance(
+                        repair_data,
+                        dict,
+                    ):
+
+                        raise ValueError(
+                            "JSON 修复请求返回不是 JSON 对象。"
+                        )
+
                     repair_choices = (
                         repair_data.get(
                             "choices"
@@ -1564,13 +1721,53 @@ def generate(
                             "JSON 修复请求没有返回 choices。"
                         )
 
+                    if not isinstance(
+                        repair_choices[0],
+                        dict,
+                    ):
+
+                        raise ValueError(
+                            "JSON 修复请求的 choices[0] 不是对象。"
+                        )
+
+                    repair_message = (
+                        repair_choices[0].get(
+                            "message",
+                            {},
+                        )
+                    )
+
                     repair_content = (
-                        repair_choices[0]
-                        .get("message", {})
-                        .get("content", "")
+                        extract_message_content(
+                            repair_message
+                        )
                     )
 
                     if not repair_content:
+
+                        print(
+                            "",
+                            flush=True,
+                        )
+
+                        print(
+                            "============= Agnes JSON修复原始 choices[0] =============",
+                            flush=True,
+                        )
+
+                        print(
+                            json.dumps(
+                                repair_choices[0],
+                                ensure_ascii=False,
+                                indent=2,
+                            ),
+                            flush=True,
+                        )
+
+                        print(
+                            "=========================================================",
+                            flush=True,
+                        )
 
                         raise ValueError(
                             "JSON 修复结果为空。"
@@ -1602,7 +1799,7 @@ def generate(
                     )
 
             # ----------------------------------------------------------
-            # 等待
+            # 等待后重新请求
             # ----------------------------------------------------------
 
             wait_seconds = 2 * attempt
