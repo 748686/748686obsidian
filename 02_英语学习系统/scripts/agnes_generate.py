@@ -86,97 +86,81 @@ DIFFICULTIES = {
         "level": "小学1-4年级",
         "label": "小学",
     },
-
     2: {
         "star": "二星",
         "level": "小学高年级-初一",
         "label": "小学高年级-初一",
     },
-
     3: {
         "star": "三星",
         "level": "初二-初四",
         "label": "初二-初四",
     },
-
     4: {
         "star": "四星",
         "level": "高一",
         "label": "高一",
     },
-
     5: {
         "star": "五星",
         "level": "高二",
         "label": "高二",
     },
-
     6: {
         "star": "六星",
         "level": "高三",
         "label": "高三",
     },
-
     7: {
         "star": "七星",
         "level": "大学",
         "label": "大学",
     },
-
     8: {
         "star": "八星",
         "level": "四级",
         "label": "四级",
     },
-
     9: {
         "star": "九星",
         "level": "六级",
         "label": "六级",
     },
-
     10: {
         "star": "十星",
         "level": "专四",
         "label": "专四",
     },
-
     11: {
         "star": "十一星",
         "level": "专六",
         "label": "专六",
     },
-
     12: {
         "star": "十二星",
         "level": "专八",
         "label": "专八",
     },
-
     13: {
         "star": "十三星",
         "level": "考研",
         "label": "考研",
     },
-
     14: {
         "star": "十四星",
         "level": "考博",
         "label": "考博",
     },
-
     15: {
         "star": "十五星",
         "level": "托福",
         "label": "托福",
     },
-
     16: {
         "star": "十六星",
         "level": "雅思",
         "label": "雅思",
     },
-
     17: {
         "star": "十七星",
         "level": "GRE",
@@ -190,39 +174,22 @@ DIFFICULTIES = {
 # ======================================================================
 
 ARTICLE_TYPES = {
-
     "narration": "记叙文",
-
     "argumentation": "议论文",
-
     "exposition": "说明文",
-
     "description": "描写文",
-
     "letter": "应用文-书信",
-
     "diary": "应用文-日记",
-
     "notice": "应用文-通知",
-
     "poster": "应用文-海报",
-
     "speech": "应用文-演讲稿",
-
     "prose": "散文",
-
     "science": "科技文",
-
     "news": "新闻报道",
-
     "review": "评论文",
-
     "story": "故事",
-
     "comparison": "对比文",
-
     "fairy_tale": "童话故事",
-
     "interview": "采访",
 }
 
@@ -232,7 +199,6 @@ ARTICLE_TYPES = {
 # ======================================================================
 
 ARTICLE_TYPE_RULES = {
-
     "narration": (
         "叙述事件或故事。必须具有清晰的时间、地点、人物、事件经过和结果。"
     ),
@@ -311,10 +277,120 @@ JSON_RETRIES = 3
 
 
 # ======================================================================
+# 目标词标准化
+# ======================================================================
+#
+# 重要：
+# 上游 input_parser 现在可能传入：
+#
+#     {"word": "beautiful", "meaning": "美丽的"}
+#
+# 也可能传入：
+#
+#     "beautiful"
+#
+# 内部统一转换成：
+#
+#     {"word": "beautiful", "meaning": "美丽的"}
+#
+# 绝对不能直接 str(dict)。
+# ======================================================================
+
+def normalize_target_words(words):
+
+    result = []
+
+    if words is None:
+        return result
+
+    # --------------------------------------------------------------
+    # 单个字符串
+    # --------------------------------------------------------------
+
+    if isinstance(words, str):
+
+        for item in words.split(","):
+
+            word = item.strip()
+
+            if word:
+                result.append({
+                    "word": word,
+                    "meaning": "",
+                })
+
+        return result
+
+    # --------------------------------------------------------------
+    # 列表
+    # --------------------------------------------------------------
+
+    if not isinstance(words, (list, tuple)):
+
+        raise ValueError(
+            f"目标词汇必须是字符串或数组，"
+            f"实际类型：{type(words).__name__}"
+        )
+
+    for item in words:
+
+        # ----------------------------------------------------------
+        # 标准结构
+        # ----------------------------------------------------------
+
+        if isinstance(item, dict):
+
+            word = str(
+                item.get("word", "")
+            ).strip()
+
+            meaning = str(
+                item.get("meaning", "")
+            ).strip()
+
+            if word:
+
+                result.append({
+                    "word": word,
+                    "meaning": meaning,
+                })
+
+            continue
+
+        # ----------------------------------------------------------
+        # 兼容纯字符串
+        # ----------------------------------------------------------
+
+        word = str(item).strip()
+
+        if word:
+
+            result.append({
+                "word": word,
+                "meaning": "",
+            })
+
+    return result
+
+
+# ======================================================================
+# 目标词名称列表
+# ======================================================================
+
+def target_word_names(words):
+
+    return [
+        item["word"]
+        for item in normalize_target_words(words)
+        if item.get("word")
+    ]
+
+
+# ======================================================================
 # 清理模型返回内容
 # ======================================================================
 
-def clean_json_content(content: str) -> str:
+def clean_json_content(content: str):
 
     if not isinstance(content, str):
 
@@ -324,7 +400,6 @@ def clean_json_content(content: str) -> str:
 
     text = content.strip()
 
-    # 去除 ```json
     text = re.sub(
         r"^```json\s*",
         "",
@@ -332,7 +407,6 @@ def clean_json_content(content: str) -> str:
         flags=re.IGNORECASE,
     )
 
-    # 去除 ```
     text = re.sub(
         r"^```\s*",
         "",
@@ -347,16 +421,12 @@ def clean_json_content(content: str) -> str:
 
     text = text.strip()
 
-    # 如果前面有说明文字，从第一个 {
-    # 开始截取
     first_brace = text.find("{")
 
     if first_brace > 0:
 
         text = text[first_brace:]
 
-    # 如果后面有多余文字，
-    # 从最后一个 } 截断
     last_brace = text.rfind("}")
 
     if last_brace >= 0:
@@ -620,6 +690,8 @@ def validate_result(
         "target_vocabulary"
     ]
 
+    target_vocab_words = set()
+
     for item in target_vocabulary:
 
         if not isinstance(item, dict):
@@ -648,8 +720,12 @@ def validate_result(
                 f"目标词 {word} 缺少 meaning。"
             )
 
+        target_vocab_words.add(
+            word.lower()
+        )
+
         # --------------------------------------------------------------
-        # 目标词必须以原形出现在文章中
+        # 目标词必须以独立原形出现在文章中
         # --------------------------------------------------------------
 
         pattern = (
@@ -669,38 +745,269 @@ def validate_result(
             )
 
     # ------------------------------------------------------------------
-    # 如果 YML 提供了目标词，
-    # 则必须全部进入 target_vocabulary
+    # YML 目标词验证
+    #
+    # 注意：
+    # words 已经在 generate() 开头标准化成 dict。
+    # 所以这里绝对不能再 str(item)。
     # ------------------------------------------------------------------
 
-    if words:
+    normalized_words = normalize_target_words(words)
 
-        for word in words:
+    required_word_names = {
 
-            word = str(word).strip()
+        item["word"].strip().lower()
 
-            if not word:
+        for item in normalized_words
 
-                continue
+        if item.get("word")
+    }
 
-            found = False
+    missing_yml_words = [
 
-            for item in target_vocabulary:
+        item["word"]
 
-                item_word = str(
-                    item.get("word", "")
-                ).strip()
+        for item in normalized_words
 
-                if item_word.lower() == word.lower():
+        if item.get("word")
+        and item["word"].strip().lower()
+        not in target_vocab_words
+    ]
 
-                    found = True
-                    break
+    if missing_yml_words:
 
-            if not found:
+        raise ValueError(
+            "YML目标词未进入 target_vocabulary："
+            + ", ".join(missing_yml_words)
+        )
 
-                raise ValueError(
-                    f"YML目标词未进入 target_vocabulary：{word}"
-                )
+    # ------------------------------------------------------------------
+    # 额外验证：
+    # YML目标词不能只是进入 target_vocabulary，
+    # 还必须真实出现在 article_en。
+    # ------------------------------------------------------------------
+
+    missing_in_article = []
+
+    for item in normalized_words:
+
+        word = item.get("word", "").strip()
+
+        if not word:
+
+            continue
+
+        pattern = (
+            r"(?<![A-Za-z])"
+            + re.escape(word)
+            + r"(?![A-Za-z])"
+        )
+
+        if not re.search(
+            pattern,
+            article_en,
+            flags=re.IGNORECASE,
+        ):
+
+            missing_in_article.append(word)
+
+    if missing_in_article:
+
+        raise ValueError(
+            "YML目标词未以原形出现在 article_en："
+            + ", ".join(missing_in_article)
+        )
+
+    # ------------------------------------------------------------------
+    # 验证重点短语
+    # ------------------------------------------------------------------
+
+    for item in result["phrases"]:
+
+        if not isinstance(item, dict):
+
+            raise ValueError(
+                "phrases 中的项目必须是对象。"
+            )
+
+        phrase = str(
+            item.get("phrase", "")
+        ).strip()
+
+        meaning = str(
+            item.get("meaning", "")
+        ).strip()
+
+        if not phrase:
+
+            raise ValueError(
+                "phrases 中存在空 phrase。"
+            )
+
+        if not meaning:
+
+            raise ValueError(
+                f"重点短语 {phrase} 缺少 meaning。"
+            )
+
+        # 短语应该真实出现在正文中
+        if not re.search(
+            re.escape(phrase),
+            article_en,
+            flags=re.IGNORECASE,
+        ):
+
+            raise ValueError(
+                f"重点短语未出现在 article_en：{phrase}"
+            )
+
+    # ------------------------------------------------------------------
+    # 验证新增词汇
+    # ------------------------------------------------------------------
+
+    for item in result["added_vocabulary"]:
+
+        if not isinstance(item, dict):
+
+            raise ValueError(
+                "added_vocabulary 中的项目必须是对象。"
+            )
+
+        word = str(
+            item.get("word", "")
+        ).strip()
+
+        meaning = str(
+            item.get("meaning", "")
+        ).strip()
+
+        if not word:
+
+            raise ValueError(
+                "added_vocabulary 中存在空 word。"
+            )
+
+        if not meaning:
+
+            raise ValueError(
+                f"新增词汇 {word} 缺少 meaning。"
+            )
+
+    # ------------------------------------------------------------------
+    # 验证语法知识点
+    # ------------------------------------------------------------------
+
+    for item in result["grammar_points"]:
+
+        if not isinstance(item, dict):
+
+            raise ValueError(
+                "grammar_points 中的项目必须是对象。"
+            )
+
+        name = str(
+            item.get("name", "")
+        ).strip()
+
+        explanation = str(
+            item.get("explanation", "")
+        ).strip()
+
+        example = str(
+            item.get("example", "")
+        ).strip()
+
+        if not name:
+
+            raise ValueError(
+                "grammar_points 中存在空 name。"
+            )
+
+        if not explanation:
+
+            raise ValueError(
+                f"语法知识点 {name} 缺少 explanation。"
+            )
+
+        if not example:
+
+            raise ValueError(
+                f"语法知识点 {name} 缺少 example。"
+            )
+
+    # ------------------------------------------------------------------
+    # 验证重点句型
+    # ------------------------------------------------------------------
+
+    for item in result["sentence_patterns"]:
+
+        if not isinstance(item, dict):
+
+            raise ValueError(
+                "sentence_patterns 中的项目必须是对象。"
+            )
+
+        pattern = str(
+            item.get("pattern", "")
+        ).strip()
+
+        meaning = str(
+            item.get("meaning", "")
+        ).strip()
+
+        example = str(
+            item.get("example", "")
+        ).strip()
+
+        if not pattern:
+
+            raise ValueError(
+                "sentence_patterns 中存在空 pattern。"
+            )
+
+        if not meaning:
+
+            raise ValueError(
+                f"重点句型 {pattern} 缺少 meaning。"
+            )
+
+        if not example:
+
+            raise ValueError(
+                f"重点句型 {pattern} 缺少 example。"
+            )
+
+    # ------------------------------------------------------------------
+    # 验证知识结构
+    # ------------------------------------------------------------------
+
+    for item in result["knowledge_structure"]:
+
+        if not isinstance(item, dict):
+
+            raise ValueError(
+                "knowledge_structure 中的项目必须是对象。"
+            )
+
+        title = str(
+            item.get("title", "")
+        ).strip()
+
+        content = str(
+            item.get("content", "")
+        ).strip()
+
+        if not title:
+
+            raise ValueError(
+                "knowledge_structure 中存在空 title。"
+            )
+
+        if not content:
+
+            raise ValueError(
+                f"知识结构 {title} 缺少 content。"
+            )
 
     return result
 
@@ -768,27 +1075,43 @@ def generate(
 
     # ==================================================================
     # 目标词
+    #
+    # 这里是本次修复的核心。
+    #
+    # 无论输入：
+    #
+    #   ["beautiful", "healthy"]
+    #
+    # 还是：
+    #
+    #   [
+    #       {"word":"beautiful","meaning":"美丽的"},
+    #       {"word":"healthy","meaning":"健康的"}
+    #   ]
+    #
+    # 最终统一成 dict。
     # ==================================================================
 
-    if words is None:
+    words = normalize_target_words(words)
 
-        words = []
+    print(
+        f"✓ 目标词标准化完成：{len(words)} 个",
+        flush=True,
+    )
 
-    if isinstance(words, str):
+    for item in words:
 
-        words = [
-            item.strip()
-            for item in words.split(",")
-            if item.strip()
-        ]
+        print(
+            f"  - {item['word']}："
+            f"{item.get('meaning', '')}",
+            flush=True,
+        )
 
-    else:
+    # ==================================================================
+    # 提取真正给 Agnes 的目标词名称
+    # ==================================================================
 
-        words = [
-            str(item).strip()
-            for item in words
-            if str(item).strip()
-        ]
+    target_word_list = target_word_names(words)
 
     # ==================================================================
     # 任务定义
@@ -822,7 +1145,9 @@ def generate(
 
         "target_length": length,
 
-        "target_words": words,
+        "target_words": target_word_list,
+
+        "target_word_details": words,
 
         "requirements": [
 
