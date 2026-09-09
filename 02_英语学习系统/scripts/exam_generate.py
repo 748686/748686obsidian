@@ -3,7 +3,7 @@
 
 """
 748686 英语学习系统
-exam_generate.py V5
+exam_generate.py V5.1
 
 ============================================================
 核心架构
@@ -26,8 +26,22 @@ V5：
     Python 自动合并
         ↓
     完整结构验证
-        ↓
-    返回完整 exam
+
+V5.1：
+
+    在 V5 基础上进一步拆分 Multiple Choice：
+
+        Multiple Choice 1
+            ↓
+        1～5题
+
+        Multiple Choice 2
+            ↓
+        6～10题
+
+        Python 自动合并
+            ↓
+        Multiple Choice 1～10
 
 ============================================================
 本文件只生成：
@@ -50,7 +64,10 @@ Listening B       5
 Listening C       5
 
 Single Choice    10
+
 Multiple Choice  10
+    ├── Batch 1：1～5
+    └── Batch 2：6～10
 
 Cloze            10
 
@@ -73,11 +90,12 @@ Writing           1
 2. listening_b
 3. listening_c
 4. single_choice
-5. multiple_choice
-6. cloze
-7. reading
-8. translation
-9. writing
+5. multiple_choice_1
+6. multiple_choice_2
+7. cloze
+8. reading
+9. translation
+10. writing
 
 每个模块：
 
@@ -98,23 +116,51 @@ Writing           1
 每个模块最多3次。
 
 ============================================================
-重要
+V5.1 重要保护
 ============================================================
 
-只有全部模块成功：
+1. Multiple Choice 拆成两个5题模块。
 
-    Python 才会组合完整试卷。
+2. 每个模块独立 max_tokens。
 
-如果任何一个模块失败：
+3. 记录 finish_reason。
 
-    不返回半成品。
+4. 如果 finish_reason == length：
+       明确认为输出达到长度限制。
 
-main.py 不会进入：
+5. 递归检查禁止答案字段。
 
-    render_exam()
+6. 所有模块完成以后：
+       Python 自动合并。
 
-因此不会落盘不完整试卷。
+7. 最终整卷再次验证。
+
+8. 只有完整试卷验证通过：
+       才返回 exam。
+
+============================================================
+兼容接口
+============================================================
+
+generate(
+    article,
+    difficulty,
+    article_type,
+    words,
+)
+
+render(
+    exam,
+    article_title,
+    difficulty,
+    article_type_name,
+)
+
+保持不变。
+
+main.py 不需要修改。
 """
+
 
 import json
 import re
@@ -260,6 +306,7 @@ LISTENING_C_COUNT = 5
 
 SINGLE_CHOICE_COUNT = 10
 MULTIPLE_CHOICE_COUNT = 10
+MULTIPLE_CHOICE_BATCH_SIZE = 5
 
 CLOZE_COUNT = 10
 
@@ -272,7 +319,7 @@ WRITING_COUNT = 1
 
 
 # ============================================================
-# V5 分块
+# V5.1 模块
 # ============================================================
 
 MODULES = (
@@ -280,7 +327,8 @@ MODULES = (
     "listening_b",
     "listening_c",
     "single_choice",
-    "multiple_choice",
+    "multiple_choice_1",
+    "multiple_choice_2",
     "cloze",
     "reading",
     "translation",
@@ -289,8 +337,23 @@ MODULES = (
 
 MODULE_RETRIES = 3
 
-# 每个小 JSON 都不应该特别大。
-MODULE_MAX_TOKENS = 3000
+
+# ============================================================
+# 每个模块独立 token 上限
+# ============================================================
+
+MODULE_MAX_TOKENS = {
+    "listening_a": 2200,
+    "listening_b": 2200,
+    "listening_c": 2200,
+    "single_choice": 3200,
+    "multiple_choice_1": 2200,
+    "multiple_choice_2": 2200,
+    "cloze": 4000,
+    "reading": 2200,
+    "translation": 2200,
+    "writing": 1200,
+}
 
 
 # ============================================================
@@ -740,22 +803,72 @@ FORBIDDEN_FIELDS = {
 }
 
 
+def find_forbidden_fields(
+    value: Any,
+    path: str = "root",
+) -> list[str]:
+
+    found = []
+
+    if isinstance(
+        value,
+        dict,
+    ):
+
+        for key, child in value.items():
+
+            key_text = _to_text(
+                key
+            )
+
+            if (
+                key_text.lower()
+                in FORBIDDEN_FIELDS
+            ):
+
+                found.append(
+                    f"{path}.{key_text}"
+                )
+
+            found.extend(
+                find_forbidden_fields(
+                    child,
+                    f"{path}.{key_text}",
+                )
+            )
+
+    elif isinstance(
+        value,
+        list,
+    ):
+
+        for index, child in enumerate(
+            value
+        ):
+
+            found.extend(
+                find_forbidden_fields(
+                    child,
+                    f"{path}[{index}]",
+                )
+            )
+
+    return found
+
+
 def check_forbidden_fields(
     data: dict,
 ) -> None:
 
-    found = (
-        FORBIDDEN_FIELDS
-        & set(data.keys())
+    found = find_forbidden_fields(
+        data
     )
 
     if found:
 
         raise ValueError(
             "试卷主体出现禁止字段："
-            + ", ".join(
-                sorted(found)
-            )
+            + ", ".join(found)
         )
 
 
@@ -1243,6 +1356,7 @@ def validate_writing(
 # ============================================================
 
 def request_module(
+    module: str,
     system_prompt: str,
     user_prompt: str,
     api_key: str,
@@ -1260,8 +1374,14 @@ def request_module(
         f"{base_url}/chat/completions"
     )
 
+    max_tokens = MODULE_MAX_TOKENS.get(
+        module,
+        3000,
+    )
+
     body = {
         "model": model,
+
         "messages": [
             {
                 "role": "system",
@@ -1272,14 +1392,10 @@ def request_module(
                 "content": user_prompt,
             },
         ],
+
         "temperature": 0.25,
 
-        # ----------------------------------------------------
-        # V5：
-        # 每个模块独立控制输出规模。
-        # ----------------------------------------------------
-
-        "max_tokens": MODULE_MAX_TOKENS,
+        "max_tokens": max_tokens,
     }
 
     response = request_json(
@@ -1430,9 +1546,7 @@ def build_module_prompt(
     system = """
 你是748686英语学习系统的专业英语考试命题专家。
 
-本次任务非常重要：
-
-你只负责生成指定的一个试卷模块。
+本次任务只负责生成指定的一个试卷模块。
 
 绝对不要生成：
 
@@ -1461,10 +1575,11 @@ model_answer
 
 不要在 JSON 外输出文字。
 
-输出必须简洁。
-
 严格遵守题量。
+
+所有 options 必须恰好4个。
 """
+
 
     # ========================================================
     # Listening A
@@ -1481,21 +1596,19 @@ Listening Part A
 
 严格5题。
 
-每题：
+Part A 主要考查简单听词、听短句、听基本信息。
+
+每题必须有：
 
 question
 options
 
-options 必须严格4个：
+options 严格4个：
 
 A. ...
 B. ...
 C. ...
 D. ...
-
-Part A 主要考查简单听词、听短句、听基本信息。
-
-适合当前考试难度。
 
 不要生成听力原文。
 
@@ -1524,6 +1637,7 @@ JSON：
 必须正好5题。
 """
 
+
     # ========================================================
     # Listening B
     # ========================================================
@@ -1539,11 +1653,13 @@ Listening Part B
 
 严格5题。
 
-设计成：
+设计为：
 
 “听一段简短对话后回答问题”。
 
-但是本 JSON 不生成对话原文。
+但是：
+
+本 JSON 绝对不能生成对话原文。
 
 只生成：
 
@@ -1583,6 +1699,7 @@ JSON：
 必须正好5题。
 """
 
+
     # ========================================================
     # Listening C
     # ========================================================
@@ -1600,7 +1717,7 @@ Listening Part C
 
 非常重要：
 
-Listening C 必须直接围绕 ARTICLE EN。
+所有题目必须直接围绕 ARTICLE EN。
 
 5题都必须能够根据 ARTICLE EN 回答。
 
@@ -1612,7 +1729,7 @@ Listening C 必须直接围绕 ARTICLE EN。
 
 不要生成解析。
 
-每题：
+每题必须：
 
 A
 B
@@ -1640,8 +1757,9 @@ JSON：
 必须正好5题。
 """
 
+
     # ========================================================
-    # Single
+    # Single Choice
     # ========================================================
 
     elif module == "single_choice":
@@ -1672,7 +1790,7 @@ JSON：
 question
 options
 
-必须4个选项：
+options 严格4个：
 
 A
 B
@@ -1703,20 +1821,31 @@ JSON：
 必须正好10题。
 """
 
+
     # ========================================================
-    # Multiple
+    # Multiple Choice Batch 1
     # ========================================================
 
-    elif module == "multiple_choice":
+    elif module == "multiple_choice_1":
 
         user = f"""
 {context}
 
 现在只生成：
 
-多项选择题。
+多项选择题第1～5题。
 
-严格10题。
+严格5题。
+
+这是整个多项选择模块的第一批。
+
+题号必须是：
+
+1
+2
+3
+4
+5
 
 每题必须：
 
@@ -1724,22 +1853,20 @@ question
 answer_instruction
 options
 
-options 必须：
+options 严格4个：
 
 A
 B
 C
 D
 
-题目必须设计为：
+每题设计为：
 
-“Choose all correct answers.”
+Choose all correct answers.
 
 每题应该存在至少两个正确答案。
 
-但是：
-
-绝对不要输出正确答案。
+但是绝对不能输出正确答案。
 
 不要输出解析。
 
@@ -1761,8 +1888,83 @@ JSON：
   ]
 }}
 
-必须正好10题。
+必须正好5题。
+
+只生成1～5题。
 """
+
+
+    # ========================================================
+    # Multiple Choice Batch 2
+    # ========================================================
+
+    elif module == "multiple_choice_2":
+
+        user = f"""
+{context}
+
+现在只生成：
+
+多项选择题第6～10题。
+
+严格5题。
+
+这是整个多项选择模块的第二批。
+
+题号必须是：
+
+6
+7
+8
+9
+10
+
+每题必须：
+
+question
+answer_instruction
+options
+
+options 严格4个：
+
+A
+B
+C
+D
+
+每题设计为：
+
+Choose all correct answers.
+
+每题应该存在至少两个正确答案。
+
+但是绝对不能输出正确答案。
+
+不要输出解析。
+
+JSON：
+
+{{
+  "multiple_choice": [
+    {{
+      "number": 6,
+      "question": "string",
+      "answer_instruction": "Choose all correct answers.",
+      "options": [
+        "A. string",
+        "B. string",
+        "C. string",
+        "D. string"
+      ]
+    }}
+  ]
+}}
+
+必须正好5题。
+
+只生成6～10题。
+"""
+
 
     # ========================================================
     # Cloze
@@ -1787,11 +1989,15 @@ ARTICLE EN：
 
 {_get_article_en(article)}
 
-你必须保持 ARTICLE EN 的全部句子和顺序。
+必须保持：
+
+1. 原文全部句子。
+2. 原文全部顺序。
+3. 原文其他文字不改变。
 
 只允许从原文中选择10个词进行挖空。
 
-必须严格使用：
+严格使用：
 
 ____ (1) ____
 
@@ -1800,8 +2006,6 @@ ____ (2) ____
 一直到：
 
 ____ (10) ____
-
-不要改写其他文字。
 
 然后为10个空分别生成选择题。
 
@@ -1836,6 +2040,7 @@ JSON：
 
 必须正好10题。
 """
+
 
     # ========================================================
     # Reading
@@ -1890,6 +2095,7 @@ JSON：
 
 必须正好5题。
 """
+
 
     # ========================================================
     # Translation
@@ -1950,6 +2156,7 @@ Part A 必须5题。
 Part B 必须5题。
 """
 
+
     # ========================================================
     # Writing
     # ========================================================
@@ -1992,6 +2199,7 @@ JSON：
 
 只能有1题。
 """
+
 
     else:
 
@@ -2059,26 +2267,56 @@ def validate_module(
         validate_choice_list(
             data,
             "single_choice",
-            10,
+            SINGLE_CHOICE_COUNT,
             "单项选择",
         )
 
     # --------------------------------------------------------
-    # Multiple
+    # Multiple Choice Batch 1
     # --------------------------------------------------------
 
-    elif module == "multiple_choice":
+    elif module == "multiple_choice_1":
 
         validate_choice_list(
             data,
             "multiple_choice",
-            10,
-            "多选题",
+            MULTIPLE_CHOICE_BATCH_SIZE,
+            "多选题第1～5题",
         )
 
-        for question in data[
+        questions = data[
             "multiple_choice"
-        ]:
+        ]
+
+        expected_numbers = [
+            1,
+            2,
+            3,
+            4,
+            5,
+        ]
+
+        actual_numbers = []
+
+        for question in questions:
+
+            try:
+
+                number = int(
+                    question.get(
+                        "number"
+                    )
+                )
+
+            except Exception:
+
+                raise ValueError(
+                    "多选题第1～5题存在非法编号"
+                )
+
+            actual_numbers.append(
+                number
+            )
 
             instruction = _to_text(
                 question.get(
@@ -2091,6 +2329,79 @@ def validate_module(
                 raise ValueError(
                     "多选题缺少 answer_instruction"
                 )
+
+        if actual_numbers != expected_numbers:
+
+            raise ValueError(
+                "多选题第一批编号必须为1～5，"
+                f"实际为 {actual_numbers}"
+            )
+
+    # --------------------------------------------------------
+    # Multiple Choice Batch 2
+    # --------------------------------------------------------
+
+    elif module == "multiple_choice_2":
+
+        validate_choice_list(
+            data,
+            "multiple_choice",
+            MULTIPLE_CHOICE_BATCH_SIZE,
+            "多选题第6～10题",
+        )
+
+        questions = data[
+            "multiple_choice"
+        ]
+
+        expected_numbers = [
+            6,
+            7,
+            8,
+            9,
+            10,
+        ]
+
+        actual_numbers = []
+
+        for question in questions:
+
+            try:
+
+                number = int(
+                    question.get(
+                        "number"
+                    )
+                )
+
+            except Exception:
+
+                raise ValueError(
+                    "多选题第6～10题存在非法编号"
+                )
+
+            actual_numbers.append(
+                number
+            )
+
+            instruction = _to_text(
+                question.get(
+                    "answer_instruction"
+                )
+            )
+
+            if not instruction:
+
+                raise ValueError(
+                    "多选题缺少 answer_instruction"
+                )
+
+        if actual_numbers != expected_numbers:
+
+            raise ValueError(
+                "多选题第二批编号必须为6～10，"
+                f"实际为 {actual_numbers}"
+            )
 
     # --------------------------------------------------------
     # Cloze
@@ -2112,7 +2423,7 @@ def validate_module(
         validate_choice_list(
             data,
             "reading",
-            5,
+            READING_COUNT,
             "阅读理解",
         )
 
@@ -2176,6 +2487,7 @@ def generate_module(
 
             data, finish_reason = (
                 request_module(
+                    module,
                     system_prompt,
                     user_prompt,
                     api_key,
@@ -2192,7 +2504,8 @@ def generate_module(
             if finish_reason == "length":
 
                 raise ValueError(
-                    "AI 输出达到长度限制"
+                    "AI 输出达到长度限制，"
+                    "JSON 可能被截断"
                 )
 
             validate_module(
@@ -2202,7 +2515,8 @@ def generate_module(
             )
 
             print(
-                f"    ✓ {module} 生成并验证成功"
+                f"    ✓ {module} "
+                "生成并验证成功"
             )
 
             return data
@@ -2234,6 +2548,111 @@ def generate_module(
 
 
 # ============================================================
+# Multiple Choice 合并
+# ============================================================
+
+def merge_multiple_choice(
+    modules: dict,
+) -> list:
+
+    batch_1 = modules[
+        "multiple_choice_1"
+    ].get(
+        "multiple_choice"
+    )
+
+    batch_2 = modules[
+        "multiple_choice_2"
+    ].get(
+        "multiple_choice"
+    )
+
+    if not isinstance(
+        batch_1,
+        list,
+    ):
+
+        raise ValueError(
+            "Multiple Choice 第一批不是 list"
+        )
+
+    if not isinstance(
+        batch_2,
+        list,
+    ):
+
+        raise ValueError(
+            "Multiple Choice 第二批不是 list"
+        )
+
+    if len(batch_1) != 5:
+
+        raise ValueError(
+            "Multiple Choice 第一批必须5题"
+        )
+
+    if len(batch_2) != 5:
+
+        raise ValueError(
+            "Multiple Choice 第二批必须5题"
+        )
+
+    merged = []
+
+    for question in batch_1:
+
+        item = dict(
+            question
+        )
+
+        item["number"] = len(
+            merged
+        ) + 1
+
+        merged.append(
+            item
+        )
+
+    for question in batch_2:
+
+        item = dict(
+            question
+        )
+
+        item["number"] = len(
+            merged
+        ) + 1
+
+        merged.append(
+            item
+        )
+
+    if len(merged) != 10:
+
+        raise ValueError(
+            "Multiple Choice 合并后不是10题"
+        )
+
+    for index, question in enumerate(
+        merged,
+        start=1,
+    ):
+
+        if int(
+            question.get(
+                "number"
+            )
+        ) != index:
+
+            raise ValueError(
+                f"Multiple Choice 合并后编号错误："
+                f"第{index}题"
+            )
+
+    return merged
+
+
+# ============================================================
 # 完整试卷合并
 # ============================================================
 
@@ -2248,6 +2667,12 @@ def assemble_exam(
         f"{DIFFICULTIES[difficulty]['star_name']}"
         f"·{ARTICLE_TYPES.get(article_type, article_type)}"
         f"英语综合试卷"
+    )
+
+    multiple_choice = (
+        merge_multiple_choice(
+            modules
+        )
     )
 
     exam = {
@@ -2287,9 +2712,7 @@ def assemble_exam(
             "single_choice"
         ]["single_choice"],
 
-        "multiple_choice": modules[
-            "multiple_choice"
-        ]["multiple_choice"],
+        "multiple_choice": multiple_choice,
 
         "cloze": [
             {
@@ -2444,6 +2867,17 @@ def validate_exam(
                 f"Listening {part} 必须5题"
             )
 
+        for index, question in enumerate(
+            questions,
+            start=1,
+        ):
+
+            validate_choice_question(
+                question,
+                f"Listening {part}",
+                index,
+            )
+
     # --------------------------------------------------------
     # Single
     # --------------------------------------------------------
@@ -2451,7 +2885,7 @@ def validate_exam(
     validate_choice_list(
         exam,
         "single_choice",
-        10,
+        SINGLE_CHOICE_COUNT,
         "单项选择",
     )
 
@@ -2462,9 +2896,61 @@ def validate_exam(
     validate_choice_list(
         exam,
         "multiple_choice",
-        10,
+        MULTIPLE_CHOICE_COUNT,
         "多选题",
     )
+
+    multiple_questions = exam[
+        "multiple_choice"
+    ]
+
+    expected_numbers = list(
+        range(
+            1,
+            MULTIPLE_CHOICE_COUNT + 1,
+        )
+    )
+
+    actual_numbers = []
+
+    for question in multiple_questions:
+
+        try:
+
+            number = int(
+                question.get(
+                    "number"
+                )
+            )
+
+        except Exception:
+
+            raise ValueError(
+                "多选题存在非法编号"
+            )
+
+        actual_numbers.append(
+            number
+        )
+
+        instruction = _to_text(
+            question.get(
+                "answer_instruction"
+            )
+        )
+
+        if not instruction:
+
+            raise ValueError(
+                "多选题缺少 answer_instruction"
+            )
+
+    if actual_numbers != expected_numbers:
+
+        raise ValueError(
+            "完整多选题编号错误："
+            f"{actual_numbers}"
+        )
 
     # --------------------------------------------------------
     # Cloze
@@ -2495,7 +2981,7 @@ def validate_exam(
     validate_choice_list(
         exam,
         "reading",
-        5,
+        READING_COUNT,
         "阅读理解",
     )
 
@@ -2604,7 +3090,7 @@ def generate(
     )
 
     print(
-        "EXAM GENERATION V5"
+        "EXAM GENERATION V5.1"
     )
 
     print(
@@ -2633,7 +3119,7 @@ def generate(
 
     print()
     print(
-        "V5 分块试卷生成模式："
+        "V5.1 分块试卷生成模式："
     )
 
     print(
@@ -2654,6 +3140,14 @@ def generate(
 
     print(
         "  ✓ Multiple Choice：10"
+    )
+
+    print(
+        "      ├── Batch 1：1～5"
+    )
+
+    print(
+        "      └── Batch 2：6～10"
     )
 
     print(
@@ -2678,7 +3172,11 @@ def generate(
     )
 
     print(
-        "不再一次生成整张超大 JSON。"
+        "Multiple Choice 进一步拆成两个5题模块。"
+    )
+
+    print(
+        "Python 最后自动合并完整试卷。"
     )
 
     print()
@@ -2731,7 +3229,42 @@ def generate(
         )
 
     # ========================================================
-    # Python 合并
+    # Multiple Choice 合并
+    # ========================================================
+
+    print()
+    print(
+        "------------------------------------------------------------"
+    )
+
+    print(
+        "MERGING MULTIPLE CHOICE"
+    )
+
+    print(
+        "------------------------------------------------------------"
+    )
+
+    multiple_choice = (
+        merge_multiple_choice(
+            modules
+        )
+    )
+
+    print(
+        "✓ Multiple Choice 第一批：1～5"
+    )
+
+    print(
+        "✓ Multiple Choice 第二批：6～10"
+    )
+
+    print(
+        "✓ Multiple Choice 已合并为10题"
+    )
+
+    # ========================================================
+    # Python 合并完整试卷
     # ========================================================
 
     print()
@@ -2775,7 +3308,7 @@ def generate(
     )
 
     print(
-        "EXAM GENERATION V5 COMPLETE"
+        "EXAM GENERATION V5.1 COMPLETE"
     )
 
     print(
