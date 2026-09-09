@@ -2345,7 +2345,6 @@ def process_weekly_report(
 
     return True
 
-
 # ======================================================================
 # 28. Main
 # ======================================================================
@@ -2393,6 +2392,10 @@ def main():
         "LANGUAGE: 中文提示词"
     )
 
+    log(
+        "OCR: DISABLED"
+    )
+
     # --------------------------------------------------------------
     # API key
     # --------------------------------------------------------------
@@ -2422,10 +2425,28 @@ def main():
     )
 
     # --------------------------------------------------------------
-    # Daily
+    # Processing statistics
     # --------------------------------------------------------------
 
-    daily_success = True
+    daily_success_count = 0
+    daily_missing_count = 0
+    daily_failed_count = 0
+
+    weekly_success_count = 0
+    weekly_missing_count = 0
+    weekly_failed_count = 0
+
+    # --------------------------------------------------------------
+    # Daily
+    #
+    # 非常重要：
+    #
+    # 每一天独立处理。
+    #
+    # 第一天成功以后已经立即落盘，
+    # 第二天即使不存在或者失败，
+    # 也绝对不能影响第一天。
+    # --------------------------------------------------------------
 
     dates = target_dates()
 
@@ -2433,14 +2454,96 @@ def main():
 
     for target_date in dates:
 
-        success = (
-            process_daily_report(
-                target_date
-            )
+        date_text = target_date.isoformat()
+
+        log("")
+        log(
+            "######################################################################"
+        )
+        log(
+            f"DAILY IMAGE: {date_text}"
+        )
+        log(
+            "######################################################################"
         )
 
-        if not success:
-            daily_success = False
+        report_path = find_daily_report(
+            target_date
+        )
+
+        # ----------------------------------------------------------
+        # 日报不存在
+        #
+        # 不是错误。
+        # 只是跳过。
+        # ----------------------------------------------------------
+
+        if report_path is None:
+
+            log(
+                f"      ⏭ 未找到日报，跳过: "
+                f"{date_text}"
+            )
+
+            daily_missing_count += 1
+
+        else:
+
+            image_dir = (
+                DAILY_IMAGE_ROOT
+                /
+                date_text
+            )
+
+            try:
+
+                success = (
+                    generate_report_images(
+                        report_path,
+                        image_dir
+                    )
+                )
+
+                if success:
+
+                    create_image_markdown(
+                        report_path,
+                        image_dir
+                    )
+
+                    daily_success_count += 1
+
+                    log(
+                        f"      ✓ 日报处理完成: "
+                        f"{date_text}"
+                    )
+
+                else:
+
+                    daily_failed_count += 1
+
+                    log(
+                        f"      ✗ 日报图片处理失败，"
+                        f"继续处理下一天: "
+                        f"{date_text}"
+                    )
+
+            except Exception as exc:
+
+                daily_failed_count += 1
+
+                log(
+                    f"      ✗ 日报处理异常: "
+                    f"{exc}"
+                )
+
+                log(
+                    "      ⏭ 不终止程序，继续处理下一天"
+                )
+
+        # ----------------------------------------------------------
+        # 收集对应 ISO 周
+        # ----------------------------------------------------------
 
         week_key = iso_week_key(
             target_date
@@ -2454,23 +2557,96 @@ def main():
 
     # --------------------------------------------------------------
     # Weekly
+    #
+    # 每一个周报同样独立处理。
     # --------------------------------------------------------------
-
-    weekly_success = True
 
     for week_key in weekly_keys:
 
-        success = (
-            process_weekly_report(
-                week_key
-            )
+        log("")
+        log(
+            "######################################################################"
+        )
+        log(
+            f"WEEKLY IMAGE: {week_key}"
+        )
+        log(
+            "######################################################################"
         )
 
-        if not success:
-            weekly_success = False
+        report_path = find_weekly_report(
+            week_key
+        )
+
+        # ----------------------------------------------------------
+        # 周报不存在
+        # ----------------------------------------------------------
+
+        if report_path is None:
+
+            log(
+                f"      ⏭ 未找到周报，跳过: "
+                f"{week_key}"
+            )
+
+            weekly_missing_count += 1
+
+            continue
+
+        image_dir = (
+            WEEKLY_IMAGE_ROOT
+            /
+            week_key
+        )
+
+        try:
+
+            success = (
+                generate_report_images(
+                    report_path,
+                    image_dir
+                )
+            )
+
+            if success:
+
+                create_image_markdown(
+                    report_path,
+                    image_dir
+                )
+
+                weekly_success_count += 1
+
+                log(
+                    f"      ✓ 周报处理完成: "
+                    f"{week_key}"
+                )
+
+            else:
+
+                weekly_failed_count += 1
+
+                log(
+                    f"      ✗ 周报图片处理失败，"
+                    f"继续处理后续任务: "
+                    f"{week_key}"
+                )
+
+        except Exception as exc:
+
+            weekly_failed_count += 1
+
+            log(
+                f"      ✗ 周报处理异常: "
+                f"{exc}"
+            )
+
+            log(
+                "      ⏭ 不终止程序"
+            )
 
     # --------------------------------------------------------------
-    # Final
+    # Final statistics
     # --------------------------------------------------------------
 
     log("")
@@ -2484,34 +2660,135 @@ def main():
         "======================================================================"
     )
 
+    log("")
     log(
-        f"DAILY SUCCESS : "
-        f"{daily_success}"
+        "DAILY:"
     )
 
     log(
-        f"WEEKLY SUCCESS: "
-        f"{weekly_success}"
+        f"  SUCCESS : {daily_success_count}"
     )
 
-    if (
-        daily_success
-        and weekly_success
-    ):
+    log(
+        f"  MISSING : {daily_missing_count}"
+    )
+
+    log(
+        f"  FAILED  : {daily_failed_count}"
+    )
+
+    log("")
+    log(
+        "WEEKLY:"
+    )
+
+    log(
+        f"  SUCCESS : {weekly_success_count}"
+    )
+
+    log(
+        f"  MISSING : {weekly_missing_count}"
+    )
+
+    log(
+        f"  FAILED  : {weekly_failed_count}"
+    )
+
+    log("")
+
+    # --------------------------------------------------------------
+    # 最重要的退出规则
+    #
+    # 只要至少成功处理了一个日报或周报，
+    # 就正常退出。
+    #
+    # 因为已经成功生成的文件必须允许 GitHub Actions
+    # 后续 commit / push。
+    #
+    # 缺失的日报/周报不算失败。
+    # 某一个日报/周报失败，也不能抹掉其他已经成功的结果。
+    # --------------------------------------------------------------
+
+    total_success = (
+        daily_success_count
+        +
+        weekly_success_count
+    )
+
+    total_failed = (
+        daily_failed_count
+        +
+        weekly_failed_count
+    )
+
+    total_missing = (
+        daily_missing_count
+        +
+        weekly_missing_count
+    )
+
+    log(
+        f"TOTAL SUCCESS : {total_success}"
+    )
+
+    log(
+        f"TOTAL MISSING : {total_missing}"
+    )
+
+    log(
+        f"TOTAL FAILED  : {total_failed}"
+    )
+
+    # --------------------------------------------------------------
+    # 有成功结果
+    # --------------------------------------------------------------
+
+    if total_success > 0:
+
+        log("")
+        log(
+            "✓ 已有成功生成内容"
+        )
 
         log(
-            "✓ ALL IMAGE TASKS SUCCESS"
+            "✓ 已成功落盘"
+        )
+
+        log(
+            "✓ 后续 GitHub Actions 可以继续执行提交/推送"
         )
 
         return 0
 
+    # --------------------------------------------------------------
+    # 一个输入都没有
+    #
+    # 这种情况也不应该让每日自动任务变红。
+    # --------------------------------------------------------------
+
+    if total_failed == 0:
+
+        log("")
+        log(
+            "⏭ 当前没有可处理的日报或周报"
+        )
+
+        log(
+            "✓ 没有可生成内容，正常结束"
+        )
+
+        return 0
+
+    # --------------------------------------------------------------
+    # 所有实际存在的任务全部失败
+    # --------------------------------------------------------------
+
+    log("")
     log(
-        "✗ IMAGE ENGINE FAILED"
+        "✗ 所有实际存在的图片任务均失败"
     )
 
     return 1
-
-
 # ======================================================================
 # Entry
 # ======================================================================
