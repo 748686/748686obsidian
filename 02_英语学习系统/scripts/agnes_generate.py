@@ -1384,49 +1384,49 @@ def generate(
                     f"Agnes 返回中没有 choices：{data}"
                 )
 
-            message = choices[0].get(
-    "message",
-    {},
-)
+        message = choices[0].get(
+            "message",
+            {},
+        )
 
-content = message.get(
-    "content",
-    "",
-)
+        content = message.get(
+            "content",
+            "",
+        )
 
-# ==============================================================
-# Agnes 返回诊断
-# ==============================================================
+        # ==============================================================
+        # Agnes 返回诊断
+        # ==============================================================
 
-if not content:
+        if not content:
 
-    print(
-        "",
-        flush=True,
-    )
+            print(
+                "",
+                flush=True,
+            )
 
-    print(
-        "================ Agnes API 原始 choices[0] ================",
-        flush=True,
-    )
+            print(
+                "================ Agnes API 原始 choices[0] ================",
+                flush=True,
+            )
 
-    print(
-        json.dumps(
-            choices[0],
-            ensure_ascii=False,
-            indent=2,
-        ),
-        flush=True,
-    )
+            print(
+                json.dumps(
+                    choices[0],
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                flush=True,
+            )
 
-    print(
-        "============================================================",
-        flush=True,
-    )
+            print(
+                "============================================================",
+                flush=True,
+            )
 
-    raise ValueError(
-        "Agnes 返回的 message.content 为空。"
-    )
+            raise ValueError(
+                "Agnes 返回的 message.content 为空。"
+            )
 
             last_content = content
 
