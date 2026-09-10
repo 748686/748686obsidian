@@ -3,7 +3,7 @@
 
 """
 748686 英语学习系统
-Exam Answers / Analysis Generator V2.2
+Exam Answers / Analysis Generator V2.3
 
 职责：
     1. 根据已经生成好的英语试卷生成答案
@@ -14,7 +14,46 @@ Exam Answers / Analysis Generator V2.2
 绝对规则：
     本文件不得重新生成或修改原试卷题目。
 
-V2.2 修复：
+V2.3 修复：
+    Stage 2 从 Markdown / 结构化缓存恢复文章时，
+    article_data 不一定严格使用 article_en / article_zh 字段。
+
+    本版本兼容：
+
+    article_en
+    article_zh
+
+    content_en
+    content_zh
+
+    english
+    chinese
+
+    english_text
+    chinese_text
+
+    en
+    zh
+
+    以及部分嵌套结构：
+
+    {
+        "article": {
+            "article_en": "...",
+            "article_zh": "..."
+        }
+    }
+
+    {
+        "content": {
+            "english": "...",
+            "chinese": "..."
+        }
+    }
+
+    以及 Markdown 文本字段。
+
+V2.2 修复继续保留：
     Stage 2 从 Markdown 恢复试卷时，
     exam["listening"] 可能是 dict，而不是正式生成器的 list。
 
@@ -298,34 +337,594 @@ def _extract_response_text(response: dict) -> str:
 # 文章读取
 # ======================================================================
 
-def _get_article_en(article: Any) -> str:
-    if isinstance(article, dict):
-        value = article.get("article_en")
+def _clean_article_text(value: Any) -> str:
+    """
+    清理文章字符串。
 
-        if isinstance(value, str) and value.strip():
-            return value.strip()
+    这里只做非常有限的清理：
+        - 确保是字符串
+        - 去掉首尾空白
+        - 去掉 Markdown 代码围栏
+
+    不修改正文内容。
+    """
+
+    if not isinstance(value, str):
+        return ""
+
+    text = value.strip()
+
+    if not text:
+        return ""
+
+    text = re.sub(
+        r"^```(?:markdown|md|text)?\s*",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    )
+
+    text = re.sub(
+        r"\s*```$",
+        "",
+        text,
+    )
+
+    return text.strip()
+
+
+def _extract_markdown_section(
+    text: str,
+    patterns: list,
+) -> str:
+    """
+    从 Markdown 中提取指定标题下面的正文。
+
+    例如：
+
+        ## English Article
+
+        This is ...
+
+        ## 中文文章
+
+        这是……
+
+    或：
+
+        # ARTICLE EN
+
+        This is ...
+
+    只用于恢复已经存在的文章。
+    """
+
+    if not isinstance(text, str):
+        return ""
+
+    text = text.strip()
+
+    if not text:
+        return ""
+
+    for pattern in patterns:
+
+        match = re.search(
+            pattern,
+            text,
+            flags=re.IGNORECASE | re.MULTILINE | re.DOTALL,
+        )
+
+        if not match:
+            continue
+
+        value = match.group(1).strip()
+
+        if value:
+            return value
+
+    return ""
+
+
+def _looks_like_english_text(text: str) -> bool:
+    """
+    判断一个字符串是否更像英文正文。
+
+    这里只作为 content / article / text 等通用字段
+    的最后一级恢复判断。
+
+    不改变任何原文。
+    """
+
+    if not isinstance(text, str):
+        return False
+
+    text = text.strip()
+
+    if not text:
+        return False
+
+    letters = re.findall(
+        r"[A-Za-z]",
+        text,
+    )
+
+    chinese = re.findall(
+        r"[\u4e00-\u9fff]",
+        text,
+    )
+
+    if len(letters) < 20:
+        return False
+
+    return len(letters) >= max(
+        20,
+        len(chinese) * 2,
+    )
+
+
+def _looks_like_chinese_text(text: str) -> bool:
+    """
+    判断一个字符串是否更像中文正文。
+    """
+
+    if not isinstance(text, str):
+        return False
+
+    text = text.strip()
+
+    if not text:
+        return False
+
+    chinese = re.findall(
+        r"[\u4e00-\u9fff]",
+        text,
+    )
+
+    return len(chinese) >= 20
+
+
+def _find_nested_value(
+    data: Any,
+    keys: list,
+    depth: int = 0,
+    max_depth: int = 4,
+) -> str:
+    """
+    在常见嵌套文章结构中读取字符串。
+
+    例如：
+
+        {
+            "data": {
+                "article": {
+                    "article_en": "..."
+                }
+            }
+        }
+
+    只读取，不修改。
+    """
+
+    if depth > max_depth:
+        return ""
+
+    if not isinstance(data, dict):
+        return ""
+
+    # --------------------------------------------------------------
+    # 第一优先级：精确 key
+    # --------------------------------------------------------------
+
+    for key in keys:
+
+        value = data.get(key)
+
+        if isinstance(value, str):
+
+            cleaned = _clean_article_text(value)
+
+            if cleaned:
+                return cleaned
+
+    # --------------------------------------------------------------
+    # 第二优先级：常见嵌套容器
+    # --------------------------------------------------------------
+
+    nested_keys = [
+        "article",
+        "content",
+        "text",
+        "body",
+        "data",
+        "result",
+        "article_data",
+    ]
+
+    for nested_key in nested_keys:
+
+        nested = data.get(nested_key)
+
+        if isinstance(nested, dict):
+
+            value = _find_nested_value(
+                nested,
+                keys,
+                depth + 1,
+                max_depth,
+            )
+
+            if value:
+                return value
+
+    return ""
+
+
+def _extract_article_from_markdown(
+    article: dict,
+    language: str,
+) -> str:
+    """
+    从 article 中常见的 Markdown 字段提取正文。
+
+    language:
+        en
+        zh
+    """
+
+    markdown_keys = [
+        "markdown",
+        "markdown_text",
+        "content_text",
+        "article_text",
+        "raw_markdown",
+        "text",
+        "content",
+        "body",
+    ]
+
+    if language == "en":
+
+        patterns = [
+            r"^#{1,6}\s*(?:ARTICLE\s+EN|ENGLISH\s+ARTICLE|English\s+Article|英文文章|英文正文)\s*$([\s\S]*?)(?=^#{1,6}\s+)",
+            r"^#{1,6}\s*(?:ARTICLE\s+EN|ENGLISH\s+ARTICLE|English\s+Article|英文文章|英文正文)\s*$([\s\S]*)$",
+        ]
+
+    else:
+
+        patterns = [
+            r"^#{1,6}\s*(?:ARTICLE\s+ZH|CHINESE\s+ARTICLE|Chinese\s+Article|中文文章|中文正文)\s*$([\s\S]*?)(?=^#{1,6}\s+)",
+            r"^#{1,6}\s*(?:ARTICLE\s+ZH|CHINESE\s+ARTICLE|Chinese\s+Article|中文文章|中文正文)\s*$([\s\S]*)$",
+        ]
+
+    for key in markdown_keys:
+
+        value = article.get(key)
+
+        if not isinstance(value, str):
+            continue
+
+        cleaned = _clean_article_text(value)
+
+        if not cleaned:
+            continue
+
+        extracted = _extract_markdown_section(
+            cleaned,
+            patterns,
+        )
+
+        if extracted:
+            return extracted
+
+    # --------------------------------------------------------------
+    # 再尝试嵌套对象中的 Markdown
+    # --------------------------------------------------------------
+
+    for key in (
+        "article",
+        "content",
+        "data",
+        "result",
+    ):
+
+        nested = article.get(key)
+
+        if not isinstance(nested, dict):
+            continue
+
+        for markdown_key in markdown_keys:
+
+            value = nested.get(markdown_key)
+
+            if not isinstance(value, str):
+                continue
+
+            cleaned = _clean_article_text(value)
+
+            if not cleaned:
+                continue
+
+            extracted = _extract_markdown_section(
+                cleaned,
+                patterns,
+            )
+
+            if extracted:
+                return extracted
+
+    return ""
+
+
+def _get_article_en(article: Any) -> str:
+    """
+    获取英文文章正文。
+
+    优先级：
+
+        1. article_en
+        2. content_en
+        3. english
+        4. english_text
+        5. en
+        6. 嵌套对象中的上述字段
+        7. Markdown 中的英文文章章节
+        8. 通用 article/content/text/body 字段中的英文正文
+
+    注意：
+        本函数只读取。
+        不修改 article。
+    """
+
+    if not isinstance(article, dict):
+        raise ValueError(
+            "文章数据必须是 dict"
+        )
+
+    direct_keys = [
+        "article_en",
+        "content_en",
+        "english",
+        "english_text",
+        "en",
+    ]
+
+    # --------------------------------------------------------------
+    # 1. 直接字段
+    # --------------------------------------------------------------
+
+    value = _find_nested_value(
+        article,
+        direct_keys,
+    )
+
+    if value:
+        return value
+
+    # --------------------------------------------------------------
+    # 2. Markdown 提取
+    # --------------------------------------------------------------
+
+    value = _extract_article_from_markdown(
+        article,
+        "en",
+    )
+
+    if value:
+        return value
+
+    # --------------------------------------------------------------
+    # 3. 通用字段
+    #
+    # Stage 1 某些恢复结果可能直接使用：
+    #
+    # {
+    #     "title": "...",
+    #     "content": "English article..."
+    # }
+    #
+    # 这里只接受明显像英文正文的内容。
+    # --------------------------------------------------------------
+
+    generic_keys = [
+        "article",
+        "content",
+        "text",
+        "body",
+    ]
+
+    for key in generic_keys:
+
+        candidate = article.get(key)
+
+        if isinstance(candidate, str):
+
+            cleaned = _clean_article_text(
+                candidate
+            )
+
+            if _looks_like_english_text(cleaned):
+                return cleaned
+
+        elif isinstance(candidate, dict):
+
+            nested_candidates = [
+                candidate.get("content"),
+                candidate.get("text"),
+                candidate.get("body"),
+                candidate.get("article"),
+            ]
+
+            for nested_candidate in nested_candidates:
+
+                if not isinstance(
+                    nested_candidate,
+                    str,
+                ):
+                    continue
+
+                cleaned = _clean_article_text(
+                    nested_candidate
+                )
+
+                if _looks_like_english_text(
+                    cleaned
+                ):
+                    return cleaned
+
+    # --------------------------------------------------------------
+    # 4. 最终报错时只输出字段名，不输出文章正文
+    # --------------------------------------------------------------
+
+    available_keys = sorted(
+        str(key)
+        for key in article.keys()
+    )
 
     raise ValueError(
-        "文章缺少 article_en"
+        "文章缺少 article_en；"
+        f"当前 article 字段：{available_keys}"
     )
 
 
 def _get_article_zh(article: Any) -> str:
-    if isinstance(article, dict):
-        value = article.get("article_zh")
+    """
+    获取中文文章正文。
 
-        if isinstance(value, str) and value.strip():
-            return value.strip()
+    优先级：
+
+        1. article_zh
+        2. content_zh
+        3. chinese
+        4. chinese_text
+        5. zh
+        6. 嵌套对象中的上述字段
+        7. Markdown 中的中文文章章节
+        8. 通用字段中的中文正文
+
+    中文文章不是 Stage 3 的硬性必需字段，
+    所以最终找不到时返回空字符串。
+    """
+
+    if not isinstance(article, dict):
+        return ""
+
+    direct_keys = [
+        "article_zh",
+        "content_zh",
+        "chinese",
+        "chinese_text",
+        "zh",
+    ]
+
+    # --------------------------------------------------------------
+    # 1. 直接 / 嵌套字段
+    # --------------------------------------------------------------
+
+    value = _find_nested_value(
+        article,
+        direct_keys,
+    )
+
+    if value:
+        return value
+
+    # --------------------------------------------------------------
+    # 2. Markdown
+    # --------------------------------------------------------------
+
+    value = _extract_article_from_markdown(
+        article,
+        "zh",
+    )
+
+    if value:
+        return value
+
+    # --------------------------------------------------------------
+    # 3. 通用字段
+    # --------------------------------------------------------------
+
+    generic_keys = [
+        "article",
+        "content",
+        "text",
+        "body",
+    ]
+
+    for key in generic_keys:
+
+        candidate = article.get(key)
+
+        if isinstance(candidate, str):
+
+            cleaned = _clean_article_text(
+                candidate
+            )
+
+            if _looks_like_chinese_text(cleaned):
+                return cleaned
+
+        elif isinstance(candidate, dict):
+
+            nested_candidates = [
+                candidate.get("content"),
+                candidate.get("text"),
+                candidate.get("body"),
+                candidate.get("article"),
+            ]
+
+            for nested_candidate in nested_candidates:
+
+                if not isinstance(
+                    nested_candidate,
+                    str,
+                ):
+                    continue
+
+                cleaned = _clean_article_text(
+                    nested_candidate
+                )
+
+                if _looks_like_chinese_text(
+                    cleaned
+                ):
+                    return cleaned
 
     return ""
 
 
 def _get_article_title(article: Any) -> str:
-    if isinstance(article, dict):
-        value = article.get("title")
+    """
+    获取文章标题。
 
-        if isinstance(value, str) and value.strip():
-            return value.strip()
+    兼容：
+
+        title
+        article_title
+
+    以及：
+
+        article.title
+        content.title
+        data.title
+    """
+
+    if not isinstance(article, dict):
+        return "英语文章"
+
+    direct_keys = [
+        "title",
+        "article_title",
+    ]
+
+    value = _find_nested_value(
+        article,
+        direct_keys,
+    )
+
+    if value:
+        return value
 
     return "英语文章"
 
@@ -2032,7 +2631,7 @@ def generate(
     print()
     print("=" * 60)
     print("STAGE 3 / 3")
-    print("EXAM ANSWERS / ANALYSIS GENERATION V2.2")
+    print("EXAM ANSWERS / ANALYSIS GENERATION V2.3")
     print("=" * 60)
     print()
 
@@ -2043,6 +2642,25 @@ def generate(
     print(
         "任何一个模块失败，只重试当前模块。"
     )
+
+    print()
+
+    print(
+        "文章恢复："
+    )
+
+    print(
+        f"  ✓ ARTICLE EN = {len(article_en)} 字符"
+    )
+
+    if article_zh:
+        print(
+            f"  ✓ ARTICLE ZH = {len(article_zh)} 字符"
+        )
+    else:
+        print(
+            "  - ARTICLE ZH = 未找到，继续使用空字符串"
+        )
 
     print()
 
@@ -3339,7 +3957,7 @@ if __name__ == "__main__":
     )
 
     print(
-        "exam_answers.py V2.2"
+        "exam_answers.py V2.3"
     )
 
     print("=" * 70)
