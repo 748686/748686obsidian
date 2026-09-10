@@ -1,0 +1,506 @@
+name: 02_英语学习系统
+
+on:
+
+  workflow_dispatch:
+
+    inputs:
+
+      date:
+        description: "基准日期（留空=UTC今天）"
+        required: false
+        default: ""
+
+      difficulty:
+        description: "难度"
+        required: true
+        type: choice
+        options:
+          - "1"
+          - "2"
+          - "3"
+          - "4"
+          - "5"
+          - "6"
+          - "7"
+          - "8"
+          - "9"
+          - "10"
+          - "11"
+          - "12"
+          - "13"
+          - "14"
+          - "15"
+          - "16"
+          - "17"
+        default: "1"
+
+      article_type:
+        description: "文章类型"
+        required: true
+        type: choice
+        options:
+          - "记叙文"
+          - "议论文"
+          - "说明文"
+          - "描写文"
+          - "应用文-书信"
+          - "应用文-日记"
+          - "应用文-通知"
+          - "应用文-海报"
+          - "应用文-演讲稿"
+          - "散文"
+          - "科技文"
+          - "新闻报道"
+          - "评论文"
+          - "故事"
+          - "对比文"
+          - "童话故事"
+          - "采访"
+        default: "议论文"
+
+      length:
+        description: "文章长度"
+        required: true
+        type: choice
+        options:
+          - "80"
+          - "100"
+          - "120"
+          - "150"
+          - "200"
+          - "300"
+          - "500"
+          - "800"
+          - "1000"
+        default: "100"
+
+      exam:
+        description: "是否生成配套试卷"
+        required: true
+        type: choice
+        options:
+          - "yes"
+          - "no"
+        default: "yes"
+
+      image:
+        description: "是否生成图片"
+        required: true
+        type: choice
+        options:
+          - "yes"
+          - "no"
+        default: "yes"
+
+      audio:
+        description: "是否生成音频"
+        required: true
+        type: choice
+        options:
+          - "yes"
+          - "no"
+        default: "yes"
+
+      audio_format:
+        description: "音频格式"
+        required: true
+        type: choice
+        options:
+          - "mp3"
+          - "m4a"
+          - "wav"
+        default: "mp3"
+
+      speed:
+        description: "音频语速"
+        required: true
+        type: choice
+        options:
+          - "0.75"
+          - "0.9"
+          - "1.0"
+          - "1.1"
+          - "1.25"
+        default: "1.0"
+
+
+permissions:
+  contents: write
+
+
+jobs:
+
+  english-learning:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # ================================================================
+      # 1. Checkout
+      # ================================================================
+
+      - name: Checkout 748686obsidian
+
+        uses: actions/checkout@v4
+
+        with:
+          fetch-depth: 0
+
+
+      # ================================================================
+      # 2. Python
+      # ================================================================
+
+      - name: Setup Python
+
+        uses: actions/setup-python@v5
+
+        with:
+          python-version: "3.12"
+
+
+      # ================================================================
+      # 3. Requirements
+      # ================================================================
+
+      - name: Install requirements
+
+        run: |
+
+          python -m pip install --upgrade pip
+
+          pip install -r 02_英语学习系统/requirements.txt
+
+
+      # ================================================================
+      # 4. FFmpeg
+      # ================================================================
+
+      - name: Install FFmpeg
+
+        if: inputs.audio == 'yes' && inputs.audio_format == 'm4a'
+
+        run: |
+
+          sudo apt-get update
+
+          sudo apt-get install -y ffmpeg
+
+
+      # ================================================================
+      # 5. Resolve dates
+      #
+      # GitHub Actions 使用 UTC
+      # ================================================================
+
+      - name: Resolve dates
+
+        shell: bash
+
+        run: |
+
+          set -e
+
+          if [ -n "${{ inputs.date }}" ]; then
+            BASE_DATE="${{ inputs.date }}"
+          else
+            BASE_DATE="$(date -u +%F)"
+          fi
+
+          DAY_1="$(date -u -d "${BASE_DATE} -2 days" +%F)"
+          DAY_2="$(date -u -d "${BASE_DATE} -1 day" +%F)"
+          DAY_3="${BASE_DATE}"
+
+          echo "BASE_DATE=${BASE_DATE}" >> "$GITHUB_ENV"
+          echo "DAY_1=${DAY_1}" >> "$GITHUB_ENV"
+          echo "DAY_2=${DAY_2}" >> "$GITHUB_ENV"
+          echo "DAY_3=${DAY_3}" >> "$GITHUB_ENV"
+
+          echo "=========================================="
+          echo "BASE_DATE : ${BASE_DATE}"
+          echo "DAY_1     : ${DAY_1}"
+          echo "DAY_2     : ${DAY_2}"
+          echo "DAY_3     : ${DAY_3}"
+          echo "=========================================="
+
+
+      # ================================================================
+      # 6. Article type
+      # ================================================================
+
+      - name: Resolve article type
+
+        shell: bash
+
+        run: |
+
+          set -e
+
+          case "${{ inputs.article_type }}" in
+
+            "记叙文")
+              ARTICLE_TYPE="narration"
+              ;;
+
+            "议论文")
+              ARTICLE_TYPE="argumentation"
+              ;;
+
+            "说明文")
+              ARTICLE_TYPE="exposition"
+              ;;
+
+            "描写文")
+              ARTICLE_TYPE="description"
+              ;;
+
+            "应用文-书信")
+              ARTICLE_TYPE="letter"
+              ;;
+
+            "应用文-日记")
+              ARTICLE_TYPE="diary"
+              ;;
+
+            "应用文-通知")
+              ARTICLE_TYPE="notice"
+              ;;
+
+            "应用文-海报")
+              ARTICLE_TYPE="poster"
+              ;;
+
+            "应用文-演讲稿")
+              ARTICLE_TYPE="speech"
+              ;;
+
+            "散文")
+              ARTICLE_TYPE="prose"
+              ;;
+
+            "科技文")
+              ARTICLE_TYPE="science"
+              ;;
+
+            "新闻报道")
+              ARTICLE_TYPE="news"
+              ;;
+
+            "评论文")
+              ARTICLE_TYPE="review"
+              ;;
+
+            "故事")
+              ARTICLE_TYPE="story"
+              ;;
+
+            "对比文")
+              ARTICLE_TYPE="comparison"
+              ;;
+
+            "童话故事")
+              ARTICLE_TYPE="fairy_tale"
+              ;;
+
+            "采访")
+              ARTICLE_TYPE="interview"
+              ;;
+
+            *)
+              echo "未知文章类型"
+              exit 1
+              ;;
+
+          esac
+
+          echo "ARTICLE_TYPE=${ARTICLE_TYPE}" >> "$GITHUB_ENV"
+
+          echo "文章类型：${{ inputs.article_type }}"
+          echo "English ID：${ARTICLE_TYPE}"
+
+
+      # ================================================================
+      # 7. DAY 1
+      #
+      # 不在 YML 判断“文章存在就跳过整个日期”。
+      #
+      # 统一交给 main.py 做三个阶段的独立检查。
+      # ================================================================
+
+      - name: DAY 1 - ${{ env.DAY_1 }}
+
+        shell: bash
+
+        env:
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_BASE_URL: https://api.agnes-ai.cn/v1
+          AI_MODEL: agnes-2.5-flash
+
+        run: |
+
+          set -e
+
+          echo
+          echo "============================================================"
+          echo "DAY 1"
+          echo "DATE: ${DAY_1}"
+          echo "============================================================"
+
+          python 02_英语学习系统/scripts/main.py \
+            --date "${DAY_1}" \
+            --difficulty "${{ inputs.difficulty }}" \
+            --article-type "${ARTICLE_TYPE}" \
+            --length "${{ inputs.length }}" \
+            --exam "${{ inputs.exam }}" \
+            --image "${{ inputs.image }}" \
+            --audio "${{ inputs.audio }}" \
+            --audio-format "${{ inputs.audio_format }}" \
+            --speed "${{ inputs.speed }}"
+
+
+      # ================================================================
+      # 8. DAY 2
+      # ================================================================
+
+      - name: DAY 2 - ${{ env.DAY_2 }}
+
+        shell: bash
+
+        env:
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_BASE_URL: https://api.agnes-ai.cn/v1
+          AI_MODEL: agnes-2.5-flash
+
+        run: |
+
+          set -e
+
+          echo
+          echo "============================================================"
+          echo "DAY 2"
+          echo "DATE: ${DAY_2}"
+          echo "============================================================"
+
+          python 02_英语学习系统/scripts/main.py \
+            --date "${DAY_2}" \
+            --difficulty "${{ inputs.difficulty }}" \
+            --article-type "${ARTICLE_TYPE}" \
+            --length "${{ inputs.length }}" \
+            --exam "${{ inputs.exam }}" \
+            --image "${{ inputs.image }}" \
+            --audio "${{ inputs.audio }}" \
+            --audio-format "${{ inputs.audio_format }}" \
+            --speed "${{ inputs.speed }}"
+
+
+      # ================================================================
+      # 9. DAY 3
+      # ================================================================
+
+      - name: DAY 3 - ${{ env.DAY_3 }}
+
+        shell: bash
+
+        env:
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_BASE_URL: https://api.agnes-ai.cn/v1
+          AI_MODEL: agnes-2.5-flash
+
+        run: |
+
+          set -e
+
+          echo
+          echo "============================================================"
+          echo "DAY 3"
+          echo "DATE: ${DAY_3}"
+          echo "============================================================"
+
+          python 02_英语学习系统/scripts/main.py \
+            --date "${DAY_3}" \
+            --difficulty "${{ inputs.difficulty }}" \
+            --article-type "${ARTICLE_TYPE}" \
+            --length "${{ inputs.length }}" \
+            --exam "${{ inputs.exam }}" \
+            --image "${{ inputs.image }}" \
+            --audio "${{ inputs.audio }}" \
+            --audio-format "${{ inputs.audio_format }}" \
+            --speed "${{ inputs.speed }}"
+
+
+      # ================================================================
+      # 10. 三天最终验证
+      # ================================================================
+
+      - name: Final verification
+
+        shell: bash
+
+        run: |
+
+          set -e
+
+          echo
+          echo "============================================================"
+          echo "748686 英语学习系统"
+          echo "三天最终验证"
+          echo "============================================================"
+
+          for DAY in "${DAY_1}" "${DAY_2}" "${DAY_3}"; do
+
+            ARTICLE_FILE="02_英语学习系统/output/${DAY}/英语短文注记/${{ inputs.difficulty }}星_${{ inputs.article_type }}.md"
+
+            echo
+            echo "------------------------------------------"
+            echo "日期：${DAY}"
+            echo "------------------------------------------"
+
+            if [ ! -s "${ARTICLE_FILE}" ]; then
+              echo "❌ 文章缺失：${ARTICLE_FILE}"
+              exit 1
+            fi
+
+            echo "✓ 文章存在"
+
+            if [ "${{ inputs.exam }}" = "yes" ]; then
+
+              EXAM_FILE="02_英语学习系统/output/${DAY}/配套试卷/${{ inputs.difficulty }}星_${{ inputs.article_type }}_试卷.md"
+
+              ANSWER_FILE="02_英语学习系统/output/${DAY}/配套试卷/${{ inputs.difficulty }}星_${{ inputs.article_type }}_答案解析.md"
+
+              if [ ! -s "${EXAM_FILE}" ]; then
+                echo "❌ 试卷缺失：${EXAM_FILE}"
+                exit 1
+              fi
+
+              echo "✓ 试卷存在"
+
+              if [ ! -s "${ANSWER_FILE}" ]; then
+                echo "❌ 答案解析缺失：${ANSWER_FILE}"
+                exit 1
+              fi
+
+              echo "✓ 答案解析存在"
+
+            fi
+
+            echo
+            echo "生成文件："
+
+            find "02_英语学习系统/output/${DAY}" \
+              -type f \
+              -print \
+              | sort
+
+          done
+
+          echo
+          echo "============================================================"
+          echo "✓ 三天英语学习任务全部完成"
+          echo "✓ 文章 / 试卷 / 答案解析均已验证"
+          echo "============================================================"
