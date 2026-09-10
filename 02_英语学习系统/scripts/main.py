@@ -3,7 +3,7 @@
 
 """
 02_英语学习系统
-Main Pipeline V2.4
+Main Pipeline V2.5
 
 职责：
 
@@ -1242,6 +1242,7 @@ def load_or_generate_answers(
     article_type: str,
     article_data: dict[str, Any],
     exam_data: dict[str, Any],
+    words: list[Any],
     output_file: Path,
 ) -> dict[str, Any]:
 
@@ -1270,6 +1271,25 @@ def load_or_generate_answers(
 
     # --------------------------------------------------------
     # AI
+    #
+    # exam_answers.py V2.1 的真实接口是：
+    #
+    # generate(
+    #     exam,
+    #     article,
+    #     difficulty,
+    #     article_type,
+    #     words,
+    # )
+    #
+    # 不接受：
+    #
+    #     date=
+    #     article=
+    #     exam=
+    #
+    # 这里必须使用位置参数，
+    # 与 exam_answers.py V2.1 保持完全一致。
     # --------------------------------------------------------
 
     print(
@@ -1281,11 +1301,11 @@ def load_or_generate_answers(
     )
 
     generated = gen_answers(
-        date=date,
-        difficulty=difficulty,
-        article_type=article_type,
-        article=article_data,
-        exam=exam_data,
+        exam_data,
+        article_data,
+        difficulty,
+        article_type,
+        words,
     )
 
     if not isinstance(generated, dict):
@@ -1293,8 +1313,25 @@ def load_or_generate_answers(
             "答案解析 AI 返回结果不是 dict"
         )
 
+    # --------------------------------------------------------
+    # exam_answers.py V2.1 的真实 render 接口：
+    #
+    # render(
+    #     result,
+    #     article_title,
+    #     difficulty,
+    #     article_type_name,
+    # )
+    # --------------------------------------------------------
+
     markdown = render_answers(
-        generated
+        generated,
+        article_data.get("title", ""),
+        difficulty,
+        ARTICLE_TYPES.get(
+            article_type,
+            article_type,
+        ),
     )
 
     write_and_confirm(
@@ -1407,12 +1444,6 @@ def build_parser() -> argparse.ArgumentParser:
 
     parser.add_argument(
         "--audio",
-        choices=["yes", "no"],
-        default="yes",
-    )
-
-    parser.add_argument(
-        "--audio-format",
         choices=["mp3", "m4a", "wav"],
         default="mp3",
     )
@@ -1447,7 +1478,7 @@ def main() -> None:
 
     print()
     print("=" * 60)
-    print("02_英语学习系统 V2.4")
+    print("02_英语学习系统 V2.5")
     print("=" * 60)
 
     print(f"日期：{date}")
@@ -1653,6 +1684,7 @@ def main() -> None:
             article_type=article_type,
             article_data=article_data,
             exam_data=exam_data,
+            words=words,
             output_file=answers_file,
         )
 
