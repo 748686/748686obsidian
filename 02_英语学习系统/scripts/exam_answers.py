@@ -379,24 +379,6 @@ def _extract_markdown_section(
 ) -> str:
     """
     从 Markdown 中提取指定标题下面的正文。
-
-    例如：
-
-        ## English Article
-
-        This is ...
-
-        ## 中文文章
-
-        这是……
-
-    或：
-
-        # ARTICLE EN
-
-        This is ...
-
-    只用于恢复已经存在的文章。
     """
 
     if not isinstance(text, str):
@@ -427,14 +409,6 @@ def _extract_markdown_section(
 
 
 def _looks_like_english_text(text: str) -> bool:
-    """
-    判断一个字符串是否更像英文正文。
-
-    这里只作为 content / article / text 等通用字段
-    的最后一级恢复判断。
-
-    不改变任何原文。
-    """
 
     if not isinstance(text, str):
         return False
@@ -464,9 +438,6 @@ def _looks_like_english_text(text: str) -> bool:
 
 
 def _looks_like_chinese_text(text: str) -> bool:
-    """
-    判断一个字符串是否更像中文正文。
-    """
 
     if not isinstance(text, str):
         return False
@@ -490,31 +461,12 @@ def _find_nested_value(
     depth: int = 0,
     max_depth: int = 4,
 ) -> str:
-    """
-    在常见嵌套文章结构中读取字符串。
-
-    例如：
-
-        {
-            "data": {
-                "article": {
-                    "article_en": "..."
-                }
-            }
-        }
-
-    只读取，不修改。
-    """
 
     if depth > max_depth:
         return ""
 
     if not isinstance(data, dict):
         return ""
-
-    # --------------------------------------------------------------
-    # 第一优先级：精确 key
-    # --------------------------------------------------------------
 
     for key in keys:
 
@@ -526,10 +478,6 @@ def _find_nested_value(
 
             if cleaned:
                 return cleaned
-
-    # --------------------------------------------------------------
-    # 第二优先级：常见嵌套容器
-    # --------------------------------------------------------------
 
     nested_keys = [
         "article",
@@ -564,13 +512,6 @@ def _extract_article_from_markdown(
     article: dict,
     language: str,
 ) -> str:
-    """
-    从 article 中常见的 Markdown 字段提取正文。
-
-    language:
-        en
-        zh
-    """
 
     markdown_keys = [
         "markdown",
@@ -617,10 +558,6 @@ def _extract_article_from_markdown(
         if extracted:
             return extracted
 
-    # --------------------------------------------------------------
-    # 再尝试嵌套对象中的 Markdown
-    # --------------------------------------------------------------
-
     for key in (
         "article",
         "content",
@@ -657,24 +594,6 @@ def _extract_article_from_markdown(
 
 
 def _get_article_en(article: Any) -> str:
-    """
-    获取英文文章正文。
-
-    优先级：
-
-        1. article_en
-        2. content_en
-        3. english
-        4. english_text
-        5. en
-        6. 嵌套对象中的上述字段
-        7. Markdown 中的英文文章章节
-        8. 通用 article/content/text/body 字段中的英文正文
-
-    注意：
-        本函数只读取。
-        不修改 article。
-    """
 
     if not isinstance(article, dict):
         raise ValueError(
@@ -689,10 +608,6 @@ def _get_article_en(article: Any) -> str:
         "en",
     ]
 
-    # --------------------------------------------------------------
-    # 1. 直接字段
-    # --------------------------------------------------------------
-
     value = _find_nested_value(
         article,
         direct_keys,
@@ -701,10 +616,6 @@ def _get_article_en(article: Any) -> str:
     if value:
         return value
 
-    # --------------------------------------------------------------
-    # 2. Markdown 提取
-    # --------------------------------------------------------------
-
     value = _extract_article_from_markdown(
         article,
         "en",
@@ -712,19 +623,6 @@ def _get_article_en(article: Any) -> str:
 
     if value:
         return value
-
-    # --------------------------------------------------------------
-    # 3. 通用字段
-    #
-    # Stage 1 某些恢复结果可能直接使用：
-    #
-    # {
-    #     "title": "...",
-    #     "content": "English article..."
-    # }
-    #
-    # 这里只接受明显像英文正文的内容。
-    # --------------------------------------------------------------
 
     generic_keys = [
         "article",
@@ -772,10 +670,6 @@ def _get_article_en(article: Any) -> str:
                 ):
                     return cleaned
 
-    # --------------------------------------------------------------
-    # 4. 最终报错时只输出字段名，不输出文章正文
-    # --------------------------------------------------------------
-
     available_keys = sorted(
         str(key)
         for key in article.keys()
@@ -788,23 +682,6 @@ def _get_article_en(article: Any) -> str:
 
 
 def _get_article_zh(article: Any) -> str:
-    """
-    获取中文文章正文。
-
-    优先级：
-
-        1. article_zh
-        2. content_zh
-        3. chinese
-        4. chinese_text
-        5. zh
-        6. 嵌套对象中的上述字段
-        7. Markdown 中的中文文章章节
-        8. 通用字段中的中文正文
-
-    中文文章不是 Stage 3 的硬性必需字段，
-    所以最终找不到时返回空字符串。
-    """
 
     if not isinstance(article, dict):
         return ""
@@ -817,10 +694,6 @@ def _get_article_zh(article: Any) -> str:
         "zh",
     ]
 
-    # --------------------------------------------------------------
-    # 1. 直接 / 嵌套字段
-    # --------------------------------------------------------------
-
     value = _find_nested_value(
         article,
         direct_keys,
@@ -829,10 +702,6 @@ def _get_article_zh(article: Any) -> str:
     if value:
         return value
 
-    # --------------------------------------------------------------
-    # 2. Markdown
-    # --------------------------------------------------------------
-
     value = _extract_article_from_markdown(
         article,
         "zh",
@@ -840,10 +709,6 @@ def _get_article_zh(article: Any) -> str:
 
     if value:
         return value
-
-    # --------------------------------------------------------------
-    # 3. 通用字段
-    # --------------------------------------------------------------
 
     generic_keys = [
         "article",
@@ -895,20 +760,6 @@ def _get_article_zh(article: Any) -> str:
 
 
 def _get_article_title(article: Any) -> str:
-    """
-    获取文章标题。
-
-    兼容：
-
-        title
-        article_title
-
-    以及：
-
-        article.title
-        content.title
-        data.title
-    """
 
     if not isinstance(article, dict):
         return "英语文章"
@@ -975,8 +826,6 @@ def _copy_questions(
                 "试卷中存在非 object 题目"
             )
 
-        # 只保留原始对象引用。
-        # 本文件绝不修改题目。
         result.append(item)
 
     return result
@@ -986,23 +835,6 @@ def _extract_questions_from_listening_part(
     part: Any,
     part_name: str,
 ) -> list:
-    """
-    从正式 Part 对象中提取 questions。
-
-    正式结构：
-
-        {
-            "part": "A",
-            "questions": [...]
-        }
-
-    兼容：
-
-        {
-            "name": "Listening A",
-            "questions": [...]
-        }
-    """
 
     if not isinstance(part, dict):
         raise ValueError(
@@ -1037,29 +869,6 @@ def _extract_questions_from_recovered_listening_value(
     value: Any,
     part_name: str,
 ) -> list:
-    """
-    从 Stage 2 Markdown 恢复出来的 Listening dict 中提取题目。
-
-    支持：
-
-        "A": [...]
-
-    或：
-
-        "A": {
-            "questions": [...]
-        }
-
-    或：
-
-        "part_a": [...]
-
-    或：
-
-        "part_a": {
-            "questions": [...]
-        }
-    """
 
     if isinstance(value, list):
         questions = _copy_questions(value)
@@ -1096,11 +905,6 @@ def _find_recovered_listening_part(
     aliases: list,
     part_name: str,
 ):
-    """
-    在恢复结构的 dict 中查找 Part。
-
-    不修改 listening。
-    """
 
     for key in aliases:
         if key in listening:
@@ -1109,9 +913,6 @@ def _find_recovered_listening_part(
                 part_name,
             )
 
-    # 兼容大小写不同的 key。
-    # 这里只用于恢复外部数据的结构识别，
-    # 不改变任何目录或语言约定。
     for actual_key, value in listening.items():
 
         if not isinstance(actual_key, str):
@@ -1132,62 +933,8 @@ def _find_recovered_listening_part(
 def _extract_listening_parts(
     exam: dict,
 ) -> tuple[list, list, list]:
-    """
-    正确提取 Listening A/B/C。
-
-    正式生成结构：
-
-        exam["listening"] = [
-            {
-                "part": "A",
-                "questions": [...]
-            },
-            {
-                "part": "B",
-                "questions": [...]
-            },
-            {
-                "part": "C",
-                "questions": [...]
-            }
-        ]
-
-    Stage 2 Markdown 恢复可能产生：
-
-        exam["listening"] = {
-            "A": [...],
-            "B": [...],
-            "C": [...]
-        }
-
-    或：
-
-        {
-            "part_a": [...],
-            "part_b": [...],
-            "part_c": [...]
-        }
-
-    或 value 本身为：
-
-        {
-            "questions": [...]
-        }
-
-    本函数只读取并标准化为：
-
-        listening_a → 5题
-        listening_b → 5题
-        listening_c → 5题
-
-    不修改原 exam。
-    """
 
     listening = exam.get("listening")
-
-    # ==============================================================
-    # 结构 1：正式生成器结构 list
-    # ==============================================================
 
     if isinstance(listening, list):
 
@@ -1295,10 +1042,6 @@ def _extract_listening_parts(
             listening_b,
             listening_c,
         )
-
-    # ==============================================================
-    # 结构 2：Stage 2 恢复后的 dict
-    # ==============================================================
 
     if isinstance(listening, dict):
 
@@ -2361,10 +2104,11 @@ def _validate_answer_items(
 
         elif isinstance(answer, list):
 
-            if len(answer) < 2:
+            # 多选题允许至少一个正确答案
+            if len(answer) < 1:
                 raise ValueError(
                     f"{block_name} "
-                    f"第 {item['question']} 题多选答案不足两个"
+                    f"第 {item['question']} 题多选答案不能为空"
                 )
 
             for option in answer:
@@ -2424,10 +2168,11 @@ def _validate_multiple_choice_answers(
                 f"第 {item['question']} 题多选答案必须是数组"
             )
 
-        if len(answer) < 2:
+        # 多选题允许 1 个或以上正确答案
+        if len(answer) < 1:
             raise ValueError(
                 f"{block_name} "
-                f"第 {item['question']} 题至少需要两个正确选项"
+                f"第 {item['question']} 题多选答案不能为空"
             )
 
         if len(set(answer)) != len(answer):
