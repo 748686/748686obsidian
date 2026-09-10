@@ -3,7 +3,7 @@
 
 """
 748686 英语学习系统
-Exam Answers / Analysis Generator V2.0
+Exam Answers / Analysis Generator V2.1
 
 ======================================================================
 职责
@@ -50,7 +50,7 @@ Exam Answers / Analysis Generator V2.0
         +
     总体分析
 
-新版本：
+V2.1：
 
     01 Listening A
         ↓
@@ -84,7 +84,63 @@ Exam Answers / Analysis Generator V2.0
         ↓
     render()
 
-每一个模块独立请求、独立验证、独立重试。
+每一个模块：
+
+    独立请求
+        ↓
+    独立 JSON
+        ↓
+    独立验证
+        ↓
+    失败只重试当前模块
+        ↓
+    成功才进入下一个模块
+
+======================================================================
+V2.1 关键修复
+======================================================================
+
+正式试卷的 listening 结构不是：
+
+    listening = [
+        question1,
+        question2,
+        ...
+        question15
+    ]
+
+而是：
+
+    listening = [
+        {
+            "part": "A",
+            "questions": [...]
+        },
+        {
+            "part": "B",
+            "questions": [...]
+        },
+        {
+            "part": "C",
+            "questions": [...]
+        }
+    ]
+
+因此：
+
+    len(exam["listening"]) == 3
+
+并不代表只有3道听力题。
+
+V2.1 会：
+
+    Part A questions → 5题
+    Part B questions → 5题
+    Part C questions → 5题
+
+最终：
+
+    5 + 5 + 5 = 15题
 
 ======================================================================
 公开接口
@@ -114,7 +170,7 @@ SYSTEM_NAME = "748686 英语学习系统"
 MAX_BLOCK_ATTEMPTS = 3
 TEMPERATURE = 0.2
 
-# 每个小块很小，不再需要以前 12000 token 的超大空间。
+# 每个小块独立生成。
 MAX_OUTPUT_TOKENS = 3500
 
 
@@ -231,6 +287,7 @@ def _parse_json(text: str) -> dict:
         ) from e
 
     if not isinstance(obj, dict):
+
         raise ValueError(
             "AI JSON 顶层必须是 object"
         )
@@ -262,6 +319,7 @@ def _api_config():
 def _extract_response_text(response: dict) -> str:
 
     if not isinstance(response, dict):
+
         raise ValueError(
             "Agnes API 返回不是 object"
         )
@@ -269,6 +327,7 @@ def _extract_response_text(response: dict) -> str:
     choices = response.get("choices")
 
     if not isinstance(choices, list) or not choices:
+
         raise ValueError(
             "Agnes API 返回缺少 choices"
         )
@@ -276,6 +335,7 @@ def _extract_response_text(response: dict) -> str:
     choice = choices[0]
 
     if not isinstance(choice, dict):
+
         raise ValueError(
             "Agnes API choices[0] 不是 object"
         )
@@ -291,6 +351,7 @@ def _extract_response_text(response: dict) -> str:
     message = choice.get("message")
 
     if not isinstance(message, dict):
+
         raise ValueError(
             "Agnes API 返回缺少 message"
         )
@@ -306,6 +367,7 @@ def _extract_response_text(response: dict) -> str:
         )
 
         if not text:
+
             raise ValueError(
                 "AI 返回内容为空"
             )
@@ -330,7 +392,10 @@ def _extract_response_text(response: dict) -> str:
                     text_value,
                     str,
                 ):
-                    parts.append(text_value)
+
+                    parts.append(
+                        text_value
+                    )
 
         text = "".join(parts).strip()
 
@@ -339,6 +404,7 @@ def _extract_response_text(response: dict) -> str:
         )
 
         if not text:
+
             raise ValueError(
                 "AI content parts 为空"
             )
@@ -363,10 +429,10 @@ def _get_article_en(article: Any) -> str:
             "article_en"
         )
 
-        if isinstance(
-            value,
-            str,
-        ) and value.strip():
+        if (
+            isinstance(value, str)
+            and value.strip()
+        ):
 
             return value.strip()
 
@@ -383,10 +449,10 @@ def _get_article_zh(article: Any) -> str:
             "article_zh"
         )
 
-        if isinstance(
-            value,
-            str,
-        ) and value.strip():
+        if (
+            isinstance(value, str)
+            and value.strip()
+        ):
 
             return value.strip()
 
@@ -401,10 +467,10 @@ def _get_article_title(article: Any) -> str:
             "title"
         )
 
-        if isinstance(
-            value,
-            str,
-        ) and value.strip():
+        if (
+            isinstance(value, str)
+            and value.strip()
+        ):
 
             return value.strip()
 
@@ -442,43 +508,336 @@ def _get_target_words(
 
 
 # ======================================================================
-# 试卷计数
+# 试卷结构工具
 # ======================================================================
 
-def _count_exam(exam: dict) -> dict:
+def _copy_questions(
+    questions: Any,
+) -> list:
+
+    if not isinstance(
+        questions,
+        list,
+    ):
+
+        raise ValueError(
+            "题目集合必须是 list"
+        )
+
+    result = []
+
+    for item in questions:
+
+        if not isinstance(
+            item,
+            dict,
+        ):
+
+            raise ValueError(
+                "试卷中存在非 object 题目"
+            )
+
+        # 只保留原始对象引用。
+        # 本文件绝不修改它。
+        result.append(item)
+
+    return result
+
+
+def _extract_questions_from_listening_part(
+    part: Any,
+    part_name: str,
+) -> list:
+
+    """
+    从 Listening Part A/B/C 对象中提取 questions。
+
+    正式结构：
+
+        {
+            "part": "A",
+            "questions": [...]
+        }
+
+    同时兼容可能存在的：
+
+        {
+            "name": "Listening A",
+            "questions": [...]
+        }
+
+    但绝不把 Part 对象本身当成题目。
+    """
+
+    if not isinstance(
+        part,
+        dict,
+    ):
+
+        raise ValueError(
+            f"{part_name} 必须是 object"
+        )
+
+    questions = part.get(
+        "questions"
+    )
+
+    if questions is None:
+
+        raise ValueError(
+            f"{part_name} 缺少 questions"
+        )
+
+    questions = _copy_questions(
+        questions
+    )
+
+    if len(questions) != 5:
+
+        raise ValueError(
+            f"{part_name} 必须正好有5题，"
+            f"实际 {len(questions)}"
+        )
+
+    return questions
+
+
+def _extract_listening_parts(
+    exam: dict,
+) -> tuple[list, list, list]:
+
+    """
+    正确提取 Listening A/B/C。
+
+    注意：
+
+        len(exam["listening"]) == 3
+
+    是三个 Part，不是三道题。
+
+    本函数最终返回：
+
+        listening_a → 5题
+        listening_b → 5题
+        listening_c → 5题
+    """
 
     listening = exam.get(
-        "listening",
-        [],
+        "listening"
     )
 
     if not isinstance(
         listening,
         list,
     ):
-        listening = []
+
+        raise ValueError(
+            "exam.listening 必须是 list"
+        )
+
+    if len(listening) != 3:
+
+        raise ValueError(
+            "exam.listening 必须包含 "
+            "Part A、Part B、Part C 三个部分，"
+            f"实际 {len(listening)}"
+        )
+
+    listening_a = None
+    listening_b = None
+    listening_c = None
+
+    for part in listening:
+
+        if not isinstance(
+            part,
+            dict,
+        ):
+
+            raise ValueError(
+                "exam.listening 中存在非 object Part"
+            )
+
+        part_value = part.get(
+            "part"
+        )
+
+        if isinstance(
+            part_value,
+            str,
+        ):
+
+            normalized_part = part_value.strip().upper()
+
+        else:
+
+            normalized_part = ""
+
+        name_value = part.get(
+            "name"
+        )
+
+        if (
+            not normalized_part
+            and isinstance(
+                name_value,
+                str,
+            )
+        ):
+
+            name_upper = name_value.strip().upper()
+
+            if "LISTENING A" in name_upper:
+                normalized_part = "A"
+
+            elif "LISTENING B" in name_upper:
+                normalized_part = "B"
+
+            elif "LISTENING C" in name_upper:
+                normalized_part = "C"
+
+        if normalized_part == "A":
+
+            if listening_a is not None:
+
+                raise ValueError(
+                    "exam.listening 存在重复 Part A"
+                )
+
+            listening_a = _extract_questions_from_listening_part(
+                part,
+                "Listening A",
+            )
+
+        elif normalized_part == "B":
+
+            if listening_b is not None:
+
+                raise ValueError(
+                    "exam.listening 存在重复 Part B"
+                )
+
+            listening_b = _extract_questions_from_listening_part(
+                part,
+                "Listening B",
+            )
+
+        elif normalized_part == "C":
+
+            if listening_c is not None:
+
+                raise ValueError(
+                    "exam.listening 存在重复 Part C"
+                )
+
+            listening_c = _extract_questions_from_listening_part(
+                part,
+                "Listening C",
+            )
+
+        else:
+
+            raise ValueError(
+                "无法识别 Listening Part："
+                f"{part}"
+            )
+
+    if listening_a is None:
+        raise ValueError(
+            "exam.listening 缺少 Part A"
+        )
+
+    if listening_b is None:
+        raise ValueError(
+            "exam.listening 缺少 Part B"
+        )
+
+    if listening_c is None:
+        raise ValueError(
+            "exam.listening 缺少 Part C"
+        )
+
+    return (
+        listening_a,
+        listening_b,
+        listening_c,
+    )
+
+
+# ======================================================================
+# 试卷计数
+# ======================================================================
+
+def _count_exam(exam: dict) -> dict:
+
+    """
+    统计正式试卷中的真正题目数量。
+
+    特别注意 Listening：
+
+        exam["listening"] = 3 个 Part
+
+    所以不能：
+
+        len(exam["listening"])
+
+    必须读取每个 Part 的 questions。
+    """
+
+    if not isinstance(
+        exam,
+        dict,
+    ):
+
+        raise ValueError(
+            "exam 必须是 dict"
+        )
+
+    # --------------------------------------------------------------
+    # Listening
+    # --------------------------------------------------------------
+
+    listening_a, listening_b, listening_c = (
+        _extract_listening_parts(
+            exam
+        )
+    )
+
+    listening_count = (
+        len(listening_a)
+        + len(listening_b)
+        + len(listening_c)
+    )
+
+    # --------------------------------------------------------------
+    # Single Choice
+    # --------------------------------------------------------------
 
     single = exam.get(
         "single_choice",
         [],
     )
 
-    if not isinstance(
-        single,
-        list,
-    ):
-        single = []
+    single = _copy_questions(
+        single
+    )
+
+    # --------------------------------------------------------------
+    # Multiple Choice
+    # --------------------------------------------------------------
 
     multiple = exam.get(
         "multiple_choice",
         [],
     )
 
-    if not isinstance(
-        multiple,
-        list,
-    ):
-        multiple = []
+    multiple = _copy_questions(
+        multiple
+    )
+
+    # --------------------------------------------------------------
+    # Cloze
+    # --------------------------------------------------------------
 
     cloze = exam.get(
         "cloze",
@@ -494,33 +853,46 @@ def _count_exam(exam: dict) -> dict:
 
         for item in cloze:
 
-            if isinstance(
+            if not isinstance(
                 item,
                 dict,
             ):
+                continue
 
-                qs = item.get(
-                    "questions",
-                    [],
-                )
+            qs = item.get(
+                "questions",
+                [],
+            )
 
-                if isinstance(
-                    qs,
-                    list,
-                ):
+            if isinstance(
+                qs,
+                list,
+            ):
 
-                    cloze_count += len(qs)
+                cloze_count += len(qs)
+
+    else:
+
+        raise ValueError(
+            "exam.cloze 必须是 list"
+        )
+
+    # --------------------------------------------------------------
+    # Reading
+    # --------------------------------------------------------------
 
     reading = exam.get(
         "reading",
         [],
     )
 
-    if not isinstance(
-        reading,
-        list,
-    ):
-        reading = []
+    reading = _copy_questions(
+        reading
+    )
+
+    # --------------------------------------------------------------
+    # Translation
+    # --------------------------------------------------------------
 
     translation = exam.get(
         "translation",
@@ -545,31 +917,41 @@ def _count_exam(exam: dict) -> dict:
             [],
         )
 
-        if isinstance(
-            part_a,
-            list,
-        ):
-            part_a_count = len(part_a)
+        part_a = _copy_questions(
+            part_a
+        )
 
-        if isinstance(
-            part_b,
-            list,
-        ):
-            part_b_count = len(part_b)
+        part_b = _copy_questions(
+            part_b
+        )
+
+        part_a_count = len(part_a)
+        part_b_count = len(part_b)
+
+    else:
+
+        raise ValueError(
+            "exam.translation 必须是 object"
+        )
+
+    # --------------------------------------------------------------
+    # Writing
+    # --------------------------------------------------------------
 
     writing = exam.get(
         "writing",
         [],
     )
 
-    if not isinstance(
-        writing,
-        list,
-    ):
-        writing = []
+    writing = _copy_questions(
+        writing
+    )
 
     return {
-        "listening": len(listening),
+        "listening": listening_count,
+        "listening_a": len(listening_a),
+        "listening_b": len(listening_b),
+        "listening_c": len(listening_c),
         "single_choice": len(single),
         "multiple_choice": len(multiple),
         "cloze": cloze_count,
@@ -586,12 +968,21 @@ def _count_exam(exam: dict) -> dict:
 
 def _question_number(item: dict) -> int:
 
-    value = item.get("question")
+    value = item.get(
+        "question"
+    )
 
-    if isinstance(value, int):
+    if isinstance(
+        value,
+        int,
+    ):
+
         return value
 
-    if isinstance(value, str):
+    if isinstance(
+        value,
+        str,
+    ):
 
         match = re.search(
             r"\d+",
@@ -599,42 +990,42 @@ def _question_number(item: dict) -> int:
         )
 
         if match:
-            return int(match.group())
+
+            return int(
+                match.group()
+            )
+
+    # 某些正式试卷版本可能使用 number。
+    value = item.get(
+        "number"
+    )
+
+    if isinstance(
+        value,
+        int,
+    ):
+
+        return value
+
+    if isinstance(
+        value,
+        str,
+    ):
+
+        match = re.search(
+            r"\d+",
+            value,
+        )
+
+        if match:
+
+            return int(
+                match.group()
+            )
 
     raise ValueError(
         f"试卷题目缺少合法 question 编号：{item}"
     )
-
-
-def _copy_questions(
-    questions: list,
-) -> list:
-
-    if not isinstance(
-        questions,
-        list,
-    ):
-        raise ValueError(
-            "题目集合必须是 list"
-        )
-
-    result = []
-
-    for item in questions:
-
-        if not isinstance(
-            item,
-            dict,
-        ):
-            raise ValueError(
-                "试卷中存在非 object 题目"
-            )
-
-        result.append(
-            item
-        )
-
-    return result
 
 
 def _split_five(
@@ -672,6 +1063,7 @@ def _split_cloze(
         cloze,
         list,
     ):
+
         raise ValueError(
             "exam.cloze 必须是 list"
         )
@@ -695,8 +1087,11 @@ def _split_cloze(
             questions,
             list,
         ):
+
             all_questions.extend(
-                questions
+                _copy_questions(
+                    questions
+                )
             )
 
     if len(all_questions) != 10:
@@ -855,6 +1250,8 @@ script 必须能够支持该题的正确答案。
 
 不得修改题目。
 
+不得修改选项。
+
 不得把多个题目合并成一个 script。
 
 每一道题必须单独一个对象。
@@ -865,7 +1262,7 @@ script 必须能够支持该题的正确答案。
 
 {part_name}
 
-这一部分只有以下题目：
+这一部分只有以下5道已经存在的正式题目：
 
 {json.dumps(
     questions,
@@ -873,7 +1270,11 @@ script 必须能够支持该题的正确答案。
     indent=2,
 )}
 
-请根据这些已经存在的题目生成答案、解析和听力原文。
+请根据这些已经存在的题目生成：
+
+1. 标准答案
+2. 每题详细解析
+3. 每题对应的英文听力原文
 
 严格返回：
 
@@ -900,13 +1301,19 @@ script 必须能够支持该题的正确答案。
 
 要求：
 
-answers 数量必须等于题目数量。
+answers 必须正好5条。
 
-analysis 数量必须等于题目数量。
+analysis 必须正好5条。
 
-scripts 数量必须等于题目数量。
+scripts 必须正好5条。
 
 question 编号必须与原题完全一致。
+
+不得遗漏。
+
+不得增加。
+
+不得重新出题。
 
 只输出 JSON。
 """
@@ -978,9 +1385,9 @@ ARTICLE EN
 
 要求：
 
-answers 数量必须等于题目数量。
+answers 必须正好5条。
 
-analysis 数量必须等于题目数量。
+analysis 必须正好5条。
 
 question 编号必须与原题完全一致。
 
@@ -991,7 +1398,7 @@ question 编号必须与原题完全一致。
 
 
 # ======================================================================
-# 普通选择题 / 阅读 / 完形
+# 普通题型
 # ======================================================================
 
 def _build_question_payload(
@@ -1033,6 +1440,15 @@ ARTICLE ZH：
 
 1. 标准答案
 2. 每一道题的详细解析
+
+绝对禁止：
+
+- 重新出题
+- 修改题目
+- 修改选项
+- 修改题号
+- 增加题目
+- 删除题目
 
 严格返回：
 
@@ -1377,6 +1793,7 @@ def _validate_question_numbers(
         actual,
         list,
     ):
+
         raise ValueError(
             f"{name} 必须是 list"
         )
@@ -1397,6 +1814,7 @@ def _validate_question_numbers(
             item,
             dict,
         ):
+
             raise ValueError(
                 f"{name} 存在非 object"
             )
@@ -1409,6 +1827,7 @@ def _validate_question_numbers(
             q,
             int,
         ):
+
             raise ValueError(
                 f"{name} 存在非法 question：{q}"
             )
@@ -1434,6 +1853,7 @@ def _validate_answer_items(
         result,
         dict,
     ):
+
         raise ValueError(
             f"{block_name} 返回必须是 object"
         )
@@ -1535,6 +1955,49 @@ def _validate_answer_items(
             )
 
 
+def _validate_multiple_choice_answers(
+    result: dict,
+    expected_questions: list,
+    block_name: str,
+):
+
+    _validate_answer_items(
+        result,
+        expected_questions,
+        block_name,
+    )
+
+    for item in result["answers"]:
+
+        answer = item.get(
+            "answer"
+        )
+
+        if not isinstance(
+            answer,
+            list,
+        ):
+
+            raise ValueError(
+                f"{block_name} "
+                f"第 {item['question']} 题多选答案必须是数组"
+            )
+
+        if len(answer) < 2:
+
+            raise ValueError(
+                f"{block_name} "
+                f"第 {item['question']} 题至少需要两个正确选项"
+            )
+
+        if len(set(answer)) != len(answer):
+
+            raise ValueError(
+                f"{block_name} "
+                f"第 {item['question']} 题答案存在重复选项"
+            )
+
+
 def _validate_listening_block(
     result: dict,
     expected_questions: list,
@@ -1594,6 +2057,7 @@ def _validate_general(
         result,
         dict,
     ):
+
         raise ValueError(
             "General Analysis 必须是 object"
         )
@@ -1652,6 +2116,7 @@ def _run_block(
 ) -> dict:
 
     print()
+
     print(
         "------------------------------------------------------------"
     )
@@ -1735,6 +2200,7 @@ def generate(
         exam,
         dict,
     ):
+
         raise ValueError(
             "exam 必须是 dict"
         )
@@ -1743,6 +2209,7 @@ def generate(
         article,
         dict,
     ):
+
         raise ValueError(
             "article 必须是 dict"
         )
@@ -1773,7 +2240,7 @@ def generate(
     )
 
     print(
-        "EXAM ANSWERS / ANALYSIS GENERATION V2.0"
+        "EXAM ANSWERS / ANALYSIS GENERATION V2.1"
     )
 
     print(
@@ -1781,6 +2248,7 @@ def generate(
     )
 
     print()
+
     print(
         "本阶段采用独立模块生成。"
     )
@@ -1790,6 +2258,7 @@ def generate(
     )
 
     print()
+
     print(
         "试卷题目数量："
     )
@@ -1805,23 +2274,34 @@ def generate(
     # 提取 Listening
     # ==============================================================
 
-    listening = _copy_questions(
-        exam.get(
-            "listening",
-            [],
+    listening_a, listening_b, listening_c = (
+        _extract_listening_parts(
+            exam
         )
     )
 
-    if len(listening) != 15:
+    print()
 
-        raise ValueError(
-            "Listening 必须正好有15题，"
-            f"实际 {len(listening)}"
-        )
+    print(
+        "Listening 结构检查："
+    )
 
-    listening_a = listening[:5]
-    listening_b = listening[5:10]
-    listening_c = listening[10:15]
+    print(
+        f"  ✓ Listening A = {len(listening_a)}"
+    )
+
+    print(
+        f"  ✓ Listening B = {len(listening_b)}"
+    )
+
+    print(
+        f"  ✓ Listening C = {len(listening_c)}"
+    )
+
+    print(
+        f"  ✓ Listening Total = "
+        f"{len(listening_a) + len(listening_b) + len(listening_c)}"
+    )
 
     # ==============================================================
     # Single Choice
@@ -1894,6 +2374,7 @@ def generate(
         translation,
         dict,
     ):
+
         raise ValueError(
             "exam.translation 必须是 object"
         )
@@ -1911,6 +2392,20 @@ def generate(
             [],
         )
     )
+
+    if len(translation_a) != 5:
+
+        raise ValueError(
+            "Translation A 必须正好有5题，"
+            f"实际 {len(translation_a)}"
+        )
+
+    if len(translation_b) != 5:
+
+        raise ValueError(
+            "Translation B 必须正好有5题，"
+            f"实际 {len(translation_b)}"
+        )
 
     # ==============================================================
     # Writing
@@ -2176,7 +2671,7 @@ def generate(
         "Multiple Choice 1｜1-5",
         system_prompt,
         user_prompt,
-        lambda x: _validate_answer_items(
+        lambda x: _validate_multiple_choice_answers(
             x,
             multiple_1,
             "Multiple Choice 1",
@@ -2210,7 +2705,7 @@ def generate(
         "Multiple Choice 2｜6-10",
         system_prompt,
         user_prompt,
-        lambda x: _validate_answer_items(
+        lambda x: _validate_multiple_choice_answers(
             x,
             multiple_2,
             "Multiple Choice 2",
@@ -2457,6 +2952,7 @@ def generate(
     )
 
     print()
+
     print(
         "=" * 60
     )
@@ -2490,6 +2986,7 @@ def _validate_final_result(
         result,
         dict,
     ):
+
         raise ValueError(
             "最终答案解析结果必须是 object"
         )
@@ -2542,27 +3039,42 @@ def _validate_final_result(
     ) != counts["listening"]:
 
         raise ValueError(
-            "最终 listening 解析数量错误"
+            "最终 listening 解析数量错误："
+            f"期望 {counts['listening']}，"
+            f"实际 {len(listening_analysis)}"
         )
 
     scripts = result[
         "listening_script"
     ]
 
-    if len(
-        scripts["part_a"]
-    ) != 5:
+    if not isinstance(
+        scripts,
+        dict,
+    ):
 
         raise ValueError(
-            "最终 Listening A 原文必须5条"
+            "listening_script 必须是 object"
+        )
+
+    if len(
+        scripts["part_a"]
+    ) != counts["listening_a"]:
+
+        raise ValueError(
+            "最终 Listening A 原文数量错误："
+            f"期望 {counts['listening_a']}，"
+            f"实际 {len(scripts['part_a'])}"
         )
 
     if len(
         scripts["part_b"]
-    ) != 5:
+    ) != counts["listening_b"]:
 
         raise ValueError(
-            "最终 Listening B 原文必须5条"
+            "最终 Listening B 原文数量错误："
+            f"期望 {counts['listening_b']}，"
+            f"实际 {len(scripts['part_b'])}"
         )
 
     article_en = _get_article_en(
@@ -2611,7 +3123,9 @@ def _validate_final_result(
         if analysis_count != expected_count:
 
             raise ValueError(
-                f"最终 {key} 解析数量错误"
+                f"最终 {key} 解析数量错误："
+                f"期望 {expected_count}，"
+                f"实际 {analysis_count}"
             )
 
     # --------------------------------------------------------------
@@ -2627,7 +3141,9 @@ def _validate_final_result(
     ) != counts["translation_a"]:
 
         raise ValueError(
-            "最终 Translation A 数量错误"
+            "最终 Translation A 数量错误："
+            f"期望 {counts['translation_a']}，"
+            f"实际 {len(translation_answers['part_a'])}"
         )
 
     if len(
@@ -2635,7 +3151,29 @@ def _validate_final_result(
     ) != counts["translation_b"]:
 
         raise ValueError(
-            "最终 Translation B 数量错误"
+            "最终 Translation B 数量错误："
+            f"期望 {counts['translation_b']}，"
+            f"实际 {len(translation_answers['part_b'])}"
+        )
+
+    translation_analysis = result[
+        "question_analysis"
+    ]["translation"]
+
+    if len(
+        translation_analysis["part_a"]
+    ) != counts["translation_a"]:
+
+        raise ValueError(
+            "最终 Translation A 解析数量错误"
+        )
+
+    if len(
+        translation_analysis["part_b"]
+    ) != counts["translation_b"]:
+
+        raise ValueError(
+            "最终 Translation B 解析数量错误"
         )
 
     # --------------------------------------------------------------
@@ -2681,7 +3219,8 @@ def _answer_text(
     ):
 
         return ", ".join(
-            answer
+            str(x)
+            for x in answer
         )
 
     return str(answer)
@@ -3145,7 +3684,7 @@ if __name__ == "__main__":
     )
 
     print(
-        "exam_answers.py V2.0"
+        "exam_answers.py V2.1"
     )
 
     print(
