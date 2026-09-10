@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+8#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 """
@@ -1928,16 +1928,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
-        "--audio",
-        choices=["mp3", "m4a", "wav"],
-        default="mp3",
+    "--audio",
+    choices=["yes", "no"],
+    default="yes",
     )
 
-    parser.add_argument(
-        "--audio-format",
-        choices=["mp3", "m4a", "wav"],
-        default="mp3",
-    )
+   parser.add_argument(
+    "--audio-format",
+    choices=["mp3", "m4a", "wav"],
+    default="mp3",
+   )
 
     parser.add_argument(
         "--speed",
