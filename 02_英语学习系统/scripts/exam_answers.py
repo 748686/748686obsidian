@@ -461,7 +461,7 @@ def _looks_like_chinese_text(text: str) -> bool:
         return False
 
     chinese = re.findall(
-        r"[\u4e00-\u9fff",
+        r"[\u4e00-\u9fff]",
         text,
     )
 
