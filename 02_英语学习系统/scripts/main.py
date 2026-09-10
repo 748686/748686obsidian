@@ -1,9 +1,9 @@
-8#!/usr/bin/env python3
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 """
 748686 英语学习系统
-Main Pipeline V2.4
+Main Pipeline V2.5
 
 ======================================================================
 职责
@@ -29,53 +29,46 @@ Stage 3：答案与详细解析
     4. 保存结果
 
 ======================================================================
-V2.4 修复
+V2.5 修复
 ======================================================================
 
-修复 Stage 2 已存在 Markdown 试卷的结构恢复。
+1. 修复 build_parser() 缩进错误。
+2. 修复 --audio 参数定义：
+       --audio yes/no
+3. --audio-format 独立定义：
+       mp3/m4a/wav
+4. 保留 Stage 2 已存在 Markdown 试卷恢复逻辑。
+5. 已存在试卷无法可靠恢复时，禁止重新调用 AI 覆盖原试卷。
+6. 只有在没有试卷时才调用 exam_generate。
+7. 不修改原始试卷 Markdown。
 
-旧版本问题：
+======================================================================
+试卷恢复目标
+======================================================================
 
-    1. Listening 只能识别非常简单的：
-           1. xxx
+Listening A/B/C：
+    5 / 5 / 5
 
-       无法稳定识别：
+Single Choice：
+    10
 
-           **1.** xxx
-           **1、** xxx
-           1、xxx
-           ### 1. xxx
+Multiple Choice：
+    10
 
-       以及带多行选项的题目。
+Cloze：
+    10
 
-    2. 旧版本实际上只恢复 Listening，
-       Single Choice / Multiple Choice / Cloze /
-       Reading / Translation / Writing 均为空结构。
+Reading：
+    5
 
-    3. 导致 Stage 3 收到：
+Translation A：
+    5
 
-           exam["listening"]["A"]["questions"] = []
+Translation B：
+    5
 
-       最终：
-
-           Listening A 必须正好有5题，实际 0
-
-本版本：
-
-    - 从现有 Markdown 恢复完整试卷结构
-    - Listening A/B/C：5/5/5
-    - Single Choice：10
-    - Multiple Choice：10
-    - Cloze：10
-    - Reading：5
-    - Translation A：5
-    - Translation B：5
-    - Writing：1
-
-绝对规则：
-
-    本文件不得重新生成或修改原试卷题目。
-    现有试卷存在时只读取 Markdown。
+Writing：
+    1
 """
 
 
@@ -98,7 +91,6 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 SYSTEM_DIR = SCRIPT_DIR.parent
 REPO_ROOT = SYSTEM_DIR.parent
 
-# 确保 scripts 目录可以直接导入模块
 sys.path.insert(0, str(SCRIPT_DIR))
 
 
@@ -109,18 +101,14 @@ sys.path.insert(0, str(SCRIPT_DIR))
 from common import CONFIG
 from input_parser import parse
 
-# 文章生成
 from agnes_generate import ARTICLE_TYPES
 from agnes_generate import generate as gen_article
 
-# 文章 Markdown 渲染
 from render_markdown import render as render_article
 
-# 试卷
 from exam_generate import generate as gen_exam
 from exam_generate import render as render_exam
 
-# 答案与详细解析
 from exam_answers import generate as gen_answers
 from exam_answers import render as render_answers
 
@@ -137,18 +125,36 @@ def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def write_text(path: Path, content: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content, encoding="utf-8")
+def write_text(
+    path: Path,
+    content: str,
+) -> None:
 
+    path.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
 
-def load_json(path: Path) -> Any:
-    return json.loads(
-        path.read_text(encoding="utf-8")
+    path.write_text(
+        content,
+        encoding="utf-8",
     )
 
 
-def save_json(path: Path, data: Any) -> None:
+def load_json(path: Path) -> Any:
+
+    return json.loads(
+        path.read_text(
+            encoding="utf-8"
+        )
+    )
+
+
+def save_json(
+    path: Path,
+    data: Any,
+) -> None:
+
     path.parent.mkdir(
         parents=True,
         exist_ok=True,
@@ -168,7 +174,9 @@ def save_json(path: Path, data: Any) -> None:
 # 输入
 # ======================================================================
 
-def find_input_file(date: str) -> Path | None:
+def find_input_file(
+    date: str,
+) -> Path | None:
     """
     查找指定日期的英语学习输入文件。
     """
@@ -181,6 +189,7 @@ def find_input_file(date: str) -> Path | None:
     ]
 
     for path in candidates:
+
         if path.exists():
             return path
 
@@ -201,12 +210,17 @@ def recover_article_structure(
     if not article_path.exists():
         return None
 
-    text = read_text(article_path)
+    text = read_text(
+        article_path
+    )
 
     if not text.strip():
         return None
 
+    # --------------------------------------------------------------
     # 优先读取结构化缓存
+    # --------------------------------------------------------------
+
     cache_candidates = [
         article_path.with_suffix(".json"),
         article_path.parent
@@ -216,17 +230,27 @@ def recover_article_structure(
     ]
 
     for cache_path in cache_candidates:
-        if cache_path.exists():
-            try:
-                data = load_json(cache_path)
 
-                if isinstance(data, dict):
-                    return data
+        if not cache_path.exists():
+            continue
 
-            except Exception:
-                pass
+        try:
 
+            data = load_json(
+                cache_path
+            )
+
+            if isinstance(data, dict):
+
+                return data
+
+        except Exception:
+            pass
+
+    # --------------------------------------------------------------
     # 没有缓存时，构造基础结构
+    # --------------------------------------------------------------
+
     return {
         "title": article_path.stem,
         "title_zh": article_path.stem,
@@ -241,9 +265,6 @@ def get_article_path(
     difficulty: int,
     article_type: str,
 ) -> Path:
-    """
-    获取文章输出路径。
-    """
 
     difficulty_name = f"{difficulty}星"
 
@@ -286,14 +307,23 @@ def stage1_article(
     log("STAGE 1 / 3：英语文章")
     log("=" * 60)
 
-    log(f"→ 学习词汇数量：{len(words)}")
-    log(f"→ 难度：{difficulty}星")
+    log(
+        f"→ 学习词汇数量：{len(words)}"
+    )
+
+    log(
+        f"→ 难度：{difficulty}星"
+    )
+
     log(
         f"→ 文章类型："
         f"{ARTICLE_TYPES.get(article_type, article_type)}"
         f" / {article_type}"
     )
-    log(f"→ 目标长度：{length}")
+
+    log(
+        f"→ 目标长度：{length}"
+    )
 
     article_path = get_article_path(
         date,
@@ -311,17 +341,25 @@ def stage1_article(
 
     if cache_path.exists():
 
-        log("✓ 已找到文章结构化缓存")
-        log(f"→ {cache_path}")
+        log(
+            "✓ 已找到文章结构化缓存"
+        )
+
+        log(
+            f"→ {cache_path}"
+        )
 
         try:
+
             article_data = load_json(
                 cache_path
             )
 
             if isinstance(article_data, dict):
 
-                log("✓ 直接使用现有文章结构")
+                log(
+                    "✓ 直接使用现有文章结构"
+                )
 
                 return (
                     article_data,
@@ -344,14 +382,20 @@ def stage1_article(
             f"✓ 已存在文章：{article_path}"
         )
 
-        log("→ 不调用文章 AI")
-        log("→ 正在从现有 Markdown 恢复结构")
+        log(
+            "→ 不调用文章 AI"
+        )
+
+        log(
+            "→ 正在从现有 Markdown 恢复结构"
+        )
 
         article_data = recover_article_structure(
             article_path
         )
 
         if article_data is None:
+
             raise RuntimeError(
                 f"无法恢复现有文章：{article_path}"
             )
@@ -375,8 +419,13 @@ def stage1_article(
     # 不存在文章 → 调用 Agnes
     # --------------------------------------------------------------
 
-    log("→ 未找到文章")
-    log("→ 正在调用文章 AI")
+    log(
+        "→ 未找到文章"
+    )
+
+    log(
+        "→ 正在调用文章 AI"
+    )
 
     article_data = gen_article(
         words,
@@ -386,6 +435,7 @@ def stage1_article(
     )
 
     if not isinstance(article_data, dict):
+
         raise RuntimeError(
             "文章 AI 返回结果不是 dict"
         )
@@ -472,14 +522,6 @@ def _clean_markdown_question_line(
         **1、** xxx
         ### 1. xxx
         - 1. xxx
-
-    返回：
-
-        (question_number, remaining_text)
-
-    无法识别时：
-
-        (None, "")
     """
 
     if not isinstance(line, str):
@@ -491,7 +533,7 @@ def _clean_markdown_question_line(
         return None, ""
 
     # --------------------------------------------------------------
-    # 去掉 Markdown 列表 / 标题前缀
+    # 去掉 Markdown 标题
     # --------------------------------------------------------------
 
     text = re.sub(
@@ -500,6 +542,10 @@ def _clean_markdown_question_line(
         text,
     )
 
+    # --------------------------------------------------------------
+    # 去掉 Markdown 列表
+    # --------------------------------------------------------------
+
     text = re.sub(
         r"^[-*+]\s+",
         "",
@@ -507,7 +553,7 @@ def _clean_markdown_question_line(
     )
 
     # --------------------------------------------------------------
-    # 处理 **1.** xxx
+    # **1.** xxx
     # --------------------------------------------------------------
 
     match = re.match(
@@ -516,13 +562,14 @@ def _clean_markdown_question_line(
     )
 
     if match:
+
         return (
             int(match.group(1)),
             match.group(2).strip(),
         )
 
     # --------------------------------------------------------------
-    # 处理 **1. xxx**
+    # **1. xxx**
     # --------------------------------------------------------------
 
     match = re.match(
@@ -531,6 +578,7 @@ def _clean_markdown_question_line(
     )
 
     if match:
+
         return (
             int(match.group(1)),
             match.group(2).strip(),
@@ -546,6 +594,7 @@ def _clean_markdown_question_line(
     )
 
     if match:
+
         return (
             int(match.group(1)),
             match.group(2).strip(),
@@ -554,19 +603,11 @@ def _clean_markdown_question_line(
     return None, ""
 
 
-def _is_option_line(line: str) -> bool:
+def _is_option_line(
+    line: str,
+) -> bool:
     """
     判断一行是否是选择题选项。
-
-    支持：
-
-        A. xxx
-        B. xxx
-        C. xxx
-        D. xxx
-
-        - A. xxx
-        - B. xxx
     """
 
     if not isinstance(line, str):
@@ -610,24 +651,12 @@ def _parse_question_blocks(
         [
             {
                 "number": 1,
-                "question": "题干\\nA. ...\\nB. ..."
-            },
-            ...
+                "question": "题干..."
+            }
         ]
 
-    这里不重新生成题目。
-
-    只把 Markdown 原文按题号切成题目块。
-
-    注意：
-
-        exam_answers.py 的 _question_number()
-        同时支持 number / question。
-
-    为了最大兼容性，本函数同时保存：
-
-        number
-        question
+    这里只读取 Markdown。
+    不重新生成题目。
     """
 
     if not isinstance(content, str):
@@ -646,16 +675,18 @@ def _parse_question_blocks(
         nonlocal current_lines
 
         if current_number is None:
+
             current_lines = []
             return
 
-        cleaned_lines = []
+        cleaned_lines: list[str] = []
 
         for item in current_lines:
 
             item = item.rstrip()
 
             if item.strip():
+
                 cleaned_lines.append(
                     item.strip()
                 )
@@ -686,30 +717,22 @@ def _parse_question_blocks(
 
         if number is not None:
 
-            # ------------------------------------------------------
-            # 如果已经有上一题，先保存
-            # ------------------------------------------------------
-
             flush_current()
 
             current_number = number
 
             if remaining:
+
                 current_lines.append(
                     remaining
                 )
 
             continue
 
-        # ----------------------------------------------------------
-        # 当前正在题目块中
-        # ----------------------------------------------------------
-
         if current_number is not None:
 
             stripped = line.strip()
 
-            # 跳过纯分隔线
             if re.fullmatch(
                 r"[-*_]{3,}",
                 stripped,
@@ -731,16 +754,7 @@ def _extract_section_by_heading(
     stop_patterns: list[str],
 ) -> str:
     """
-    从 Markdown 中提取一个 section。
-
-    heading_patterns：
-        当前 section 标题。
-
-    stop_patterns：
-        下一个 section 的标题。
-
-    使用 re.I 只用于 Markdown 标题恢复，
-    不涉及语言目录或语言值转换。
+    从 Markdown 中提取 section。
     """
 
     if not isinstance(text, str):
@@ -777,9 +791,12 @@ def _extract_section_by_heading(
 
             if stop_match:
 
-                return remaining[
-                    :stop_match.start()
-                ].strip()
+                return (
+                    remaining[
+                        :stop_match.start()
+                    ]
+                    .strip()
+                )
 
         return remaining.strip()
 
@@ -789,18 +806,15 @@ def _extract_section_by_heading(
 def _section_heading_patterns(
     names: list[str],
 ) -> list[str]:
-    """
-    根据标题名称构造 Markdown heading 正则。
-    """
 
-    result = []
+    result: list[str] = []
 
     for name in names:
 
         escaped = re.escape(name)
 
         result.append(
-            rf"^#{1,6}\s*{escaped}\s*$"
+            rf"^#{{1,6}}\s*{escaped}\s*$"
         )
 
     return result
@@ -831,12 +845,7 @@ def _recover_question_section(
     section_name: str,
 ) -> list[dict[str, Any]]:
     """
-    恢复一个普通题型 section。
-
-    如果 section 不存在或数量错误，
-    直接报错。
-
-    绝不调用 AI 补题。
+    恢复普通题型 section。
     """
 
     content = _parse_first_section(
@@ -874,41 +883,29 @@ def _recover_listening_part(
 ) -> dict[str, Any]:
     """
     恢复 Listening Part A/B/C。
-
-    支持：
-
-        ## Part A
-        ### Part A
-        # Part A
-
-    Part 边界：
-
-        下一 Part
-        第二大题
-        下一大题
-        文件结束
     """
 
-    heading_patterns = [
-        rf"^#{1,6}\s*Part\s+{part}\s*$",
-    ]
+    heading_pattern = (
+        rf"^#{{1,6}}\s*Part\s+{part}\s*$"
+    )
 
     stop_patterns = [
-        rf"^#{1,6}\s*Part\s+[ABC]\s*$",
-        r"^#{1,6}\s*二[、．\.]\s*单项选择.*$",
-        r"^#{1,6}\s*二[、．\.].*$",
-        r"^#{1,6}\s*三[、．\.].*$",
-        r"^#{1,6}\s*四[、．\.].*$",
-        r"^#{1,6}\s*五[、．\.].*$",
-        r"^#{1,6}\s*六[、．\.].*$",
-        r"^#{1,6}\s*七[、．\.].*$",
-        r"^#{1,6}\s*八[、．\.].*$",
-        r"^#{1,6}\s*九[、．\.].*$",
-        r"^#{1,6}\s*十[、．\.].*$",
+        rf"^#{{1,6}}\s*Part\s+[ABC]\s*$",
+
+        r"^#{{1,6}}\s*二[、．\.]\s*单项选择.*$",
+        r"^#{{1,6}}\s*二[、．\.].*$",
+        r"^#{{1,6}}\s*三[、．\.].*$",
+        r"^#{{1,6}}\s*四[、．\.].*$",
+        r"^#{{1,6}}\s*五[、．\.].*$",
+        r"^#{{1,6}}\s*六[、．\.].*$",
+        r"^#{{1,6}}\s*七[、．\.].*$",
+        r"^#{{1,6}}\s*八[、．\.].*$",
+        r"^#{{1,6}}\s*九[、．\.].*$",
+        r"^#{{1,6}}\s*十[、．\.].*$",
     ]
 
     match = re.search(
-        heading_patterns[0],
+        heading_pattern,
         text,
         flags=re.I | re.M,
     )
@@ -937,10 +934,16 @@ def _recover_listening_part(
     )
 
     if stop_match:
-        content = remaining[
-            :stop_match.start()
-        ].strip()
+
+        content = (
+            remaining[
+                :stop_match.start()
+            ]
+            .strip()
+        )
+
     else:
+
         content = remaining.strip()
 
     questions = _parse_question_blocks(
@@ -967,19 +970,6 @@ def _recover_cloze(
 ) -> list[dict[str, Any]]:
     """
     恢复完形填空。
-
-    exam_answers.py 需要：
-
-        exam["cloze"] = [
-            {
-                "questions": [...]
-            }
-        ]
-
-    如果原 Markdown 中存在一个或多个完形 section，
-    这里将所有题目汇总到一个 passage。
-
-    不改变题目文字。
     """
 
     names = [
@@ -987,16 +977,21 @@ def _recover_cloze(
         "三、完形填空（10题）",
         "三、完形填空（共10题）",
         "完形填空",
+        "Cloze",
     ]
 
     stop_names = [
         "四、阅读理解",
         "四、阅读",
         "阅读理解",
+        "阅读",
         "五、翻译",
         "六、翻译",
         "七、写作",
+        "六、写作",
         "写作",
+        "Translation",
+        "Writing",
     ]
 
     content = _parse_first_section(
@@ -1007,25 +1002,8 @@ def _recover_cloze(
 
     if not content:
 
-        # 尝试英文/数字型标题
-        content = _parse_first_section(
-            text,
-            [
-                "三、完形填空",
-                "Cloze",
-            ],
-            [
-                "阅读理解",
-                "翻译",
-                "写作",
-            ],
-        )
-
-    if not content:
-
         raise RuntimeError(
-            "无法从现有试卷 Markdown 恢复："
-            "Cloze"
+            "无法从现有试卷 Markdown 恢复：Cloze"
         )
 
     questions = _parse_question_blocks(
@@ -1053,16 +1031,6 @@ def _recover_translation(
 ) -> dict[str, Any]:
     """
     恢复翻译 A/B。
-
-    支持：
-
-        翻译 A：中译英
-        翻译 A
-        Translation A
-
-        翻译 B：英译中
-        翻译 B
-        Translation B
     """
 
     part_a_content = _parse_first_section(
@@ -1150,8 +1118,6 @@ def _recover_writing(
 ) -> list[dict[str, Any]]:
     """
     恢复写作题。
-
-    当前系统要求正好 1 题。
     """
 
     content = _parse_first_section(
@@ -1168,8 +1134,7 @@ def _recover_writing(
     if not content:
 
         raise RuntimeError(
-            "无法从现有试卷 Markdown 恢复："
-            "Writing"
+            "无法从现有试卷 Markdown 恢复：Writing"
         )
 
     questions = _parse_question_blocks(
@@ -1200,15 +1165,14 @@ def recover_exam(
         不调用 AI。
         不重新生成题目。
         不修改原 Markdown。
-
-    返回结构与 exam_generate.generate()
-    兼容，至少满足 exam_answers.py 的读取要求。
     """
 
     if not exam_path.exists():
         return None
 
-    text = read_text(exam_path)
+    text = read_text(
+        exam_path
+    )
 
     if not text.strip():
         return None
@@ -1245,6 +1209,7 @@ def recover_exam(
     )
 
     if title_match:
+
         exam["title"] = (
             title_match.group(1).strip()
         )
@@ -1414,7 +1379,7 @@ def recover_exam(
     )
 
     # --------------------------------------------------------------
-    # 最终恢复完整性检查
+    # 最终完整性检查
     # --------------------------------------------------------------
 
     expected = {
@@ -1543,8 +1508,13 @@ def stage2_exam(
             f"✓ 已存在试卷：{exam_path}"
         )
 
-        log("→ 不调用试卷 AI")
-        log("→ 正在恢复试卷结构")
+        log(
+            "→ 不调用试卷 AI"
+        )
+
+        log(
+            "→ 正在恢复试卷结构"
+        )
 
         try:
 
@@ -1561,15 +1531,6 @@ def stage2_exam(
 
         except Exception as exc:
 
-            # ------------------------------------------------------
-            # 重要：
-            #
-            # 现有试卷存在但无法可靠恢复时，
-            # 不偷偷调用 AI 覆盖原试卷。
-            #
-            # 直接失败，让错误明确暴露。
-            # ------------------------------------------------------
-
             raise RuntimeError(
                 "现有试卷存在，但无法可靠恢复。"
                 "为保护原试卷，本次不会重新生成试卷。\n"
@@ -1577,11 +1538,16 @@ def stage2_exam(
             ) from exc
 
     # --------------------------------------------------------------
-    # 调用试卷 AI
+    # 不存在试卷 → 调用 AI
     # --------------------------------------------------------------
 
-    log("→ 未找到可用试卷")
-    log("→ 正在调用试卷 AI")
+    log(
+        "→ 未找到可用试卷"
+    )
+
+    log(
+        "→ 正在调用试卷 AI"
+    )
 
     generated = gen_exam(
         article_data,
@@ -1591,6 +1557,7 @@ def stage2_exam(
     )
 
     if not isinstance(generated, dict):
+
         raise RuntimeError(
             "试卷 AI 返回结果不是 dict"
         )
@@ -1693,12 +1660,19 @@ def stage3_answers(
             f"{answers_path}"
         )
 
-        log("→ 不调用答案解析 AI")
+        log(
+            "→ 不调用答案解析 AI"
+        )
 
         return answers_path
 
-    log("→ 未找到答案解析")
-    log("→ 正在调用答案解析 AI")
+    log(
+        "→ 未找到答案解析"
+    )
+
+    log(
+        "→ 正在调用答案解析 AI"
+    )
 
     # --------------------------------------------------------------
     # 调用答案解析 AI
@@ -1713,6 +1687,7 @@ def stage3_answers(
     )
 
     if not isinstance(generated, dict):
+
         raise RuntimeError(
             "答案解析 AI 返回结果不是 dict"
         )
@@ -1767,18 +1742,22 @@ def git_save(
     ]
 
     if not existing:
+
         log(
             "→ 没有需要 Git 保存的文件"
         )
+
         return
 
     log("")
     log("=" * 60)
-    log(f"Git 保存：{message}")
+    log(
+        f"Git 保存：{message}"
+    )
     log("=" * 60)
 
     # --------------------------------------------------------------
-    # GitHub Actions Runner Git 身份
+    # Git 身份
     # --------------------------------------------------------------
 
     subprocess.run(
@@ -1825,7 +1804,7 @@ def git_save(
     )
 
     # --------------------------------------------------------------
-    # 检查 staged 是否有变化
+    # 检查 staged
     # --------------------------------------------------------------
 
     status = subprocess.run(
@@ -1847,7 +1826,7 @@ def git_save(
         return
 
     # --------------------------------------------------------------
-    # Git Commit
+    # Commit
     # --------------------------------------------------------------
 
     subprocess.run(
@@ -1866,7 +1845,7 @@ def git_save(
     )
 
     # --------------------------------------------------------------
-    # Git Push
+    # Push
     # --------------------------------------------------------------
 
     subprocess.run(
@@ -1927,17 +1906,26 @@ def build_parser() -> argparse.ArgumentParser:
         default="yes",
     )
 
+    # --------------------------------------------------------------
+    # 注意：
+    #
+    # --audio 接收 yes/no
+    # --audio-format 接收 mp3/m4a/wav
+    #
+    # 这两个参数不能混在一起。
+    # --------------------------------------------------------------
+
     parser.add_argument(
-    "--audio",
-    choices=["yes", "no"],
-    default="yes",
+        "--audio",
+        choices=["yes", "no"],
+        default="yes",
     )
 
-   parser.add_argument(
-    "--audio-format",
-    choices=["mp3", "m4a", "wav"],
-    default="mp3",
-   )
+    parser.add_argument(
+        "--audio-format",
+        choices=["mp3", "m4a", "wav"],
+        default="mp3",
+    )
 
     parser.add_argument(
         "--speed",
@@ -1955,6 +1943,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> None:
 
     parser = build_parser()
+
     args = parser.parse_args()
 
     date = args.date
@@ -1967,8 +1956,13 @@ def main() -> None:
     log("748686 英语学习系统")
     log("=" * 60)
 
-    log(f"日期：{date}")
-    log(f"难度：{difficulty}星")
+    log(
+        f"日期：{date}"
+    )
+
+    log(
+        f"难度：{difficulty}星"
+    )
 
     log(
         f"文章类型："
@@ -1976,12 +1970,29 @@ def main() -> None:
         f" / {article_type}"
     )
 
-    log(f"目标长度：{length}")
-    log(f"试卷：{args.exam}")
-    log(f"图片：{args.image}")
-    log(f"音频：{args.audio}")
-    log(f"音频格式：{args.audio_format}")
-    log(f"语速：{args.speed}")
+    log(
+        f"目标长度：{length}"
+    )
+
+    log(
+        f"试卷：{args.exam}"
+    )
+
+    log(
+        f"图片：{args.image}"
+    )
+
+    log(
+        f"音频：{args.audio}"
+    )
+
+    log(
+        f"音频格式：{args.audio_format}"
+    )
+
+    log(
+        f"语速：{args.speed}"
+    )
 
     # --------------------------------------------------------------
     # 输入文件
@@ -1992,11 +2003,13 @@ def main() -> None:
     )
 
     if input_file is None:
+
         raise FileNotFoundError(
             f"未找到 {date} 的输入文件"
         )
 
     log("")
+
     log(
         f"输入文件：{input_file}"
     )
@@ -2004,7 +2017,8 @@ def main() -> None:
     # --------------------------------------------------------------
     # 解析输入
     #
-    # input_parser.parse() 的真实返回值：
+    # input_parser.parse() 的真实返回：
+    #
     #     words, images
     # --------------------------------------------------------------
 
@@ -2077,6 +2091,7 @@ def main() -> None:
     else:
 
         log("")
+
         log(
             "→ --exam=no，"
             "跳过 Stage 2 / Stage 3"
@@ -2087,6 +2102,7 @@ def main() -> None:
     # --------------------------------------------------------------
 
     log("")
+
     log("=" * 60)
     log("748686 英语学习系统 COMPLETE")
     log("=" * 60)
