@@ -57,7 +57,7 @@ sys.path.insert(0, str(SCRIPT_DIR))
 # 导入
 # ======================================================================
 
-from config import CONFIG, ARTICLE_TYPES
+from common import ARTICLE_TYPES
 from input_parser import parse
 from article_generate import generate as gen_article
 from article_generate import render as render_article
@@ -762,8 +762,7 @@ def load_or_generate_answers(
     """
     Stage 3：加载或生成答案与详细解析。
 
-    重要：
-    exam_answers.py V2.1 的 generate() 接口是：
+    exam_answers.py V2.1 的 generate() 接口：
 
         generate(
             exam,
@@ -773,7 +772,7 @@ def load_or_generate_answers(
             words,
         )
 
-    render() 接口是：
+    render() 接口：
 
         render(
             result,
@@ -801,20 +800,7 @@ def load_or_generate_answers(
     print("→ 正在调用答案解析 AI")
 
     # ==============================================================
-    # FIX：
-    # exam_answers.generate() 不接受：
-    #
-    #     date=
-    #
-    # 它的真实接口是：
-    #
-    #     generate(
-    #         exam,
-    #         article,
-    #         difficulty,
-    #         article_type,
-    #         words,
-    #     )
+    # exam_answers.generate() V2.1
     # ==============================================================
 
     generated = gen_answers(
@@ -835,15 +821,7 @@ def load_or_generate_answers(
     )
 
     # ==============================================================
-    # FIX：
-    # render() 需要 4 个参数
-    #
-    #     render(
-    #         result,
-    #         article_title,
-    #         difficulty,
-    #         article_type_name,
-    #     )
+    # exam_answers.render() V2.1
     # ==============================================================
 
     markdown = render_answers(
@@ -937,12 +915,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     # ==============================================================
-    # 这里必须保持原来的接口：
-    #
-    # --audio yes
-    # --audio no
-    #
-    # 音频格式由 --audio-format 单独控制。
+    # 音频开关
     # ==============================================================
 
     parser.add_argument(
