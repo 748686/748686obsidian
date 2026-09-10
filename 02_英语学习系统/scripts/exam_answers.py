@@ -59,6 +59,16 @@ V2.4 修复
 
 8. 不修改 Stage 2 Markdown → exam_data 恢复逻辑
 
+9. 保持 main.py 原有 generate() 五参数调用接口：
+
+       generate(
+           exam_data,
+           article_title,
+           difficulty,
+           article_type,
+           words,
+       )
+
 ======================================================================
 """
 
@@ -1407,7 +1417,10 @@ def _build_overall_analysis(
 
 def generate(
     exam_data,
-    output_path=None,
+    article_title="",
+    difficulty="",
+    article_type="",
+    words=0,
 ):
 
     print(
@@ -1823,39 +1836,6 @@ def generate(
         exam_data,
     )
 
-    # ==============================================================
-    # 保存
-    # ==============================================================
-
-    if output_path:
-
-        output_path = Path(
-            output_path
-        )
-
-        output_path.parent.mkdir(
-            parents=True,
-            exist_ok=True,
-        )
-
-        with output_path.open(
-            "w",
-            encoding="utf-8",
-        ) as f:
-
-            json.dump(
-                final_result,
-                f,
-                ensure_ascii=False,
-                indent=2,
-            )
-
-        print()
-        print(
-            f"✓ 答案解析已保存："
-            f"{output_path}"
-        )
-
     print()
     print(
         "============================================================"
@@ -2102,10 +2082,33 @@ if __name__ == "__main__":
 
     try:
 
-        generate(
+        result = generate(
             exam_data,
-            output_path,
         )
+
+        if output_path:
+
+            output_path.parent.mkdir(
+                parents=True,
+                exist_ok=True,
+            )
+
+            with output_path.open(
+                "w",
+                encoding="utf-8",
+            ) as f:
+
+                json.dump(
+                    result,
+                    f,
+                    ensure_ascii=False,
+                    indent=2,
+                )
+
+            print(
+                f"✓ JSON 已保存："
+                f"{output_path}"
+            )
 
     except Exception as e:
 
