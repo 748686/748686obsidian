@@ -3,7 +3,7 @@
 
 """
 748686 英语学习系统
-Main Pipeline V2.5
+Main Pipeline V2.6
 
 ======================================================================
 职责
@@ -29,46 +29,27 @@ Stage 3：答案与详细解析
     4. 保存结果
 
 ======================================================================
-V2.5 修复
+V2.6 修复
 ======================================================================
 
-1. 修复 build_parser() 缩进错误。
-2. 修复 --audio 参数定义：
-       --audio yes/no
-3. --audio-format 独立定义：
-       mp3/m4a/wav
-4. 保留 Stage 2 已存在 Markdown 试卷恢复逻辑。
-5. 已存在试卷无法可靠恢复时，禁止重新调用 AI 覆盖原试卷。
-6. 只有在没有试卷时才调用 exam_generate。
-7. 不修改原始试卷 Markdown。
-
-======================================================================
-试卷恢复目标
-======================================================================
-
-Listening A/B/C：
-    5 / 5 / 5
-
-Single Choice：
-    10
-
-Multiple Choice：
-    10
-
-Cloze：
-    10
-
-Reading：
-    5
-
-Translation A：
-    5
-
-Translation B：
-    5
-
-Writing：
-    1
+1. 修复 Markdown 恢复器错误的正则表达式。
+2. Listening Part A/B/C 使用精确的二级标题恢复。
+3. 防止 Listening Part C 把后续整张试卷误解析进去。
+4. 修复实际标题：
+       # 二、单项选择
+       # 三、多选题
+       # 四、完形填空
+       # 五、阅读理解
+       # 六、翻译
+       # 七、写作
+5. 修复翻译实际标题：
+       ## Part A 汉译英
+       ## Part B 英译汉
+6. 所有主要题型按照一级标题边界恢复。
+7. 恢复后执行完整题量验证。
+8. 已存在试卷无法可靠恢复时，禁止重新调用 AI 覆盖原试卷。
+9. 不修改原始试卷 Markdown。
+10. 保留 --audio yes/no 与 --audio-format mp3/m4a/wav。
 """
 
 
@@ -122,7 +103,9 @@ def log(message: str = "") -> None:
 
 
 def read_text(path: Path) -> str:
-    return path.read_text(encoding="utf-8")
+    return path.read_text(
+        encoding="utf-8"
+    )
 
 
 def write_text(
@@ -603,60 +586,19 @@ def _clean_markdown_question_line(
     return None, ""
 
 
-def _is_option_line(
-    line: str,
-) -> bool:
-    """
-    判断一行是否是选择题选项。
-    """
-
-    if not isinstance(line, str):
-        return False
-
-    text = line.strip()
-
-    text = re.sub(
-        r"^[-*+]\s+",
-        "",
-        text,
-    )
-
-    text = re.sub(
-        r"^\*\*",
-        "",
-        text,
-    )
-
-    text = re.sub(
-        r"\*\*$",
-        "",
-        text,
-    )
-
-    return bool(
-        re.match(
-            r"^[A-D]\s*[\.\、\)]\s+",
-            text,
-            flags=re.I,
-        )
-    )
-
-
 def _parse_question_blocks(
     content: str,
 ) -> list[dict[str, Any]]:
     """
-    将一个 Markdown section 中的题目恢复为：
+    将一个已经精确截取出来的 Markdown section
+    恢复成题目列表。
 
-        [
-            {
-                "number": 1,
-                "question": "题干..."
-            }
-        ]
+    注意：
 
-    这里只读取 Markdown。
-    不重新生成题目。
+        本函数不负责判断 section 边界。
+
+        section 边界必须由上层恢复函数先确定，
+        避免把后面的题目误算进当前 section。
     """
 
     if not isinstance(content, str):
@@ -675,7 +617,6 @@ def _parse_question_blocks(
         nonlocal current_lines
 
         if current_number is None:
-
             current_lines = []
             return
 
@@ -686,7 +627,6 @@ def _parse_question_blocks(
             item = item.rstrip()
 
             if item.strip():
-
                 cleaned_lines.append(
                     item.strip()
                 )
@@ -695,14 +635,12 @@ def _parse_question_blocks(
             cleaned_lines
         ).strip()
 
-        if question_text:
-
-            blocks.append(
-                {
-                    "number": current_number,
-                    "question": question_text,
-                }
-            )
+        blocks.append(
+            {
+                "number": current_number,
+                "question": question_text,
+            }
+        )
 
         current_number = None
         current_lines = []
@@ -748,96 +686,135 @@ def _parse_question_blocks(
     return blocks
 
 
-def _extract_section_by_heading(
+def _exact_heading_pattern(
+    name: str,
+    level: int,
+) -> str:
+    """
+    精确匹配指定 Markdown 标题级别。
+    """
+
+    return (
+        rf"^#{{{level}}}\s*"
+        rf"{re.escape(name)}"
+        rf"\s*$"
+    )
+
+
+def _find_heading(
     text: str,
-    heading_patterns: list[str],
+    names: list[str],
+    level: int,
+) -> re.Match[str] | None:
+    """
+    查找指定级别的 Markdown 标题。
+    """
+
+    for name in names:
+
+        pattern = _exact_heading_pattern(
+            name,
+            level,
+        )
+
+        match = re.search(
+            pattern,
+            text,
+            flags=re.I | re.M,
+        )
+
+        if match:
+            return match
+
+    return None
+
+
+def _extract_exact_heading_section(
+    text: str,
+    names: list[str],
+    level: int,
     stop_patterns: list[str],
 ) -> str:
     """
-    从 Markdown 中提取 section。
+    按指定标题级别提取 section。
     """
 
     if not isinstance(text, str):
         return ""
 
-    for heading_pattern in heading_patterns:
+    match = _find_heading(
+        text,
+        names,
+        level,
+    )
 
-        match = re.search(
-            heading_pattern,
-            text,
+    if not match:
+        return ""
+
+    start = match.end()
+
+    remaining = text[start:]
+
+    if stop_patterns:
+
+        stop_regex = (
+            "(?:"
+            + "|".join(stop_patterns)
+            + ")"
+        )
+
+        stop_match = re.search(
+            stop_regex,
+            remaining,
             flags=re.I | re.M,
         )
 
-        if not match:
-            continue
+        if stop_match:
 
-        start = match.end()
-
-        remaining = text[start:]
-
-        if stop_patterns:
-
-            stop_regex = (
-                "(?:"
-                + "|".join(stop_patterns)
-                + ")"
+            return (
+                remaining[
+                    :stop_match.start()
+                ]
+                .strip()
             )
 
-            stop_match = re.search(
-                stop_regex,
-                remaining,
-                flags=re.I | re.M,
-            )
-
-            if stop_match:
-
-                return (
-                    remaining[
-                        :stop_match.start()
-                    ]
-                    .strip()
-                )
-
-        return remaining.strip()
-
-    return ""
+    return remaining.strip()
 
 
-def _section_heading_patterns(
-    names: list[str],
-) -> list[str]:
-
-    result: list[str] = []
-
-    for name in names:
-
-        escaped = re.escape(name)
-
-        result.append(
-            rf"^#{{1,6}}\s*{escaped}\s*$"
-        )
-
-    return result
-
-
-def _parse_first_section(
+def _extract_major_section(
     text: str,
     names: list[str],
     stop_names: list[str],
 ) -> str:
+    """
+    提取一级 Markdown section。
 
-    return _extract_section_by_heading(
+    例如：
+
+        # 二、单项选择
+
+    截止：
+
+        # 三、多选题
+    """
+
+    stop_patterns = [
+        _exact_heading_pattern(
+            name,
+            1,
+        )
+        for name in stop_names
+    ]
+
+    return _extract_exact_heading_section(
         text,
-        _section_heading_patterns(
-            names
-        ),
-        _section_heading_patterns(
-            stop_names
-        ),
+        names,
+        1,
+        stop_patterns,
     )
 
 
-def _recover_question_section(
+def _parse_major_question_section(
     text: str,
     names: list[str],
     stop_names: list[str],
@@ -845,10 +822,10 @@ def _recover_question_section(
     section_name: str,
 ) -> list[dict[str, Any]]:
     """
-    恢复普通题型 section。
+    恢复一级 Markdown section 中的题目。
     """
 
-    content = _parse_first_section(
+    content = _extract_major_section(
         text,
         names,
         stop_names,
@@ -883,31 +860,68 @@ def _recover_listening_part(
 ) -> dict[str, Any]:
     """
     恢复 Listening Part A/B/C。
+
+    实际结构：
+
+        # 一、听力
+
+        ## Part A
+        ...
+
+        ## Part B
+        ...
+
+        ## Part C
+        ...
+
+        # 二、单项选择
     """
 
-    heading_pattern = (
-        rf"^#{{1,6}}\s*Part\s+{part}\s*$"
-    )
+    heading_name = f"Part {part}"
 
     stop_patterns = [
-        rf"^#{{1,6}}\s*Part\s+[ABC]\s*$",
-
-        r"^#{{1,6}}\s*二[、．\.]\s*单项选择.*$",
-        r"^#{{1,6}}\s*二[、．\.].*$",
-        r"^#{{1,6}}\s*三[、．\.].*$",
-        r"^#{{1,6}}\s*四[、．\.].*$",
-        r"^#{{1,6}}\s*五[、．\.].*$",
-        r"^#{{1,6}}\s*六[、．\.].*$",
-        r"^#{{1,6}}\s*七[、．\.].*$",
-        r"^#{{1,6}}\s*八[、．\.].*$",
-        r"^#{{1,6}}\s*九[、．\.].*$",
-        r"^#{{1,6}}\s*十[、．\.].*$",
+        _exact_heading_pattern(
+            "Part A",
+            2,
+        ),
+        _exact_heading_pattern(
+            "Part B",
+            2,
+        ),
+        _exact_heading_pattern(
+            "Part C",
+            2,
+        ),
+        _exact_heading_pattern(
+            "二、单项选择",
+            1,
+        ),
+        _exact_heading_pattern(
+            "三、多选题",
+            1,
+        ),
+        _exact_heading_pattern(
+            "四、完形填空",
+            1,
+        ),
+        _exact_heading_pattern(
+            "五、阅读理解",
+            1,
+        ),
+        _exact_heading_pattern(
+            "六、翻译",
+            1,
+        ),
+        _exact_heading_pattern(
+            "七、写作",
+            1,
+        ),
     ]
 
-    match = re.search(
-        heading_pattern,
+    match = _find_heading(
         text,
-        flags=re.I | re.M,
+        [heading_name],
+        2,
     )
 
     if not match:
@@ -970,34 +984,36 @@ def _recover_cloze(
 ) -> list[dict[str, Any]]:
     """
     恢复完形填空。
+
+    实际结构：
+
+        # 四、完形填空
+
+        [完形填空正文]
+
+        ## 选择题
+
+        ### 1. ...
+        ...
+        ### 10. ...
+
+        # 五、阅读理解
     """
 
-    names = [
-        "三、完形填空",
-        "三、完形填空（10题）",
-        "三、完形填空（共10题）",
-        "完形填空",
-        "Cloze",
-    ]
-
-    stop_names = [
-        "四、阅读理解",
-        "四、阅读",
-        "阅读理解",
-        "阅读",
-        "五、翻译",
-        "六、翻译",
-        "七、写作",
-        "六、写作",
-        "写作",
-        "Translation",
-        "Writing",
-    ]
-
-    content = _parse_first_section(
+    content = _extract_major_section(
         text,
-        names,
-        stop_names,
+        [
+            "四、完形填空",
+            "四、完形填空（10题）",
+            "四、完形填空（共10题）",
+            "完形填空",
+            "Cloze",
+        ],
+        [
+            "五、阅读理解",
+            "六、翻译",
+            "七、写作",
+        ],
     )
 
     if not content:
@@ -1030,40 +1046,92 @@ def _recover_translation(
     text: str,
 ) -> dict[str, Any]:
     """
-    恢复翻译 A/B。
+    恢复翻译。
+
+    实际结构：
+
+        # 六、翻译
+
+        ## Part A 汉译英
+        ### 1.
+        ...
+        ### 5.
+
+        ## Part B 英译汉
+        ### 1.
+        ...
+        ### 5.
+
+        # 七、写作
     """
 
-    part_a_content = _parse_first_section(
+    # --------------------------------------------------------------
+    # Translation Part A
+    # --------------------------------------------------------------
+
+    part_a_content = _extract_exact_heading_section(
         text,
         [
+            "Part A 汉译英",
+            "Part A  汉译英",
             "翻译 A：中译英",
             "翻译 A",
             "Translation A：中译英",
             "Translation A",
         ],
+        2,
         [
-            "翻译 B：英译中",
-            "翻译 B",
-            "Translation B：英译中",
-            "Translation B",
-            "写作",
-            "Writing",
+            _exact_heading_pattern(
+                "Part B 英译汉",
+                2,
+            ),
+            _exact_heading_pattern(
+                "Part B  英译汉",
+                2,
+            ),
+            _exact_heading_pattern(
+                "翻译 B：英译汉",
+                2,
+            ),
+            _exact_heading_pattern(
+                "翻译 B",
+                2,
+            ),
+            _exact_heading_pattern(
+                "Translation B：英译中",
+                2,
+            ),
+            _exact_heading_pattern(
+                "Translation B",
+                2,
+            ),
+            _exact_heading_pattern(
+                "七、写作",
+                1,
+            ),
         ],
     )
 
-    part_b_content = _parse_first_section(
+    # --------------------------------------------------------------
+    # Translation Part B
+    # --------------------------------------------------------------
+
+    part_b_content = _extract_exact_heading_section(
         text,
         [
-            "翻译 B：英译中",
+            "Part B 英译汉",
+            "Part B  英译汉",
+            "翻译 B：英译汉",
             "翻译 B",
             "Translation B：英译中",
             "Translation B",
         ],
+        2,
         [
-            "写作",
-            "Writing",
-            "六、写作",
-            "七、写作",
+            _exact_heading_pattern(
+                "七、写作",
+                1,
+            ),
         ],
     )
 
@@ -1118,14 +1186,21 @@ def _recover_writing(
 ) -> list[dict[str, Any]]:
     """
     恢复写作题。
+
+    实际结构：
+
+        # 七、写作
+
+        ### 1.
+        ...
     """
 
-    content = _parse_first_section(
+    content = _extract_major_section(
         text,
         [
-            "写作",
             "七、写作",
             "六、写作",
+            "写作",
             "Writing",
         ],
         [],
@@ -1250,7 +1325,7 @@ def recover_exam(
     # Single Choice
     # --------------------------------------------------------------
 
-    single = _recover_question_section(
+    single = _parse_major_question_section(
         text,
         [
             "二、单项选择",
@@ -1259,12 +1334,13 @@ def recover_exam(
             "单项选择题",
         ],
         [
-            "三、完形填空",
-            "完形填空",
-            "四、阅读理解",
-            "阅读理解",
-            "翻译",
-            "写作",
+            "三、多选题",
+            "三、多项选择",
+            "三、多项选择题",
+            "四、完形填空",
+            "五、阅读理解",
+            "六、翻译",
+            "七、写作",
         ],
         10,
         "Single Choice",
@@ -1280,20 +1356,21 @@ def recover_exam(
     # Multiple Choice
     # --------------------------------------------------------------
 
-    multiple = _recover_question_section(
+    multiple = _parse_major_question_section(
         text,
         [
+            "三、多选题",
+            "三、多项选择",
+            "三、多项选择题",
+            "多选题",
             "多项选择",
             "多项选择题",
-            "三、 多项选择",
-            "三、多项选择",
-            "四、多项选择",
         ],
         [
-            "完形填空",
-            "阅读理解",
-            "翻译",
-            "写作",
+            "四、完形填空",
+            "五、阅读理解",
+            "六、翻译",
+            "七、写作",
         ],
         10,
         "Multiple Choice",
@@ -1324,19 +1401,17 @@ def recover_exam(
     # Reading
     # --------------------------------------------------------------
 
-    reading = _recover_question_section(
+    reading = _parse_major_question_section(
         text,
         [
-            "四、阅读理解",
+            "五、阅读理解",
+            "五、阅读",
             "阅读理解",
             "阅读",
         ],
         [
-            "翻译",
-            "写作",
-            "Translation A",
-            "Translation B",
-            "Writing",
+            "六、翻译",
+            "七、写作",
         ],
         5,
         "Reading",
@@ -1907,12 +1982,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     # --------------------------------------------------------------
-    # 注意：
-    #
     # --audio 接收 yes/no
     # --audio-format 接收 mp3/m4a/wav
-    #
-    # 这两个参数不能混在一起。
     # --------------------------------------------------------------
 
     parser.add_argument(
