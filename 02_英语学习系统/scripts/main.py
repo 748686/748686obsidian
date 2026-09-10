@@ -1630,13 +1630,19 @@ def main() -> int:
             f"找不到输入文件：{input_file}"
         )
 
-    parsed = parse(
+    # ------------------------------------------------------------------
+    # input_parser.parse() 返回：
+    #
+    #     words, images
+    #
+    # 不能再按 dict 使用 parsed.get("words")。
+    # ------------------------------------------------------------------
+
+    words, images = parse(
         input_file
     )
 
-    words = list(
-        parsed.get("words", [])
-    )
+    words = list(words)
 
     try:
         vision_words = extract(
