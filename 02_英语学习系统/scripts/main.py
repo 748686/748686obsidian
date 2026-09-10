@@ -691,25 +691,18 @@ def recover_exam_from_markdown(
     # --------------------------------------------------------
     # Listening
     #
-    # 关键修复：
-    #
     # Part C 后面没有 Part D。
     #
-    # 如果直接使用 \Z，
-    # Part C 会一直吃到整个试卷结尾，
-    # 从而把：
-    #
-    #   # 二、单项选择
-    #   # 三、多选题
-    #   ...
-    #
-    # 后面的所有 ### 题目一起解析进去。
-    #
-    # 所以 Part C 必须在：
+    # 因此 Part C 必须在：
     #
     #   # 二、单项选择
     #
     # 之前停止。
+    #
+    # 否则 Part C 会把后面的所有 ### 题目一起
+    # 解析进去，导致：
+    #
+    #   Listening Part C 题数异常：40，期望 5
     # --------------------------------------------------------
 
     listening: dict[str, list[dict[str, Any]]] = {}
@@ -1097,6 +1090,7 @@ def load_or_generate_exam(
     difficulty: int,
     article_type: str,
     article_data: dict[str, Any],
+    words: list[Any],
     output_file: Path,
     system_dir: Path,
 ) -> dict[str, Any]:
@@ -1166,16 +1160,27 @@ def load_or_generate_exam(
 
     # --------------------------------------------------------
     # AI 生成
+    #
+    # exam_generate.py V5.3 的真实接口是：
+    #
+    # generate(
+    #     article,
+    #     difficulty,
+    #     article_type,
+    #     words,
+    # )
+    #
+    # 不接受 date=。
     # --------------------------------------------------------
 
     print("→ 未找到现有试卷")
     print("→ 正在调用试卷 AI")
 
     generated = gen_exam(
-        date=date,
-        difficulty=difficulty,
-        article_type=article_type,
-        article=article_data,
+        article_data,
+        difficulty,
+        article_type,
+        words,
     )
 
     if not isinstance(generated, dict):
@@ -1183,8 +1188,25 @@ def load_or_generate_exam(
             "试卷 AI 返回结果不是 dict"
         )
 
+    # --------------------------------------------------------
+    # exam_generate.py V5.3 的真实 render 接口：
+    #
+    # render(
+    #     exam,
+    #     article_title,
+    #     difficulty,
+    #     article_type_name,
+    # )
+    # --------------------------------------------------------
+
     markdown = render_exam(
-        generated
+        generated,
+        article_data.get("title", ""),
+        difficulty,
+        ARTICLE_TYPES.get(
+            article_type,
+            article_type,
+        ),
     )
 
     write_and_confirm(
@@ -1601,6 +1623,7 @@ def main() -> None:
             difficulty=difficulty,
             article_type=article_type,
             article_data=article_data,
+            words=words,
             output_file=exam_file,
             system_dir=system_dir,
         )
