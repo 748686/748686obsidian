@@ -475,25 +475,6 @@ def _looks_like_chinese_text(text: str) -> bool:
 class _ArticleHTMLParser(HTMLParser):
     """
     针对文章 HTML 卡片的轻量级解析器。
-
-    目的不是完整解析 HTML，
-    只负责记录每一个 div 的完整纯文本内容。
-
-    例如：
-
-        <div>📖 English Article</div>
-        <div>Why Exercise Is Good for Us</div>
-        <div>
-            I think <span><strong>exercise</strong></span> is important.
-        </div>
-
-    会得到三个 div 文本块：
-
-        1. 📖 English Article
-        2. Why Exercise Is Good for Us
-        3. I think exercise is important.
-
-    这样可以准确跳过文章标题，只取正文。
     """
 
     def __init__(self):
@@ -560,40 +541,6 @@ class _ArticleHTMLParser(HTMLParser):
 def _extract_html_article_body(
     text: str,
 ) -> str:
-    """
-    从当前英语文章 Markdown 中提取真正的英文正文。
-
-    当前文章结构类似：
-
-        <div>📖 English Article</div>
-
-        <div>
-            Why Exercise Is Good for Us
-        </div>
-
-        <div>
-            I think exercise is very important...
-        </div>
-
-        <hr>
-
-        <div>
-            中文翻译
-        </div>
-
-    最终只返回：
-
-        I think exercise is very important...
-
-    不返回：
-        - English Article
-        - 文章标题
-        - 中文翻译
-        - 学习解析
-        - HTML 标签
-        - YAML
-        - Markdown 元数据
-    """
 
     if not isinstance(text, str):
         return ""
@@ -602,10 +549,6 @@ def _extract_html_article_body(
 
     if not text:
         return ""
-
-    # --------------------------------------------------------------
-    # 必须存在 English Article 标记
-    # --------------------------------------------------------------
 
     if not re.search(
         r"English\s+Article",
@@ -627,10 +570,6 @@ def _extract_html_article_body(
 
     if not blocks:
         return ""
-
-    # --------------------------------------------------------------
-    # 找到 English Article 标记
-    # --------------------------------------------------------------
 
     marker_index = None
 
@@ -658,16 +597,6 @@ def _extract_html_article_body(
     if marker_index is None:
         return ""
 
-    # --------------------------------------------------------------
-    # English Article 后：
-    #
-    # 第一个非空 div = 标题
-    # 第二个非空 div = 英文正文
-    #
-    # 因为 HTML parser 已经把 span / strong
-    # 中的英文内容合并，所以正文会恢复成普通文本。
-    # --------------------------------------------------------------
-
     candidates = blocks[
         marker_index + 1:
     ]
@@ -675,15 +604,9 @@ def _extract_html_article_body(
     if len(candidates) < 2:
         return ""
 
-    # 第一个候选块是文章标题
     title_candidate = candidates[0].strip()
 
-    # 第二个候选块是文章正文
     body_candidate = candidates[1].strip()
-
-    # --------------------------------------------------------------
-    # 基础验证
-    # --------------------------------------------------------------
 
     if not body_candidate:
         return ""
@@ -693,31 +616,13 @@ def _extract_html_article_body(
     ):
         return ""
 
-    # --------------------------------------------------------------
-    # 防止 HTML 卡片结构异常：
-    #
-    # 如果第二个块其实不是正文，而是中文翻译、
-    # 学习解析等，则拒绝。
-    # --------------------------------------------------------------
-
     if _looks_like_chinese_text(
         body_candidate
     ):
         return ""
 
-    # --------------------------------------------------------------
-    # 正文不能等于标题
-    # --------------------------------------------------------------
-
     if body_candidate == title_candidate:
         return ""
-
-    # --------------------------------------------------------------
-    # 最终纯文本清理
-    #
-    # HTMLParser 已经去掉 HTML 标签。
-    # 这里仅处理实体和多余空白。
-    # --------------------------------------------------------------
 
     body_candidate = unescape(
         body_candidate
@@ -835,13 +740,6 @@ def _extract_article_from_markdown(
         if not cleaned:
             continue
 
-        # ==========================================================
-        # V2.4 HTML Article Card 专用提取
-        #
-        # 只有英文使用 HTML English Article 提取。
-        # 中文继续保持原来的 Markdown 提取逻辑。
-        # ==========================================================
-
         if language == "en":
 
             html_article = _extract_html_article_body(
@@ -883,10 +781,6 @@ def _extract_article_from_markdown(
             if not cleaned:
                 continue
 
-            # ======================================================
-            # 嵌套 Markdown 中同样支持 HTML Article Card
-            # ======================================================
-
             if language == "en":
 
                 html_article = _extract_html_article_body(
@@ -914,13 +808,6 @@ def _get_article_en(article: Any) -> str:
             "文章数据必须是 dict"
         )
 
-    # ==============================================================
-    # 第一优先级：
-    # 原有结构化 article_en / content_en / english / en
-    #
-    # 完全保留 V2.3 / V2.4 原逻辑。
-    # ==============================================================
-
     direct_keys = [
         "article_en",
         "content_en",
@@ -937,21 +824,6 @@ def _get_article_en(article: Any) -> str:
     if value:
         return value
 
-    # ==============================================================
-    # 第二优先级：
-    # Markdown / HTML Article Card
-    #
-    # 这里现在会专门识别：
-    #
-    # 📖 English Article
-    # ↓
-    # 文章标题
-    # ↓
-    # 英文正文
-    #
-    # 最终只返回英文正文。
-    # ==============================================================
-
     value = _extract_article_from_markdown(
         article,
         "en",
@@ -959,18 +831,6 @@ def _get_article_en(article: Any) -> str:
 
     if value:
         return value
-
-    # ==============================================================
-    # 第三优先级：
-    # 原有 generic fallback
-    #
-    # 注意：
-    # 如果 candidate 是完整 Markdown 文档，
-    # 绝对不能因为里面包含大量英文字符，
-    # 就把整个 Markdown 当 ARTICLE EN。
-    #
-    # 因此这里只允许看起来就是纯英文正文的文本。
-    # ==============================================================
 
     generic_keys = [
         "article",
@@ -989,25 +849,12 @@ def _get_article_en(article: Any) -> str:
                 candidate
             )
 
-            # ------------------------------------------------------
-            # 如果是完整 Markdown / HTML 文档，
-            # 不允许直接作为 ARTICLE EN。
-            #
-            # 先尝试 HTML Article Card。
-            # ------------------------------------------------------
-
             html_article = _extract_html_article_body(
                 cleaned
             )
 
             if html_article:
                 return html_article
-
-            # ------------------------------------------------------
-            # 原有纯文本 fallback。
-            #
-            # 只有文本本身不像 Markdown 文档时才允许。
-            # ------------------------------------------------------
 
             has_markdown_structure = bool(
                 re.search(
@@ -1053,20 +900,12 @@ def _get_article_en(article: Any) -> str:
                     nested_candidate
                 )
 
-                # --------------------------------------------------
-                # HTML Article Card
-                # --------------------------------------------------
-
                 html_article = _extract_html_article_body(
                     cleaned
                 )
 
                 if html_article:
                     return html_article
-
-                # --------------------------------------------------
-                # 原有纯文本 fallback
-                # --------------------------------------------------
 
                 has_markdown_structure = bool(
                     re.search(
@@ -2267,13 +2106,6 @@ def _build_writing_payload(
         article_type,
     )
 
-    # --------------------------------------------------------------
-    # Writing 原题真实题号
-    #
-    # 绝对不能假设 Writing 一定是第1题。
-    # 必须直接从正式试卷中读取真实 question 编号。
-    # --------------------------------------------------------------
-
     expected_numbers = [
         _question_number(item)
         for item in questions
@@ -2283,10 +2115,6 @@ def _build_writing_payload(
         expected_numbers,
         ensure_ascii=False,
     )
-
-    # --------------------------------------------------------------
-    # Writing 专属系统规则
-    # --------------------------------------------------------------
 
     system_prompt += """
 
@@ -2347,10 +2175,6 @@ JSON 字符串内部如果需要出现双引号，
 
 Writing analysis 必须简洁、具体、完整。
 """.strip()
-
-    # --------------------------------------------------------------
-    # 正式 Writing 题目
-    # --------------------------------------------------------------
 
     user_prompt = f"""
 现在处理：
@@ -2696,7 +2520,6 @@ def _validate_answer_items(
 
         elif isinstance(answer, list):
 
-            # 多选题允许至少一个正确答案
             if len(answer) < 1:
                 raise ValueError(
                     f"{block_name} "
@@ -2760,7 +2583,6 @@ def _validate_multiple_choice_answers(
                 f"第 {item['question']} 题多选答案必须是数组"
             )
 
-        # 多选题允许 1 个或以上正确答案
         if len(answer) < 1:
             raise ValueError(
                 f"{block_name} "
@@ -3058,6 +2880,10 @@ def generate(
 
     # ==============================================================
     # Multiple Choice
+    #
+    # 唯一修改：
+    # 原来 5题 × 2组
+    # 现在 2题 × 5组
     # ==============================================================
 
     multiple = _copy_questions(
@@ -3068,16 +2894,16 @@ def generate(
     )
 
     if len(multiple) != 10:
-    raise ValueError(
-        "Multiple Choice 必须正好有10题，"
-        f"实际 {len(multiple)}"
-    )
+        raise ValueError(
+            "Multiple Choice 必须正好有10题，"
+            f"实际 {len(multiple)}"
+        )
 
-     multiple_1 = multiple[0:2]
-     multiple_2 = multiple[2:4]
-     multiple_3 = multiple[4:6]
-     multiple_4 = multiple[6:8]
-     multiple_5 = multiple[8:10]
+    multiple_1 = multiple[0:2]
+    multiple_2 = multiple[2:4]
+    multiple_3 = multiple[4:6]
+    multiple_4 = multiple[6:8]
+    multiple_5 = multiple[8:10]
 
     # ==============================================================
     # Cloze
@@ -3222,7 +3048,7 @@ def generate(
 
     block = _run_block(
         1,
-        14,
+        17,
         "Listening A｜5题",
         system_prompt,
         user_prompt,
@@ -3260,7 +3086,7 @@ def generate(
 
     block = _run_block(
         2,
-        14,
+        17,
         "Listening B｜5题",
         system_prompt,
         user_prompt,
@@ -3298,7 +3124,7 @@ def generate(
 
     block = _run_block(
         3,
-        14,
+        17,
         "Listening C｜5题",
         system_prompt,
         user_prompt,
@@ -3333,7 +3159,7 @@ def generate(
 
     block = _run_block(
         4,
-        14,
+        17,
         "Single Choice 1｜1-5",
         system_prompt,
         user_prompt,
@@ -3367,7 +3193,7 @@ def generate(
 
     block = _run_block(
         5,
-        14,
+        17,
         "Single Choice 2｜6-10",
         system_prompt,
         user_prompt,
@@ -3385,166 +3211,184 @@ def generate(
     result["question_analysis"]["single_choice"].extend(
         block["analysis"]
     )
-  #==============================================================
-     # Multiple Choice
-  #==============================================================
-
- # Block 6 — Multiple Choice 1
- system_prompt, user_prompt = _build_question_payload(
-    "Multiple Choice 1｜第1-2题",
-    multiple_1,
-    difficulty,
-    article_type,
-    article_en,
-    article_zh,
-  )
-
-  block = _run_block(
-    6,
-    17,
-    "Multiple Choice 1｜1-2",
-    system_prompt,
-    user_prompt,
-    lambda x: _validate_multiple_choice_answers(
-        x,
-        multiple_1,
-        "Multiple Choice 1",
-    ),
-   )
-
-  result["multiple_choice"]["answers"].extend(
-    block["answers"]
-   )
-  result["multiple_choice"]["analysis"].extend(
-    block["analysis"]
-  )
-
-
-# Block 7 — Multiple Choice 2
- system_prompt, user_prompt = _build_question_payload(
-    "Multiple Choice 2｜第3-4题",
-    multiple_2,
-    difficulty,
-    article_type,
-    article_en,
-    article_zh,
-  )
-
-  block = _run_block(
-    7,
-    17,
-    "Multiple Choice 2｜3-4",
-    system_prompt,
-    user_prompt,
-    lambda x: _validate_multiple_choice_answers(
-        x,
-        multiple_2,
-        "Multiple Choice 2",
-    ),
-   )
-
-   result["multiple_choice"]["answers"].extend(
-    block["answers"]
-   )
-   result["multiple_choice"]["analysis"].extend(
-    block["analysis"]
-   )
-
-
-  # Block 8 — Multiple Choice 3
-   system_prompt, user_prompt = _build_question_payload(
-    "Multiple Choice 3｜第5-6题",
-    multiple_3,
-    difficulty,
-    article_type,
-    article_en,
-    article_zh,
-   )
-
-    block = _run_block(
-    8,
-    17,
-    "Multiple Choice 3｜5-6",
-    system_prompt,
-    user_prompt,
-    lambda x: _validate_multiple_choice_answers(
-        x,
-        multiple_3,
-        "Multiple Choice 3",
-    ),
-   )
-
-   result["multiple_choice"]["answers"].extend(
-    block["answers"]
-   )
- result["multiple_choice"]["analysis"].extend(
-    block["analysis"]
-  )
-
-
-# Block 9 — Multiple Choice 4
- system_prompt, user_prompt = _build_question_payload(
-    "Multiple Choice 4｜第7-8题",
-    multiple_4,
-    difficulty,
-    article_type,
-    article_en,
-    article_zh,
- )
-
-  block = _run_block(
-    9,
-    17,
-    "Multiple Choice 4｜7-8",
-    system_prompt,
-    user_prompt,
-    lambda x: _validate_multiple_choice_answers(
-        x,
-        multiple_4,
-        "Multiple Choice 4",
-    ),
-   )
-
-    result["multiple_choice"]["answers"].extend(
-    block["answers"]
-  )
-   result["multiple_choice"]["analysis"].extend(
-    block["analysis"]
-  )
-
-
-  # Block 10 — Multiple Choice 5
-   system_prompt, user_prompt = _build_question_payload(
-    "Multiple Choice 5｜第9-10题",
-    multiple_5,
-    difficulty,
-    article_type,
-    article_en,
-    article_zh,
-  )
-
-  block = _run_block(
-    10,
-    17,
-    "Multiple Choice 5｜9-10",
-    system_prompt,
-    user_prompt,
-    lambda x: _validate_multiple_choice_answers(
-        x,
-        multiple_5,
-        "Multiple Choice 5",
-    ),
-   )
-
-   result["multiple_choice"]["answers"].extend(
-    block["answers"]
-   )
-   result["multiple_choice"]["analysis"].extend(
-    block["analysis"]
-   )
 
     # ==============================================================
-    # Block 8 — Cloze 1
+    # Block 6 — Multiple Choice 1
+    # 第1-2题
+    # ==============================================================
+
+    system_prompt, user_prompt = _build_question_payload(
+        "Multiple Choice 1｜第1-2题",
+        multiple_1,
+        difficulty,
+        article_type,
+        article_en,
+        article_zh,
+    )
+
+    block = _run_block(
+        6,
+        17,
+        "Multiple Choice 1｜1-2",
+        system_prompt,
+        user_prompt,
+        lambda x: _validate_multiple_choice_answers(
+            x,
+            multiple_1,
+            "Multiple Choice 1",
+        ),
+    )
+
+    result["answers"]["multiple_choice"].extend(
+        block["answers"]
+    )
+
+    result["question_analysis"]["multiple_choice"].extend(
+        block["analysis"]
+    )
+
+    # ==============================================================
+    # Block 7 — Multiple Choice 2
+    # 第3-4题
+    # ==============================================================
+
+    system_prompt, user_prompt = _build_question_payload(
+        "Multiple Choice 2｜第3-4题",
+        multiple_2,
+        difficulty,
+        article_type,
+        article_en,
+        article_zh,
+    )
+
+    block = _run_block(
+        7,
+        17,
+        "Multiple Choice 2｜3-4",
+        system_prompt,
+        user_prompt,
+        lambda x: _validate_multiple_choice_answers(
+            x,
+            multiple_2,
+            "Multiple Choice 2",
+        ),
+    )
+
+    result["answers"]["multiple_choice"].extend(
+        block["answers"]
+    )
+
+    result["question_analysis"]["multiple_choice"].extend(
+        block["analysis"]
+    )
+
+    # ==============================================================
+    # Block 8 — Multiple Choice 3
+    # 第5-6题
+    # ==============================================================
+
+    system_prompt, user_prompt = _build_question_payload(
+        "Multiple Choice 3｜第5-6题",
+        multiple_3,
+        difficulty,
+        article_type,
+        article_en,
+        article_zh,
+    )
+
+    block = _run_block(
+        8,
+        17,
+        "Multiple Choice 3｜5-6",
+        system_prompt,
+        user_prompt,
+        lambda x: _validate_multiple_choice_answers(
+            x,
+            multiple_3,
+            "Multiple Choice 3",
+        ),
+    )
+
+    result["answers"]["multiple_choice"].extend(
+        block["answers"]
+    )
+
+    result["question_analysis"]["multiple_choice"].extend(
+        block["analysis"]
+    )
+
+    # ==============================================================
+    # Block 9 — Multiple Choice 4
+    # 第7-8题
+    # ==============================================================
+
+    system_prompt, user_prompt = _build_question_payload(
+        "Multiple Choice 4｜第7-8题",
+        multiple_4,
+        difficulty,
+        article_type,
+        article_en,
+        article_zh,
+    )
+
+    block = _run_block(
+        9,
+        17,
+        "Multiple Choice 4｜7-8",
+        system_prompt,
+        user_prompt,
+        lambda x: _validate_multiple_choice_answers(
+            x,
+            multiple_4,
+            "Multiple Choice 4",
+        ),
+    )
+
+    result["answers"]["multiple_choice"].extend(
+        block["answers"]
+    )
+
+    result["question_analysis"]["multiple_choice"].extend(
+        block["analysis"]
+    )
+
+    # ==============================================================
+    # Block 10 — Multiple Choice 5
+    # 第9-10题
+    # ==============================================================
+
+    system_prompt, user_prompt = _build_question_payload(
+        "Multiple Choice 5｜第9-10题",
+        multiple_5,
+        difficulty,
+        article_type,
+        article_en,
+        article_zh,
+    )
+
+    block = _run_block(
+        10,
+        17,
+        "Multiple Choice 5｜9-10",
+        system_prompt,
+        user_prompt,
+        lambda x: _validate_multiple_choice_answers(
+            x,
+            multiple_5,
+            "Multiple Choice 5",
+        ),
+    )
+
+    result["answers"]["multiple_choice"].extend(
+        block["answers"]
+    )
+
+    result["question_analysis"]["multiple_choice"].extend(
+        block["analysis"]
+    )
+
+    # ==============================================================
+    # Block 11 — Cloze 1
     # ==============================================================
 
     system_prompt, user_prompt = _build_question_payload(
@@ -3557,8 +3401,8 @@ def generate(
     )
 
     block = _run_block(
-        8,
-        14,
+        11,
+        17,
         "Cloze 1｜1-5",
         system_prompt,
         user_prompt,
@@ -3578,7 +3422,7 @@ def generate(
     )
 
     # ==============================================================
-    # Block 9 — Cloze 2
+    # Block 12 — Cloze 2
     # ==============================================================
 
     system_prompt, user_prompt = _build_question_payload(
@@ -3591,8 +3435,8 @@ def generate(
     )
 
     block = _run_block(
-        9,
-        14,
+        12,
+        17,
         "Cloze 2｜6-10",
         system_prompt,
         user_prompt,
@@ -3612,7 +3456,7 @@ def generate(
     )
 
     # ==============================================================
-    # Block 10 — Reading
+    # Block 13 — Reading
     # ==============================================================
 
     system_prompt, user_prompt = _build_question_payload(
@@ -3625,8 +3469,8 @@ def generate(
     )
 
     block = _run_block(
-        10,
-        14,
+        13,
+        17,
         "Reading｜5题",
         system_prompt,
         user_prompt,
@@ -3646,7 +3490,7 @@ def generate(
     )
 
     # ==============================================================
-    # Block 11 — Translation A
+    # Block 14 — Translation A
     # ==============================================================
 
     system_prompt, user_prompt = _build_translation_payload(
@@ -3657,8 +3501,8 @@ def generate(
     )
 
     block = _run_block(
-        11,
         14,
+        17,
         "Translation A｜中译英",
         system_prompt,
         user_prompt,
@@ -3678,7 +3522,7 @@ def generate(
     )
 
     # ==============================================================
-    # Block 12 — Translation B
+    # Block 15 — Translation B
     # ==============================================================
 
     system_prompt, user_prompt = _build_translation_payload(
@@ -3689,8 +3533,8 @@ def generate(
     )
 
     block = _run_block(
-        12,
-        14,
+        15,
+        17,
         "Translation B｜英译中",
         system_prompt,
         user_prompt,
@@ -3710,7 +3554,7 @@ def generate(
     )
 
     # ==============================================================
-    # Block 13 — Writing
+    # Block 16 — Writing
     # ==============================================================
 
     system_prompt, user_prompt = _build_writing_payload(
@@ -3720,8 +3564,8 @@ def generate(
     )
 
     block = _run_block(
-        13,
-        14,
+        16,
+        17,
         "Writing｜1题",
         system_prompt,
         user_prompt,
@@ -3741,7 +3585,7 @@ def generate(
     )
 
     # ==============================================================
-    # Block 14 — General Analysis
+    # Block 17 — General Analysis
     # ==============================================================
 
     system_prompt, user_prompt = _build_general_payload(
@@ -3754,8 +3598,8 @@ def generate(
     )
 
     block = _run_block(
-        14,
-        14,
+        17,
+        17,
         "General Analysis｜总体学习分析",
         system_prompt,
         user_prompt,
@@ -3785,7 +3629,7 @@ def generate(
     )
 
     print(
-        "✓ 14 个独立模块全部通过验收"
+        "✓ 17 个独立模块全部通过验收"
     )
 
     print(
@@ -4151,7 +3995,7 @@ def render(
 
     lines.append(
         "### 翻译 B：英译中"
-     )
+    )
 
     lines.append("")
 
@@ -4404,7 +4248,7 @@ if __name__ == "__main__":
     print()
 
     print(
-        "现在采用 14 个独立 AI 模块："
+        "现在采用 17 个独立 AI 模块："
     )
 
     print()
@@ -4415,15 +4259,18 @@ if __name__ == "__main__":
         "03 Listening C",
         "04 Single Choice 1",
         "05 Single Choice 2",
-        "06 Multiple Choice 1",
-        "07 Multiple Choice 2",
-        "08 Cloze 1",
-        "09 Cloze 2",
-        "10 Reading",
-        "11 Translation A",
-        "12 Translation B",
-        "13 Writing",
-        "14 General Analysis",
+        "06 Multiple Choice 1｜1-2",
+        "07 Multiple Choice 2｜3-4",
+        "08 Multiple Choice 3｜5-6",
+        "09 Multiple Choice 4｜7-8",
+        "10 Multiple Choice 5｜9-10",
+        "11 Cloze 1",
+        "12 Cloze 2",
+        "13 Reading",
+        "14 Translation A",
+        "15 Translation B",
+        "16 Writing",
+        "17 General Analysis",
     ]
 
     for module in modules:
