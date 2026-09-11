@@ -3073,11 +3073,11 @@ def generate(
         f"实际 {len(multiple)}"
     )
 
-    multiple_1 = multiple[0:2]
+     multiple_1 = multiple[0:2]
      multiple_2 = multiple[2:4]
-multiple_3 = multiple[4:6]
-multiple_4 = multiple[6:8]
-multiple_5 = multiple[8:10]
+     multiple_3 = multiple[4:6]
+     multiple_4 = multiple[6:8]
+     multiple_5 = multiple[8:10]
 
     # ==============================================================
     # Cloze
@@ -3385,74 +3385,163 @@ multiple_5 = multiple[8:10]
     result["question_analysis"]["single_choice"].extend(
         block["analysis"]
     )
+  #==============================================================
+     # Multiple Choice
+  #==============================================================
 
-    # ==============================================================
-    # Block 6 — Multiple Choice 1
-    # ==============================================================
+ # Block 6 — Multiple Choice 1
+ system_prompt, user_prompt = _build_question_payload(
+    "Multiple Choice 1｜第1-2题",
+    multiple_1,
+    difficulty,
+    article_type,
+    article_en,
+    article_zh,
+  )
 
-    system_prompt, user_prompt = _build_question_payload(
-        "Multiple Choice 1｜第1-5题",
+  block = _run_block(
+    6,
+    17,
+    "Multiple Choice 1｜1-2",
+    system_prompt,
+    user_prompt,
+    lambda x: _validate_multiple_choice_answers(
+        x,
         multiple_1,
-        difficulty,
-        article_type,
-        article_en,
-        article_zh,
-    )
+        "Multiple Choice 1",
+    ),
+   )
 
-    block = _run_block(
-        6,
-        14,
-        "Multiple Choice 1｜1-5",
-        system_prompt,
-        user_prompt,
-        lambda x: _validate_multiple_choice_answers(
-            x,
-            multiple_1,
-            "Multiple Choice 1",
-        ),
-    )
+  result["multiple_choice"]["answers"].extend(
+    block["answers"]
+   )
+  result["multiple_choice"]["analysis"].extend(
+    block["analysis"]
+  )
 
-    result["answers"]["multiple_choice"].extend(
-        block["answers"]
-    )
 
-    result["question_analysis"]["multiple_choice"].extend(
-        block["analysis"]
-    )
+# Block 7 — Multiple Choice 2
+ system_prompt, user_prompt = _build_question_payload(
+    "Multiple Choice 2｜第3-4题",
+    multiple_2,
+    difficulty,
+    article_type,
+    article_en,
+    article_zh,
+  )
 
-    # ==============================================================
-    # Block 7 — Multiple Choice 2
-    # ==============================================================
-
-    system_prompt, user_prompt = _build_question_payload(
-        "Multiple Choice 2｜第6-10题",
+  block = _run_block(
+    7,
+    17,
+    "Multiple Choice 2｜3-4",
+    system_prompt,
+    user_prompt,
+    lambda x: _validate_multiple_choice_answers(
+        x,
         multiple_2,
-        difficulty,
-        article_type,
-        article_en,
-        article_zh,
-    )
+        "Multiple Choice 2",
+    ),
+   )
+
+   result["multiple_choice"]["answers"].extend(
+    block["answers"]
+   )
+   result["multiple_choice"]["analysis"].extend(
+    block["analysis"]
+   )
+
+
+  # Block 8 — Multiple Choice 3
+   system_prompt, user_prompt = _build_question_payload(
+    "Multiple Choice 3｜第5-6题",
+    multiple_3,
+    difficulty,
+    article_type,
+    article_en,
+    article_zh,
+   )
 
     block = _run_block(
-        7,
-        14,
-        "Multiple Choice 2｜6-10",
-        system_prompt,
-        user_prompt,
-        lambda x: _validate_multiple_choice_answers(
-            x,
-            multiple_2,
-            "Multiple Choice 2",
-        ),
-    )
+    8,
+    17,
+    "Multiple Choice 3｜5-6",
+    system_prompt,
+    user_prompt,
+    lambda x: _validate_multiple_choice_answers(
+        x,
+        multiple_3,
+        "Multiple Choice 3",
+    ),
+   )
 
-    result["answers"]["multiple_choice"].extend(
-        block["answers"]
-    )
+   result["multiple_choice"]["answers"].extend(
+    block["answers"]
+   )
+ result["multiple_choice"]["analysis"].extend(
+    block["analysis"]
+  )
 
-    result["question_analysis"]["multiple_choice"].extend(
-        block["analysis"]
-    )
+
+# Block 9 — Multiple Choice 4
+ system_prompt, user_prompt = _build_question_payload(
+    "Multiple Choice 4｜第7-8题",
+    multiple_4,
+    difficulty,
+    article_type,
+    article_en,
+    article_zh,
+ )
+
+  block = _run_block(
+    9,
+    17,
+    "Multiple Choice 4｜7-8",
+    system_prompt,
+    user_prompt,
+    lambda x: _validate_multiple_choice_answers(
+        x,
+        multiple_4,
+        "Multiple Choice 4",
+    ),
+   )
+
+    result["multiple_choice"]["answers"].extend(
+    block["answers"]
+  )
+   result["multiple_choice"]["analysis"].extend(
+    block["analysis"]
+  )
+
+
+  # Block 10 — Multiple Choice 5
+   system_prompt, user_prompt = _build_question_payload(
+    "Multiple Choice 5｜第9-10题",
+    multiple_5,
+    difficulty,
+    article_type,
+    article_en,
+    article_zh,
+  )
+
+  block = _run_block(
+    10,
+    17,
+    "Multiple Choice 5｜9-10",
+    system_prompt,
+    user_prompt,
+    lambda x: _validate_multiple_choice_answers(
+        x,
+        multiple_5,
+        "Multiple Choice 5",
+    ),
+   )
+
+   result["multiple_choice"]["answers"].extend(
+    block["answers"]
+   )
+   result["multiple_choice"]["analysis"].extend(
+    block["analysis"]
+   )
 
     # ==============================================================
     # Block 8 — Cloze 1
