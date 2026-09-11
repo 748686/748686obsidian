@@ -4151,7 +4151,7 @@ def render(
 
     lines.append(
         "### 翻译 B：英译中"
-    )
+     )
 
     lines.append("")
 
