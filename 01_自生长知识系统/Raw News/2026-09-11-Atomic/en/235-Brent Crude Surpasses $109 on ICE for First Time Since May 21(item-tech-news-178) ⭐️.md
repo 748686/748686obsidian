@@ -1,0 +1,26 @@
+---
+title: "[Brent Crude Surpasses $109 on ICE for First Time Since May 21](#item-tech-news-178) ⭐️"
+date: 2026-09-11
+type: "新闻"
+source: "Unknown"
+language: "en"
+horizon_score: 1.0
+original_source: "Horizon"
+original_url: ""
+status: "待AI处理"
+---
+
+# [Brent Crude Surpasses $109 on ICE for First Time Since May 21](#item-tech-news-178) ⭐️
+
+## Horizon Summary
+
+The Horizon digest did not provide a full body for this item.
+
+## 原文信息
+
+- Source: Unknown
+- Original URL: 未从 Horizon 日报中找到
+
+## AI处理状态
+
+等待后续 AI 二次处理及 27 Skills 分析。
