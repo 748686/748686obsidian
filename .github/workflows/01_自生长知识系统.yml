@@ -489,7 +489,7 @@ jobs:
 
           SPLITTER="01_自生长知识系统/scripts/horizon_split.py"
           ENRICHMENT="01_自生长知识系统/scripts/source_enrichment.py"
-          ORCHESTRATOR="01_自生长知识系统/scripts/knowledge_rolling_orchestrator.py"
+          ORCHESTRATOR="01_自生长知识系统/scripts/knowledge_rolling.py"
 
           echo
           echo "######################################################################"
@@ -508,7 +508,7 @@ jobs:
           fi
 
           if [ ! -f "$ORCHESTRATOR" ]; then
-            echo "❌ knowledge_rolling_orchestrator.py not found"
+            echo "❌ knowledge_rolling.py not found"
             exit 1
           fi
 
