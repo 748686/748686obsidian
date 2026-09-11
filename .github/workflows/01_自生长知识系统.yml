@@ -1,0 +1,2037 @@
+name: 748686 自生长知识系统
+
+on:
+  workflow_dispatch:
+
+  schedule:
+    - cron: "0 0 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+
+  knowledge-system:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # ==========================================================
+      # 1. Checkout
+      # ==========================================================
+
+      - name: Checkout 748686obsidian
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ==========================================================
+      # 2. Setup Python
+      # ==========================================================
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # ==========================================================
+      # 3. Install uv
+      # ==========================================================
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      # ==========================================================
+      # 4. Calculate processing dates
+      #
+      # GitHub Actions UTC = 唯一业务时间基准
+      #
+      # 正式处理顺序：
+      #
+      #   TODAY
+      #      ↓
+      #   YESTERDAY
+      #      ↓
+      #   DAY_BEFORE
+      #
+      # 注意：
+      # Workflow 负责日期。
+      # 下游 Python 不允许自行计算三日日期。
+      # ==========================================================
+
+      - name: Calculate processing dates
+        run: |
+          set -e
+
+          TODAY=$(date -u +%Y-%m-%d)
+          YESTERDAY=$(date -u -d "$TODAY -1 day" +%Y-%m-%d)
+          DAY_BEFORE=$(date -u -d "$TODAY -2 days" +%Y-%m-%d)
+
+          echo "TODAY=$TODAY" >> "$GITHUB_ENV"
+          echo "YESTERDAY=$YESTERDAY" >> "$GITHUB_ENV"
+          echo "DAY_BEFORE=$DAY_BEFORE" >> "$GITHUB_ENV"
+
+          echo
+          echo "============================================================"
+          echo "748686 自生长知识系统"
+          echo "PROCESSING DATE CONTRACT"
+          echo "============================================================"
+
+          echo "Timezone      : UTC"
+          echo "TODAY         : $TODAY"
+          echo "YESTERDAY     : $YESTERDAY"
+          echo "DAY_BEFORE    : $DAY_BEFORE"
+
+          echo
+          echo "PROCESSING ORDER:"
+          echo "1. TODAY"
+          echo "2. YESTERDAY"
+          echo "3. DAY_BEFORE"
+
+      # ==========================================================
+      # 5. Checkout Horizon main
+      # ==========================================================
+
+      - name: Checkout Horizon main
+        uses: actions/checkout@v4
+        with:
+          repository: 748686/Horizon
+          ref: main
+          path: horizon
+
+      # ==========================================================
+      # 6. Install Horizon
+      # ==========================================================
+
+      - name: Install Horizon
+        working-directory: horizon
+        run: |
+          set -e
+
+          echo "============================================================"
+          echo "INSTALL HORIZON"
+          echo "============================================================"
+
+          uv sync
+
+          if [ ! -f "data/config.github.json" ]; then
+            echo "❌ Horizon native config not found"
+            exit 1
+          fi
+
+          echo "✅ Horizon installed"
+          echo "✅ Native config found"
+
+      # ==========================================================
+      # 7. Check AGNES
+      # ==========================================================
+
+      - name: Check Agnes API configuration
+        env:
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+        run: |
+          set -e
+
+          if [ -z "$AGNES_API_KEY" ]; then
+            echo "❌ AGNES_API_KEY is missing"
+            exit 1
+          fi
+
+          echo "✅ AGNES_API_KEY exists"
+
+      # ==========================================================
+      # 8. Get Horizon gh-pages
+      #
+      # gh-pages 同时用于：
+      #
+      #   1. TODAY 已经存在时，直接恢复 TODAY Raw News
+      #   2. 历史日期 Raw News 补齐
+      #
+      # 如果 TODAY 已经存在于 gh-pages：
+      #     下面 Acquire TODAY Raw News 会直接使用
+      #     不再运行 Horizon。
+      # ==========================================================
+
+      - name: Get Horizon gh-pages
+        run: |
+          set -e
+
+          rm -rf horizon-pages
+
+          git clone \
+            --quiet \
+            --depth 1 \
+            --branch gh-pages \
+            "https://github.com/748686/Horizon.git" \
+            horizon-pages
+
+          if [ ! -d "horizon-pages/_posts" ]; then
+            echo "❌ Horizon _posts directory not found"
+            exit 1
+          fi
+
+          echo "✅ Horizon gh-pages downloaded"
+
+      # ==========================================================
+      # 9. Acquire TODAY Raw News
+      #
+      # TODAY 是强制日期。
+      #
+      # 优先级：
+      #
+      #   1. 本地 Raw News/$TODAY >= 2
+      #          ↓
+      #      直接使用
+      #
+      #   2. Horizon gh-pages 已有 $TODAY*.md >= 2
+      #          ↓
+      #      直接下载到 Raw News
+      #          ↓
+      #      不运行 Horizon
+      #
+      #   3. Horizon gh-pages 没有 TODAY
+      #          ↓
+      #      执行 Horizon
+      #          ↓
+      #      最多等待 10 × 30 秒
+      #
+      # TODAY 无法得到 >=2 个 Raw：
+      #     整个 Workflow FAILED
+      #
+      # 历史日期不在这里处理。
+      # ==========================================================
+
+      - name: Acquire TODAY Raw News
+        env:
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_BASE_URL: https://api.agnes-ai.cn/v1
+          AI_MODEL: agnes-3.0-flash
+        run: |
+          set -e
+
+          RAW_ROOT="01_自生长知识系统/Raw News"
+          RAW_DIR="$RAW_ROOT/$TODAY"
+
+          mkdir -p "$RAW_DIR"
+
+          COUNT=$(find "$RAW_DIR" \
+            -maxdepth 1 \
+            -type f \
+            -name "*.md" \
+            | wc -l)
+
+          echo
+          echo "============================================================"
+          echo "TODAY RAW ACQUISITION"
+          echo "============================================================"
+
+          echo "TODAY       : $TODAY"
+          echo "Local files : $COUNT"
+
+          # ======================================================
+          # 1. 优先使用本地 Raw News
+          # ======================================================
+
+          if [ "$COUNT" -ge 2 ]; then
+            echo "✅ TODAY Raw News already exists"
+            echo "⏭️ Horizon gh-pages check not required"
+            echo "⏭️ Horizon not required"
+            exit 0
+          fi
+
+          echo "⚠️ TODAY Raw News incomplete"
+          echo "▶️ Checking Horizon gh-pages before running Horizon"
+
+          # ======================================================
+          # 2. 优先检查已经下载好的 Horizon gh-pages
+          #
+          # 如果 TODAY 已经存在：
+          #     直接复制
+          #     绝不运行 Horizon
+          # ======================================================
+
+          if [ ! -d "horizon-pages/_posts" ]; then
+            echo "❌ Horizon _posts directory not found"
+            exit 1
+          fi
+
+          HCOUNT=$(find \
+            "horizon-pages/_posts" \
+            -maxdepth 1 \
+            -type f \
+            -name "$TODAY*.md" \
+            | wc -l)
+
+          echo "Horizon gh-pages TODAY files: $HCOUNT"
+
+          if [ "$HCOUNT" -ge 2 ]; then
+
+            echo "✅ TODAY already exists in Horizon gh-pages"
+            echo "▶️ Downloading TODAY files directly"
+            echo "⏭️ Horizon will NOT be executed"
+
+            while IFS= read -r file; do
+              cp "$file" "$RAW_DIR/"
+            done < <(
+              find "horizon-pages/_posts" \
+                -maxdepth 1 \
+                -type f \
+                -name "$TODAY*.md" \
+                | sort
+            )
+
+            COUNT=$(find "$RAW_DIR" \
+              -maxdepth 1 \
+              -type f \
+              -name "*.md" \
+              | wc -l)
+
+            echo
+            echo "Final TODAY Raw files: $COUNT"
+
+            if [ "$COUNT" -lt 2 ]; then
+              echo "❌ TODAY Raw News still incomplete after gh-pages recovery"
+              exit 1
+            fi
+
+            echo "✅ TODAY Raw News COMPLETE"
+            echo "✅ Horizon execution skipped"
+            exit 0
+          fi
+
+          # ======================================================
+          # 3. gh-pages 没有 TODAY
+          #
+          # 只有现在才允许真正运行 Horizon。
+          # ======================================================
+
+          echo "⚠️ TODAY not found in Horizon gh-pages"
+          echo "▶️ Running Horizon"
+
+          cd horizon
+
+          uv run horizon \
+            --hours 24 \
+            --config data/config.github.json
+
+          cd ..
+
+          echo "✅ Horizon process finished"
+
+          # ======================================================
+          # 4. Horizon 执行完成后重新检查 gh-pages
+          #
+          # 最多 10 × 30 秒
+          # ======================================================
+
+          rm -rf horizon-pages
+
+          FOUND=false
+
+          for i in {1..10}; do
+
+            echo
+            echo "============================================================"
+            echo "HORIZON OUTPUT CHECK $i / 10"
+            echo "============================================================"
+
+            git clone \
+              --quiet \
+              --depth 1 \
+              --branch gh-pages \
+              "https://github.com/748686/Horizon.git" \
+              horizon-pages
+
+            COUNT=$(find \
+              "horizon-pages/_posts" \
+              -maxdepth 1 \
+              -type f \
+              -name "$TODAY*.md" \
+              | wc -l)
+
+            echo "Today's Horizon files: $COUNT"
+
+            if [ "$COUNT" -ge 2 ]; then
+              FOUND=true
+              echo "✅ Today's bilingual Horizon output found"
+              break
+            fi
+
+            rm -rf horizon-pages
+
+            if [ "$i" -lt 10 ]; then
+              sleep 30
+            fi
+
+          done
+
+          if [ "$FOUND" != "true" ]; then
+            echo "❌ TODAY Horizon output not found"
+            echo "❌ TODAY Raw News acquisition failed"
+            exit 1
+          fi
+
+          RAW_DIR="01_自生长知识系统/Raw News/$TODAY"
+
+          while IFS= read -r file; do
+            cp "$file" "$RAW_DIR/"
+          done < <(
+            find "horizon-pages/_posts" \
+              -maxdepth 1 \
+              -type f \
+              -name "$TODAY*.md" \
+              | sort
+          )
+
+          COUNT=$(find "$RAW_DIR" \
+            -maxdepth 1 \
+            -type f \
+            -name "*.md" \
+            | wc -l)
+
+          echo
+          echo "Final TODAY Raw files: $COUNT"
+
+          if [ "$COUNT" -lt 2 ]; then
+            echo "❌ TODAY Raw News still incomplete"
+            exit 1
+          fi
+
+          echo "✅ TODAY Raw News COMPLETE"
+
+      # ==========================================================
+      # 10. Save TODAY Raw News
+      #
+      # TODAY 数据先落盘。
+      # 后续日期不参与本 checkpoint。
+      # ==========================================================
+
+      - name: Checkpoint TODAY Raw News
+        run: |
+          set -e
+
+          RAW_DIR="01_自生长知识系统/Raw News/$TODAY"
+
+          git config user.name \
+            "748686 Knowledge Bot"
+
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add "$RAW_DIR"
+
+          if git diff --cached --quiet; then
+            echo "ℹ️ TODAY Raw News already persisted"
+          else
+            git commit \
+              -m "data: acquire Raw News $TODAY"
+
+            git push origin HEAD:main
+
+            echo "✅ TODAY Raw News PUSH COMPLETE"
+          fi
+
+          git pull --ff-only origin main
+
+          echo "✅ TODAY Raw News checkpoint complete"
+
+      # ==========================================================
+      # 11. Rolling Date Transaction
+      #
+      # 这是新的核心事务层。
+      #
+      # 每个 DATE 完整执行：
+      #
+      #   Raw
+      #    ↓
+      #   Atomic
+      #    ↓
+      #   Enriched
+      #    ↓
+      #   Task 1
+      #    ↓
+      #   Task 2
+      #    ↓
+      #   Task 3
+      #    ↓
+      #   Task 4
+      #    ↓
+      #   Validation
+      #    ↓
+      #   Git checkpoint
+      #
+      # 然后才允许进入下一日期。
+      #
+      # TODAY：
+      #   任意失败 → Workflow FAILED
+      #
+      # 历史日期：
+      #   任意失败 → SKIPPED
+      #   然后继续下一日期
+      #
+      # 注意：
+      # 这里调用的 rolling orchestrator
+      # 下一步会改成严格 DATE transaction。
+      # ==========================================================
+
+      - name: Rolling Date Transactions
+        env:
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_BASE_URL: https://api.agnes-ai.cn/v1
+          AI_MODEL: agnes-3.0-flash
+        run: |
+          set -u
+
+          RAW_ROOT="01_自生长知识系统/Raw News"
+
+          SPLITTER="01_自生长知识系统/scripts/horizon_split.py"
+          ENRICHMENT="01_自生长知识系统/scripts/source_enrichment.py"
+          ORCHESTRATOR="01_自生长知识系统/scripts/knowledge_rolling_orchestrator.py"
+
+          echo
+          echo "######################################################################"
+          echo "748686 自生长知识系统"
+          echo "ROLLING DATE TRANSACTION ENGINE"
+          echo "######################################################################"
+
+          if [ ! -f "$SPLITTER" ]; then
+            echo "❌ horizon_split.py not found"
+            exit 1
+          fi
+
+          if [ ! -f "$ENRICHMENT" ]; then
+            echo "❌ source_enrichment.py not found"
+            exit 1
+          fi
+
+          if [ ! -f "$ORCHESTRATOR" ]; then
+            echo "❌ knowledge_rolling_orchestrator.py not found"
+            exit 1
+          fi
+
+          python -m pip install --upgrade pip
+          python -m pip install requests
+
+          process_date() {
+
+            DATE="$1"
+            REQUIRED="$2"
+
+            echo
+            echo
+            echo "######################################################################"
+            echo "DATE TRANSACTION START"
+            echo "######################################################################"
+
+            echo "DATE     : $DATE"
+            echo "REQUIRED : $REQUIRED"
+
+            # ======================================================
+            # A. Raw
+            # ======================================================
+
+            RAW_DIR="$RAW_ROOT/$DATE"
+
+            mkdir -p "$RAW_DIR"
+
+            RAW_COUNT=$(find "$RAW_DIR" \
+              -maxdepth 1 \
+              -type f \
+              -name "*.md" \
+              | wc -l)
+
+            echo
+            echo "------------------------------------------------------------"
+            echo "A. RAW NEWS"
+            echo "------------------------------------------------------------"
+
+            echo "Raw files: $RAW_COUNT"
+
+            if [ "$RAW_COUNT" -lt 2 ]; then
+
+              echo "⚠️ Raw News incomplete: $DATE"
+
+              if [ "$REQUIRED" = "true" ]; then
+
+                echo "❌ TODAY Raw News is mandatory"
+                return 1
+
+              fi
+
+              echo "Searching Horizon gh-pages for historical date..."
+
+              rm -rf horizon-pages
+
+              if ! git clone \
+                --quiet \
+                --depth 1 \
+                --branch gh-pages \
+                "https://github.com/748686/Horizon.git" \
+                horizon-pages
+              then
+
+                echo "⚠️ Cannot refresh Horizon gh-pages"
+                return 10
+
+              fi
+
+              HCOUNT=$(find "horizon-pages/_posts" \
+                -maxdepth 1 \
+                -type f \
+                -name "$DATE*.md" \
+                | wc -l)
+
+              echo "Historical Horizon files: $HCOUNT"
+
+              if [ "$HCOUNT" -gt 0 ]; then
+
+                while IFS= read -r file; do
+                  cp "$file" "$RAW_DIR/"
+                done < <(
+                  find "horizon-pages/_posts" \
+                    -maxdepth 1 \
+                    -type f \
+                    -name "$DATE*.md" \
+                    | sort
+                )
+
+              fi
+
+              RAW_COUNT=$(find "$RAW_DIR" \
+                -maxdepth 1 \
+                -type f \
+                -name "*.md" \
+                | wc -l)
+
+              echo "Historical Raw files after recovery: $RAW_COUNT"
+
+              if [ "$RAW_COUNT" -lt 2 ]; then
+                echo "⚠️ Historical Raw News unavailable: $DATE"
+                return 10
+              fi
+
+            fi
+
+            echo "✅ Raw News ready: $DATE"
+
+            # ======================================================
+            # B. Atomic
+            # ======================================================
+
+            ATOMIC_ROOT="$RAW_ROOT/${DATE}-Atomic"
+            ZH_ATOMIC="$ATOMIC_ROOT/zh"
+            EN_ATOMIC="$ATOMIC_ROOT/en"
+
+            mkdir -p "$ZH_ATOMIC"
+            mkdir -p "$EN_ATOMIC"
+
+            ZH_COUNT=$(find "$ZH_ATOMIC" \
+              -maxdepth 1 \
+              -type f \
+              -name "*.md" \
+              | wc -l)
+
+            EN_COUNT=$(find "$EN_ATOMIC" \
+              -maxdepth 1 \
+              -type f \
+              -name "*.md" \
+              | wc -l)
+
+            echo
+            echo "------------------------------------------------------------"
+            echo "B. ATOMIC NEWS"
+            echo "------------------------------------------------------------"
+
+            echo "Existing zh: $ZH_COUNT"
+            echo "Existing en: $EN_COUNT"
+
+            if [ "$ZH_COUNT" -eq 0 ] || [ "$EN_COUNT" -eq 0 ]; then
+
+              echo "▶️ Building Atomic: $DATE"
+
+              if ! python "$SPLITTER" \
+                --raw-root "$RAW_ROOT" \
+                --date "$DATE"
+              then
+
+                echo "❌ Atomic generation failed: $DATE"
+                return 1
+
+              fi
+
+            else
+
+              echo "⏭️ Atomic already exists: $DATE"
+
+            fi
+
+            ZH_COUNT=$(find "$ZH_ATOMIC" \
+              -maxdepth 1 \
+              -type f \
+              -name "*.md" \
+              | wc -l)
+
+            EN_COUNT=$(find "$EN_ATOMIC" \
+              -maxdepth 1 \
+              -type f \
+              -name "*.md" \
+              | wc -l)
+
+            echo "Final Atomic zh: $ZH_COUNT"
+            echo "Final Atomic en: $EN_COUNT"
+
+            if [ "$ZH_COUNT" -eq 0 ] || [ "$EN_COUNT" -eq 0 ]; then
+              echo "❌ Atomic incomplete: $DATE"
+              return 1
+            fi
+
+            echo "✅ Atomic ready: $DATE"
+
+            # ======================================================
+            # C. Atomic checkpoint
+            # ======================================================
+
+            git config user.name \
+              "748686 Knowledge Bot"
+
+            git config user.email \
+              "41898282+github-actions[bot]@users.noreply.github.com"
+
+            git add \
+              "$RAW_DIR" \
+              "$ATOMIC_ROOT"
+
+            if git diff --cached --quiet; then
+              echo "ℹ️ No Atomic changes to commit"
+            else
+              git commit \
+                -m "data: complete Atomic News $DATE"
+
+              if ! git push origin HEAD:main; then
+                echo "❌ Atomic push failed: $DATE"
+                return 1
+              fi
+
+              echo "✅ Atomic PUSH COMPLETE"
+            fi
+
+            if ! git pull --ff-only origin main; then
+              echo "❌ Atomic pull failed: $DATE"
+              return 1
+            fi
+
+            echo "✅ Atomic checkpoint complete"
+
+            # ======================================================
+            # D. Enriched
+            # ======================================================
+
+            ENRICHED_ROOT="$RAW_ROOT/${DATE}-Enriched"
+            ZH_ENRICHED="$ENRICHED_ROOT/zh"
+            EN_ENRICHED="$ENRICHED_ROOT/en"
+
+            mkdir -p "$ZH_ENRICHED"
+            mkdir -p "$EN_ENRICHED"
+
+            ZH_COUNT=$(find "$ZH_ENRICHED" \
+              -maxdepth 1 \
+              -type f \
+              -name "*.md" \
+              | wc -l)
+
+            EN_COUNT=$(find "$EN_ENRICHED" \
+              -maxdepth 1 \
+              -type f \
+              -name "*.md" \
+              | wc -l)
+
+            echo
+            echo "------------------------------------------------------------"
+            echo "D. SOURCE ENRICHMENT"
+            echo "------------------------------------------------------------"
+
+            echo "Existing Enriched zh: $ZH_COUNT"
+            echo "Existing Enriched en: $EN_COUNT"
+
+            if [ "$ZH_COUNT" -eq 0 ] || [ "$EN_COUNT" -eq 0 ]; then
+
+              echo "▶️ Building Enriched: $DATE"
+
+              if ! python "$ENRICHMENT" \
+                --raw-root "$RAW_ROOT" \
+                --date "$DATE"
+              then
+
+                echo "❌ Enriched generation failed: $DATE"
+                return 1
+
+              fi
+
+            else
+
+              echo "⏭️ Enriched already exists: $DATE"
+
+            fi
+
+            ZH_COUNT=$(find "$ZH_ENRICHED" \
+              -maxdepth 1 \
+              -type f \
+              -name "*.md" \
+              | wc -l)
+
+            EN_COUNT=$(find "$EN_ENRICHED" \
+              -maxdepth 1 \
+              -type f \
+              -name "*.md" \
+              | wc -l)
+
+            echo "Final Enriched zh: $ZH_COUNT"
+            echo "Final Enriched en: $EN_COUNT"
+
+            if [ "$ZH_COUNT" -eq 0 ] || [ "$EN_COUNT" -eq 0 ]; then
+              echo "❌ Enriched incomplete: $DATE"
+              return 1
+            fi
+
+            echo "✅ Enriched ready: $DATE"
+
+            # ======================================================
+            # E. Enriched checkpoint
+            # ======================================================
+
+            git add \
+              "$ENRICHED_ROOT"
+
+            if git diff --cached --quiet; then
+              echo "ℹ️ No Enriched changes to commit"
+            else
+              git commit \
+                -m "data: complete Enriched News $DATE"
+
+              if ! git push origin HEAD:main; then
+                echo "❌ Enriched push failed: $DATE"
+                return 1
+              fi
+
+              echo "✅ Enriched PUSH COMPLETE"
+            fi
+
+            if ! git pull --ff-only origin main; then
+              echo "❌ Enriched pull failed: $DATE"
+              return 1
+            fi
+
+            echo "✅ Enriched checkpoint complete"
+
+            # ======================================================
+            # F. Task 1 → Task 4
+            #
+            # 由 Rolling Orchestrator 负责：
+            #
+            #   en EventUnit
+            #   zh EventUnit
+            #   en Skills
+            #   zh Skills
+            #
+            # 并保持 DATE transaction。
+            # ======================================================
+
+            echo
+            echo "------------------------------------------------------------"
+            echo "F. KNOWLEDGE PIPELINE"
+            echo "------------------------------------------------------------"
+
+            echo "DATE: $DATE"
+
+            if ! python "$ORCHESTRATOR" \
+              --date "$DATE"
+            then
+
+              echo "❌ Knowledge Pipeline failed: $DATE"
+              return 1
+
+            fi
+
+            echo "✅ Knowledge Pipeline complete: $DATE"
+
+            # ======================================================
+            # G. Final date-level validation
+            # ======================================================
+
+            echo
+            echo "------------------------------------------------------------"
+            echo "G. DATE TRANSACTION VALIDATION"
+            echo "------------------------------------------------------------"
+
+            for LANGUAGE in en zh
+            do
+
+              EVENT_ROOT="$RAW_ROOT/${DATE}-EventUnit/$LANGUAGE"
+              EVENT_UNITS_DIR="$EVENT_ROOT/event_units"
+
+              echo
+              echo "DATE     : $DATE"
+              echo "LANGUAGE : $LANGUAGE"
+
+              if [ ! -f "$EVENT_ROOT/_COMPLETE" ]; then
+                echo "❌ Task 3 _COMPLETE missing"
+                return 1
+              fi
+
+              if [ ! -d "$EVENT_UNITS_DIR" ]; then
+                echo "❌ event_units directory missing"
+                return 1
+              fi
+
+              EVENT_COUNT=$(find "$EVENT_UNITS_DIR" \
+                -maxdepth 1 \
+                -type f \
+                -name "EVT-*.md" \
+                ! -name "*_analysis.md" \
+                | wc -l)
+
+              ANALYSIS_COUNT=$(find "$EVENT_UNITS_DIR" \
+                -maxdepth 1 \
+                -type f \
+                -name "*_analysis.md" \
+                | wc -l)
+
+              echo "EventUnits : $EVENT_COUNT"
+              echo "Analysis   : $ANALYSIS_COUNT"
+
+              if [ "$EVENT_COUNT" -eq 0 ]; then
+                echo "❌ No EventUnits"
+                return 1
+              fi
+
+              if [ "$ANALYSIS_COUNT" -ne "$EVENT_COUNT" ]; then
+                echo "❌ Event / Analysis mismatch"
+                return 1
+              fi
+
+              if [ ! -s "$EVENT_UNITS_DIR/_SKILLS_COMPLETE" ]; then
+                echo "❌ _SKILLS_COMPLETE missing or empty"
+                return 1
+              fi
+
+              echo "✅ $DATE $LANGUAGE complete"
+
+            done
+
+            # ======================================================
+            # H. Date checkpoint
+            # ======================================================
+
+            echo
+            echo "------------------------------------------------------------"
+            echo "H. DATE CHECKPOINT"
+            echo "------------------------------------------------------------"
+
+            git config user.name \
+              "748686 Knowledge Bot"
+
+            git config user.email \
+              "41898282+github-actions[bot]@users.noreply.github.com"
+
+            git add \
+              "$RAW_ROOT/${DATE}-EventUnit"
+
+            if git diff --cached --quiet; then
+              echo "ℹ️ No EventUnit / Skills changes to commit"
+            else
+
+              git commit \
+                -m "data: complete knowledge pipeline $DATE"
+
+              if ! git push origin HEAD:main; then
+                echo "❌ Knowledge checkpoint push failed: $DATE"
+                return 1
+              fi
+
+              echo "✅ Knowledge checkpoint PUSH COMPLETE"
+
+            fi
+
+            if ! git pull --ff-only origin main; then
+              echo "❌ Knowledge checkpoint pull failed: $DATE"
+              return 1
+            fi
+
+            echo
+            echo "######################################################################"
+            echo "DATE TRANSACTION SUCCESS"
+            echo "######################################################################"
+
+            echo "DATE     : $DATE"
+            echo "STATUS   : SUCCESS"
+            echo "CHECKPOINT: PUSHED + PULLED"
+
+            return 0
+          }
+
+          # ==========================================================
+          # TODAY
+          #
+          # TODAY 是 mandatory。
+          # 任何错误都必须终止 Workflow。
+          # ==========================================================
+
+          echo
+          echo
+          echo "######################################################################"
+          echo "TRANSACTION 1 / 3"
+          echo "TODAY"
+          echo "######################################################################"
+
+          if ! process_date "$TODAY" "true"; then
+            echo
+            echo "❌ TODAY TRANSACTION FAILED"
+            echo "❌ TODAY is mandatory"
+            exit 1
+          fi
+
+          echo
+          echo "✅ TODAY TRANSACTION LANDED"
+          echo "▶️ Proceeding to YESTERDAY"
+
+          # ==========================================================
+          # YESTERDAY
+          #
+          # 历史日期：
+          # 失败 → SKIPPED
+          # 不影响下一日期。
+          # ==========================================================
+
+          echo
+          echo
+          echo "######################################################################"
+          echo "TRANSACTION 2 / 3"
+          echo "YESTERDAY"
+          echo "######################################################################"
+
+          if process_date "$YESTERDAY" "false"; then
+
+            echo "YESTERDAY_STATUS=SUCCESS" >> "$GITHUB_ENV"
+
+            echo
+            echo "✅ YESTERDAY TRANSACTION SUCCESS"
+
+          else
+
+            RC=$?
+
+            echo "YESTERDAY_STATUS=SKIPPED" >> "$GITHUB_ENV"
+
+            echo
+            echo "⚠️ YESTERDAY TRANSACTION SKIPPED"
+            echo "Return code: $RC"
+            echo "▶️ Continuing to DAY_BEFORE"
+
+          fi
+
+          # ==========================================================
+          # DAY_BEFORE
+          # ==========================================================
+
+          echo
+          echo
+          echo "######################################################################"
+          echo "TRANSACTION 3 / 3"
+          echo "DAY_BEFORE"
+          echo "######################################################################"
+
+          if process_date "$DAY_BEFORE" "false"; then
+
+            echo "DAY_BEFORE_STATUS=SUCCESS" >> "$GITHUB_ENV"
+
+            echo
+            echo "✅ DAY_BEFORE TRANSACTION SUCCESS"
+
+          else
+
+            RC=$?
+
+            echo "DAY_BEFORE_STATUS=SKIPPED" >> "$GITHUB_ENV"
+
+            echo
+            echo "⚠️ DAY_BEFORE TRANSACTION SKIPPED"
+            echo "Return code: $RC"
+
+          fi
+
+          # ==========================================================
+          # Rolling transaction summary
+          # ==========================================================
+
+          echo
+          echo
+          echo "######################################################################"
+          echo "ROLLING TRANSACTION SUMMARY"
+          echo "######################################################################"
+
+          echo
+          echo "TODAY       : SUCCESS"
+          echo "YESTERDAY   : ${YESTERDAY_STATUS:-SKIPPED}"
+          echo "DAY_BEFORE  : ${DAY_BEFORE_STATUS:-SKIPPED}"
+
+          echo
+          echo "Rule:"
+          echo "TODAY failure = Workflow failure"
+          echo "Historical failure = SKIPPED"
+          echo "Historical skip never blocks next date"
+
+      # ==========================================================
+      # 12. Daily Report
+      #
+      # 注意：
+      # 这一层现在仍然调用三日期接口。
+      #
+      # 下一步修改 knowledge_daily.py 后，
+      # 会进一步变成真正的日期事务处理。
+      # ==========================================================
+
+      - name: Run Daily Report
+        env:
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_BASE_URL: https://api.agnes-ai.cn/v1
+          AI_MODEL: agnes-3.0-flash
+        run: |
+          set -e
+
+          SCRIPT="01_自生长知识系统/scripts/knowledge_daily.py"
+
+          if [ ! -f "$SCRIPT" ]; then
+            echo "❌ knowledge_daily.py not found"
+            exit 1
+          fi
+
+          echo
+          echo "######################################################################"
+          echo "DAILY REPORT"
+          echo "######################################################################"
+
+          python "$SCRIPT" \
+            --day-before "$DAY_BEFORE" \
+            --yesterday "$YESTERDAY" \
+            --today "$TODAY"
+
+          echo "✅ Daily Report completed"
+
+          git config user.name \
+            "748686 Knowledge Bot"
+
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            "01_自生长知识系统/05_日报"
+
+          if git diff --cached --quiet; then
+            echo "ℹ️ No Daily Report changes"
+          else
+            git commit \
+              -m "data: complete Daily Report $TODAY"
+
+            git push origin HEAD:main
+
+            echo "✅ Daily Report PUSH COMPLETE"
+          fi
+
+          git pull --ff-only origin main
+
+          echo "✅ Daily Report checkpoint complete"
+
+      # ==========================================================
+      # 13. Knowledge Assetization
+      #
+      # 暂时保留三日期 CLI。
+      # 下一步修改 knowledge_asset.py。
+      # ==========================================================
+
+      - name: Run Knowledge Assetization
+        env:
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_BASE_URL: https://api.agnes-ai.cn/v1
+          AI_MODEL: agnes-3.0-flash
+        run: |
+          set -e
+
+          SCRIPT="01_自生长知识系统/scripts/knowledge_asset.py"
+
+          if [ ! -f "$SCRIPT" ]; then
+            echo "❌ knowledge_asset.py not found"
+            exit 1
+          fi
+
+          echo
+          echo "######################################################################"
+          echo "KNOWLEDGE ASSETIZATION"
+          echo "######################################################################"
+
+          python "$SCRIPT" \
+            --day-before "$DAY_BEFORE" \
+            --yesterday "$YESTERDAY" \
+            --today "$TODAY"
+
+          echo "✅ Knowledge Assetization completed"
+
+          git config user.name \
+            "748686 Knowledge Bot"
+
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            "01_自生长知识系统"
+
+          if git diff --cached --quiet; then
+            echo "ℹ️ No Knowledge Assetization changes"
+          else
+            git commit \
+              -m "data: complete Knowledge Assetization $TODAY"
+
+            git push origin HEAD:main
+
+            echo "✅ Knowledge Assetization PUSH COMPLETE"
+          fi
+
+          git pull --ff-only origin main
+
+          echo "✅ Knowledge Assetization checkpoint complete"
+
+      # ==========================================================
+      # 14. Weekly Report
+      #
+      # 周报只以 TODAY 决定当前 ISO Week。
+      # 下一步修改 weekly_report.py 后，
+      # 去掉其内部日期 fallback。
+      # ==========================================================
+
+      - name: Run Weekly Report
+        env:
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_BASE_URL: https://api.agnes-ai.cn/v1
+          AI_MODEL: agnes-3.0-flash
+        run: |
+          set -e
+
+          SCRIPT="01_自生长知识系统/scripts/weekly_report.py"
+
+          if [ ! -f "$SCRIPT" ]; then
+            echo "❌ weekly_report.py not found"
+            exit 1
+          fi
+
+          echo
+          echo "######################################################################"
+          echo "WEEKLY REPORT"
+          echo "######################################################################"
+
+          python "$SCRIPT" \
+            --day-before "$DAY_BEFORE" \
+            --yesterday "$YESTERDAY" \
+            --today "$TODAY"
+
+          echo "✅ Weekly Report completed"
+
+          git config user.name \
+            "748686 Knowledge Bot"
+
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            "01_自生长知识系统"
+
+          if git diff --cached --quiet; then
+            echo "ℹ️ No Weekly Report changes"
+          else
+            git commit \
+              -m "data: complete Weekly Report $TODAY"
+
+            git push origin HEAD:main
+
+            echo "✅ Weekly Report PUSH COMPLETE"
+          fi
+
+          git pull --ff-only origin main
+
+          echo "✅ Weekly Report checkpoint complete"
+
+      # ==========================================================
+      # 15. Knowledge Growth
+      #
+      # 下一步修改 knowledge_growth.py。
+      # ==========================================================
+
+      - name: Run Knowledge Growth
+        env:
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_BASE_URL: https://api.agnes-ai.cn/v1
+          AI_MODEL: agnes-3.0-flash
+        run: |
+          set -e
+
+          SCRIPT="01_自生长知识系统/scripts/knowledge_growth.py"
+
+          if [ ! -f "$SCRIPT" ]; then
+            echo "❌ knowledge_growth.py not found"
+            exit 1
+          fi
+
+          echo
+          echo "######################################################################"
+          echo "KNOWLEDGE GROWTH"
+          echo "######################################################################"
+
+          python "$SCRIPT" \
+            --day-before "$DAY_BEFORE" \
+            --yesterday "$YESTERDAY" \
+            --today "$TODAY"
+
+          echo "✅ Knowledge Growth completed"
+
+          git config user.name \
+            "748686 Knowledge Bot"
+
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            "01_自生长知识系统"
+
+          if git diff --cached --quiet; then
+            echo "ℹ️ No Knowledge Growth changes"
+          else
+            git commit \
+              -m "data: complete Knowledge Growth $TODAY"
+
+            git push origin HEAD:main
+
+            echo "✅ Knowledge Growth PUSH COMPLETE"
+          fi
+
+          git pull --ff-only origin main
+
+          echo "✅ Knowledge Growth checkpoint complete"
+
+      # ==========================================================
+      # 16. Final Validation
+      #
+      # 不能再要求历史日期一定存在。
+      #
+      # TODAY：
+      #     必须 COMPLETE
+      #
+      # 历史：
+      #     SUCCESS → 验证
+      #     SKIPPED → 允许缺失
+      # ==========================================================
+
+      - name: Final Rolling Validation
+        run: |
+          set -e
+
+          RAW_ROOT="01_自生长知识系统/Raw News"
+
+          echo
+          echo "######################################################################"
+          echo "FINAL ROLLING VALIDATION"
+          echo "######################################################################"
+
+          validate_date() {
+
+            DATE="$1"
+            REQUIRED="$2"
+
+            echo
+            echo "============================================================"
+            echo "VALIDATE DATE: $DATE"
+            echo "============================================================"
+
+            RAW_DIR="$RAW_ROOT/$DATE"
+
+            if [ ! -d "$RAW_DIR" ]; then
+
+              if [ "$REQUIRED" = "true" ]; then
+                echo "❌ TODAY Raw directory missing"
+                return 1
+              fi
+
+              echo "⚠️ Historical Raw directory missing"
+              return 0
+
+            fi
+
+            RAW_COUNT=$(find "$RAW_DIR" \
+              -maxdepth 1 \
+              -type f \
+              -name "*.md" \
+              | wc -l)
+
+            echo "Raw files: $RAW_COUNT"
+
+            if [ "$RAW_COUNT" -lt 2 ]; then
+
+              if [ "$REQUIRED" = "true" ]; then
+                echo "❌ TODAY Raw incomplete"
+                return 1
+              fi
+
+              echo "⚠️ Historical Raw incomplete"
+              return 0
+
+            fi
+
+            for LANGUAGE in en zh
+            do
+
+              EVENT_DIR="$RAW_ROOT/${DATE}-EventUnit/$LANGUAGE"
+
+              if [ ! -f "$EVENT_DIR/_COMPLETE" ]; then
+
+                if [ "$REQUIRED" = "true" ]; then
+                  echo "❌ TODAY $LANGUAGE _COMPLETE missing"
+                  return 1
+                fi
+
+                echo "⚠️ Historical $LANGUAGE EventUnit incomplete"
+                return 0
+
+              fi
+
+              EVENT_UNITS_DIR="$EVENT_DIR/event_units"
+
+              EVENT_COUNT=$(find "$EVENT_UNITS_DIR" \
+                -maxdepth 1 \
+                -type f \
+                -name "EVT-*.md" \
+                ! -name "*_analysis.md" \
+                | wc -l)
+
+              ANALYSIS_COUNT=$(find "$EVENT_UNITS_DIR" \
+                -maxdepth 1 \
+                -type f \
+                -name "*_analysis.md" \
+                | wc -l)
+
+              echo "$LANGUAGE:"
+              echo "  EventUnits : $EVENT_COUNT"
+              echo "  Analysis   : $ANALYSIS_COUNT"
+
+              if [ "$EVENT_COUNT" -eq 0 ]; then
+
+                if [ "$REQUIRED" = "true" ]; then
+                  echo "❌ TODAY has no EventUnits"
+                  return 1
+                fi
+
+                echo "⚠️ Historical date has no EventUnits"
+                return 0
+
+              fi
+
+              if [ "$ANALYSIS_COUNT" -ne "$EVENT_COUNT" ]; then
+
+                if [ "$REQUIRED" = "true" ]; then
+                  echo "❌ TODAY Event / Analysis mismatch"
+                  return 1
+                fi
+
+                echo "⚠️ Historical Event / Analysis mismatch"
+                return 0
+
+              fi
+
+              if [ ! -s "$EVENT_UNITS_DIR/_SKILLS_COMPLETE" ]; then
+
+                if [ "$REQUIRED" = "true" ]; then
+                  echo "❌ TODAY _SKILLS_COMPLETE missing"
+                  return 1
+                fi
+
+                echo "⚠️ Historical _SKILLS_COMPLETE missing"
+                return 0
+
+              fi
+
+              echo "  STATUS     : COMPLETE"
+
+            done
+
+            echo
+            echo "✅ DATE VALIDATION PASSED: $DATE"
+
+            return 0
+          }
+
+          # TODAY 必须成功
+          validate_date "$TODAY" "true"
+
+          # 历史日期只验证已经成功落地的日期
+          if [ "${YESTERDAY_STATUS:-SKIPPED}" = "SUCCESS" ]; then
+            validate_date "$YESTERDAY" "false"
+          else
+            echo "⚠️ YESTERDAY was SKIPPED"
+          fi
+
+          if [ "${DAY_BEFORE_STATUS:-SKIPPED}" = "SUCCESS" ]; then
+            validate_date "$DAY_BEFORE" "false"
+          else
+            echo "⚠️ DAY_BEFORE was SKIPPED"
+          fi
+
+          echo
+          echo "============================================================"
+          echo "DOWNSTREAM VALIDATION"
+          echo "============================================================"
+
+          DAILY_REPORT="01_自生长知识系统/05_日报/${TODAY:0:4}/${TODAY:5:2}/${TODAY}.md"
+
+          if [ ! -s "$DAILY_REPORT" ]; then
+            echo "❌ Today's Daily Report missing"
+            exit 1
+          fi
+
+          echo "✅ Daily Report"
+
+          KNOWLEDGE_ROOT="01_自生长知识系统/08_知识库"
+
+          if [ ! -d "$KNOWLEDGE_ROOT" ]; then
+            echo "❌ Knowledge Base missing"
+            exit 1
+          fi
+
+          KNOWLEDGE_COUNT=$(find "$KNOWLEDGE_ROOT" \
+            -type f \
+            -name "*.md" \
+            | wc -l)
+
+          if [ "$KNOWLEDGE_COUNT" -eq 0 ]; then
+            echo "❌ Knowledge Base empty"
+            exit 1
+          fi
+
+          echo "✅ Knowledge Base: $KNOWLEDGE_COUNT files"
+
+          GRAPH_ROOT="01_自生长知识系统/09_知识图谱"
+
+          if [ ! -d "$GRAPH_ROOT" ]; then
+            echo "❌ Knowledge Graph missing"
+            exit 1
+          fi
+
+          GRAPH_COUNT=$(find "$GRAPH_ROOT" \
+            -type f \
+            -name "*.md" \
+            | wc -l)
+
+          if [ "$GRAPH_COUNT" -eq 0 ]; then
+            echo "❌ Knowledge Graph empty"
+            exit 1
+          fi
+
+          echo "✅ Knowledge Graph: $GRAPH_COUNT files"
+
+          WEEK_YEAR=$(date -u -d "$TODAY" +%G)
+          WEEK_NO=$(date -u -d "$TODAY" +%V)
+
+          WEEKLY_REPORT="01_自生长知识系统/06_周报/${WEEK_YEAR}/W${WEEK_NO}.md"
+
+          if [ ! -s "$WEEKLY_REPORT" ]; then
+            echo "❌ Weekly Report missing"
+            echo "$WEEKLY_REPORT"
+            exit 1
+          fi
+
+          echo "✅ Weekly Report"
+
+          GROWTH_COMPLETE="01_自生长知识系统/00_System/运行日志/knowledge_growth/${TODAY}_COMPLETE"
+
+          if [ ! -s "$GROWTH_COMPLETE" ]; then
+            echo "❌ Knowledge Growth COMPLETE marker missing"
+            exit 1
+          fi
+
+          echo "✅ Knowledge Growth"
+
+          echo
+          echo "######################################################################"
+          echo "FINAL ROLLING VALIDATION PASSED"
+          echo "######################################################################"
+
+          echo
+          echo "TODAY       : SUCCESS"
+          echo "YESTERDAY   : ${YESTERDAY_STATUS:-SKIPPED}"
+          echo "DAY_BEFORE  : ${DAY_BEFORE_STATUS:-SKIPPED}"
+
+      # ==========================================================
+      # 17. Final Commit
+      #
+      # 只作为最后保险。
+      # 日期级 checkpoint 已经在前面完成。
+      # ==========================================================
+
+      - name: Final Commit
+        run: |
+          set -e
+
+          git config user.name \
+            "748686 Knowledge Bot"
+
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            "01_自生长知识系统"
+
+          if git diff --cached --quiet; then
+            echo "ℹ️ No final changes to commit"
+          else
+
+            git commit \
+              -m "chore: knowledge system final checkpoint $TODAY"
+
+            git push origin HEAD:main
+
+            echo "✅ Final changes pushed"
+
+          fi
+
+      # ==========================================================
+      # 18. Run Return Log
+      #
+      # always：
+      # 即使历史日期失败，也记录最终状态。
+      # TODAY 失败同样会留下日志。
+      # ==========================================================
+
+      - name: Run Return Log
+        if: always()
+        run: |
+
+          echo
+          echo "######################################################################"
+          echo "748686 KNOWLEDGE SYSTEM"
+          echo "RUN RETURN LOG"
+          echo "######################################################################"
+
+          echo
+          echo "============================================================"
+          echo "RUN INFORMATION"
+          echo "============================================================"
+
+          echo "Workflow  : 01 自生长知识系统 - 主运行"
+          echo "Run ID    : $GITHUB_RUN_ID"
+          echo "Run No.   : $GITHUB_RUN_NUMBER"
+          echo "Repository: $GITHUB_REPOSITORY"
+          echo "Branch    : $GITHUB_REF_NAME"
+          echo "Commit    : $GITHUB_SHA"
+          echo "Runner    : ubuntu-latest"
+          echo "Python    : 3.12"
+          echo "Timezone  : UTC"
+
+          echo
+          echo "============================================================"
+          echo "PROCESSING DATES"
+          echo "============================================================"
+
+          echo "1. TODAY      : $TODAY"
+          echo "2. YESTERDAY  : $YESTERDAY"
+          echo "3. DAY_BEFORE : $DAY_BEFORE"
+
+          echo
+          echo "============================================================"
+          echo "DATE TRANSACTION STATUS"
+          echo "============================================================"
+
+          echo "TODAY       : REQUIRED / SUCCESS OR FAILED"
+          echo "YESTERDAY   : ${YESTERDAY_STATUS:-SKIPPED}"
+          echo "DAY_BEFORE  : ${DAY_BEFORE_STATUS:-SKIPPED}"
+
+          echo
+          echo "============================================================"
+          echo "PROCESSING UNIT STATUS"
+          echo "============================================================"
+
+          for DATE in \
+            "$TODAY" \
+            "$YESTERDAY" \
+            "$DAY_BEFORE"
+          do
+
+            for LANGUAGE in en zh
+            do
+
+              EVENT_DIR="01_自生长知识系统/Raw News/${DATE}-EventUnit/${LANGUAGE}"
+
+              if [ -f "$EVENT_DIR/_COMPLETE" ]; then
+                STATUS="COMPLETE"
+              else
+                STATUS="INCOMPLETE"
+              fi
+
+              if [ -d "$EVENT_DIR/event_units" ]; then
+
+                EVENT_COUNT=$(find "$EVENT_DIR/event_units" \
+                  -maxdepth 1 \
+                  -type f \
+                  -name "EVT-*.md" \
+                  ! -name "*_analysis.md" \
+                  | wc -l)
+
+                ANALYSIS_COUNT=$(find "$EVENT_DIR/event_units" \
+                  -maxdepth 1 \
+                  -type f \
+                  -name "*_analysis.md" \
+                  | wc -l)
+
+                if [ -s "$EVENT_DIR/event_units/_SKILLS_COMPLETE" ]; then
+                  SKILLS_STATUS="COMPLETE"
+                else
+                  SKILLS_STATUS="INCOMPLETE"
+                fi
+
+              else
+
+                EVENT_COUNT=0
+                ANALYSIS_COUNT=0
+                SKILLS_STATUS="INCOMPLETE"
+
+              fi
+
+              echo "$DATE $LANGUAGE : $STATUS : EventUnits=$EVENT_COUNT : Analysis=$ANALYSIS_COUNT : Skills=$SKILLS_STATUS"
+
+            done
+
+          done
+
+          echo
+          echo "============================================================"
+          echo "DOWNSTREAM STATUS"
+          echo "============================================================"
+
+          DAILY_REPORT="01_自生长知识系统/05_日报/${TODAY:0:4}/${TODAY:5:2}/${TODAY}.md"
+
+          if [ -s "$DAILY_REPORT" ]; then
+            echo "Daily Report     : COMPLETE"
+          else
+            echo "Daily Report     : INCOMPLETE"
+          fi
+
+          KNOWLEDGE_ROOT="01_自生长知识系统/08_知识库"
+
+          if [ -d "$KNOWLEDGE_ROOT" ]; then
+            KNOWLEDGE_COUNT=$(find "$KNOWLEDGE_ROOT" \
+              -type f \
+              -name "*.md" \
+              | wc -l)
+          else
+            KNOWLEDGE_COUNT=0
+          fi
+
+          echo "Knowledge Base   : $KNOWLEDGE_COUNT files"
+
+          GRAPH_ROOT="01_自生长知识系统/09_知识图谱"
+
+          if [ -d "$GRAPH_ROOT" ]; then
+            GRAPH_COUNT=$(find "$GRAPH_ROOT" \
+              -type f \
+              -name "*.md" \
+              | wc -l)
+          else
+            GRAPH_COUNT=0
+          fi
+
+          echo "Knowledge Graph  : $GRAPH_COUNT files"
+
+          WEEK_YEAR=$(date -u -d "$TODAY" +%G)
+          WEEK_NO=$(date -u -d "$TODAY" +%V)
+
+          WEEKLY_REPORT="01_自生长知识系统/06_周报/${WEEK_YEAR}/W${WEEK_NO}.md"
+
+          if [ -s "$WEEKLY_REPORT" ]; then
+            echo "Weekly Report    : COMPLETE"
+          else
+            echo "Weekly Report    : INCOMPLETE"
+          fi
+
+          GROWTH_COMPLETE="01_自生长知识系统/00_System/运行日志/knowledge_growth/${TODAY}_COMPLETE"
+
+          if [ -s "$GROWTH_COMPLETE" ]; then
+            echo "Knowledge Growth : COMPLETE"
+          else
+            echo "Knowledge Growth : INCOMPLETE"
+          fi
+
+          echo
+          echo "============================================================"
+          echo "GIT"
+          echo "============================================================"
+
+          git log -1 \
+            --pretty=format:"Commit: %H%nAuthor: %an%nDate: %ad%nMessage: %s" \
+            --date=iso
+
+          echo
+
+          {
+            echo "# 748686 自生长知识系统 — Run Return Log"
+            echo
+            echo "## Run Information"
+            echo
+            echo "| Item | Value |"
+            echo "|---|---|"
+            echo "| Workflow | 01 自生长知识系统 - 主运行 |"
+            echo "| Run ID | $GITHUB_RUN_ID |"
+            echo "| Run Number | $GITHUB_RUN_NUMBER |"
+            echo "| Repository | $GITHUB_REPOSITORY |"
+            echo "| Branch | $GITHUB_REF_NAME |"
+            echo "| Timezone | UTC |"
+            echo "| Today | $TODAY |"
+            echo "| Yesterday | $YESTERDAY |"
+            echo "| Day Before | $DAY_BEFORE |"
+
+            echo
+            echo "## Date Transactions"
+            echo
+            echo "| Order | Date | Required | Status |"
+            echo "|---:|---|---|---|"
+            echo "| 1 | $TODAY | YES | SUCCESS / FAILED |"
+            echo "| 2 | $YESTERDAY | NO | ${YESTERDAY_STATUS:-SKIPPED} |"
+            echo "| 3 | $DAY_BEFORE | NO | ${DAY_BEFORE_STATUS:-SKIPPED} |"
+
+            echo
+            echo "## Processing Units"
+            echo
+            echo "| Date | Language | EventUnit | Analysis | Skills |"
+            echo "|---|---|---|---:|---:|---|"
+
+            for DATE in \
+              "$TODAY" \
+              "$YESTERDAY" \
+              "$DAY_BEFORE"
+            do
+
+              for LANGUAGE in en zh
+              do
+
+                EVENT_DIR="01_自生长知识系统/Raw News/${DATE}-EventUnit/${LANGUAGE}"
+
+                if [ -f "$EVENT_DIR/_COMPLETE" ]; then
+                  STATUS="COMPLETE"
+                else
+                  STATUS="INCOMPLETE"
+                fi
+
+                if [ -d "$EVENT_DIR/event_units" ]; then
+
+                  EVENT_COUNT=$(find "$EVENT_DIR/event_units" \
+                    -maxdepth 1 \
+                    -type f \
+                    -name "EVT-*.md" \
+                    ! -name "*_analysis.md" \
+                    | wc -l)
+
+                  ANALYSIS_COUNT=$(find "$EVENT_DIR/event_units" \
+                    -maxdepth 1 \
+                    -type f \
+                    -name "*_analysis.md" \
+                    | wc -l)
+
+                  if [ -s "$EVENT_DIR/event_units/_SKILLS_COMPLETE" ]; then
+                    SKILLS_STATUS="COMPLETE"
+                  else
+                    SKILLS_STATUS="INCOMPLETE"
+                  fi
+
+                else
+
+                  EVENT_COUNT=0
+                  ANALYSIS_COUNT=0
+                  SKILLS_STATUS="INCOMPLETE"
+
+                fi
+
+                echo "| $DATE | $LANGUAGE | $STATUS | $EVENT_COUNT | $ANALYSIS_COUNT | $SKILLS_STATUS |"
+
+              done
+
+            done
+
+            echo
+            echo "## Downstream"
+            echo
+            echo "| Component | Status |"
+            echo "|---|---|"
+
+            if [ -s "$DAILY_REPORT" ]; then
+              echo "| Daily Report | COMPLETE |"
+            else
+              echo "| Daily Report | INCOMPLETE |"
+            fi
+
+            echo "| Knowledge Base | $KNOWLEDGE_COUNT Markdown files |"
+            echo "| Knowledge Graph | $GRAPH_COUNT Markdown files |"
+
+            if [ -s "$WEEKLY_REPORT" ]; then
+              echo "| Weekly Report | COMPLETE |"
+            else
+              echo "| Weekly Report | INCOMPLETE |"
+            fi
+
+            if [ -s "$GROWTH_COMPLETE" ]; then
+              echo "| Knowledge Growth | COMPLETE |"
+            else
+              echo "| Knowledge Growth | INCOMPLETE |"
+            fi
+
+            echo
+            echo "## New Date Transaction Model"
+            echo
+            echo "TODAY"
+            echo " ↓"
+            echo "Raw"
+            echo " ↓"
+            echo "Atomic"
+            echo " ↓"
+            echo "Enriched"
+            echo " ↓"
+            echo "Task 1"
+            echo " ↓"
+            echo "Task 2"
+            echo " ↓"
+            echo "Task 3"
+            echo " ↓"
+            echo "_COMPLETE"
+            echo " ↓"
+            echo "Task 4"
+            echo " ↓"
+            echo "_SKILLS_COMPLETE"
+            echo " ↓"
+            echo "Git checkpoint"
+            echo " ↓"
+            echo "YESTERDAY"
+            echo " ↓"
+            echo "DAY_BEFORE"
+
+            echo
+            echo "## Rules"
+            echo
+            echo "- TODAY is mandatory"
+            echo "- Historical dates are optional catch-up"
+            echo "- Historical failure does not terminate the workflow"
+            echo "- Each date is an independent transaction"
+            echo "- Each completed date is checkpointed"
+            echo "- Processing order is TODAY → YESTERDAY → DAY_BEFORE"
+            echo "- Language contract is lowercase en / zh"
+            echo "- GitHub Actions UTC is the date standard"
+            echo "- Task 1–Task 4 core logic is unchanged"
+
+            echo
+            echo "## Latest Git Commit"
+            echo
+            echo '```text'
+
+            git log -1 \
+              --pretty=format:"%H%n%an%n%ad%n%s" \
+              --date=iso
+
+            echo
+            echo '```'
+
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo
+          echo "######################################################################"
+          echo "RETURN LOG COMPLETE"
+          echo "######################################################################"
+
+      # ==========================================================
+      # 19. Complete Job
+      # ==========================================================
+
+      - name: Complete Job
+        if: success()
+        run: |
+
+          echo
+          echo "============================================================"
+          echo "748686 自生长知识系统"
+          echo "============================================================"
+
+          echo
+          echo "DATE TRANSACTIONS"
+          echo
+
+          echo "1. $TODAY"
+          echo "   REQUIRED : YES"
+          echo "   STATUS   : SUCCESS"
+
+          echo
+          echo "2. $YESTERDAY"
+          echo "   REQUIRED : NO"
+          echo "   STATUS   : ${YESTERDAY_STATUS:-SKIPPED}"
+
+          echo
+          echo "3. $DAY_BEFORE"
+          echo "   REQUIRED : NO"
+          echo "   STATUS   : ${DAY_BEFORE_STATUS:-SKIPPED}"
+
+          echo
+          echo "============================================================"
+          echo "PROCESSING MODEL"
+          echo "============================================================"
+
+          echo "TODAY"
+          echo " ↓"
+          echo "Raw → Atomic → Enriched"
+          echo " ↓"
+          echo "Task 1 → Task 2 → Task 3"
+          echo " ↓"
+          echo "_COMPLETE"
+          echo " ↓"
+          echo "Task 4"
+          echo " ↓"
+          echo "_SKILLS_COMPLETE"
+          echo " ↓"
+          echo "Git checkpoint"
+          echo " ↓"
+          echo "YESTERDAY"
+          echo " ↓"
+          echo "DAY_BEFORE"
+
+          echo
+          echo "============================================================"
+          echo "TIME STANDARD"
+          echo "============================================================"
+
+          echo "✅ GitHub Actions UTC"
+          echo "✅ cron UTC"
+          echo "✅ Processing dates UTC"
+          echo "✅ Language en / zh"
+          echo "✅ Task 1–Task 4 date contract unchanged"
+
+          echo
+          echo "============================================================"
+          echo "TRANSACTION RULE"
+          echo "============================================================"
+
+          echo "✅ TODAY failure = Workflow failure"
+          echo "✅ Historical failure = SKIPPED"
+          echo "✅ Historical skip does not block next date"
+          echo "✅ Completed date is checkpointed before next date"
+
+          echo
+          echo "============================================================"
+          echo "SYSTEM RUN COMPLETE"
+          echo "============================================================"
+
+          echo "748686 自生长知识系统 RUN COMPLETE"
