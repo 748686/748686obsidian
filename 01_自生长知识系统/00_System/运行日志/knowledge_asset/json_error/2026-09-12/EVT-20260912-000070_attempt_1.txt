@@ -1,0 +1,91 @@
+748686 Knowledge Asset JSON Diagnostic
+
+date:
+2026-09-12
+
+event_id:
+EVT-20260912-000070
+
+attempt:
+1
+
+error_type:
+ValueError
+
+error:
+无法解析 AI JSON | JSONDecodeError line=14 column=56 pos=412: Invalid control character at
+
+======================================================================
+AI RAW RESPONSE
+======================================================================
+
+{
+  "event_id": "EVT-20260912-000070",
+  "long_term_value": 3,
+  "summary": "美国联邦法院叫停特朗普政府维持老旧燃煤电厂运行的行政令，展示了行政与司法在能源政策上的制衡关系。",
+  "knowledge_assets": [
+    {
+      "type": "概念",
+      "name": "美国行政法与司法审查",
+      "action": "update",
+      "importance": 4,
+      "confidence": 0.9,
+      "summary": "司法机构通过审查行政令合法性或执行效力，对行政分支的能源政策进行制约。",
+      "new_facts": [
+        "2026年，美国法院对特朗普政府的行政令进行审查并叫停执行，具体针对维持老旧燃煤电厂运行。”
+      ],
+      "changes": [
+        "司法分支再次介入能源政策争议，限制了行政分支的直接干预能力。"
+      ],
+      "related_entities": [
+        "唐纳德·特朗普",
+        "美国能源部"
+      ]
+    },
+    {
+      "type": "行业",
+      "name": "美国煤电行业",
+      "action": "update",
+      "importance": 3,
+      "confidence": 0.8,
+      "summary": "老旧燃煤电厂面临政策压力，行政与立法及司法层面的冲突影响其运营政策。",
+      "new_facts": [
+        "特朗普政府曾试图通过行政命令维持老旧燃煤电厂运行。"
+      ],
+      "changes": [
+        "维持老旧燃煤电厂运行的行政指令被法院叫停，政策状态回归司法审查后的不确定性。"
+      ],
+      "related_entities": [
+        "唐纳德·特朗普",
+        "美国法院系统"
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "from": "唐纳德·特朗普",
+      "relation": "发布",
+      "to": "维持老旧燃煤电厂运行行政令",
+      "evidence": "事件摘要提到特朗普签署了旨在维持老旧燃煤电厂继续运行的行政命令"
+    },
+    {
+      "from": "美国联邦法院",
+      "relation": "叫停",
+      "to": "维持老旧燃煤电厂运行行政令",
+      "evidence": "事件核心动作描述为法院裁决，暂停执行行政令"
+    }
+  ],
+  "knowledge_gaps": [
+    {
+      "question": "具体是哪一家联邦法院作出的裁决？",
+      "reason": "输入数据中明确指出由于源数据缺失，无法确定具体法院名称。",
+      "importance": 3
+    },
+    {
+      "question": "法院叫停该行政令的具体法律依据或裁决日期是什么？",
+      "reason": "输入摘要提到缺乏具体的法院名称、裁决日期及法律理据。",
+      "importance": 4
+    }
+  ],
+  "contradictions": []
+}
