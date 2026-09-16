@@ -39,8 +39,8 @@
     },
     {
       "event_id": "EVT-20260916-000005",
-      "event_title": "八月经济总体平稳",
-      "event_reason": "Cluster 5（权威数据发布）与 Cluster 30（人民日报评论）均指向同一具体事件，即中国8月份经济数据的发布及其对经济稳定的评估，属于同一现实事件的新闻本体与官方评论",
+      "event_title": "中国经济8月数据平稳与官方定调",
+      "event_reason": "Cluster 5报道八月经济总体平稳的具体数据判断，Cluster 30报道人民日报关于经济稳定的评论，二者共同构成中国经济现状的官方定调与媒体解读，属于同一现实事件的不同报道维度。",
       "article_indexes": [
         5,
         65
@@ -56,10 +56,11 @@
     },
     {
       "event_id": "EVT-20260916-000007",
-      "event_title": "OpenAI融资及监管动态",
-      "event_reason": "1.2万亿估值，拟建私有控制机构",
+      "event_title": "OpenAI融资、私有治理结构及参与AI标准机构",
+      "event_reason": "Cluster 7报道OpenAI 1.2万亿估值融资及建立私有控制机构，Cluster 10报道OpenAI与Anthropic、谷歌共同商讨AI标准机构。两者均指向OpenAI在2026年同期的重大治理结构与行业合作动作，且后者是对前者建立控制机构后的行业互动延伸，属于同一系列治理动态的具体现实事件。",
       "article_indexes": [
         7,
+        10,
         25
       ]
     },
@@ -79,14 +80,6 @@
         9,
         21,
         22
-      ]
-    },
-    {
-      "event_id": "EVT-20260916-000010",
-      "event_title": "AI巨头商讨标准机构",
-      "event_reason": "OpenAI、Anthropic、谷歌合作应对恐惧",
-      "article_indexes": [
-        10
       ]
     },
     {
@@ -139,11 +132,10 @@
     },
     {
       "event_id": "EVT-20260916-000017",
-      "event_title": "分布式信任AI监管",
-      "event_reason": "Cluster 17（中期训练局限研究）与 Cluster 29（使用学习新词进行接种中期训练）均指向同一项具体的AI安全学术研究及其相关技术，属于同一研究/学术事件的延伸",
+      "event_title": "中期训练局限研究",
+      "event_reason": "无法防止奖励黑客导致意外行为",
       "article_indexes": [
-        18,
-        64
+        18
       ]
     },
     {
@@ -242,26 +234,20 @@
     },
     {
       "event_id": "EVT-20260916-000026",
-      "event_title": "Ex-Google AI Researcher Warns of Existential Threats from Artificial Intelligence",
-      "event_reason": "关于前谷歌AI研究人员警告人工智能存在性威胁的文章",
+      "event_title": "AI存在性威胁争议及监管立场分歧",
+      "event_reason": "Cluster 26（前谷歌研究员警告）、Cluster 27（特朗普拒绝严监管）、Cluster 28（F.A.Z.播客讨论AI危险与控制权让渡）均围绕“AI是否带来存在性威胁及应对监管”这一具体争议展开。三者发生在同一时间窗口，涉及相同核心议题（AI风险与监管政策），且27是对26/28所反映社会担忧的官方/政治回应，构成同一社会舆论与政策事件的不同维度。",
       "article_indexes": [
-        61
-      ]
-    },
-    {
-      "event_id": "EVT-20260916-000027",
-      "event_title": "Trump Rejects Stricter AI Regulation Amid Industry Oversight Requests",
-      "event_reason": "关于特朗普拒绝更严格AI监管的文章",
-      "article_indexes": [
-        62
-      ]
-    },
-    {
-      "event_id": "EVT-20260916-000028",
-      "event_title": "F.A.Z. Podcast: Deadly Danger AI - What if Humans Voluntarily Give Up Control?",
-      "event_reason": "关于AI致命危险和人自愿放弃控制的播客节目",
-      "article_indexes": [
+        61,
+        62,
         63
+      ]
+    },
+    {
+      "event_id": "EVT-20260916-000029",
+      "event_title": "Inoculation Midtraining with Learned Neologisms",
+      "event_reason": "关于使用学习新词进行接种中期训练的技术文章",
+      "article_indexes": [
+        64
       ]
     },
     {
@@ -370,8 +356,8 @@
     },
     {
       "event_id": "EVT-20260916-000044",
-      "event_title": "Pentagon Reveals Secret Space Weapons Are Already in Orbit",
-      "event_reason": "Cluster 14 'Pentagon Reveals Secret Space Weapons Are Already in Orbit' 和 Cluster 28 '美国确认地球轨道武器引发太空军备竞赛警告' 描述的是同一核心事实：美国五角大楼关于地球轨道部署秘密武器的披露及其引发的军备竞赛警告。两者均为该特定披露事件的报道。",
+      "event_title": "US Pentagon Reveals Secret Space Weapons in Orbit Amid Arms Race Warnings",
+      "event_reason": "两个Cluster描述同一现实事件：Cluster 14提到五角大楼透露秘密太空武器在轨，Cluster 28提到美国确认地球轨道武器引发太空军备竞赛警告。两者核心事实均为美国在地球轨道部署/确认太空武器的存在及其引发的地缘政治反应（军备竞赛警告），属于同一具体事件的报道与后续影响。",
       "article_indexes": [
         79,
         96
@@ -794,11 +780,13 @@
     },
     {
       "event_id": "EVT-20260916-000097",
-      "event_title": "加拿大与欧盟成立安全和经济联盟及外交调整",
-      "event_reason": "Cluster 7报道加拿大与欧盟成立联盟，Cluster 24报道加拿大因美国政策变化探索新联盟，两者均指向加拿大调整外交战略以建立加欧安全经济合作这一具体现实事件",
+      "event_title": "加拿大与欧盟安全经济联盟及欧洲能源战略调整",
+      "event_reason": "Cluster 5报道加拿大与欧盟联盟，Cluster 17报道包括加拿大对欧盟能源供应在内的欧洲能源战略。两者均聚焦于加拿大作为能源供应方与欧洲（欧盟）建立安全经济纽带的具体动作，属于同一外交能源战略转向下的单一现实事件的不同侧面。",
       "article_indexes": [
         139,
-        152
+        151,
+        152,
+        154
       ]
     },
     {
@@ -875,8 +863,8 @@
     },
     {
       "event_id": "EVT-20260916-000107",
-      "event_title": "美国批准28亿美元弹药销售给以色列及国际反应",
-      "event_reason": "Cluster 17报道美国批准对以军售，Cluster 23报道包括该军售在内的对以冲突国际法律与政治后果，两者共同构成围绕美以对以军事支持及国际制裁争议这一具体地缘政治事件链条",
+      "event_title": "美国批准28亿美元弹药销售给以色列及对以冲突的国际反应",
+      "event_reason": "Cluster 17报道美国批准向以色列销售弹药，Cluster 23报道包括美国军售批准及英国制裁争议在内的对以色列军事行动的国际法律与政治后果。两者核心事实均围绕同一地缘政治冲突下的以色列军事行动及其引发的国际（特别是美国）反应，属于同一持续发展的现实事件的不同侧面。",
       "article_indexes": [
         149,
         177,
@@ -885,20 +873,11 @@
     },
     {
       "event_id": "EVT-20260916-000108",
-      "event_title": "肯尼迪中心因特朗普威胁更名受阻关闭",
-      "event_reason": "Cluster 18报道肯尼迪中心因更名受阻关闭，Cluster 25报道特朗普威胁关闭肯尼迪中心，两者均围绕肯尼迪中心在政治压力下停止运营这一具体现实事件",
+      "event_title": "肯尼迪中心因更名受阻关闭及特朗普威胁关闭肯尼迪中心",
+      "event_reason": "Cluster 18报道肯尼迪中心因更名受阻而关闭，Cluster 25报道特朗普针对肯尼迪中心的政治威胁。两者均指向肯尼迪中心当前的运营状态及特朗普政府对其施加的政治压力，属于同一文化机构政治危机下的单一现实事件。",
       "article_indexes": [
         150,
         155
-      ]
-    },
-    {
-      "event_id": "EVT-20260916-000109",
-      "event_title": "欧洲能源战略调整",
-      "event_reason": "两篇文章均聚焦于欧洲（加拿大对欧盟、德国国内）针对能源供应短缺或政策变化的紧急应对措施。",
-      "article_indexes": [
-        151,
-        154
       ]
     },
     {
@@ -1290,8 +1269,8 @@
     },
     {
       "event_id": "EVT-20260916-000161",
-      "event_title": "北京香山论坛系列活动（含欢迎晚宴及国际防务对话）",
-      "event_reason": "Cluster 5报道韩正出席北京香山论坛欢迎晚宴，Cluster 9报道中国国防部长在香山论坛会晤国际官员。两者均发生在同一时间段、同一地点（北京）、同一大型活动（香山论坛）下，属于该论坛的配套外交与防务对话环节，视为同一具体现实事件的组成部分。",
+      "event_title": "北京香山论坛相关外交及防务活动",
+      "event_reason": "Cluster 8（韩正出席欢迎晚宴）和Cluster 12（国防部长会晤）均发生在同一具体活动“北京香山论坛”期间，属于同一现实世界事件的不同组成部分。",
       "article_indexes": [
         208,
         212
@@ -1331,10 +1310,17 @@
     },
     {
       "event_id": "EVT-20260916-000167",
-      "event_title": "人民日报第04版责编名单",
-      "event_reason": "报纸版面编辑人员信息，非具体新闻事件",
+      "event_title": "人民日报版面编辑信息更新",
+      "event_reason": "所有Cluster均涉及《人民日报》不同版面（第04、05、06、10、13、14版及多版面汇总）的责编名单或编辑信息，属于同一报纸常规的编辑人员信息公开事件，非新闻性突发事件，可归并为同一类常规信息更新。",
       "article_indexes": [
-        214
+        214,
+        218,
+        220,
+        223,
+        224,
+        227,
+        230,
+        231
       ]
     },
     {
@@ -1362,27 +1348,11 @@
       ]
     },
     {
-      "event_id": "EVT-20260916-000171",
-      "event_title": "人民日报第05版责编名单",
-      "event_reason": "报纸版面编辑人员信息，非具体新闻事件",
-      "article_indexes": [
-        218
-      ]
-    },
-    {
       "event_id": "EVT-20260916-000172",
       "event_title": "2026年民族团结进步宣传周",
       "event_reason": "中国政府举办的特定主题宣传周活动",
       "article_indexes": [
         219
-      ]
-    },
-    {
-      "event_id": "EVT-20260916-000173",
-      "event_title": "人民日报第06版责编名单",
-      "event_reason": "报纸版面编辑人员信息，非具体新闻事件",
-      "article_indexes": [
-        220
       ]
     },
     {
@@ -1402,22 +1372,6 @@
       ]
     },
     {
-      "event_id": "EVT-20260916-000176",
-      "event_title": "人民日报第10版责编名单",
-      "event_reason": "报纸版面编辑人员信息，非具体新闻事件",
-      "article_indexes": [
-        223
-      ]
-    },
-    {
-      "event_id": "EVT-20260916-000177",
-      "event_title": "人民日报第13版责编名单",
-      "event_reason": "报纸版面编辑人员信息，非具体新闻事件",
-      "article_indexes": [
-        224
-      ]
-    },
-    {
       "event_id": "EVT-20260916-000178",
       "event_title": "331国道便民服务站",
       "event_reason": "关于国道沿线便民服务的暖心故事报道",
@@ -1434,14 +1388,6 @@
       ]
     },
     {
-      "event_id": "EVT-20260916-000180",
-      "event_title": "人民日报第14版责编名单",
-      "event_reason": "报纸版面编辑人员信息，非具体新闻事件",
-      "article_indexes": [
-        227
-      ]
-    },
-    {
       "event_id": "EVT-20260916-000181",
       "event_title": "浙江文化中心吸引年轻观众",
       "event_reason": "浙江省文化机构创新活动吸引青年群体的报道",
@@ -1455,22 +1401,6 @@
       "event_reason": "关于书籍与影视联动对阅读影响的评论",
       "article_indexes": [
         229
-      ]
-    },
-    {
-      "event_id": "EVT-20260916-000183",
-      "event_title": "人民日报第17版责编名单",
-      "event_reason": "报纸版面编辑人员信息，非具体新闻事件",
-      "article_indexes": [
-        230
-      ]
-    },
-    {
-      "event_id": "EVT-20260916-000184",
-      "event_title": "人民日报第18版责编名单",
-      "event_reason": "报纸版面编辑人员信息，非具体新闻事件",
-      "article_indexes": [
-        231
       ]
     },
     {
@@ -1502,8 +1432,8 @@
     },
     {
       "event_id": "EVT-20260916-000188",
-      "event_title": "众议院否决罢免特朗普动议",
-      "event_reason": "Cluster 8是众议院否决罢免动议，Cluster 17是众议院民主党人在特朗普弹劾投票中投弃权票。两者都是关于众议院关于罢免/弹劾特朗普的投票行动，属于同一个现实世界的政治事件。",
+      "event_title": "众议院就特朗普罢免动议的投票行动",
+      "event_reason": "两篇文章分别报道众议院否决罢免动议（Cluster 8）以及民主党人在同一事件中的具体投票行为（投present，Cluster 17），属于同一政治程序的不同侧面",
       "article_indexes": [
         237,
         247
@@ -1639,10 +1569,11 @@
     },
     {
       "event_id": "EVT-20260916-000206",
-      "event_title": "Iran War Munitions Shortfall",
-      "event_reason": "Article 256 covers Iran war leading to US munitions shortfalls.",
+      "event_title": "Iran War Consequences and Costs",
+      "event_reason": "Cluster 11（伊朗战争导致美国弹药短缺）和Cluster 28（CBO关于伊朗战争成本的报告）均针对同一场正在进行的伊朗战争及其产生的具体后果（军事后勤与经济成本），属于同一持续现实事件的不同侧面",
       "article_indexes": [
-        256
+        256,
+        274
       ]
     },
     {
@@ -1663,11 +1594,13 @@
     },
     {
       "event_id": "EVT-20260916-000209",
-      "event_title": "Lucy Letby Inquiry Findings and Cams Plan",
-      "event_reason": "Cluster 21和Cluster 22都涉及Lucy Letby调查委员会的发现及其后果（婴儿床摄像头计划），属于同一具体现实事件的持续发展和不同侧面。",
+      "event_title": "Lucy Letby Inquiry and Follow-up Measures",
+      "event_reason": "Cluster 11和30均涉及Lucy Letby案件调查及其后续措施。Cluster 11涵盖调查结论及后续床位摄像头计划，Cluster 30涵盖Thirlwall调查的发现及NHS改革。这些都属于同一调查事件的连续发展。",
       "article_indexes": [
         259,
-        260
+        260,
+        280,
+        281
       ]
     },
     {
@@ -1775,14 +1708,6 @@
       ]
     },
     {
-      "event_id": "EVT-20260916-000224",
-      "event_title": "CBO report on Iran war costs",
-      "event_reason": "Economic assessment of the cost of the Iran war by the US CBO.",
-      "article_indexes": [
-        274
-      ]
-    },
-    {
       "event_id": "EVT-20260916-000225",
       "event_title": "UK racial equality perception study",
       "event_reason": "Survey results showing public belief that racial equality is worsening in the UK.",
@@ -1820,15 +1745,6 @@
       "event_reason": "Fashion firms urging UK government to manufacture NHS and military uniforms domestically.",
       "article_indexes": [
         279
-      ]
-    },
-    {
-      "event_id": "EVT-20260916-000230",
-      "event_title": "Thirlwall inquiry into Lucy Letby",
-      "event_reason": "Inquiry findings regarding the Lucy Letby conviction and resulting NHS reforms.",
-      "article_indexes": [
-        280,
-        281
       ]
     },
     {
@@ -2503,242 +2419,39 @@
     },
     {
       "event_id": "EVT-20260916-000314",
-      "event_title": "本版责编信息",
-      "event_reason": "仅为版次及编辑信息，无实质事件",
+      "event_title": "无合并：各Cluster代表不同单一事件或新闻条目",
+      "event_reason": "仔细审查全部30个Cluster，它们分别代表不同的单一新闻事件、文章、版次说明、人物报道、地区报道、评论等，不存在同一个具体现实世界事件被多个Cluster描述的情况。即使同一国家或同一领域的不同事件（如美国邮政、五角大楼报告、Lindsay Clancy案、北达科他州恐龙足迹、Nick Reiner案等）也被要求“同国家不同事件不合并”。因此每个Cluster独立，无法合并为同一具体事件。",
       "article_indexes": [
-        371
-      ]
-    },
-    {
-      "event_id": "EVT-20260916-000315",
-      "event_title": "平陆运河通江达海",
-      "event_reason": "提及重大工程，信息不足，无法与其他文章合并",
-      "article_indexes": [
-        372
-      ]
-    },
-    {
-      "event_id": "EVT-20260916-000316",
-      "event_title": "构建中国社会学自主知识体系",
-      "event_reason": "涉及学术知识体系构建，无具体事件支撑，无法合并",
-      "article_indexes": [
-        373
-      ]
-    },
-    {
-      "event_id": "EVT-20260916-000317",
-      "event_title": "东博会魅力之城名单出炉",
-      "event_reason": "提及东博会名单，信息有限，无法与其他文章归为同一事件",
-      "article_indexes": [
-        374
-      ]
-    },
-    {
-      "event_id": "EVT-20260916-000318",
-      "event_title": "人民日报第11版编辑列表",
-      "event_reason": "仅为报纸版次编辑信息，无实质事件",
-      "article_indexes": [
-        375
-      ]
-    },
-    {
-      "event_id": "EVT-20260916-000319",
-      "event_title": "2026智能经济论坛",
-      "event_reason": "提及论坛名称，信息有限，无法与其他文章合并",
-      "article_indexes": [
-        376
-      ]
-    },
-    {
-      "event_id": "EVT-20260916-000320",
-      "event_title": "中国荒漠化防治在UN COP17展示",
-      "event_reason": "提及具体国际会议及中国行动，信息有限，无法与其他文章合并",
-      "article_indexes": [
-        377
-      ]
-    },
-    {
-      "event_id": "EVT-20260916-000321",
-      "event_title": "Kazakhstan e-commerce regulation",
-      "event_reason": "提及哈萨克斯坦电商监管，无更多细节，无法与其他文章合并",
-      "article_indexes": [
-        378
-      ]
-    },
-    {
-      "event_id": "EVT-20260916-000322",
-      "event_title": "美加关税争端不断升级",
-      "event_reason": "提及美加贸易争端，信息有限，无法确认是否与其他文章相关",
-      "article_indexes": [
-        379
-      ]
-    },
-    {
-      "event_id": "EVT-20260916-000323",
-      "event_title": "贝泰妮集团项目获科技进步奖",
-      "event_reason": "提及特定企业获奖，信息有限，无法与其他文章合并",
-      "article_indexes": [
-        380
-      ]
-    },
-    {
-      "event_id": "EVT-20260916-000324",
-      "event_title": "增强质量技术基础能力",
-      "event_reason": "涉及质量安全管理，信息简略，无法与其他文章归为同一事件",
-      "article_indexes": [
-        381
-      ]
-    },
-    {
-      "event_id": "EVT-20260916-000325",
-      "event_title": "AI客服问题",
-      "event_reason": "提及AI客服问题，无具体事件支撑，无法与其他文章合并",
-      "article_indexes": [
-        382
-      ]
-    },
-    {
-      "event_id": "EVT-20260916-000326",
-      "event_title": "老字号焕新记：老味道变新国潮",
-      "event_reason": "提及老字号更新，信息有限，无法与其他文章归为同一事件",
-      "article_indexes": [
-        383
-      ]
-    },
-    {
-      "event_id": "EVT-20260916-000327",
-      "event_title": "马踏飞燕创意表达",
-      "event_reason": "提及文物创意表达，信息简略，无法与其他文章合并",
-      "article_indexes": [
-        384
-      ]
-    },
-    {
-      "event_id": "EVT-20260916-000328",
-      "event_title": "本版责编：王东辉",
-      "event_reason": "仅为版次及编辑信息，无实质事件",
-      "article_indexes": [
-        385
-      ]
-    },
-    {
-      "event_id": "EVT-20260916-000329",
-      "event_title": "照金精神照金人",
-      "event_reason": "提及特定地方精神，信息有限，无法与其他文章合并",
-      "article_indexes": [
-        386
-      ]
-    },
-    {
-      "event_id": "EVT-20260916-000330",
-      "event_title": "提笔望故乡",
-      "event_reason": "文学性文章，无具体事件支撑",
-      "article_indexes": [
-        387
-      ]
-    },
-    {
-      "event_id": "EVT-20260916-000331",
-      "event_title": "Postal Service and U.S. Elections",
-      "event_reason": "涉及美国邮政与选举，信息有限，无法与其他文章合并",
-      "article_indexes": [
-        388
-      ]
-    },
-    {
-      "event_id": "EVT-20260916-000332",
-      "event_title": "Pentagon Inspector General Reports on Iran War",
-      "event_reason": "提及伊朗战争及五角大楼报告，信息有限，无法与其他文章合并",
-      "article_indexes": [
-        389
-      ]
-    },
-    {
-      "event_id": "EVT-20260916-000333",
-      "event_title": "Lindsay Clancy Case",
-      "event_reason": "提及案件审理，信息有限，无法与其他文章归为同一事件",
-      "article_indexes": [
-        390
-      ]
-    },
-    {
-      "event_id": "EVT-20260916-000334",
-      "event_title": "North Dakota T. Rex footprints discovered",
-      "event_reason": "Unique discovery of rare fossil footprints by a teacher in North Dakota.",
-      "article_indexes": [
-        391
-      ]
-    },
-    {
-      "event_id": "EVT-20260916-000335",
-      "event_title": "Nick Reiner prosecutor confirms no death penalty",
-      "event_reason": "Specific legal update regarding the trial of Nick Reiner.",
-      "article_indexes": [
-        392
-      ]
-    },
-    {
-      "event_id": "EVT-20260916-000336",
-      "event_title": "Trace Gallagher opinion on American common sense",
-      "event_reason": "Opinion piece by Trace Gallagher on American politics/society.",
-      "article_indexes": [
-        393
-      ]
-    },
-    {
-      "event_id": "EVT-20260916-000337",
-      "event_title": "Macklemore dropped from Ed Sheeran tour reaction",
-      "event_reason": "Reaction to Macklemore being removed from Ed Sheeran's tour by Michael Rapaport.",
-      "article_indexes": [
-        394
-      ]
-    },
-    {
-      "event_id": "EVT-20260916-000338",
-      "event_title": "UK Letby Hospital Inquiry Report Release",
-      "event_reason": "Both articles discuss the findings and reactions from the inquiry into the Letby case, focusing on the 'grim' findings and lack of bravery.",
-      "article_indexes": [
+        371,
+        372,
+        373,
+        374,
+        375,
+        376,
+        377,
+        378,
+        379,
+        380,
+        381,
+        382,
+        383,
+        384,
+        385,
+        386,
+        387,
+        388,
+        389,
+        390,
+        391,
+        392,
+        393,
+        394,
         395,
-        400
-      ]
-    },
-    {
-      "event_id": "EVT-20260916-000339",
-      "event_title": "UK in talks to join Canada-led global defence bank",
-      "event_reason": "UK negotiations regarding joining a specific global defence financing mechanism.",
-      "article_indexes": [
-        396
-      ]
-    },
-    {
-      "event_id": "EVT-20260916-000340",
-      "event_title": "UK water company complaints surge 84%",
-      "event_reason": "Statistical report on increased complaints to the water industry watchdog.",
-      "article_indexes": [
-        397
-      ]
-    },
-    {
-      "event_id": "EVT-20260916-000341",
-      "event_title": "Banned AI ads promoting objectification of women",
-      "event_reason": "Watchdog action banning specific AI app advertisements.",
-      "article_indexes": [
-        398
-      ]
-    },
-    {
-      "event_id": "EVT-20260916-000342",
-      "event_title": "Helicopter rescue near cliff face in California",
-      "event_reason": "Footage of a specific rescue incident in California.",
-      "article_indexes": [
-        399
-      ]
-    },
-    {
-      "event_id": "EVT-20260916-000343",
-      "event_title": "Search launched for missing 3-year-old boy",
-      "event_reason": "Police search for a specific missing child at a playground.",
-      "article_indexes": [
+        396,
+        397,
+        398,
+        399,
+        400,
         401
       ]
     },
@@ -2997,8 +2710,8 @@
     },
     {
       "event_id": "EVT-20260916-000375",
-      "event_title": "Trump-Kennedy Center dispute and closure decision",
-      "event_reason": "这两个Cluster描述了同一现实世界事件的两个方面：特朗普因署名问题威胁不重新开放肯尼迪中心（Cluster 15），以及其任命领导层决定关闭肯尼迪中心（Cluster 30）。这属于同一机构在特定时期的管理危机和政治争议。",
+      "event_title": "Trump-Kennedy Center dispute and closure",
+      "event_reason": "Both clusters are closely related to Trump's actions and decisions regarding the Kennedy Center, specifically threatening not to reopen it and a decision to close it by his appointed leadership.",
       "article_indexes": [
         437,
         453
@@ -3367,8 +3080,8 @@
     },
     {
       "event_id": "EVT-20260916-000422",
-      "event_title": "US-Iran War Cost and Phase Updates",
-      "event_reason": "Both clusters refer to the ongoing US-Iran conflict. Cluster 24 reports the cost ($38B), and Cluster 28 reports J.D. Vance's comment about the conflict entering a 'new phase'. These are specific, contemporaneous news items regarding the same active geopolitical crisis/war, constituting a single developing event.",
+      "event_title": "US-Iran War Cost and Status",
+      "event_reason": "Clusters 16 and 20 both relate to the specific ongoing US-Iran conflict; one discusses the financial cost ($38B) and the other a comment (J.D. Vance) on the conflict entering a 'new phase'. These are sub-aspects of the same singular geopolitical event.",
       "article_indexes": [
         486,
         490
@@ -3480,8 +3193,8 @@
     },
     {
       "event_id": "EVT-20260916-000437",
-      "event_title": "Houthi Red Sea Control & Digest",
-      "event_reason": "Cluster 9报道胡塞武装夺取红海岛屿/海峡的具体事件；Cluster 17作为摘要文章提及该具体行动（Houthi actions）作为子项，二者描述同一具体现实事件的不同报道形式，故归并。",
+      "event_title": "胡塞武装控制红海及每日金融地缘政治摘要",
+      "event_reason": "Cluster 10是包含Cluster 2所述事件的每日摘要，两者在内容上构成引用与被引用的同一信息源事件组",
       "article_indexes": [
         501,
         509
@@ -3497,8 +3210,8 @@
     },
     {
       "event_id": "EVT-20260916-000439",
-      "event_title": "People's Forum: Party Discipline Obligations",
-      "event_reason": "Cluster 11和Cluster 30均涉及《人民论坛》栏目关于党员纪律义务的具体文章报道，属于同一出版物同一栏目的具体内容事件。",
+      "event_title": "人民论坛：执行党的决定是党员义务",
+      "event_reason": "Cluster 4和Cluster 26均描述《人民日报》人民论坛栏目关于“执行党的决定是党员义务”的具体文章，属于同一具体出版事件",
       "article_indexes": [
         503,
         529
@@ -3506,11 +3219,10 @@
     },
     {
       "event_id": "EVT-20260916-000440",
-      "event_title": "China-ASEAN Expo Events",
-      "event_reason": "Cluster 12报道在中国-东盟博览会上发布AI Mega Store；Cluster 22报道第二十三届中国-东盟博览会“魅力之城”名单发布。两者均为同一博览会活动期间的具体动作，属于同一展会场景下的事件，故归并。",
+      "event_title": "China-ASEAN AI Mega Store",
+      "event_reason": "Launch of an AI Mega Store at the China-ASEAN Expo.",
       "article_indexes": [
-        504,
-        518
+        504
       ]
     },
     {
@@ -3555,8 +3267,8 @@
     },
     {
       "event_id": "EVT-20260916-000447",
-      "event_title": "People's Daily Structural Metadata",
-      "event_reason": "Cluster 19和Cluster 29均为《人民日报》2026年9月16日的版面结构、版次、责编等非实质性新闻元数据，属于同一报纸出版物在特定日期的非事件性内容，故归并。",
+      "event_title": "2026年9月16日人民日报版面结构与责编信息",
+      "event_reason": "Cluster 12包含多版结构及责编信息，Cluster 22包含第19版责编信息，两者均属于该日期报纸的非实质性版面/导航内容",
       "article_indexes": [
         511,
         512,
@@ -3580,6 +3292,14 @@
       "event_reason": "该文章是人民日报理论版面上关于构建中国社会学自主知识体系与促进文明交流互鉴的学术探讨。",
       "article_indexes": [
         517
+      ]
+    },
+    {
+      "event_id": "EVT-20260916-000450",
+      "event_title": "第二十三届东博会“魅力之城”名单发布",
+      "event_reason": "该文章报道了第二十三届中国-东盟博览会“魅力之城”名单的正式出炉及展示城市。",
+      "article_indexes": [
+        518
       ]
     },
     {
@@ -3655,5 +3375,5 @@
       ]
     }
   ],
-  "saved_at": "2026-09-16T15:54:11.454878+08:00"
+  "saved_at": "2026-09-16T18:57:34.079460+08:00"
 }
