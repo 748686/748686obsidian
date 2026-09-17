@@ -31,7 +31,6 @@ Audio Generator V2.2.2
 
 Part A
     题目 + 选项来自试卷
-    音频内容按照试卷生成
 
 Part B
     题目 + 选项来自试卷
@@ -85,6 +84,20 @@ I think healthy habits are important.
     ...
 
 ======================================================================
+CLI 兼容
+======================================================================
+
+支持：
+
+    --audio-format mp3
+
+也兼容：
+
+    --format mp3
+
+默认：
+
+    mp3
 """
 
 from __future__ import annotations
@@ -123,7 +136,7 @@ class Question:
 # 日志
 # ======================================================================
 
-def log(message: str) -> None:
+def log(message: str = "") -> None:
     print(message, flush=True)
 
 
@@ -152,13 +165,25 @@ def clean_line(line: str) -> str:
         return ""
 
     # Markdown checkbox
-    line = re.sub(r"^[-*+]\s+\[[ xX]\]\s*", "", line)
+    line = re.sub(
+        r"^[-*+]\s+\[[ xX]\]\s*",
+        "",
+        line,
+    )
 
     # Markdown bullet
-    line = re.sub(r"^[-*+]\s+", "", line)
+    line = re.sub(
+        r"^[-*+]\s+",
+        "",
+        line,
+    )
 
     # Markdown heading
-    line = re.sub(r"^#{1,6}\s*", "", line)
+    line = re.sub(
+        r"^#{1,6}\s*",
+        "",
+        line,
+    )
 
     # Bold / italic
     line = line.replace("**", "")
@@ -167,7 +192,11 @@ def clean_line(line: str) -> str:
     line = line.replace("_", "")
 
     # Markdown blockquote
-    line = re.sub(r"^>\s*", "", line)
+    line = re.sub(
+        r"^>\s*",
+        "",
+        line,
+    )
 
     return line.strip()
 
@@ -178,10 +207,17 @@ def clean_line(line: str) -> str:
 
 def normalize_header(line: str) -> str:
     line = clean_line(line)
-    return re.sub(r"\s+", " ", line).strip().upper()
+    return re.sub(
+        r"\s+",
+        " ",
+        line,
+    ).strip().upper()
 
 
-def is_part_header(line: str, part: str) -> bool:
+def is_part_header(
+    line: str,
+    part: str,
+) -> bool:
     """
     判断一行是否为指定 Part 标题。
 
@@ -207,27 +243,33 @@ def is_part_header(line: str, part: str) -> bool:
     part = part.upper()
 
     if part == "A":
+
         chinese_patterns = [
             r"^第一部分(?:\s*[:：-].*)?$",
         ]
+
         english_patterns = [
             r"^PART\s+A(?:\s*[:：-].*)?$",
             r"^LISTENING\s+A(?:\s*[:：-].*)?$",
         ]
 
     elif part == "B":
+
         chinese_patterns = [
             r"^第二部分(?:\s*[:：-].*)?$",
         ]
+
         english_patterns = [
             r"^PART\s+B(?:\s*[:：-].*)?$",
             r"^LISTENING\s+B(?:\s*[:：-].*)?$",
         ]
 
     elif part == "C":
+
         chinese_patterns = [
             r"^第三部分(?:\s*[:：-].*)?$",
         ]
+
         english_patterns = [
             r"^PART\s+C(?:\s*[:：-].*)?$",
             r"^LISTENING\s+C(?:\s*[:：-].*)?$",
@@ -237,19 +279,37 @@ def is_part_header(line: str, part: str) -> bool:
         return False
 
     for pattern in chinese_patterns:
-        if re.match(pattern, cleaned, flags=re.IGNORECASE):
+
+        if re.match(
+            pattern,
+            cleaned,
+            flags=re.IGNORECASE,
+        ):
             return True
 
     for pattern in english_patterns:
-        if re.match(pattern, normalized, flags=re.IGNORECASE):
+
+        if re.match(
+            pattern,
+            normalized,
+            flags=re.IGNORECASE,
+        ):
             return True
 
     return False
 
 
-def find_part_start(lines: List[str], part: str) -> Optional[int]:
+def find_part_start(
+    lines: List[str],
+    part: str,
+) -> Optional[int]:
+
     for index, line in enumerate(lines):
-        if is_part_header(line, part):
+
+        if is_part_header(
+            line,
+            part,
+        ):
             return index
 
     return None
@@ -264,41 +324,49 @@ def find_next_part_start(
     查找当前 Part 后面的下一个 Part。
     """
 
-    order = ["A", "B", "C"]
+    order = [
+        "A",
+        "B",
+        "C",
+    ]
 
     try:
-        position = order.index(current_part.upper())
+        position = order.index(
+            current_part.upper()
+        )
+
     except ValueError:
         return None
 
-    next_parts = order[position + 1:]
+    next_parts = order[
+        position + 1:
+    ]
 
-    for index in range(start_index + 1, len(lines)):
+    for index in range(
+        start_index + 1,
+        len(lines),
+    ):
+
         for next_part in next_parts:
-            if is_part_header(lines[index], next_part):
+
+            if is_part_header(
+                lines[index],
+                next_part,
+            ):
                 return index
 
     return None
 
 
-def find_part_header(lines: List[str], part: str) -> Optional[int]:
-    """
-    V2.2.2：
+def find_part_header(
+    lines: List[str],
+    part: str,
+) -> Optional[int]:
 
-    与 find_part_start() 使用完全一致的 Part 判断。
-
-    修复旧版只识别：
-
-        PART B
-        PART C
-
-    却无法识别：
-
-        第二部分
-        第三部分
-    """
-
-    return find_part_start(lines, part)
+    return find_part_start(
+        lines,
+        part,
+    )
 
 
 # ======================================================================
@@ -311,17 +379,14 @@ def extract_part(
 ) -> str:
     """
     从一个 Markdown 文件中提取指定 Part。
-
-    例如：
-
-        extract_part(text, "C")
-
-    只返回 Part C 内容，不包含 Part D / 其他大章节。
     """
 
     lines = text.splitlines()
 
-    start = find_part_start(lines, part)
+    start = find_part_start(
+        lines,
+        part,
+    )
 
     if start is None:
         return ""
@@ -333,11 +398,20 @@ def extract_part(
     )
 
     if end is None:
-        selected = lines[start + 1:]
-    else:
-        selected = lines[start + 1:end]
 
-    return "\n".join(selected).strip()
+        selected = lines[
+            start + 1:
+        ]
+
+    else:
+
+        selected = lines[
+            start + 1:end
+        ]
+
+    return "\n".join(
+        selected
+    ).strip()
 
 
 # ======================================================================
@@ -345,6 +419,7 @@ def extract_part(
 # ======================================================================
 
 QUESTION_PATTERNS = [
+
     # 1. Question
     re.compile(
         r"^\s*(\d+)\s*[\.．、:：\-]\s*(.+?)\s*$"
@@ -370,26 +445,43 @@ QUESTION_PATTERNS = [
 
 def parse_question_header(
     line: str,
-) -> Tuple[Optional[int], Optional[str]]:
+) -> Tuple[
+    Optional[int],
+    Optional[str],
+]:
 
-    cleaned = clean_line(line)
+    cleaned = clean_line(
+        line
+    )
 
     if not cleaned:
         return None, None
 
     for pattern in QUESTION_PATTERNS:
-        match = pattern.match(cleaned)
+
+        match = pattern.match(
+            cleaned
+        )
 
         if match:
+
             try:
-                number = int(match.group(1))
+                number = int(
+                    match.group(1)
+                )
+
             except ValueError:
                 return None, None
 
-            question = match.group(2).strip()
+            question = match.group(
+                2
+            ).strip()
 
             if question:
-                return number, question
+                return (
+                    number,
+                    question,
+                )
 
     return None, None
 
@@ -405,25 +497,40 @@ OPTION_PATTERN = re.compile(
 
 def parse_option(
     line: str,
-) -> Tuple[Optional[str], Optional[str]]:
+) -> Tuple[
+    Optional[str],
+    Optional[str],
+]:
 
-    cleaned = clean_line(line)
+    cleaned = clean_line(
+        line
+    )
 
     if not cleaned:
         return None, None
 
-    match = OPTION_PATTERN.match(cleaned)
+    match = OPTION_PATTERN.match(
+        cleaned
+    )
 
     if not match:
         return None, None
 
-    letter = match.group(1).upper()
-    text = match.group(2).strip()
+    letter = match.group(
+        1
+    ).upper()
+
+    text = match.group(
+        2
+    ).strip()
 
     if not text:
         return None, None
 
-    return letter, text
+    return (
+        letter,
+        text,
+    )
 
 
 # ======================================================================
@@ -432,43 +539,92 @@ def parse_option(
 
 def parse_speaker(
     line: str,
-) -> Tuple[Optional[str], Optional[str]]:
+) -> Tuple[
+    Optional[str],
+    Optional[str],
+]:
 
-    cleaned = clean_line(line)
+    cleaned = clean_line(
+        line
+    )
 
     if not cleaned:
         return None, None
 
     patterns = [
+
         # English
-        (r"^(Male|Man)\s*[:：]\s*(.+)$", "male"),
-        (r"^(Female|Woman)\s*[:：]\s*(.+)$", "female"),
+        (
+            r"^(Male|Man)\s*[:：]\s*(.+)$",
+            "male",
+        ),
+
+        (
+            r"^(Female|Woman)\s*[:：]\s*(.+)$",
+            "female",
+        ),
 
         # Chinese
-        (r"^(男声|男士|男)\s*[:：]\s*(.+)$", "male"),
-        (r"^(女声|女士|女)\s*[:：]\s*(.+)$", "female"),
+        (
+            r"^(男声|男士|男)\s*[:：]\s*(.+)$",
+            "male",
+        ),
 
-        # M: / F:
-        (r"^M\s*[:：]\s*(.+)$", "male"),
-        (r"^F\s*[:：]\s*(.+)$", "female"),
+        (
+            r"^(女声|女士|女)\s*[:：]\s*(.+)$",
+            "female",
+        ),
+
+        # M / F
+        (
+            r"^M\s*[:：]\s*(.+)$",
+            "male_short",
+        ),
+
+        (
+            r"^F\s*[:：]\s*(.+)$",
+            "female_short",
+        ),
     ]
 
-    for pattern, voice in patterns:
+    for pattern, voice_type in patterns:
+
         match = re.match(
             pattern,
             cleaned,
             flags=re.IGNORECASE,
         )
 
-        if match:
+        if not match:
+            continue
 
-            if voice in ("male", "female"):
-                text = match.group(2).strip()
-            else:
-                text = match.group(1).strip()
+        if voice_type == "male":
+            text = match.group(2).strip()
+            return (
+                "male",
+                text,
+            )
 
-            if text:
-                return voice, text
+        if voice_type == "female":
+            text = match.group(2).strip()
+            return (
+                "female",
+                text,
+            )
+
+        if voice_type == "male_short":
+            text = match.group(1).strip()
+            return (
+                "male",
+                text,
+            )
+
+        if voice_type == "female_short":
+            text = match.group(1).strip()
+            return (
+                "female",
+                text,
+            )
 
     return None, None
 
@@ -489,7 +645,9 @@ def parse_questions(
 
     for raw in lines:
 
-        line = clean_line(raw)
+        line = clean_line(
+            raw
+        )
 
         if not line:
             continue
@@ -498,12 +656,18 @@ def parse_questions(
         # Question header
         # --------------------------------------------------------------
 
-        number, question_text = parse_question_header(line)
+        number, question_text = (
+            parse_question_header(
+                line
+            )
+        )
 
         if number is not None:
 
             if current is not None:
-                questions.append(current)
+                questions.append(
+                    current
+                )
 
             current = Question(
                 number=number,
@@ -518,24 +682,29 @@ def parse_questions(
 
         if current is not None:
 
-            letter, option_text = parse_option(line)
+            letter, option_text = (
+                parse_option(line)
+            )
 
             if letter is not None:
 
-                # 防止同一个选项重复写入
-                existing_letters = {
-                    re.match(
-                        r"^([A-D])\.",
-                        option,
-                    ).group(1)
-                    for option in current.options
-                    if re.match(
+                existing_letters = set()
+
+                for option in current.options:
+
+                    option_match = re.match(
                         r"^([A-D])\.",
                         option,
                     )
-                }
+
+                    if option_match:
+
+                        existing_letters.add(
+                            option_match.group(1)
+                        )
 
                 if letter not in existing_letters:
+
                     current.options.append(
                         f"{letter}. {option_text}"
                     )
@@ -548,12 +717,17 @@ def parse_questions(
 
         if current is not None:
 
-            speaker, speech = parse_speaker(line)
+            speaker, speech = (
+                parse_speaker(line)
+            )
 
             if speaker is not None:
 
                 current.dialogue.append(
-                    (speaker, speech)
+                    (
+                        speaker,
+                        speech,
+                    )
                 )
 
                 continue
@@ -566,7 +740,9 @@ def parse_questions(
 
             if current.dialogue:
 
-                speaker, _ = current.dialogue[-1]
+                speaker, _ = (
+                    current.dialogue[-1]
+                )
 
                 current.dialogue.append(
                     (
@@ -576,7 +752,10 @@ def parse_questions(
                 )
 
     if current is not None:
-        questions.append(current)
+
+        questions.append(
+            current
+        )
 
     return questions
 
@@ -591,18 +770,24 @@ def extract_dialogue(
 
     lines = text.splitlines()
 
-    dialogue: List[Tuple[str, str]] = []
+    dialogue: List[
+        Tuple[str, str]
+    ] = []
 
     current_speaker: Optional[str] = None
 
     for raw in lines:
 
-        line = clean_line(raw)
+        line = clean_line(
+            raw
+        )
 
         if not line:
             continue
 
-        speaker, speech = parse_speaker(line)
+        speaker, speech = (
+            parse_speaker(line)
+        )
 
         if speaker is not None:
 
@@ -641,19 +826,26 @@ def attach_dialogue(
     if not questions or not dialogue:
         return
 
-    # 如果只有一道题，则整段对话属于该题
+    # 只有一道题
     if len(questions) == 1:
-        questions[0].dialogue = dialogue
+
+        questions[0].dialogue = (
+            dialogue
+        )
+
         return
 
-    # 如果题目已经存在 dialogue，则不覆盖
-    if any(question.dialogue for question in questions):
+    # 如果题目已经有 dialogue，则不覆盖
+    if any(
+        question.dialogue
+        for question in questions
+    ):
         return
 
-    # 保留旧版兼容逻辑：
-    # 如果没有任何题目拥有 dialogue，
-    # 则整段 dialogue 放到第一题。
-    questions[0].dialogue = dialogue
+    # 保留旧版兼容逻辑
+    questions[0].dialogue = (
+        dialogue
+    )
 
 
 # ======================================================================
@@ -663,6 +855,26 @@ def attach_dialogue(
 def extract_passage(
     text: str,
 ) -> str:
+    """
+    从 Part C 中提取听力原文。
+
+    重要：
+
+    如果后面出现：
+
+        ## 二、标准答案
+
+    或：
+
+        标准答案
+        答案与解析
+        答案
+        解析
+
+    立即停止。
+
+    防止答案文件后面的解析文字进入听力。
+    """
 
     lines = text.splitlines()
 
@@ -672,7 +884,9 @@ def extract_passage(
 
     for raw in lines:
 
-        line = clean_line(raw)
+        line = clean_line(
+            raw
+        )
 
         if not line:
             continue
@@ -681,7 +895,10 @@ def extract_passage(
         # Part C header
         # --------------------------------------------------------------
 
-        if is_part_header(raw, "C"):
+        if is_part_header(
+            raw,
+            "C",
+        ):
 
             started = True
             continue
@@ -690,20 +907,24 @@ def extract_passage(
             continue
 
         # --------------------------------------------------------------
-        # 遇到下一个 Part
+        # 遇到其他 Part
         # --------------------------------------------------------------
 
-        if is_part_header(raw, "A") or is_part_header(raw, "B"):
+        if (
+            is_part_header(
+                raw,
+                "A",
+            )
+            or
+            is_part_header(
+                raw,
+                "B",
+            )
+        ):
             break
 
         # --------------------------------------------------------------
         # 遇到大章节
-        #
-        # 答案文件中的：
-        #
-        # ## 二、标准答案
-        #
-        # 不能继续被当成听力原文。
         # --------------------------------------------------------------
 
         if re.match(
@@ -723,13 +944,17 @@ def extract_passage(
         # 遇到题目
         # --------------------------------------------------------------
 
-        number, _ = parse_question_header(line)
+        number, _ = (
+            parse_question_header(
+                line
+            )
+        )
 
         if number is not None:
             break
 
         # --------------------------------------------------------------
-        # 遇到 Questions / 问题 / 选择题
+        # Questions / 问题 / 选择题
         # --------------------------------------------------------------
 
         if re.match(
@@ -739,9 +964,13 @@ def extract_passage(
         ):
             break
 
-        passage.append(line)
+        passage.append(
+            line
+        )
 
-    return " ".join(passage).strip()
+    return " ".join(
+        passage
+    ).strip()
 
 
 # ======================================================================
@@ -752,15 +981,13 @@ def extract_part_c_passage_from_answer(
     answer_text: str,
 ) -> str:
     """
-    Part C 原文专用解析。
+    Part C 原文：
 
-    重要：
+        ONLY 来自答案与解析。
 
-        Part C 题目不从答案文件解析。
+    Part C 题目和选项：
 
-    这里只负责：
-
-        答案与解析 → Part C passage
+        NEVER 从答案与解析恢复。
     """
 
     part_c = extract_part(
@@ -771,6 +998,8 @@ def extract_part_c_passage_from_answer(
     if not part_c:
         return ""
 
+    # 手工补上 Part C 标题，
+    # 让 extract_passage() 可以统一处理。
     return extract_passage(
         "Part C\n" + part_c
     )
@@ -792,6 +1021,7 @@ def validate_part_c(
     # --------------------------------------------------------------
 
     if not passage.strip():
+
         errors.append(
             "Part C 听力原文为空"
         )
@@ -803,7 +1033,7 @@ def validate_part_c(
     if len(questions) != 5:
 
         errors.append(
-            f"Part C 题目数量错误："
+            "Part C 题目数量错误："
             f"期望 5，实际 {len(questions)}"
         )
 
@@ -811,18 +1041,23 @@ def validate_part_c(
     # 每题
     # --------------------------------------------------------------
 
-    for expected_number in range(1, 6):
+    for expected_number in range(
+        1,
+        6,
+    ):
 
         matched = [
             question
             for question in questions
-            if question.number == expected_number
+            if question.number
+            == expected_number
         ]
 
         if not matched:
 
             errors.append(
-                f"Part C 缺少第 {expected_number} 题"
+                f"Part C 缺少第 "
+                f"{expected_number} 题"
             )
 
             continue
@@ -832,14 +1067,17 @@ def validate_part_c(
         if not question.question.strip():
 
             errors.append(
-                f"Part C 第 {expected_number} 题题干为空"
+                f"Part C 第 "
+                f"{expected_number} 题题干为空"
             )
 
         if len(question.options) != 4:
 
             errors.append(
-                f"Part C 第 {expected_number} 题选项数量错误："
-                f"期望 4，实际 {len(question.options)}"
+                f"Part C 第 "
+                f"{expected_number} 题选项数量错误："
+                f"期望 4，实际 "
+                f"{len(question.options)}"
             )
 
     # --------------------------------------------------------------
@@ -851,7 +1089,9 @@ def validate_part_c(
         for question in questions
     ]
 
-    if len(numbers) != len(set(numbers)):
+    if len(numbers) != len(
+        set(numbers)
+    ):
 
         errors.append(
             "Part C 存在重复题号"
@@ -892,9 +1132,14 @@ def build_part_a(
         ]
 
         for option in question.options:
-            text_parts.append(option)
 
-        full_text = " ".join(text_parts).strip()
+            text_parts.append(
+                option
+            )
+
+        full_text = " ".join(
+            text_parts
+        ).strip()
 
         if not full_text:
             continue
@@ -926,11 +1171,14 @@ def build_part_b(
     # Dialogue
     # --------------------------------------------------------------
 
-    dialogue: List[Tuple[str, str]] = []
+    dialogue: List[
+        Tuple[str, str]
+    ] = []
 
     for question in questions:
 
         if question.dialogue:
+
             dialogue.extend(
                 question.dialogue
             )
@@ -943,11 +1191,13 @@ def build_part_b(
 
         for speaker, text in dialogue:
 
-            voice = (
-                male_voice
-                if speaker == "male"
-                else female_voice
-            )
+            if speaker == "male":
+
+                voice = male_voice
+
+            else:
+
+                voice = female_voice
 
             if text.strip():
 
@@ -997,13 +1247,11 @@ def build_part_c(
     questions: List[Question],
     female_voice: str,
 ) -> List[Segment]:
-
     """
-    Part C V2.2.2
+    Part C：
 
-    passage ×1
+        passage ×1
 
-    每题：
         question ×2
         A ×2
         B ×2
@@ -1014,7 +1262,7 @@ def build_part_c(
     segments: List[Segment] = []
 
     # --------------------------------------------------------------
-    # Passage
+    # Passage ×1
     # --------------------------------------------------------------
 
     if passage.strip():
@@ -1036,6 +1284,7 @@ def build_part_c(
         key=lambda item: item.number,
     ):
 
+        # Question ×2
         if question.question.strip():
 
             segments.append(
@@ -1046,6 +1295,7 @@ def build_part_c(
                 )
             )
 
+        # A/B/C/D ×2
         for option in question.options:
 
             segments.append(
@@ -1063,17 +1313,33 @@ def build_part_c(
 # TTS 文本清理
 # ======================================================================
 
-def clean_text(text: str) -> str:
+def clean_text(
+    text: str,
+) -> str:
 
     text = text.strip()
 
     # Markdown
-    text = text.replace("**", "")
-    text = text.replace("__", "")
-    text = text.replace("*", "")
+    text = text.replace(
+        "**",
+        "",
+    )
+
+    text = text.replace(
+        "__",
+        "",
+    )
+
+    text = text.replace(
+        "*",
+        "",
+    )
 
     # 下划线
-    text = text.replace("_", " ")
+    text = text.replace(
+        "_",
+        " ",
+    )
 
     # 多余空格
     text = re.sub(
@@ -1095,9 +1361,12 @@ def load_kokoro(
 ):
 
     try:
+
         from kokoro_onnx import KModel
         from kokoro_onnx import KPipeline
+
     except Exception as exc:
+
         fail(
             "无法导入 kokoro_onnx：\n"
             f"{exc}"
@@ -1126,7 +1395,7 @@ def load_kokoro(
 
 
 # ======================================================================
-# 音频生成
+# 单个 Segment 合成
 # ======================================================================
 
 def synthesize_segment(
@@ -1137,8 +1406,8 @@ def synthesize_segment(
     output_wav: Path,
 ) -> None:
 
-    import soundfile as sf
     import numpy as np
+    import soundfile as sf
 
     text = clean_text(
         segment.text
@@ -1149,6 +1418,8 @@ def synthesize_segment(
 
     audio_parts = []
 
+    sample_rate = None
+
     for repeat_index in range(
         segment.repeat
     ):
@@ -1157,18 +1428,22 @@ def synthesize_segment(
 
             samples = []
 
-            for audio, sample_rate in pipeline.create(
+            for audio, sr in pipeline.create(
                 text,
                 voice=segment.voice,
                 speed=speed,
                 lang=language,
             ):
 
+                if sample_rate is None:
+                    sample_rate = sr
+
                 samples.append(
                     audio
                 )
 
             if not samples:
+
                 raise RuntimeError(
                     "Kokoro 没有返回音频数据"
                 )
@@ -1182,7 +1457,7 @@ def synthesize_segment(
             )
 
             # ----------------------------------------------------------
-            # 两次重复之间 0.7 秒静音
+            # Repeat 之间 0.7 秒静音
             # ----------------------------------------------------------
 
             if (
@@ -1211,6 +1486,9 @@ def synthesize_segment(
                 f"错误：{exc}"
             )
 
+    if not audio_parts:
+        return
+
     final_audio = np.concatenate(
         audio_parts
     )
@@ -1223,7 +1501,7 @@ def synthesize_segment(
 
 
 # ======================================================================
-# Part 音频生成
+# Segment 合并
 # ======================================================================
 
 def render_segments(
@@ -1237,7 +1515,8 @@ def render_segments(
     if not segments:
 
         fail(
-            f"没有可生成的音频内容：{output_wav}"
+            f"没有可生成的音频内容："
+            f"{output_wav}"
         )
 
     with tempfile.TemporaryDirectory(
@@ -1282,18 +1561,21 @@ def render_segments(
                 output_wav=segment_file,
             )
 
-            files.append(
-                segment_file
-            )
+            if segment_file.exists():
+
+                files.append(
+                    segment_file
+                )
 
         if not files:
 
             fail(
-                f"没有生成任何音频片段：{output_wav}"
+                f"没有生成任何音频片段："
+                f"{output_wav}"
             )
 
         # --------------------------------------------------------------
-        # ffmpeg concat
+        # concat.txt
         # --------------------------------------------------------------
 
         concat_file = (
@@ -1311,6 +1593,10 @@ def render_segments(
                 handle.write(
                     f"file '{file.as_posix()}'\n"
                 )
+
+        # --------------------------------------------------------------
+        # ffmpeg
+        # --------------------------------------------------------------
 
         try:
 
@@ -1343,7 +1629,7 @@ def render_segments(
 
 
 # ======================================================================
-# WAV → MP3 / M4A
+# WAV → MP3 / M4A / WAV
 # ======================================================================
 
 def convert_audio(
@@ -1351,6 +1637,8 @@ def convert_audio(
     output_file: Path,
     audio_format: str,
 ) -> None:
+
+    audio_format = audio_format.lower()
 
     if audio_format == "wav":
 
@@ -1382,7 +1670,8 @@ def convert_audio(
     else:
 
         fail(
-            f"不支持的音频格式：{audio_format}"
+            f"不支持的音频格式："
+            f"{audio_format}"
         )
 
     try:
@@ -1411,7 +1700,7 @@ def convert_audio(
 
 
 # ======================================================================
-# Part 文件生成
+# Part 音频生成
 # ======================================================================
 
 def generate_part_audio(
@@ -1431,7 +1720,8 @@ def generate_part_audio(
 
     final_file = (
         output_dir
-        / f"Listening_{part_name}.{audio_format}"
+        / f"Listening_{part_name}."
+        f"{audio_format}"
     )
 
     with tempfile.TemporaryDirectory(
@@ -1445,7 +1735,8 @@ def generate_part_audio(
 
         log()
         log(
-            f"▶️ 正在生成 Listening {part_name}"
+            f"▶️ 正在生成 Listening "
+            f"{part_name}"
         )
 
         render_segments(
@@ -1463,13 +1754,17 @@ def generate_part_audio(
         )
 
     if not final_file.exists():
+
         fail(
-            f"音频生成失败，文件不存在：{final_file}"
+            f"音频生成失败，文件不存在："
+            f"{final_file}"
         )
 
     if final_file.stat().st_size <= 0:
+
         fail(
-            f"音频文件为空：{final_file}"
+            f"音频文件为空："
+            f"{final_file}"
         )
 
     log(
@@ -1490,8 +1785,10 @@ def generate_total_audio(
 ) -> None:
 
     if not part_files:
+
         fail(
-            "没有 Part 音频，无法生成总音频。"
+            "没有 Part 音频，"
+            "无法生成总音频。"
         )
 
     with tempfile.TemporaryDirectory(
@@ -1568,10 +1865,14 @@ def generate_total_audio(
                 )
 
         # --------------------------------------------------------------
-        # 根据输出格式选择 codec
+        # 输出 codec
         # --------------------------------------------------------------
 
-        suffix = output_file.suffix.lower()
+        suffix = (
+            output_file
+            .suffix
+            .lower()
+        )
 
         if suffix == ".mp3":
 
@@ -1601,8 +1902,13 @@ def generate_total_audio(
         else:
 
             fail(
-                f"不支持的总音频格式：{suffix}"
+                f"不支持的总音频格式："
+                f"{suffix}"
             )
+
+        # --------------------------------------------------------------
+        # 合并
+        # --------------------------------------------------------------
 
         try:
 
@@ -1633,13 +1939,17 @@ def generate_total_audio(
             )
 
     if not output_file.exists():
+
         fail(
-            f"总音频文件不存在：{output_file}"
+            f"总音频文件不存在："
+            f"{output_file}"
         )
 
     if output_file.stat().st_size <= 0:
+
         fail(
-            f"总音频文件为空：{output_file}"
+            f"总音频文件为空："
+            f"{output_file}"
         )
 
     log(
@@ -1655,7 +1965,10 @@ def generate_total_audio(
 def build_parser() -> argparse.ArgumentParser:
 
     parser = argparse.ArgumentParser(
-        description="748686 English Learning System - Audio Generator V2.2.2"
+        description=(
+            "748686 English Learning System "
+            "- Audio Generator V2.2.2"
+        )
     )
 
     parser.add_argument(
@@ -1676,8 +1989,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="答案与解析 Markdown 文件",
     )
 
+    # ------------------------------------------------------------------
+    # 关键修复：
+    #
+    # Workflow 使用 --audio-format
+    #
+    # 同时兼容旧的 --format
+    # ------------------------------------------------------------------
+
     parser.add_argument(
+        "--audio-format",
         "--format",
+        dest="audio_format",
         default="mp3",
         choices=[
             "mp3",
@@ -1729,18 +2052,24 @@ def main() -> None:
     # 路径
     # ==================================================================
 
-    script_path = Path(__file__).resolve()
+    script_path = (
+        Path(__file__)
+        .resolve()
+    )
 
-    # 脚本位于：
+    # 脚本通常位于：
     #
-    # 02_英语学习系统/...
+    # 02_英语学习系统/scripts/
     #
-    # project_root：
+    # 所以 parents[1]：
     #
     # 02_英语学习系统
     #
 
-    project_root = script_path.parents[1]
+    project_root = (
+        script_path
+        .parents[1]
+    )
 
     model_path = (
         project_root
@@ -1756,13 +2085,19 @@ def main() -> None:
         / "voices-v1.1-zh.bin"
     )
 
-    exam_file = Path(
-        args.exam_file
-    ).resolve()
+    exam_file = (
+        Path(
+            args.exam_file
+        )
+        .resolve()
+    )
 
-    answer_file = Path(
-        args.answer_file
-    ).resolve()
+    answer_file = (
+        Path(
+            args.answer_file
+        )
+        .resolve()
+    )
 
     # ==================================================================
     # 输出目录
@@ -1785,40 +2120,91 @@ def main() -> None:
     # 基础验证
     # ==================================================================
 
-    log("=" * 70)
-    log("748686 英语学习系统")
-    log("Audio Generator V2.2.2")
-    log("=" * 70)
+    log(
+        "=" * 70
+    )
+
+    log(
+        "748686 英语学习系统"
+    )
+
+    log(
+        "Audio Generator V2.2.2"
+    )
+
+    log(
+        "=" * 70
+    )
 
     log()
     log("CONFIG")
-    log(f"  Date          : {args.date}")
-    log(f"  Exam          : {exam_file}")
-    log(f"  Answer        : {answer_file}")
-    log(f"  Format        : {args.format}")
-    log(f"  Speed         : {args.speed}")
-    log(f"  Male voice    : {args.male_voice}")
-    log(f"  Female voice  : {args.female_voice}")
-    log(f"  Language      : {args.language}")
+
+    log(
+        f"  Date          : "
+        f"{args.date}"
+    )
+
+    log(
+        f"  Exam          : "
+        f"{exam_file}"
+    )
+
+    log(
+        f"  Answer        : "
+        f"{answer_file}"
+    )
+
+    log(
+        f"  Format        : "
+        f"{args.audio_format}"
+    )
+
+    log(
+        f"  Speed         : "
+        f"{args.speed}"
+    )
+
+    log(
+        f"  Male voice    : "
+        f"{args.male_voice}"
+    )
+
+    log(
+        f"  Female voice  : "
+        f"{args.female_voice}"
+    )
+
+    log(
+        f"  Language      : "
+        f"{args.language}"
+    )
 
     if not exam_file.exists():
+
         fail(
-            f"试卷文件不存在：{exam_file}"
+            f"试卷文件不存在："
+            f"{exam_file}"
         )
 
     if not answer_file.exists():
+
         fail(
-            f"答案与解析文件不存在：{answer_file}"
+            f"答案与解析文件不存在："
+            f"{answer_file}"
         )
 
     if not model_path.exists():
+
         fail(
-            f"Kokoro model 不存在：{model_path}"
+            f"Kokoro model 不存在："
+            f"{model_path}"
         )
 
     if not voices_path.exists():
+
         fail(
-            f"Kokoro voices 不存在：{voices_path}"
+            f"Kokoro voices 不存在："
+            f"{voices_path}"
         )
 
     # ==================================================================
@@ -1856,9 +2242,15 @@ def main() -> None:
     # ==================================================================
 
     log()
-    log("=" * 70)
-    log("PART A")
-    log("=" * 70)
+    log(
+        "=" * 70
+    )
+    log(
+        "PART A"
+    )
+    log(
+        "=" * 70
+    )
 
     exam_part_a = extract_part(
         exam_text,
@@ -1876,7 +2268,8 @@ def main() -> None:
     )
 
     log(
-        f"  Questions: {len(questions_a)}"
+        f"  Questions: "
+        f"{len(questions_a)}"
     )
 
     if not questions_a:
@@ -1889,7 +2282,8 @@ def main() -> None:
 
         log(
             f"  Q{question.number}: "
-            f"{len(question.options)} options"
+            f"{len(question.options)} "
+            f"options"
         )
 
     # ==================================================================
@@ -1897,9 +2291,15 @@ def main() -> None:
     # ==================================================================
 
     log()
-    log("=" * 70)
-    log("PART B")
-    log("=" * 70)
+    log(
+        "=" * 70
+    )
+    log(
+        "PART B"
+    )
+    log(
+        "=" * 70
+    )
 
     exam_part_b = extract_part(
         exam_text,
@@ -1917,7 +2317,8 @@ def main() -> None:
     )
 
     log(
-        f"  Questions: {len(questions_b)}"
+        f"  Questions: "
+        f"{len(questions_b)}"
     )
 
     # --------------------------------------------------------------
@@ -1931,7 +2332,8 @@ def main() -> None:
     if not dialogue_b:
 
         log(
-            "  ⚠️ 试卷 Part B 没有找到对话"
+            "  ⚠️ 试卷 Part B "
+            "没有找到对话"
         )
 
         answer_part_b = extract_part(
@@ -1946,7 +2348,8 @@ def main() -> None:
         if dialogue_b:
 
             log(
-                "  ✓ 已从答案与解析补充 Part B 对话"
+                "  ✓ 已从答案与解析"
+                "补充 Part B 对话"
             )
 
     attach_dialogue(
@@ -1959,14 +2362,20 @@ def main() -> None:
     # ==================================================================
 
     log()
-    log("=" * 70)
-    log("PART C")
-    log("=" * 70)
+    log(
+        "=" * 70
+    )
+    log(
+        "PART C"
+    )
+    log(
+        "=" * 70
+    )
 
     # ------------------------------------------------------------------
-    # 1. 题目 + 选项
+    # Part C：
     #
-    # ONLY 从 exam_file 读取
+    # 题目 + 选项 ONLY 来自试卷
     # ------------------------------------------------------------------
 
     exam_part_c = extract_part(
@@ -1990,13 +2399,15 @@ def main() -> None:
     )
 
     # ------------------------------------------------------------------
-    # 2. 原文
+    # Part C：
     #
-    # ONLY 从 answer_file 读取
+    # 听力原文 ONLY 来自答案与解析
     # ------------------------------------------------------------------
 
-    passage_c = extract_part_c_passage_from_answer(
-        answer_text
+    passage_c = (
+        extract_part_c_passage_from_answer(
+            answer_text
+        )
     )
 
     log(
@@ -2005,7 +2416,7 @@ def main() -> None:
     )
 
     # ------------------------------------------------------------------
-    # 3. 严格验证
+    # Part C 严格验证
     # ------------------------------------------------------------------
 
     validate_part_c(
@@ -2024,17 +2435,24 @@ def main() -> None:
 
         log(
             f"  Q{question.number}: "
-            f"{len(question.options)} options"
+            f"{len(question.options)} "
+            f"options"
         )
 
     # ==================================================================
-    # 构建音频 Segment
+    # 构建 Segment
     # ==================================================================
 
     log()
-    log("=" * 70)
-    log("BUILD AUDIO SEGMENTS")
-    log("=" * 70)
+    log(
+        "=" * 70
+    )
+    log(
+        "BUILD AUDIO SEGMENTS"
+    )
+    log(
+        "=" * 70
+    )
 
     segments_a = build_part_a(
         questions=questions_a,
@@ -2054,15 +2472,18 @@ def main() -> None:
     )
 
     log(
-        f"  Part A segments: {len(segments_a)}"
+        f"  Part A segments: "
+        f"{len(segments_a)}"
     )
 
     log(
-        f"  Part B segments: {len(segments_b)}"
+        f"  Part B segments: "
+        f"{len(segments_b)}"
     )
 
     log(
-        f"  Part C segments: {len(segments_c)}"
+        f"  Part C segments: "
+        f"{len(segments_c)}"
     )
 
     # ==================================================================
@@ -2070,9 +2491,15 @@ def main() -> None:
     # ==================================================================
 
     log()
-    log("=" * 70)
-    log("INITIALIZE KOKORO")
-    log("=" * 70)
+    log(
+        "=" * 70
+    )
+    log(
+        "INITIALIZE KOKORO"
+    )
+    log(
+        "=" * 70
+    )
 
     pipeline = load_kokoro(
         model_path=model_path,
@@ -2084,7 +2511,7 @@ def main() -> None:
     )
 
     # ==================================================================
-    # 生成 A
+    # Listening A
     # ==================================================================
 
     part_files: List[Path] = []
@@ -2094,7 +2521,7 @@ def main() -> None:
         part_name="A",
         segments=segments_a,
         output_dir=output_dir,
-        audio_format=args.format,
+        audio_format=args.audio_format,
         speed=args.speed,
         language=args.language,
     )
@@ -2104,7 +2531,7 @@ def main() -> None:
     )
 
     # ==================================================================
-    # 生成 B
+    # Listening B
     # ==================================================================
 
     part_b_file = generate_part_audio(
@@ -2112,7 +2539,7 @@ def main() -> None:
         part_name="B",
         segments=segments_b,
         output_dir=output_dir,
-        audio_format=args.format,
+        audio_format=args.audio_format,
         speed=args.speed,
         language=args.language,
     )
@@ -2122,7 +2549,7 @@ def main() -> None:
     )
 
     # ==================================================================
-    # 生成 C
+    # Listening C
     # ==================================================================
 
     part_c_file = generate_part_audio(
@@ -2130,7 +2557,7 @@ def main() -> None:
         part_name="C",
         segments=segments_c,
         output_dir=output_dir,
-        audio_format=args.format,
+        audio_format=args.audio_format,
         speed=args.speed,
         language=args.language,
     )
@@ -2144,13 +2571,20 @@ def main() -> None:
     # ==================================================================
 
     log()
-    log("=" * 70)
-    log("GENERATE TOTAL AUDIO")
-    log("=" * 70)
+    log(
+        "=" * 70
+    )
+    log(
+        "GENERATE TOTAL AUDIO"
+    )
+    log(
+        "=" * 70
+    )
 
     total_file = (
         output_dir
-        / f"Listening_总音频.{args.format}"
+        / f"Listening_总音频."
+        f"{args.audio_format}"
     )
 
     generate_total_audio(
@@ -2163,9 +2597,15 @@ def main() -> None:
     # ==================================================================
 
     log()
-    log("=" * 70)
-    log("FINAL VALIDATION")
-    log("=" * 70)
+    log(
+        "=" * 70
+    )
+    log(
+        "FINAL VALIDATION"
+    )
+    log(
+        "=" * 70
+    )
 
     expected_files = [
         part_a_file,
@@ -2179,7 +2619,8 @@ def main() -> None:
         if not file.exists():
 
             fail(
-                f"缺少输出文件：{file}"
+                f"缺少输出文件："
+                f"{file}"
             )
 
         size = file.stat().st_size
@@ -2187,7 +2628,8 @@ def main() -> None:
         if size <= 0:
 
             fail(
-                f"输出文件为空：{file}"
+                f"输出文件为空："
+                f"{file}"
             )
 
         log(
@@ -2200,19 +2642,31 @@ def main() -> None:
     # ==================================================================
 
     log()
-    log("=" * 70)
-    log("AUDIO GENERATION COMPLETE")
-    log("=" * 70)
+    log(
+        "=" * 70
+    )
+    log(
+        "AUDIO GENERATION COMPLETE"
+    )
+    log(
+        "=" * 70
+    )
 
     log(
-        f"Output directory:\n"
+        "Output directory:"
+    )
+
+    log(
         f"  {output_dir}"
     )
 
     log()
-    log("Generated:")
+    log(
+        "Generated:"
+    )
 
     for file in expected_files:
+
         log(
             f"  ✓ {file.name}"
         )
