@@ -1,0 +1,935 @@
+name: 02_英语学习系统
+
+on:
+
+  workflow_dispatch:
+
+    inputs:
+
+      date:
+        description: "基准日期（留空=UTC今天）"
+        required: false
+        default: ""
+
+      difficulty:
+        description: "难度"
+        required: true
+        type: choice
+        options:
+          - "1"
+          - "2"
+          - "3"
+          - "4"
+          - "5"
+          - "6"
+          - "7"
+          - "8"
+          - "9"
+          - "10"
+          - "11"
+          - "12"
+          - "13"
+          - "14"
+          - "15"
+          - "16"
+          - "17"
+        default: "1"
+
+      article_type:
+        description: "文章类型"
+        required: true
+        type: choice
+        options:
+          - "记叙文"
+          - "议论文"
+          - "说明文"
+          - "描写文"
+          - "应用文-书信"
+          - "应用文-日记"
+          - "应用文-通知"
+          - "应用文-海报"
+          - "应用文-演讲稿"
+          - "散文"
+          - "科技文"
+          - "新闻报道"
+          - "评论文"
+          - "故事"
+          - "对比文"
+          - "童话故事"
+          - "采访"
+        default: "议论文"
+
+      length:
+        description: "文章长度"
+        required: true
+        type: choice
+        options:
+          - "80"
+          - "100"
+          - "120"
+          - "150"
+          - "200"
+          - "300"
+          - "500"
+          - "800"
+          - "1000"
+        default: "100"
+
+      exam:
+        description: "是否生成配套试卷"
+        required: true
+        type: choice
+        options:
+          - "yes"
+          - "no"
+        default: "yes"
+
+      image:
+        description: "是否生成图片"
+        required: true
+        type: choice
+        options:
+          - "yes"
+          - "no"
+        default: "yes"
+
+      audio:
+        description: "是否生成音频"
+        required: true
+        type: choice
+        options:
+          - "yes"
+          - "no"
+        default: "yes"
+
+      audio_format:
+        description: "音频格式"
+        required: true
+        type: choice
+        options:
+          - "mp3"
+          - "m4a"
+          - "wav"
+        default: "mp3"
+
+      speed:
+        description: "音频语速"
+        required: true
+        type: choice
+        options:
+          - "0.75"
+          - "0.9"
+          - "1.0"
+          - "1.1"
+          - "1.25"
+        default: "1.0"
+
+
+permissions:
+  contents: write
+
+
+jobs:
+
+  english-learning:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # ================================================================
+      # 1. Checkout
+      #
+      # Kokoro 模型和 voices 使用 Git LFS。
+      #
+      # 必须开启：
+      #
+      #     lfs: true
+      #
+      # 否则 GitHub Actions 只会得到几十/几百字节的
+      # Git LFS pointer，而不是实际模型文件。
+      # ================================================================
+
+      - name: Checkout 748686obsidian
+
+        uses: actions/checkout@v4
+
+        with:
+          fetch-depth: 0
+          lfs: true
+
+
+      # ================================================================
+      # 2. Python
+      # ================================================================
+
+      - name: Setup Python
+
+        uses: actions/setup-python@v5
+
+        with:
+          python-version: "3.12"
+
+
+      # ================================================================
+      # 3. Requirements
+      # ================================================================
+
+      - name: Install requirements
+
+        run: |
+
+          set -e
+
+          python -m pip install --upgrade pip
+
+          pip install -r 02_英语学习系统/requirements.txt
+
+
+      # ================================================================
+      # 4. Verify Kokoro LFS files
+      #
+      # 这一步必须在正式英语任务开始之前执行。
+      #
+      # 正常文件：
+      #
+      #   ONNX   ≈ 163 MB
+      #   voices ≈ 54 MB
+      #
+      # 如果出现：
+      #
+      #   ONNX   ≈ 134 bytes
+      #   voices ≈ 133 bytes
+      #
+      # 就说明 LFS 没有正确 checkout。
+      # ================================================================
+
+      - name: Verify Kokoro model files
+
+        if: inputs.audio == 'yes'
+
+        shell: bash
+
+        run: |
+
+          set -e
+
+          MODEL_FILE="02_英语学习系统/models/kokoro/kokoro-v1.1-zh.fp16.onnx"
+
+          VOICES_FILE="02_英语学习系统/models/kokoro/voices-v1.1-zh.bin"
+
+          echo
+          echo "============================================================"
+          echo "KOKORO MODEL FILE CHECK"
+          echo "============================================================"
+
+          if [ ! -f "${MODEL_FILE}" ]; then
+
+            echo "❌ ONNX 模型不存在：${MODEL_FILE}"
+
+            exit 1
+
+          fi
+
+          if [ ! -f "${VOICES_FILE}" ]; then
+
+            echo "❌ voices 文件不存在：${VOICES_FILE}"
+
+            exit 1
+
+          fi
+
+          MODEL_SIZE="$(stat -c%s "${MODEL_FILE}")"
+
+          VOICES_SIZE="$(stat -c%s "${VOICES_FILE}")"
+
+          echo
+          echo "ONNX model:"
+          echo "  ${MODEL_FILE}"
+          echo "  ${MODEL_SIZE} bytes"
+
+          echo
+          echo "Voices:"
+          echo "  ${VOICES_FILE}"
+          echo "  ${VOICES_SIZE} bytes"
+
+          echo
+
+          # ------------------------------------------------------------
+          # ONNX 正常约 163 MB。
+          # 小于 100 MB 基本可以确定不是完整模型。
+          # ------------------------------------------------------------
+
+          if [ "${MODEL_SIZE}" -lt 100000000 ]; then
+
+            echo "❌ ONNX 模型文件异常偏小"
+            echo "❌ 当前大小：${MODEL_SIZE} bytes"
+            echo
+            echo "这通常意味着 Git LFS 没有正确 checkout。"
+            echo
+            echo "当前 Workflow 必须使用："
+            echo "  actions/checkout@v4"
+            echo "  lfs: true"
+            echo
+            echo "请检查 Git LFS checkout。"
+
+            exit 1
+
+          fi
+
+          # ------------------------------------------------------------
+          # Voices 正常约 54 MB。
+          # 小于 10 MB 基本可以确定不是完整 voices 文件。
+          # ------------------------------------------------------------
+
+          if [ "${VOICES_SIZE}" -lt 10000000 ]; then
+
+            echo "❌ Kokoro voices 文件异常偏小"
+            echo "❌ 当前大小：${VOICES_SIZE} bytes"
+            echo
+            echo "这通常意味着 Git LFS 没有正确 checkout。"
+            echo
+            echo "请检查 Git LFS checkout。"
+
+            exit 1
+
+          fi
+
+          echo "✓ ONNX model is a real file"
+          echo "✓ Voices file is a real file"
+          echo "✓ Kokoro LFS files are ready"
+
+          echo
+          echo "============================================================"
+
+
+      # ================================================================
+      # 5. FFmpeg
+      #
+      # mp3 / m4a 都需要 FFmpeg
+      # wav 不依赖 FFmpeg，但统一安装没有问题
+      # ================================================================
+
+      - name: Install FFmpeg
+
+        if: inputs.audio == 'yes'
+
+        run: |
+
+          set -e
+
+          sudo apt-get update
+
+          sudo apt-get install -y ffmpeg
+
+          ffmpeg -version | head -n 1
+
+
+      # ================================================================
+      # 6. Resolve dates
+      #
+      # UTC
+      #
+      # TODAY
+      # ↓
+      # YESTERDAY
+      # ↓
+      # DAY-BEFORE
+      # ================================================================
+
+      - name: Resolve dates
+
+        shell: bash
+
+        run: |
+
+          set -e
+
+          if [ -n "${{ inputs.date }}" ]; then
+            BASE_DATE="${{ inputs.date }}"
+          else
+            BASE_DATE="$(date -u +%F)"
+          fi
+
+          TODAY="${BASE_DATE}"
+
+          YESTERDAY="$(
+            date -u \
+              -d "${BASE_DATE} -1 day" \
+              +%F
+          )"
+
+          DAY_BEFORE="$(
+            date -u \
+              -d "${BASE_DATE} -2 days" \
+              +%F
+          )"
+
+          echo "BASE_DATE=${BASE_DATE}" >> "$GITHUB_ENV"
+          echo "TODAY=${TODAY}" >> "$GITHUB_ENV"
+          echo "YESTERDAY=${YESTERDAY}" >> "$GITHUB_ENV"
+          echo "DAY_BEFORE=${DAY_BEFORE}" >> "$GITHUB_ENV"
+
+          echo
+          echo "=========================================="
+          echo "BASE_DATE  : ${BASE_DATE}"
+          echo "TODAY      : ${TODAY}"
+          echo "YESTERDAY  : ${YESTERDAY}"
+          echo "DAY_BEFORE : ${DAY_BEFORE}"
+          echo "=========================================="
+
+
+      # ================================================================
+      # 7. Article type
+      # ================================================================
+
+      - name: Resolve article type
+
+        shell: bash
+
+        run: |
+
+          set -e
+
+          case "${{ inputs.article_type }}" in
+
+            "记叙文")
+              ARTICLE_TYPE="narration"
+              ;;
+
+            "议论文")
+              ARTICLE_TYPE="argumentation"
+              ;;
+
+            "说明文")
+              ARTICLE_TYPE="exposition"
+              ;;
+
+            "描写文")
+              ARTICLE_TYPE="description"
+              ;;
+
+            "应用文-书信")
+              ARTICLE_TYPE="letter"
+              ;;
+
+            "应用文-日记")
+              ARTICLE_TYPE="diary"
+              ;;
+
+            "应用文-通知")
+              ARTICLE_TYPE="notice"
+              ;;
+
+            "应用文-海报")
+              ARTICLE_TYPE="poster"
+              ;;
+
+            "应用文-演讲稿")
+              ARTICLE_TYPE="speech"
+              ;;
+
+            "散文")
+              ARTICLE_TYPE="prose"
+              ;;
+
+            "科技文")
+              ARTICLE_TYPE="science"
+              ;;
+
+            "新闻报道")
+              ARTICLE_TYPE="news"
+              ;;
+
+            "评论文")
+              ARTICLE_TYPE="review"
+              ;;
+
+            "故事")
+              ARTICLE_TYPE="story"
+              ;;
+
+            "对比文")
+              ARTICLE_TYPE="comparison"
+              ;;
+
+            "童话故事")
+              ARTICLE_TYPE="fairy_tale"
+              ;;
+
+            "采访")
+              ARTICLE_TYPE="interview"
+              ;;
+
+            *)
+              echo "❌ 未知文章类型：${{ inputs.article_type }}"
+              exit 1
+              ;;
+
+          esac
+
+          echo "ARTICLE_TYPE=${ARTICLE_TYPE}" >> "$GITHUB_ENV"
+
+          echo
+          echo "文章类型：${{ inputs.article_type }}"
+          echo "English ID：${ARTICLE_TYPE}"
+
+
+      # ================================================================
+      # 8. TODAY
+      # ================================================================
+
+      - name: TODAY - ${{ env.TODAY }}
+
+        shell: bash
+
+        env:
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_BASE_URL: https://api.agnes-ai.cn/v1
+          AI_MODEL: agnes-2.5-flash
+
+        run: |
+
+          set -e
+
+          DATE="${TODAY}"
+
+          echo
+          echo "============================================================"
+          echo "TODAY"
+          echo "DATE: ${DATE}"
+          echo "============================================================"
+
+          INPUT_FILE=""
+
+          for FILE in \
+            "02_英语学习系统/input/${DATE}.md" \
+            "02_英语学习系统/input/${DATE}.txt" \
+            "02_英语学习系统/输入/${DATE}.md" \
+            "02_英语学习系统/输入/${DATE}.txt"
+          do
+            if [ -s "${FILE}" ]; then
+              INPUT_FILE="${FILE}"
+              break
+            fi
+          done
+
+          if [ -z "${INPUT_FILE}" ]; then
+
+            echo "⚠️ TODAY 没有找到输入文件"
+            echo "⚠️ 跳过 ${DATE}"
+            echo "⚠️ 不调用 AI"
+
+          else
+
+            echo "✓ 输入文件：${INPUT_FILE}"
+
+            python 02_英语学习系统/scripts/main.py \
+              --date "${DATE}" \
+              --difficulty "${{ inputs.difficulty }}" \
+              --article-type "${ARTICLE_TYPE}" \
+              --length "${{ inputs.length }}" \
+              --exam "${{ inputs.exam }}" \
+              --image "${{ inputs.image }}" \
+              --audio "${{ inputs.audio }}" \
+              --audio-format "${{ inputs.audio_format }}" \
+              --speed "${{ inputs.speed }}"
+
+            if [ "${{ inputs.audio }}" = "yes" ] && [ "${{ inputs.exam }}" = "yes" ]; then
+
+              echo
+              echo "------------------------------------------------------------"
+              echo "生成 Listening A / B / C"
+              echo "------------------------------------------------------------"
+
+              EXAM_FILE="02_英语学习系统/output/${DATE}/配套试卷/${{ inputs.difficulty }}星_${{ inputs.article_type }}_试卷.md"
+
+              ANSWER_FILE="02_英语学习系统/output/${DATE}/配套试卷/${{ inputs.difficulty }}星_${{ inputs.article_type }}_答案与解析.md"
+
+              python 02_英语学习系统/scripts/audio_generate.py \
+                --date "${DATE}" \
+                --exam-file "${EXAM_FILE}" \
+                --answer-file "${ANSWER_FILE}" \
+                --audio-format "${{ inputs.audio_format }}" \
+                --speed "${{ inputs.speed }}"
+
+            fi
+
+          fi
+
+
+      # ================================================================
+      # 9. YESTERDAY
+      # ================================================================
+
+      - name: YESTERDAY - ${{ env.YESTERDAY }}
+
+        shell: bash
+
+        env:
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_BASE_URL: https://api.agnes-ai.cn/v1
+          AI_MODEL: agnes-2.5-flash
+
+        run: |
+
+          set -e
+
+          DATE="${YESTERDAY}"
+
+          echo
+          echo "============================================================"
+          echo "YESTERDAY"
+          echo "DATE: ${DATE}"
+          echo "============================================================"
+
+          INPUT_FILE=""
+
+          for FILE in \
+            "02_英语学习系统/input/${DATE}.md" \
+            "02_英语学习系统/input/${DATE}.txt" \
+            "02_英语学习系统/输入/${DATE}.md" \
+            "02_英语学习系统/输入/${DATE}.txt"
+          do
+            if [ -s "${FILE}" ]; then
+              INPUT_FILE="${FILE}"
+              break
+            fi
+          done
+
+          if [ -z "${INPUT_FILE}" ]; then
+
+            echo "⚠️ YESTERDAY 没有找到输入文件"
+            echo "⚠️ 跳过 ${DATE}"
+            echo "⚠️ 不调用 AI"
+
+          else
+
+            echo "✓ 输入文件：${INPUT_FILE}"
+
+            python 02_英语学习系统/scripts/main.py \
+              --date "${DATE}" \
+              --difficulty "${{ inputs.difficulty }}" \
+              --article-type "${ARTICLE_TYPE}" \
+              --length "${{ inputs.length }}" \
+              --exam "${{ inputs.exam }}" \
+              --image "${{ inputs.image }}" \
+              --audio "${{ inputs.audio }}" \
+              --audio-format "${{ inputs.audio_format }}" \
+              --speed "${{ inputs.speed }}"
+
+            if [ "${{ inputs.audio }}" = "yes" ] && [ "${{ inputs.exam }}" = "yes" ]; then
+
+              echo
+              echo "------------------------------------------------------------"
+              echo "生成 Listening A / B / C"
+              echo "------------------------------------------------------------"
+
+              EXAM_FILE="02_英语学习系统/output/${DATE}/配套试卷/${{ inputs.difficulty }}星_${{ inputs.article_type }}_试卷.md"
+
+              ANSWER_FILE="02_英语学习系统/output/${DATE}/配套试卷/${{ inputs.difficulty }}星_${{ inputs.article_type }}_答案与解析.md"
+
+              python 02_英语学习系统/scripts/audio_generate.py \
+                --date "${DATE}" \
+                --exam-file "${EXAM_FILE}" \
+                --answer-file "${ANSWER_FILE}" \
+                --audio-format "${{ inputs.audio_format }}" \
+                --speed "${{ inputs.speed }}"
+
+            fi
+
+          fi
+
+
+      # ================================================================
+      # 10. DAY-BEFORE
+      # ================================================================
+
+      - name: DAY-BEFORE - ${{ env.DAY_BEFORE }}
+
+        shell: bash
+
+        env:
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_BASE_URL: https://api.agnes-ai.cn/v1
+          AI_MODEL: agnes-2.5-flash
+
+        run: |
+
+          set -e
+
+          DATE="${DAY_BEFORE}"
+
+          echo
+          echo "============================================================"
+          echo "DAY-BEFORE"
+          echo "DATE: ${DATE}"
+          echo "============================================================"
+
+          INPUT_FILE=""
+
+          for FILE in \
+            "02_英语学习系统/input/${DATE}.md" \
+            "02_英语学习系统/input/${DATE}.txt" \
+            "02_英语学习系统/输入/${DATE}.md" \
+            "02_英语学习系统/输入/${DATE}.txt"
+          do
+            if [ -s "${FILE}" ]; then
+              INPUT_FILE="${FILE}"
+              break
+            fi
+          done
+
+          if [ -z "${INPUT_FILE}" ]; then
+
+            echo "⚠️ DAY-BEFORE 没有找到输入文件"
+            echo "⚠️ 跳过 ${DATE}"
+            echo "⚠️ 不调用 AI"
+
+          else
+
+            echo "✓ 输入文件：${INPUT_FILE}"
+
+            python 02_英语学习系统/scripts/main.py \
+              --date "${DATE}" \
+              --difficulty "${{ inputs.difficulty }}" \
+              --article-type "${ARTICLE_TYPE}" \
+              --length "${{ inputs.length }}" \
+              --exam "${{ inputs.exam }}" \
+              --image "${{ inputs.image }}" \
+              --audio "${{ inputs.audio }}" \
+              --audio-format "${{ inputs.audio_format }}" \
+              --speed "${{ inputs.speed }}"
+
+            if [ "${{ inputs.audio }}" = "yes" ] && [ "${{ inputs.exam }}" = "yes" ]; then
+
+              echo
+              echo "------------------------------------------------------------"
+              echo "生成 Listening A / B / C"
+              echo "------------------------------------------------------------"
+
+              EXAM_FILE="02_英语学习系统/output/${DATE}/配套试卷/${{ inputs.difficulty }}星_${{ inputs.article_type }}_试卷.md"
+
+              ANSWER_FILE="02_英语学习系统/output/${DATE}/配套试卷/${{ inputs.difficulty }}星_${{ inputs.article_type }}_答案与解析.md"
+
+              python 02_英语学习系统/scripts/audio_generate.py \
+                --date "${DATE}" \
+                --exam-file "${EXAM_FILE}" \
+                --answer-file "${ANSWER_FILE}" \
+                --audio-format "${{ inputs.audio_format }}" \
+                --speed "${{ inputs.speed }}"
+
+            fi
+
+          fi
+
+
+      # ================================================================
+      # 11. Final verification
+      # ================================================================
+
+      - name: Final verification
+
+        shell: bash
+
+        run: |
+
+          set -e
+
+          echo
+          echo "============================================================"
+          echo "748686 英语学习系统"
+          echo "三日期最终验证"
+          echo "============================================================"
+
+          PROCESSED_COUNT=0
+          SKIPPED_COUNT=0
+
+          for DAY in "${TODAY}" "${YESTERDAY}" "${DAY_BEFORE}"; do
+
+            echo
+            echo "------------------------------------------"
+            echo "日期：${DAY}"
+            echo "------------------------------------------"
+
+            INPUT_FILE=""
+
+            for FILE in \
+              "02_英语学习系统/input/${DAY}.md" \
+              "02_英语学习系统/input/${DAY}.txt" \
+              "02_英语学习系统/输入/${DAY}.md" \
+              "02_英语学习系统/输入/${DAY}.txt"
+            do
+              if [ -s "${FILE}" ]; then
+                INPUT_FILE="${FILE}"
+                break
+              fi
+            done
+
+            if [ -z "${INPUT_FILE}" ]; then
+
+              echo "⚠️ 没有输入文件"
+              echo "⚠️ ${DAY} 跳过最终验证"
+
+              SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+
+              continue
+
+            fi
+
+            PROCESSED_COUNT=$((PROCESSED_COUNT + 1))
+
+            echo "✓ 输入文件：${INPUT_FILE}"
+
+            # ----------------------------------------------------------
+            # Article
+            # ----------------------------------------------------------
+
+            ARTICLE_FILE="02_英语学习系统/output/${DAY}/文章/${{ inputs.difficulty }}星_${{ inputs.article_type }}_文章.md"
+
+            if [ ! -s "${ARTICLE_FILE}" ]; then
+
+              echo "❌ 文章缺失：${ARTICLE_FILE}"
+
+              exit 1
+
+            fi
+
+            echo "✓ 文章存在"
+
+
+            # ----------------------------------------------------------
+            # Exam
+            # ----------------------------------------------------------
+
+            if [ "${{ inputs.exam }}" = "yes" ]; then
+
+              EXAM_FILE="02_英语学习系统/output/${DAY}/配套试卷/${{ inputs.difficulty }}星_${{ inputs.article_type }}_试卷.md"
+
+              ANSWER_FILE="02_英语学习系统/output/${DAY}/配套试卷/${{ inputs.difficulty }}星_${{ inputs.article_type }}_答案与解析.md"
+
+              if [ ! -s "${EXAM_FILE}" ]; then
+
+                echo "❌ 试卷缺失：${EXAM_FILE}"
+
+                exit 1
+
+              fi
+
+              echo "✓ 试卷存在"
+
+
+              if [ ! -s "${ANSWER_FILE}" ]; then
+
+                echo "❌ 答案与解析缺失：${ANSWER_FILE}"
+
+                exit 1
+
+              fi
+
+              echo "✓ 答案与解析存在"
+
+
+              # --------------------------------------------------------
+              # Audio
+              # --------------------------------------------------------
+
+              if [ "${{ inputs.audio }}" = "yes" ]; then
+
+                AUDIO_DIR="02_英语学习系统/output/${DAY}/配套试卷/听力"
+
+                AUDIO_A="${AUDIO_DIR}/Listening_A.${{ inputs.audio_format }}"
+                AUDIO_B="${AUDIO_DIR}/Listening_B.${{ inputs.audio_format }}"
+                AUDIO_C="${AUDIO_DIR}/Listening_C.${{ inputs.audio_format }}"
+
+                if [ ! -s "${AUDIO_A}" ]; then
+
+                  echo "❌ Listening A 缺失：${AUDIO_A}"
+
+                  exit 1
+
+                fi
+
+                echo "✓ Listening A 存在"
+
+
+                if [ ! -s "${AUDIO_B}" ]; then
+
+                  echo "❌ Listening B 缺失：${AUDIO_B}"
+
+                  exit 1
+
+                fi
+
+                echo "✓ Listening B 存在"
+
+
+                if [ ! -s "${AUDIO_C}" ]; then
+
+                  echo "❌ Listening C 缺失：${AUDIO_C}"
+
+                  exit 1
+
+                fi
+
+                echo "✓ Listening C 存在"
+
+              fi
+
+            fi
+
+
+            # ----------------------------------------------------------
+            # List files
+            # ----------------------------------------------------------
+
+            echo
+            echo "生成文件："
+
+            find "02_英语学习系统/output/${DAY}" \
+              -type f \
+              -print \
+              | sort
+
+          done
+
+
+          echo
+          echo "============================================================"
+          echo "最终统计"
+          echo "============================================================"
+
+          echo "实际处理日期：${PROCESSED_COUNT}"
+          echo "跳过日期：${SKIPPED_COUNT}"
+
+          echo
+
+          if [ "${PROCESSED_COUNT}" -eq 0 ]; then
+
+            echo "⚠️ 三个日期均没有输入文件"
+            echo "⚠️ 没有执行 AI 生成"
+            echo "⚠️ Workflow 本身不视为失败"
+
+          else
+
+            echo "✓ 已完成所有存在输入文件日期的验证"
+
+            if [ "${{ inputs.exam }}" = "yes" ]; then
+              echo "✓ 文章 / 试卷 / 答案与解析均已验证"
+            else
+              echo "✓ 文章已验证"
+            fi
+
+            if [ "${{ inputs.audio }}" = "yes" ] && [ "${{ inputs.exam }}" = "yes" ]; then
+              echo "✓ Listening A / B / C 音频均已验证"
+            fi
+
+          fi
+
+          echo
+          echo "============================================================"
+          echo "✓ 748686 英语学习系统任务结束"
+          echo "============================================================"
