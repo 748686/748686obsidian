@@ -1,4 +1,4 @@
-name: TEST - Kokoro Audio
+name: TEST - Kokoro Voice
 
 on:
   workflow_dispatch:
@@ -25,47 +25,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install kokoro-onnx soundfile numpy
 
-      - name: Check Kokoro files
+      - name: Create voice inspection script
         run: |
-          echo "============================================================"
-          echo "KOKORO FILE CHECK"
-          echo "============================================================"
-
-          MODEL="02_英语学习系统/models/kokoro/kokoro-v1.1-zh.fp16.onnx"
-          VOICES="02_英语学习系统/models/kokoro/voices-v1.1-zh.bin"
-
-          echo
-          echo "MODEL"
-          echo "------------------------------------------------------------"
-          ls -lh "$MODEL"
-          wc -c "$MODEL"
-
-          echo
-          echo "VOICES"
-          echo "------------------------------------------------------------"
-          ls -lh "$VOICES"
-          wc -c "$VOICES"
-
-          echo
-          echo "GIT LFS"
-          echo "------------------------------------------------------------"
-          git lfs ls-files || true
-
-          echo
-          echo "MODEL HEADER"
-          echo "------------------------------------------------------------"
-          head -c 200 "$MODEL" | strings || true
-
-      - name: Create Kokoro test script
-        run: |
-          cat > /tmp/test_kokoro.py <<'PYTHON'
+          cat > /tmp/test_voice.py <<'PYTHON'
           from pathlib import Path
-          import random
           import sys
-          import time
+          import inspect
 
-          import numpy as np
-          import soundfile as sf
           from kokoro_onnx import Kokoro
 
 
@@ -85,106 +51,30 @@ jobs:
               / "voices-v1.1-zh.bin"
           )
 
-          OUTPUT_DIR = (
-              PROJECT_ROOT
-              / "output"
-              / "kokoro_test"
-          )
-
-          OUTPUT_PATH = OUTPUT_DIR / "kokoro_test.mp3"
-
-          LANGUAGE = "en-us"
-          SPEED = 1.0
-
-          TEST_SENTENCES = [
-              "This is a test of the Kokoro text to speech system.",
-              "The local Kokoro model is working successfully.",
-              "This is a completely local audio generation test.",
-              "Today is a good day to learn something new.",
-              "The audio generation test has passed successfully.",
-          ]
-
-
-          def fail(message):
-              print()
-              print("TEST FAILED")
-              print()
-              print(message)
-              print()
-              sys.exit(1)
-
 
           print()
           print("=" * 70)
           print("748686 英语学习系统")
-          print("Kokoro Standalone Test")
+          print("Kokoro Voice Inspection")
           print("=" * 70)
 
           print()
-          print("CONFIG")
-          print(f"  Model    : {MODEL_PATH}")
-          print(f"  Voices   : {VOICES_PATH}")
-          print(f"  Language : {LANGUAGE}")
-          print(f"  Speed    : {SPEED}")
-
+          print("MODEL")
+          print("-" * 70)
+          print(MODEL_PATH)
+          print(f"Size: {MODEL_PATH.stat().st_size:,} bytes")
 
           print()
-          print("=" * 70)
-          print("FILE CHECK")
-          print("=" * 70)
-
-          if not MODEL_PATH.exists():
-              fail(f"ONNX model not found:\n{MODEL_PATH}")
-
-          if not VOICES_PATH.exists():
-              fail(f"Voices file not found:\n{VOICES_PATH}")
-
-          model_size = MODEL_PATH.stat().st_size
-          voices_size = VOICES_PATH.stat().st_size
-
-          print(f"  ONNX exists")
-          print(f"    Size: {model_size:,} bytes")
-
-          print()
-          print(f"  Voices exists")
-          print(f"    Size: {voices_size:,} bytes")
+          print("VOICES")
+          print("-" * 70)
+          print(VOICES_PATH)
+          print(f"Size: {VOICES_PATH.stat().st_size:,} bytes")
 
 
           print()
           print("=" * 70)
-          print("LFS / MODEL CONTENT CHECK")
+          print("LOAD KOKORO")
           print("=" * 70)
-
-          with MODEL_PATH.open("rb") as file:
-              header = file.read(512)
-
-          header_text = header.decode(
-              "utf-8",
-              errors="ignore",
-          )
-
-          if "version https://git-lfs.github.com/spec/v1" in header_text:
-              fail(
-                  "The ONNX file is a Git LFS pointer, "
-                  "not the actual model."
-              )
-
-          print("  ✓ Model is not a Git LFS pointer")
-
-          print()
-          print("  First 32 bytes:")
-          print("   ", header[:32].hex(" "))
-
-
-          print()
-          print("=" * 70)
-          print("LOAD KOKORO MODEL")
-          print("=" * 70)
-
-          print()
-          print("  Loading local Kokoro model...")
-
-          started = time.time()
 
           try:
               kokoro = Kokoro(
@@ -193,249 +83,140 @@ jobs:
               )
           except Exception as exc:
               print()
-              print("  KOKORO MODEL LOAD FAILED")
-              print()
-              print(f"  Error type: {type(exc).__name__}")
-              print()
-              print(f"  Error: {exc}")
-              print()
+              print("FAILED TO LOAD KOKORO")
+              print(type(exc).__name__)
+              print(exc)
               sys.exit(1)
 
-          elapsed = time.time() - started
-
           print()
-          print("  ✓ KOKORO MODEL LOADED SUCCESSFULLY")
-          print(f"  Loading time: {elapsed:.2f}s")
+          print("✓ Kokoro loaded successfully")
 
 
           print()
           print("=" * 70)
-          print("AVAILABLE VOICES")
+          print("KOKORO OBJECT")
           print("=" * 70)
 
-          available_voices = []
+          print()
 
-          for attribute in (
-              "voices",
-              "available_voices",
-              "_voices",
-          ):
-              if hasattr(kokoro, attribute):
-                  value = getattr(kokoro, attribute)
+          attributes = sorted(
+              name
+              for name in dir(kokoro)
+              if not name.startswith("__")
+          )
+
+          for name in attributes:
+              print(f"  {name}")
+
+
+          print()
+          print("=" * 70)
+          print("VOICE RELATED ATTRIBUTES")
+          print("=" * 70)
+
+          found = False
+
+          for name in attributes:
+
+              if "voice" not in name.lower():
+                  continue
+
+              print()
+              print(f"ATTRIBUTE: {name}")
+
+              try:
+                  value = getattr(kokoro, name)
+
+                  print(f"TYPE: {type(value)}")
 
                   if isinstance(value, dict):
-                      available_voices = list(value.keys())
+
+                      print(f"COUNT: {len(value)}")
+
+                      for key in sorted(
+                          str(k)
+                          for k in value.keys()
+                      ):
+                          print(f"  VOICE: {key}")
+
+                      found = True
 
                   elif isinstance(
                       value,
                       (list, tuple, set),
                   ):
-                      available_voices = list(value)
 
-                  if available_voices:
-                      print(f"  Source: kokoro.{attribute}")
-                      break
+                      print(f"COUNT: {len(value)}")
 
-          if available_voices:
-              available_voices = sorted(
-                  str(voice)
-                  for voice in available_voices
+                      for item in value:
+                          print(f"  VOICE: {item}")
+
+                      found = True
+
+                  else:
+
+                      text = str(value)
+
+                      if len(text) > 2000:
+                          text = text[:2000] + "..."
+
+                      print(text)
+
+              except Exception as exc:
+
+                  print(
+                      f"ERROR READING ATTRIBUTE: "
+                      f"{type(exc).__name__}: {exc}"
+                  )
+
+
+          print()
+          print("=" * 70)
+          print("KOKORO SOURCE")
+          print("=" * 70)
+
+          try:
+              print(
+                  inspect.getsource(
+                      Kokoro
+                  )
+              )
+          except Exception as exc:
+              print(
+                  "Could not print source:",
+                  type(exc).__name__,
+                  exc,
               )
 
+
+          print()
+          print("=" * 70)
+          print("RESULT")
+          print("=" * 70)
+
+          if found:
+              print()
+              print("✓ Voice-related data was found.")
               print()
               print(
-                  f"  Total voices: {len(available_voices)}"
+                  "Please use the VOICE names printed above "
+                  "for the next test."
               )
-
-              print()
-
-              for voice in available_voices:
-                  print(f"    {voice}")
-
           else:
               print()
-              print("  Voice list is not exposed by this version.")
-
-
-          print()
-          print("=" * 70)
-          print("SELECT TEST VOICE")
-          print("=" * 70)
-
-          preferred_voices = [
-              "af_sarah",
-              "am_adam",
-              "af_bella",
-              "af_nicole",
-              "af_sky",
-              "am_michael",
-              "am_fenrir",
-              "am_puck",
-          ]
-
-          selected_voice = None
-
-          if available_voices:
-
-              for voice in preferred_voices:
-                  if voice in available_voices:
-                      selected_voice = voice
-                      break
-
-              if selected_voice is None:
-                  selected_voice = available_voices[0]
-
-          else:
-              selected_voice = "af_sarah"
-
-          print()
-          print(f"  Selected voice: {selected_voice}")
-
-
-          print()
-          print("=" * 70)
-          print("TTS GENERATION TEST")
-          print("=" * 70)
-
-          text = random.choice(TEST_SENTENCES)
-
-          print()
-          print("  Test sentence:")
-          print()
-          print(f"    {text}")
-
-          print()
-          print(f"  Voice    : {selected_voice}")
-          print(f"  Language : {LANGUAGE}")
-          print(f"  Speed    : {SPEED}")
-
-          print()
-          print("  Generating audio...")
-
-          started = time.time()
-
-          try:
-              samples, sample_rate = kokoro.create(
-                  text,
-                  voice=selected_voice,
-                  speed=SPEED,
-                  lang=LANGUAGE,
+              print(
+                  "⚠ No public voice list was exposed."
               )
-
-          except Exception as exc:
               print()
-              print("  TTS GENERATION FAILED")
-              print()
-              print(f"  Error type: {type(exc).__name__}")
-              print()
-              print(f"  Error: {exc}")
-              print()
-              sys.exit(1)
-
-          elapsed = time.time() - started
-
-          sample_count = len(samples)
-
-          if sample_count <= 0:
-              fail("Kokoro returned empty audio.")
-
-          duration = sample_count / float(sample_rate)
-
-          print()
-          print("  ✓ TTS GENERATION SUCCESS")
-          print(f"  Generation time: {elapsed:.2f}s")
-          print(f"  Sample rate    : {sample_rate}")
-          print(f"  Samples        : {sample_count}")
-          print(f"  Duration       : {duration:.2f}s")
-
-
-          print()
-          print("=" * 70)
-          print("SAVE MP3")
-          print("=" * 70)
-
-          OUTPUT_DIR.mkdir(
-              parents=True,
-              exist_ok=True,
-          )
-
-          print()
-          print(f"  Output:")
-          print(f"    {OUTPUT_PATH}")
-
-          try:
-              sf.write(
-                  str(OUTPUT_PATH),
-                  np.asarray(samples),
-                  sample_rate,
-                  format="MP3",
+              print(
+                  "The Kokoro package source above will show "
+                  "how the voices file is accessed."
               )
-
-          except Exception as exc:
-              print()
-              print("  MP3 SAVE FAILED")
-              print()
-              print(f"  Error type: {type(exc).__name__}")
-              print()
-              print(f"  Error: {exc}")
-              print()
-              sys.exit(1)
-
-          if not OUTPUT_PATH.exists():
-              fail("MP3 file was not created.")
-
-          output_size = OUTPUT_PATH.stat().st_size
-
-          if output_size <= 0:
-              fail("MP3 file is empty.")
-
-          print()
-          print("  ✓ MP3 CREATED SUCCESSFULLY")
-          print(f"  File size: {output_size:,} bytes")
-
-
-          print()
-          print("=" * 70)
-          print("TEST COMPLETE")
-          print("=" * 70)
-
-          print()
-          print("  ✓ ONNX model loaded")
-          print("  ✓ Voices file loaded")
-          print(f"  ✓ Voice '{selected_voice}' works")
-          print("  ✓ TTS inference succeeded")
-          print("  ✓ MP3 generated")
-
-          print()
-          print("  TEST RESULT: PASS")
-
-          print()
-          print(f"  Audio:")
-          print(f"    {OUTPUT_PATH}")
 
           print()
           print("=" * 70)
           PYTHON
 
-      - name: Run Kokoro test
+      - name: Inspect Kokoro voices
         run: |
-          python /tmp/test_kokoro.py
-
-      - name: Show generated audio
-        if: always()
-        run: |
-          echo "============================================================"
-          echo "GENERATED AUDIO"
-          echo "============================================================"
-
-          ls -lah \
-            02_英语学习系统/output/kokoro_test/ \
-            || true
-
-      - name: Upload test audio
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: kokoro-test-audio
-          path: 02_英语学习系统/output/kokoro_test/kokoro_test.mp3
-          if-no-files-found: error
+          python /tmp/test_voice.py
