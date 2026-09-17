@@ -148,6 +148,29 @@ KOKORO ONNX 修复
         voice=voice,
         speed=1.0,
     )
+
+======================================================================
+V2.2.3 Kokoro Loader 增强
+======================================================================
+
+正式 GitHub Actions 中增加：
+
+    1. ONNX 文件存在性检查
+    2. voices 文件存在性检查
+    3. 文件大小检查
+    4. Kokoro 第一次加载
+    5. InvalidProtobuf 时尝试 git lfs pull
+    6. LFS 拉取后重新检查文件
+    7. 第二次加载
+    8. 两次均失败才真正退出
+
+这样可以处理 GitHub Actions 中偶发的：
+
+    LFS 文件没有完整 checkout
+    或
+    模型文件读取状态异常
+
+而不会修改任何试卷、答案、Part A/B/C 数据。
 ======================================================================
 """
 
@@ -195,28 +218,24 @@ def clean_line(line: str) -> str:
     if not line:
         return ""
 
-    # Markdown heading
     line = re.sub(
         r"^\s*#{1,6}\s*",
         "",
         line,
     )
 
-    # Markdown bullet
     line = re.sub(
         r"^\s*[-*+]\s+",
         "",
         line,
     )
 
-    # Markdown bold
     line = re.sub(
         r"^\*\*(.*?)\*\*$",
         r"\1",
         line,
     )
 
-    # Markdown italic
     line = re.sub(
         r"^\*(.*?)\*$",
         r"\1",
@@ -237,18 +256,6 @@ def normalize_space(text: str) -> str:
 def is_top_level_heading(line: str) -> bool:
     """
     判断是否为 Markdown 一级标题。
-
-    例如：
-
-        # 一、听力
-        # 二、单项选择
-        # 三、多项选择
-
-    Part C 到达：
-
-        # 二、单项选择
-
-    时必须停止。
     """
 
     return bool(
@@ -365,12 +372,11 @@ def extract_part(
     """
     提取一个 Listening Part。
 
-    关键规则：
+    规则：
 
         1. 从目标 Part Header 开始
         2. 遇到下一个 Listening Part 时停止
-        3. 如果当前是最后一个 Part（尤其 Part C），
-           遇到下一个一级 Markdown 标题时停止
+        3. 最后一个 Part 遇到下一个一级 Markdown 标题时停止
     """
 
     lines = text.splitlines()
@@ -389,10 +395,6 @@ def extract_part(
         start + 1,
         len(lines),
     ):
-
-        # --------------------------------------------------------------
-        # 下一个 Listening Part
-        # --------------------------------------------------------------
 
         if (
             is_part_header(lines[i], "A")
@@ -417,10 +419,6 @@ def extract_part(
 
             end = i
             break
-
-        # --------------------------------------------------------------
-        # 一级 Markdown 标题
-        # --------------------------------------------------------------
 
         if (
             i > start + 1
@@ -538,10 +536,6 @@ def parse_option(
         D、xxx
         A- xxx
         A xxx
-
-    同时兼容 Markdown bullet：
-
-        - A. xxx
     """
 
     cleaned = clean_line(line)
@@ -582,17 +576,14 @@ def parse_speaker(
 
         M: Hello
         F: Hello
-
         Male: Hello
         Female: Hello
-
         Man: Hello
         Woman: Hello
-
         男：你好
         女：你好
 
-    同时支持答案解析中的：
+    以及：
 
         **1.** M: Hello
         **2.** F: Hi
@@ -602,10 +593,6 @@ def parse_speaker(
 
     if not cleaned:
         return None
-
-    # --------------------------------------------------------------
-    # 去掉前置题号
-    # --------------------------------------------------------------
 
     cleaned = re.sub(
         r"^\s*\d+\s*[\.．、:：\)）\-]\s*",
@@ -618,10 +605,6 @@ def parse_speaker(
         "",
         cleaned,
     )
-
-    # --------------------------------------------------------------
-    # Speaker patterns
-    # --------------------------------------------------------------
 
     patterns = [
         (
@@ -677,14 +660,6 @@ def parse_questions(
 ) -> List[Question]:
     """
     从 Listening Part 中恢复题目。
-
-    只解析：
-
-        Question Header
-        +
-        Options
-
-    其他正文会忽略。
     """
 
     lines = text.splitlines()
@@ -699,10 +674,6 @@ def parse_questions(
 
         if not line:
             continue
-
-        # --------------------------------------------------------------
-        # Question
-        # --------------------------------------------------------------
 
         question_header = parse_question_header(
             line
@@ -724,10 +695,6 @@ def parse_questions(
             )
 
             continue
-
-        # --------------------------------------------------------------
-        # Option
-        # --------------------------------------------------------------
 
         option = parse_option(
             line
@@ -764,18 +731,6 @@ def extract_dialogue(
 ) -> List[Tuple[str, str]]:
     """
     提取 Part B 对话。
-
-    返回：
-
-        [
-            ("male", "Hello ..."),
-            ("female", "Hi ..."),
-        ]
-
-    支持答案解析中：
-
-        **1.** M: ...
-        **2.** F: ...
     """
 
     lines = text.splitlines()
@@ -839,10 +794,6 @@ def extract_dialogue(
 
             continue
 
-        # --------------------------------------------------------------
-        # 普通行视为当前 speaker 的续句
-        # --------------------------------------------------------------
-
         if current_voice:
 
             if parse_option(line):
@@ -865,13 +816,7 @@ def attach_dialogue(
     dialogue: List[Tuple[str, str]],
 ) -> List[Question]:
     """
-    将对话附加到 Question。
-
-    当前系统 Part B 通常是一组连续对话。
-
-    如果存在真实 dialogue，
-    则将完整 dialogue 保存到每道题，
-    由 build_part_b 决定播放。
+    将完整对话附加到每道题。
     """
 
     if (
@@ -935,13 +880,6 @@ def extract_passage(
 ) -> str:
     """
     从 Part C 中提取原文。
-
-    停止条件：
-
-        1. 遇到题目
-        2. 遇到 Questions / 问题 / 选择题
-        3. 遇到答案区域
-        4. 遇到下一个一级标题
     """
 
     lines = text.splitlines()
@@ -957,16 +895,8 @@ def extract_passage(
         if not line:
             continue
 
-        # --------------------------------------------------------------
-        # Question
-        # --------------------------------------------------------------
-
         if parse_question_header(line):
             break
-
-        # --------------------------------------------------------------
-        # 明确的题目区域
-        # --------------------------------------------------------------
 
         if re.match(
             r"^(Questions?|问题|选择题)\s*:?\s*$",
@@ -976,16 +906,8 @@ def extract_passage(
 
             break
 
-        # --------------------------------------------------------------
-        # 答案区域
-        # --------------------------------------------------------------
-
         if is_answer_section(line):
             break
-
-        # --------------------------------------------------------------
-        # 一级标题
-        # --------------------------------------------------------------
 
         if is_top_level_heading(
             raw_line
@@ -1008,9 +930,7 @@ def extract_part_c_passage_from_answer(
     answer_text: str,
 ) -> str:
     """
-    Part C 原文：
-
-        只允许从答案与解析中获取。
+    Part C 原文只允许从答案与解析获取。
     """
 
     part_c = extract_part(
@@ -1036,23 +956,9 @@ def validate_part_c(
 ) -> List[str]:
     """
     严格验证 Part C。
-
-    要求：
-
-        passage != empty
-
-        exactly 5 questions
-
-        numbers = 1,2,3,4,5
-
-        every question has exactly 4 options
     """
 
     errors: List[str] = []
-
-    # --------------------------------------------------------------
-    # Passage
-    # --------------------------------------------------------------
 
     if not passage.strip():
 
@@ -1060,19 +966,11 @@ def validate_part_c(
             "Part C 原文为空：无法从答案与解析中恢复 Part C 原文"
         )
 
-    # --------------------------------------------------------------
-    # Question count
-    # --------------------------------------------------------------
-
     if len(questions) != 5:
 
         errors.append(
             f"Part C 题目数量错误：期望 5，实际 {len(questions)}"
         )
-
-    # --------------------------------------------------------------
-    # Duplicate number
-    # --------------------------------------------------------------
 
     numbers = [
         q.number
@@ -1084,10 +982,6 @@ def validate_part_c(
         errors.append(
             "Part C 存在重复题号"
         )
-
-    # --------------------------------------------------------------
-    # Expected numbers
-    # --------------------------------------------------------------
 
     expected = [
         1,
@@ -1102,10 +996,6 @@ def validate_part_c(
         errors.append(
             f"Part C 题号错误：期望 {expected}，实际 {numbers}"
         )
-
-    # --------------------------------------------------------------
-    # Options
-    # --------------------------------------------------------------
 
     for question in questions:
 
@@ -1171,10 +1061,6 @@ def build_part_b(
 
     segments: List[Segment] = []
 
-    # --------------------------------------------------------------
-    # Dialogue
-    # --------------------------------------------------------------
-
     if dialogue:
 
         for voice_type, text in dialogue:
@@ -1195,12 +1081,6 @@ def build_part_b(
 
     else:
 
-        # ----------------------------------------------------------
-        # 没有 speaker 时，
-        # 如果 Question 内部存在 dialogue，
-        # 使用 female voice 作为安全 fallback。
-        # ----------------------------------------------------------
-
         for question in questions:
 
             if question.dialogue:
@@ -1212,10 +1092,6 @@ def build_part_b(
                         repeat=1,
                     )
                 )
-
-    # --------------------------------------------------------------
-    # Questions + options
-    # --------------------------------------------------------------
 
     for question in questions:
 
@@ -1252,10 +1128,6 @@ def build_part_c(
 
     segments: List[Segment] = []
 
-    # --------------------------------------------------------------
-    # 1. Passage
-    # --------------------------------------------------------------
-
     segments.append(
         Segment(
             text=passage,
@@ -1263,12 +1135,6 @@ def build_part_c(
             repeat=1,
         )
     )
-
-    # --------------------------------------------------------------
-    # 2. Questions
-    #
-    # 每题重复 2 次。
-    # --------------------------------------------------------------
 
     for question in questions:
 
@@ -1279,12 +1145,6 @@ def build_part_c(
                 repeat=2,
             )
         )
-
-        # ----------------------------------------------------------
-        # 3. Options
-        #
-        # 每个选项重复 2 次。
-        # ----------------------------------------------------------
 
         for option in question.options:
 
@@ -1306,15 +1166,6 @@ def build_part_c(
 def load_kokoro():
     """
     加载官方 kokoro-onnx.Kokoro。
-
-    注意：
-
-        不使用 KPipeline。
-
-        不使用旧版 Kokoro API。
-
-        当前正式程序与 GitHub Actions
-        独立测试使用同一套 API。
     """
 
     try:
@@ -1338,6 +1189,340 @@ def load_kokoro():
     return Kokoro
 
 
+def get_file_size(path: Path) -> int:
+    """
+    获取文件大小。
+    """
+
+    try:
+        return path.stat().st_size
+    except OSError:
+        return 0
+
+
+def try_git_lfs_pull(
+    project_root: Path,
+    model_path: Path,
+    voices_path: Path,
+) -> bool:
+    """
+    GitHub Actions 中如果 ONNX / voices 文件来自 Git LFS，
+    尝试主动拉取一次对应文件。
+
+    注意：
+
+        这里只修复模型文件 checkout 状态。
+
+        不修改试卷。
+        不修改答案。
+        不修改音频数据。
+    """
+
+    print()
+    print(
+        "  → 尝试执行 Git LFS 模型恢复"
+    )
+
+    relative_model = None
+    relative_voices = None
+
+    try:
+
+        relative_model = model_path.relative_to(
+            project_root
+        )
+
+        relative_voices = voices_path.relative_to(
+            project_root
+        )
+
+    except ValueError:
+
+        print(
+            "  ⚠️ 无法计算 Git LFS 相对路径"
+        )
+
+        return False
+
+    try:
+
+        subprocess.run(
+            [
+                "git",
+                "lfs",
+               "pull",
+                "--include",
+                f"{relative_model},{relative_voices}",
+            ],
+            cwd=str(project_root.parent),
+            check=True,
+        )
+
+        print(
+            "  ✓ Git LFS pull 完成"
+        )
+
+        return True
+
+    except FileNotFoundError:
+
+        print(
+            "  ⚠️ 当前环境没有 git-lfs"
+        )
+
+        return False
+
+    except subprocess.CalledProcessError as exc:
+
+        print(
+            f"  ⚠️ Git LFS pull 失败："
+            f"exit code {exc.returncode}"
+        )
+
+        return False
+
+
+def load_kokoro_with_recovery(
+    model_path: Path,
+    voices_path: Path,
+    project_root: Path,
+):
+    """
+    加载 Kokoro。
+
+    第一次失败：
+
+        如果是 InvalidProtobuf，
+        尝试 Git LFS pull 后再次加载。
+
+    这样可以处理 GitHub Actions 中模型文件
+    checkout / LFS 状态异常的情况。
+    """
+
+    Kokoro = load_kokoro()
+
+    model_size = get_file_size(
+        model_path
+    )
+
+    voices_size = get_file_size(
+        voices_path
+    )
+
+    print()
+    print(
+        "  FILE CHECK"
+    )
+
+    print(
+        f"  Model size  : "
+        f"{model_size:,} bytes"
+    )
+
+    print(
+        f"  Voices size : "
+        f"{voices_size:,} bytes"
+    )
+
+    # --------------------------------------------------------------
+    # 163 MB 左右的正式模型如果只有几 KB，
+    # 基本就是 LFS pointer / checkout 异常。
+    # --------------------------------------------------------------
+
+    if model_size < 100_000_000:
+
+        print()
+        print(
+            "  ⚠️ ONNX 模型文件异常偏小"
+        )
+
+        print(
+            "  → 当前文件很可能不是完整模型，"
+            "可能仍是 Git LFS pointer。"
+        )
+
+        try_git_lfs_pull(
+            project_root=project_root,
+            model_path=model_path,
+            voices_path=voices_path,
+        )
+
+        model_size = get_file_size(
+            model_path
+        )
+
+        voices_size = get_file_size(
+            voices_path
+        )
+
+        print()
+        print(
+            "  FILE CHECK AFTER LFS"
+        )
+
+        print(
+            f"  Model size  : "
+            f"{model_size:,} bytes"
+        )
+
+        print(
+            f"  Voices size : "
+            f"{voices_size:,} bytes"
+        )
+
+    # --------------------------------------------------------------
+    # 第一次加载
+    # --------------------------------------------------------------
+
+    print()
+    print(
+        "  → Kokoro load attempt 1/2"
+    )
+
+    try:
+
+        kokoro = Kokoro(
+            str(model_path),
+            str(voices_path),
+        )
+
+        print(
+            "  ✓ Kokoro ONNX 模型加载完成"
+        )
+
+        return kokoro
+
+    except Exception as first_error:
+
+        error_text = str(
+            first_error
+        )
+
+        is_protobuf_error = (
+            "InvalidProtobuf" in error_text
+            or "INVALID_PROTOBUF" in error_text
+            or "Protobuf parsing failed" in error_text
+        )
+
+        if not is_protobuf_error:
+
+            raise
+
+        print()
+        print(
+            "  ⚠️ Kokoro 第一次加载失败："
+            "InvalidProtobuf"
+        )
+
+        print(
+            f"  Model size: "
+            f"{get_file_size(model_path):,} bytes"
+        )
+
+        print(
+            "  → 尝试 Git LFS 恢复模型后重新加载"
+        )
+
+        lfs_recovered = try_git_lfs_pull(
+            project_root=project_root,
+            model_path=model_path,
+            voices_path=voices_path,
+        )
+
+        if not lfs_recovered:
+
+            print(
+                "  ⚠️ Git LFS 未成功执行"
+            )
+
+        # ----------------------------------------------------------
+        # 第二次文件检查
+        # ----------------------------------------------------------
+
+        print()
+        print(
+            "  FILE CHECK AFTER RECOVERY"
+        )
+
+        print(
+            f"  Model size  : "
+            f"{get_file_size(model_path):,} bytes"
+        )
+
+        print(
+            f"  Voices size : "
+            f"{get_file_size(voices_path):,} bytes"
+        )
+
+        # ----------------------------------------------------------
+        # 第二次加载
+        # ----------------------------------------------------------
+
+        print()
+        print(
+            "  → Kokoro load attempt 2/2"
+        )
+
+        try:
+
+            kokoro = Kokoro(
+                str(model_path),
+                str(voices_path),
+            )
+
+            print(
+                "  ✓ Kokoro ONNX 模型加载完成"
+            )
+
+            return kokoro
+
+        except Exception as second_error:
+
+            print()
+            print(
+                "  ✗ Kokoro 第二次加载仍然失败"
+            )
+
+            print(
+                f"  Model size: "
+                f"{get_file_size(model_path):,} bytes"
+            )
+
+            print(
+                f"  Voices size: "
+                f"{get_file_size(voices_path):,} bytes"
+            )
+
+            raise RuntimeError(
+                "Kokoro ONNX 模型加载失败。"
+                "\n"
+                "已经完成："
+                "\n"
+                "  1. 第一次 Kokoro 加载"
+                "\n"
+                "  2. Git LFS 模型恢复尝试"
+                "\n"
+                "  3. 第二次 Kokoro 加载"
+                "\n"
+                "\n"
+                f"Model: {model_path}"
+                "\n"
+                f"Model size: "
+                f"{get_file_size(model_path):,} bytes"
+                "\n"
+                "\n"
+                f"Voices: {voices_path}"
+                "\n"
+                f"Voices size: "
+                f"{get_file_size(voices_path):,} bytes"
+                "\n"
+                "\n"
+                f"Second error: "
+                f"{type(second_error).__name__}: "
+                f"{second_error}"
+            ) from second_error
+
+
 def validate_and_select_voices(
     kokoro,
     requested_male_voice: str,
@@ -1345,20 +1530,6 @@ def validate_and_select_voices(
 ) -> Tuple[str, str]:
     """
     从本地 voices-v1.1-zh.bin 获取真实可用声音。
-
-    不相信官方完整 VOICES 列表，
-    只相信当前本地 Kokoro.get_voices()。
-
-    当前已经通过 GitHub Actions 验证的本地英语声音：
-
-        af_maple
-        af_sol
-        bf_vale
-
-    默认：
-
-        female -> af_maple
-        male   -> bf_vale
     """
 
     print()
@@ -1380,10 +1551,6 @@ def validate_and_select_voices(
         f"  ✓ Available voices: "
         f"{len(available_voices)}"
     )
-
-    # --------------------------------------------------------------
-    # 当前本地英语 voice
-    # --------------------------------------------------------------
 
     english_voices = sorted(
         voice
@@ -1416,15 +1583,6 @@ def validate_and_select_voices(
 
     # --------------------------------------------------------------
     # Female
-    #
-    # 如果用户明确传入一个存在的 voice，
-    # 优先使用用户指定。
-    #
-    # 如果不存在：
-    #
-    #   af_maple
-    #   af_sol
-    #
     # --------------------------------------------------------------
 
     female_voice = None
@@ -1457,11 +1615,6 @@ def validate_and_select_voices(
 
     # --------------------------------------------------------------
     # Male
-    #
-    # 当前本地验证：
-    #
-    #   bf_vale
-    #
     # --------------------------------------------------------------
 
     male_voice = None
@@ -1519,31 +1672,21 @@ def synthesize_to_wav(
     """
     使用官方 kokoro-onnx API 生成 WAV。
 
-    重要：
+    当前经过 GitHub Actions 验证：
 
-        当前经过 GitHub Actions 验证的调用方式：
+        samples, sample_rate = kokoro.create(
+            text,
+            voice=voice,
+            speed=speed,
+        )
 
-            kokoro.create(
-                text,
-                voice=voice,
-                speed=speed,
-            )
+    注意：
 
-        不再传：
-
-            lang=language
-
-    language 参数保留在函数签名中，
-    以保持现有程序结构和 CLI 兼容性，
-    但不传给 Kokoro。
+        不传 lang=language。
     """
 
     if not text.strip():
         return
-
-    # --------------------------------------------------------------
-    # 官方 kokoro-onnx API
-    # --------------------------------------------------------------
 
     samples, sample_rate = kokoro.create(
         text,
@@ -1772,12 +1915,6 @@ def render_segments(
                 wav_path
             )
 
-            # ------------------------------------------------------
-            # 同一句重复之间：
-            #
-            # 0.7 秒静音
-            # ------------------------------------------------------
-
             if (
                 repeat_index
                 < segment.repeat - 1
@@ -1799,12 +1936,6 @@ def render_segments(
                 wav_files.append(
                     silence_path
                 )
-
-        # ----------------------------------------------------------
-        # Segment 之间：
-        #
-        # 0.3 秒静音
-        # ----------------------------------------------------------
 
         silence_path = (
             temp_dir
@@ -2100,19 +2231,9 @@ def main():
         f"{len(part_b_questions)}"
     )
 
-    # --------------------------------------------------------------
-    # 首先尝试从试卷获取对话
-    # --------------------------------------------------------------
-
     dialogue = extract_dialogue(
         exam_part_b
     )
-
-    # --------------------------------------------------------------
-    # 如果试卷没有对话：
-    #
-    # 从答案与解析 Part B 获取。
-    # --------------------------------------------------------------
 
     if not dialogue:
 
@@ -2182,12 +2303,6 @@ def main():
         "=" * 70
     )
 
-    # --------------------------------------------------------------
-    # 题目和选项：
-    #
-    # 只从试卷获取
-    # --------------------------------------------------------------
-
     exam_part_c = extract_part(
         exam_text,
         "C",
@@ -2209,12 +2324,6 @@ def main():
             f"{len(question.options)} options"
         )
 
-    # --------------------------------------------------------------
-    # 原文：
-    #
-    # 只从答案与解析获取
-    # --------------------------------------------------------------
-
     part_c_passage = (
         extract_part_c_passage_from_answer(
             answer_text
@@ -2225,10 +2334,6 @@ def main():
         f"  Passage from answer: "
         f"{len(part_c_passage)} chars"
     )
-
-    # --------------------------------------------------------------
-    # Part C 严格校验
-    # --------------------------------------------------------------
 
     part_c_errors = validate_part_c(
         passage=part_c_passage,
@@ -2332,16 +2437,6 @@ def main():
         f"  Listening C segments: "
         f"{len(segments_c)}"
     )
-
-    # --------------------------------------------------------------
-    # Part C：
-    #
-    # 1 passage
-    # + 5 questions
-    # + 20 options
-    #
-    # = 26 segments
-    # --------------------------------------------------------------
 
     expected_part_c_segments = 26
 
@@ -2464,19 +2559,16 @@ def main():
         f"  Voices: {voices_path}"
     )
 
-    Kokoro = load_kokoro()
-
     # --------------------------------------------------------------
-    # 官方 kokoro-onnx 初始化
+    # 加载 Kokoro
+    #
+    # 增加 InvalidProtobuf + Git LFS recovery。
     # --------------------------------------------------------------
 
-    kokoro = Kokoro(
-        str(model_path),
-        str(voices_path),
-    )
-
-    print(
-        "  ✓ Kokoro ONNX 模型加载完成"
+    kokoro = load_kokoro_with_recovery(
+        model_path=model_path,
+        voices_path=voices_path,
+        project_root=project_root,
     )
 
     # --------------------------------------------------------------
@@ -2494,10 +2586,6 @@ def main():
 
     # --------------------------------------------------------------
     # 使用实际 voice 重新构建 segments。
-    #
-    # 这样即使 CLI 没有传 voice，
-    # 或默认 voice 与本地 voices 不一致，
-    # 也不会把不存在的 voice 传给 Kokoro。
     # --------------------------------------------------------------
 
     segments_a = build_part_a(
@@ -2651,10 +2739,6 @@ def main():
 
     total_wavs: List[Path] = []
 
-    # --------------------------------------------------------------
-    # A / B / C 转 WAV
-    # --------------------------------------------------------------
-
     for index, audio_file in enumerate(
         [
             output_a,
@@ -2689,10 +2773,6 @@ def main():
         total_wavs.append(
             wav_file
         )
-
-        # ----------------------------------------------------------
-        # A / B / C 之间增加 0.5 秒静音
-        # ----------------------------------------------------------
 
         if index < 3:
 
