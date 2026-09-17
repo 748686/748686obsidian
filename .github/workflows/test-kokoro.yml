@@ -23,14 +23,15 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install kokoro-onnx soundfile numpy
+          pip install -U kokoro-onnx soundfile numpy
 
-      - name: Create voice inspection script
+      - name: Create Kokoro test script
         run: |
-          cat > /tmp/test_voice.py <<'PYTHON'
+          cat > /tmp/test_kokoro.py <<'PYTHON'
           from pathlib import Path
           import sys
-          import inspect
+
+          import soundfile as sf
 
           from kokoro_onnx import Kokoro
 
@@ -51,29 +52,55 @@ jobs:
               / "voices-v1.1-zh.bin"
           )
 
+          OUTPUT_PATH = Path("/tmp/kokoro_test.wav")
+
 
           print()
           print("=" * 70)
           print("748686 英语学习系统")
-          print("Kokoro Voice Inspection")
+          print("Kokoro ONNX Voice Test")
           print("=" * 70)
 
-          print()
-          print("MODEL")
-          print("-" * 70)
-          print(MODEL_PATH)
-          print(f"Size: {MODEL_PATH.stat().st_size:,} bytes")
 
-          print()
-          print("VOICES")
-          print("-" * 70)
-          print(VOICES_PATH)
-          print(f"Size: {VOICES_PATH.stat().st_size:,} bytes")
-
+          # ==============================================================
+          # 1. 文件检查
+          # ==============================================================
 
           print()
           print("=" * 70)
-          print("LOAD KOKORO")
+          print("1. FILE CHECK")
+          print("=" * 70)
+
+          if not MODEL_PATH.exists():
+              print()
+              print("ERROR: ONNX model not found")
+              print(MODEL_PATH)
+              sys.exit(1)
+
+          if not VOICES_PATH.exists():
+              print()
+              print("ERROR: voices file not found")
+              print(VOICES_PATH)
+              sys.exit(1)
+
+          print()
+          print("✓ ONNX model exists")
+          print(f"  {MODEL_PATH}")
+          print(f"  Size: {MODEL_PATH.stat().st_size:,} bytes")
+
+          print()
+          print("✓ Voices file exists")
+          print(f"  {VOICES_PATH}")
+          print(f"  Size: {VOICES_PATH.stat().st_size:,} bytes")
+
+
+          # ==============================================================
+          # 2. 加载 Kokoro
+          # ==============================================================
+
+          print()
+          print("=" * 70)
+          print("2. LOAD KOKORO")
           print("=" * 70)
 
           try:
@@ -83,140 +110,200 @@ jobs:
               )
           except Exception as exc:
               print()
-              print("FAILED TO LOAD KOKORO")
-              print(type(exc).__name__)
-              print(exc)
+              print("✗ FAILED TO LOAD KOKORO")
+              print(f"ERROR TYPE: {type(exc).__name__}")
+              print(f"ERROR: {exc}")
               sys.exit(1)
 
           print()
           print("✓ Kokoro loaded successfully")
 
 
-          print()
-          print("=" * 70)
-          print("KOKORO OBJECT")
-          print("=" * 70)
-
-          print()
-
-          attributes = sorted(
-              name
-              for name in dir(kokoro)
-              if not name.startswith("__")
-          )
-
-          for name in attributes:
-              print(f"  {name}")
-
+          # ==============================================================
+          # 3. 获取实际 Voice
+          # ==============================================================
 
           print()
           print("=" * 70)
-          print("VOICE RELATED ATTRIBUTES")
-          print("=" * 70)
-
-          found = False
-
-          for name in attributes:
-
-              if "voice" not in name.lower():
-                  continue
-
-              print()
-              print(f"ATTRIBUTE: {name}")
-
-              try:
-                  value = getattr(kokoro, name)
-
-                  print(f"TYPE: {type(value)}")
-
-                  if isinstance(value, dict):
-
-                      print(f"COUNT: {len(value)}")
-
-                      for key in sorted(
-                          str(k)
-                          for k in value.keys()
-                      ):
-                          print(f"  VOICE: {key}")
-
-                      found = True
-
-                  elif isinstance(
-                      value,
-                      (list, tuple, set),
-                  ):
-
-                      print(f"COUNT: {len(value)}")
-
-                      for item in value:
-                          print(f"  VOICE: {item}")
-
-                      found = True
-
-                  else:
-
-                      text = str(value)
-
-                      if len(text) > 2000:
-                          text = text[:2000] + "..."
-
-                      print(text)
-
-              except Exception as exc:
-
-                  print(
-                      f"ERROR READING ATTRIBUTE: "
-                      f"{type(exc).__name__}: {exc}"
-                  )
-
-
-          print()
-          print("=" * 70)
-          print("KOKORO SOURCE")
+          print("3. AVAILABLE VOICES")
           print("=" * 70)
 
           try:
-              print(
-                  inspect.getsource(
-                      Kokoro
-                  )
+              voices = sorted(
+                  str(voice)
+                  for voice in kokoro.get_voices()
               )
           except Exception as exc:
-              print(
-                  "Could not print source:",
-                  type(exc).__name__,
-                  exc,
-              )
+              print()
+              print("✗ FAILED TO READ VOICES")
+              print(f"ERROR TYPE: {type(exc).__name__}")
+              print(f"ERROR: {exc}")
+              sys.exit(1)
 
+          if not voices:
+              print()
+              print("✗ No voices returned by kokoro.get_voices()")
+              sys.exit(1)
+
+          print()
+          print(f"Voice count: {len(voices)}")
+          print()
+
+          for voice in voices:
+              print(f"  {voice}")
+
+
+          # ==============================================================
+          # 4. 检查推荐 Voice
+          # ==============================================================
+
+          print()
+          print("=" * 70)
+          print("4. VOICE SELECTION")
+          print("=" * 70)
+
+          preferred_voices = [
+              "af_heart",
+              "af_bella",
+              "af_nicole",
+              "af_sarah",
+              "af_sky",
+              "am_michael",
+              "am_puck",
+              "am_fenrir",
+          ]
+
+          selected_voice = None
+
+          for voice in preferred_voices:
+              if voice in voices:
+                  selected_voice = voice
+                  break
+
+          if selected_voice is None:
+              selected_voice = voices[0]
+
+          print()
+          print(f"Selected voice: {selected_voice}")
+
+          print()
+
+          if "af_heart" in voices:
+              print("✓ af_heart is available")
+          else:
+              print("⚠ af_heart is NOT available")
+
+          if "af_sarah" in voices:
+              print("✓ af_sarah is available")
+          else:
+              print("ℹ af_sarah is NOT available")
+
+
+          # ==============================================================
+          # 5. 生成实际 WAV
+          # ==============================================================
+
+          print()
+          print("=" * 70)
+          print("5. GENERATE AUDIO")
+          print("=" * 70)
+
+          test_text = (
+              "Hello. This is a Kokoro ONNX voice test. "
+              "The English learning system is generating this audio locally."
+          )
+
+          print()
+          print(f"Text:")
+          print(test_text)
+
+          print()
+          print(f"Voice:")
+          print(selected_voice)
+
+          try:
+              samples, sample_rate = kokoro.create(
+                  test_text,
+                  voice=selected_voice,
+                  speed=1.0,
+              )
+          except Exception as exc:
+              print()
+              print("✗ AUDIO GENERATION FAILED")
+              print(f"ERROR TYPE: {type(exc).__name__}")
+              print(f"ERROR: {exc}")
+              sys.exit(1)
+
+          print()
+          print("✓ Audio generated successfully")
+          print(f"Sample rate: {sample_rate}")
+          print(f"Sample count: {len(samples)}")
+
+
+          # ==============================================================
+          # 6. 保存 WAV
+          # ==============================================================
+
+          print()
+          print("=" * 70)
+          print("6. SAVE WAV")
+          print("=" * 70)
+
+          try:
+              sf.write(
+                  str(OUTPUT_PATH),
+                  samples,
+                  sample_rate,
+              )
+          except Exception as exc:
+              print()
+              print("✗ FAILED TO SAVE WAV")
+              print(f"ERROR TYPE: {type(exc).__name__}")
+              print(f"ERROR: {exc}")
+              sys.exit(1)
+
+          if not OUTPUT_PATH.exists():
+              print()
+              print("✗ WAV file was not created")
+              sys.exit(1)
+
+          file_size = OUTPUT_PATH.stat().st_size
+
+          print()
+          print("✓ WAV created successfully")
+          print(f"Path: {OUTPUT_PATH}")
+          print(f"Size: {file_size:,} bytes")
+
+
+          # ==============================================================
+          # 7. 最终结果
+          # ==============================================================
 
           print()
           print("=" * 70)
           print("RESULT")
           print("=" * 70)
 
-          if found:
-              print()
-              print("✓ Voice-related data was found.")
-              print()
-              print(
-                  "Please use the VOICE names printed above "
-                  "for the next test."
-              )
-          else:
-              print()
-              print(
-                  "⚠ No public voice list was exposed."
-              )
-              print()
-              print(
-                  "The Kokoro package source above will show "
-                  "how the voices file is accessed."
-              )
+          print()
+          print("✓ Kokoro ONNX loaded")
+          print(f"✓ Voices detected: {len(voices)}")
+          print(f"✓ Selected voice: {selected_voice}")
+          print("✓ TTS generation succeeded")
+          print("✓ WAV file created")
 
+          print()
+          print("KOKORO TEST PASSED")
           print()
           print("=" * 70)
           PYTHON
 
-      - name: Inspect Kokoro voices
+      - name: Run Kokoro test
         run: |
-          python /tmp/test_voice.py
+          python /tmp/test_kokoro.py
+
+      - name: Upload generated test audio
+        uses: actions/upload-artifact@v4
+        with:
+          name: kokoro-onnx-test-audio
+          path: /tmp/kokoro_test.wav
+          if-no-files-found: error
