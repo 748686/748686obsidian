@@ -3,7 +3,7 @@
 
 """
 748686 英语学习系统
-Audio Generator V2.2.3
+Audio Generator V2.2.4
 ======================================================================
 
 职责
@@ -31,146 +31,75 @@ Audio Generator V2.2.3
     ✗ 不重新生成答案
 
 ======================================================================
-V2.2.3 修复
+V2.2.4 修复
 ======================================================================
 
-1. 修复 Part B：
+1. Git LFS 职责移交给 GitHub Actions。
 
-   支持：
+   Python 不再执行：
 
-       M: ...
-       F: ...
+       git lfs pull
 
-   以及答案解析常见格式：
+   正式 Workflow 必须使用：
 
-       **1.** M: ...
-       **2.** F: ...
+       actions/checkout@v4
+       with:
+         lfs: true
 
-2. 修复 Part C：
+2. 增加真实模型文件检查。
 
-   Part C 题目/选项：
+   正常情况下：
 
-       只来自试卷 Markdown
+       kokoro-v1.1-zh.fp16.onnx
+           ≈ 163 MB
 
-   Part C 原文：
+       voices-v1.1-zh.bin
+           ≈ 54 MB
 
-       只来自答案与解析 Markdown
+   如果出现：
 
-   Part C 不再吞掉：
+       ONNX ≈ 134 bytes
+       voices ≈ 133 bytes
 
-       二、单项选择
-       三、多项选择
-       四、完形填空
-       五、阅读理解
-       六、翻译
-       七、写作
+   则明确判定为 Git LFS pointer，
+   而不是正常模型文件。
 
-3. Part C 严格校验：
+3. Kokoro 使用官方已验证 API：
 
-       5 道题
-       每题 4 个选项
-       题号必须唯一
-       题号必须为 1~5
+       from kokoro_onnx import Kokoro
 
-4. 支持中英文 Part Header：
+       kokoro = Kokoro(
+           model_path,
+           voices_path,
+       )
 
-       PART A
-       PART B
-       PART C
+       voices = kokoro.get_voices()
 
-       Listening A
-       Listening B
-       Listening C
+       samples, sample_rate = kokoro.create(
+           text,
+           voice=voice,
+           speed=speed,
+       )
 
-       第一部分
-       第二部分
-       第三部分
+4. 默认英语 Voice：
 
-5. 保持 A / B 原有音频逻辑。
+       female = af_maple
+       male   = bf_vale
 
-======================================================================
-KOKORO ONNX 修复
-======================================================================
+5. Part C：
 
-正式程序使用：
+       题目 / 选项只来自试卷
+       原文只来自答案与解析
 
-    from kokoro_onnx import Kokoro
+       5 questions
+       4 options each
 
-    kokoro = Kokoro(
-        model_path,
-        voices_path,
-    )
+       总片段：
 
-    voices = kokoro.get_voices()
-
-    samples, sample_rate = kokoro.create(
-        text,
-        voice=voice,
-        speed=speed,
-    )
-
-已经通过 GitHub Actions 独立测试验证：
-
-    ✓ ONNX model exists
-    ✓ voices file exists
-    ✓ Kokoro loaded successfully
-    ✓ Voices detected: 103
-    ✓ af_maple available
-    ✓ bf_vale available
-    ✓ TTS generation succeeded
-    ✓ WAV file created
-
-本地 voices-v1.1-zh.bin 中实际存在的英语声音：
-
-    af_maple
-    af_sol
-    bf_vale
-
-因此默认：
-
-    female = af_maple
-    male   = bf_vale
-
-不再使用不存在的：
-
-    af_sarah
-    af_heart
-
-同时不再向 kokoro.create() 传递：
-
-    lang=...
-
-因为当前经过 GitHub Actions 验证的 kokoro-onnx
-官方调用方式为：
-
-    kokoro.create(
-        text,
-        voice=voice,
-        speed=1.0,
-    )
-
-======================================================================
-V2.2.3 Kokoro Loader 增强
-======================================================================
-
-正式 GitHub Actions 中增加：
-
-    1. ONNX 文件存在性检查
-    2. voices 文件存在性检查
-    3. 文件大小检查
-    4. Kokoro 第一次加载
-    5. InvalidProtobuf 时尝试 git lfs pull
-    6. LFS 拉取后重新检查文件
-    7. 第二次加载
-    8. 两次均失败才真正退出
-
-这样可以处理 GitHub Actions 中偶发的：
-
-    LFS 文件没有完整 checkout
-    或
-    模型文件读取状态异常
-
-而不会修改任何试卷、答案、Part A/B/C 数据。
+       1 passage
+       + 5 questions
+       + 20 options
+       = 26 segments
 ======================================================================
 """
 
@@ -209,10 +138,6 @@ class Question:
 # ======================================================================
 
 def clean_line(line: str) -> str:
-    """
-    清理 Markdown 常见格式，但不破坏正文。
-    """
-
     line = line.strip()
 
     if not line:
@@ -254,10 +179,6 @@ def normalize_space(text: str) -> str:
 
 
 def is_top_level_heading(line: str) -> bool:
-    """
-    判断是否为 Markdown 一级标题。
-    """
-
     return bool(
         re.match(
             r"^\s*#\s+.+",
@@ -274,13 +195,9 @@ def is_part_header(
     line: str,
     part: str,
 ) -> bool:
-    """
-    统一识别 Listening Part A/B/C。
-    """
 
     cleaned = clean_line(line)
     cleaned_upper = cleaned.upper()
-
     part = part.upper()
 
     english_patterns = [
@@ -336,9 +253,6 @@ def find_part_start(
     lines: List[str],
     part: str,
 ) -> Optional[int]:
-    """
-    找到 Part A/B/C 的起始行。
-    """
 
     for i, line in enumerate(lines):
 
@@ -355,9 +269,6 @@ def find_part_header(
     lines: List[str],
     part: str,
 ) -> Optional[int]:
-    """
-    与 find_part_start 保持一致。
-    """
 
     return find_part_start(
         lines,
@@ -369,15 +280,6 @@ def extract_part(
     text: str,
     part: str,
 ) -> str:
-    """
-    提取一个 Listening Part。
-
-    规则：
-
-        1. 从目标 Part Header 开始
-        2. 遇到下一个 Listening Part 时停止
-        3. 最后一个 Part 遇到下一个一级 Markdown 标题时停止
-    """
 
     lines = text.splitlines()
 
@@ -400,7 +302,6 @@ def extract_part(
             is_part_header(lines[i], "A")
             and part.upper() != "A"
         ):
-
             end = i
             break
 
@@ -408,7 +309,6 @@ def extract_part(
             is_part_header(lines[i], "B")
             and part.upper() != "B"
         ):
-
             end = i
             break
 
@@ -416,7 +316,6 @@ def extract_part(
             is_part_header(lines[i], "C")
             and part.upper() != "C"
         ):
-
             end = i
             break
 
@@ -424,7 +323,6 @@ def extract_part(
             i > start + 1
             and is_top_level_heading(lines[i])
         ):
-
             end = i
             break
 
@@ -459,20 +357,6 @@ QUESTION_PATTERN = re.compile(
 def parse_question_header(
     line: str,
 ) -> Optional[Tuple[int, str]]:
-    """
-    支持：
-
-        1. Question
-        1) Question
-        1、Question
-        1．Question
-        1: Question
-        1- Question
-
-        第1题 Question
-
-        Question 1:
-    """
 
     cleaned = clean_line(line)
 
@@ -527,16 +411,6 @@ OPTION_PATTERN = re.compile(
 def parse_option(
     line: str,
 ) -> Optional[Tuple[str, str]]:
-    """
-    支持：
-
-        A. xxx
-        B) xxx
-        C: xxx
-        D、xxx
-        A- xxx
-        A xxx
-    """
 
     cleaned = clean_line(line)
 
@@ -569,25 +443,6 @@ def parse_option(
 def parse_speaker(
     line: str,
 ) -> Optional[Tuple[str, str]]:
-    """
-    解析说话人。
-
-    支持：
-
-        M: Hello
-        F: Hello
-        Male: Hello
-        Female: Hello
-        Man: Hello
-        Woman: Hello
-        男：你好
-        女：你好
-
-    以及：
-
-        **1.** M: Hello
-        **2.** F: Hi
-    """
 
     cleaned = clean_line(line)
 
@@ -658,9 +513,6 @@ def parse_speaker(
 def parse_questions(
     text: str,
 ) -> List[Question]:
-    """
-    从 Listening Part 中恢复题目。
-    """
 
     lines = text.splitlines()
 
@@ -682,9 +534,7 @@ def parse_questions(
         if question_header:
 
             if current is not None:
-                questions.append(
-                    current
-                )
+                questions.append(current)
 
             number, question_text = question_header
 
@@ -696,9 +546,7 @@ def parse_questions(
 
             continue
 
-        option = parse_option(
-            line
-        )
+        option = parse_option(line)
 
         if (
             option
@@ -714,10 +562,7 @@ def parse_questions(
             continue
 
     if current is not None:
-
-        questions.append(
-            current
-        )
+        questions.append(current)
 
     return questions
 
@@ -729,9 +574,6 @@ def parse_questions(
 def extract_dialogue(
     text: str,
 ) -> List[Tuple[str, str]]:
-    """
-    提取 Part B 对话。
-    """
 
     lines = text.splitlines()
 
@@ -768,16 +610,12 @@ def extract_dialogue(
 
     for raw_line in lines:
 
-        line = clean_line(
-            raw_line
-        )
+        line = clean_line(raw_line)
 
         if not line:
             continue
 
-        speaker = parse_speaker(
-            line
-        )
+        speaker = parse_speaker(line)
 
         if speaker:
 
@@ -802,9 +640,7 @@ def extract_dialogue(
             if parse_question_header(line):
                 continue
 
-            current_text.append(
-                line
-            )
+            current_text.append(line)
 
     flush()
 
@@ -815,15 +651,11 @@ def attach_dialogue(
     questions: List[Question],
     dialogue: List[Tuple[str, str]],
 ) -> List[Question]:
-    """
-    将完整对话附加到每道题。
-    """
 
     if (
         not questions
         or not dialogue
     ):
-
         return questions
 
     full_dialogue = " ".join(
@@ -832,7 +664,6 @@ def attach_dialogue(
     )
 
     for question in questions:
-
         question.dialogue = full_dialogue
 
     return questions
@@ -845,13 +676,8 @@ def attach_dialogue(
 def is_answer_section(
     line: str,
 ) -> bool:
-    """
-    判断答案解析中的结束区域。
-    """
 
-    cleaned = clean_line(
-        line
-    )
+    cleaned = clean_line(line)
 
     patterns = [
         r"^标准答案\s*$",
@@ -869,7 +695,6 @@ def is_answer_section(
             cleaned,
             flags=re.IGNORECASE,
         ):
-
             return True
 
     return False
@@ -878,9 +703,6 @@ def is_answer_section(
 def extract_passage(
     text: str,
 ) -> str:
-    """
-    从 Part C 中提取原文。
-    """
 
     lines = text.splitlines()
 
@@ -888,9 +710,7 @@ def extract_passage(
 
     for raw_line in lines:
 
-        line = clean_line(
-            raw_line
-        )
+        line = clean_line(raw_line)
 
         if not line:
             continue
@@ -903,35 +723,24 @@ def extract_passage(
             line,
             flags=re.IGNORECASE,
         ):
-
             break
 
         if is_answer_section(line):
             break
 
-        if is_top_level_heading(
-            raw_line
-        ):
-
+        if is_top_level_heading(raw_line):
             break
 
-        passage_lines.append(
-            line
-        )
+        passage_lines.append(line)
 
-    passage = normalize_space(
+    return normalize_space(
         " ".join(passage_lines)
     )
-
-    return passage
 
 
 def extract_part_c_passage_from_answer(
     answer_text: str,
 ) -> str:
-    """
-    Part C 原文只允许从答案与解析获取。
-    """
 
     part_c = extract_part(
         answer_text,
@@ -954,9 +763,6 @@ def validate_part_c(
     passage: str,
     questions: List[Question],
 ) -> List[str]:
-    """
-    严格验证 Part C。
-    """
 
     errors: List[str] = []
 
@@ -1028,18 +834,11 @@ def build_part_a(
         ]
 
         for option in question.options:
-
-            text_parts.append(
-                option
-            )
-
-        full_text = " ".join(
-            text_parts
-        )
+            text_parts.append(option)
 
         segments.append(
             Segment(
-                text=full_text,
+                text=" ".join(text_parts),
                 voice=female_voice,
                 repeat=2,
             )
@@ -1190,9 +989,6 @@ def load_kokoro():
 
 
 def get_file_size(path: Path) -> int:
-    """
-    获取文件大小。
-    """
 
     try:
         return path.stat().st_size
@@ -1200,106 +996,37 @@ def get_file_size(path: Path) -> int:
         return 0
 
 
-def try_git_lfs_pull(
-    project_root: Path,
+def validate_kokoro_files(
     model_path: Path,
     voices_path: Path,
-) -> bool:
+) -> Tuple[int, int]:
     """
-    GitHub Actions 中如果 ONNX / voices 文件来自 Git LFS，
-    尝试主动拉取一次对应文件。
+    验证 Kokoro 本地文件。
 
     注意：
 
-        这里只修复模型文件 checkout 状态。
+        Git LFS pointer 通常只有几百字节。
 
-        不修改试卷。
-        不修改答案。
-        不修改音频数据。
+        正常模型：
+
+            ONNX   ≈ 163 MB
+            voices ≈ 54 MB
+
+    因此这里不允许明显小于正常文件大小的文件进入
+    ONNX Runtime。
     """
 
-    print()
-    print(
-        "  → 尝试执行 Git LFS 模型恢复"
-    )
+    if not model_path.exists():
 
-    relative_model = None
-    relative_voices = None
-
-    try:
-
-        relative_model = model_path.relative_to(
-            project_root
+        raise FileNotFoundError(
+            f"Kokoro ONNX 模型不存在：{model_path}"
         )
 
-        relative_voices = voices_path.relative_to(
-            project_root
+    if not voices_path.exists():
+
+        raise FileNotFoundError(
+            f"Kokoro voices 不存在：{voices_path}"
         )
-
-    except ValueError:
-
-        print(
-            "  ⚠️ 无法计算 Git LFS 相对路径"
-        )
-
-        return False
-
-    try:
-
-        subprocess.run(
-            [
-                "git",
-                "lfs",
-               "pull",
-                "--include",
-                f"{relative_model},{relative_voices}",
-            ],
-            cwd=str(project_root.parent),
-            check=True,
-        )
-
-        print(
-            "  ✓ Git LFS pull 完成"
-        )
-
-        return True
-
-    except FileNotFoundError:
-
-        print(
-            "  ⚠️ 当前环境没有 git-lfs"
-        )
-
-        return False
-
-    except subprocess.CalledProcessError as exc:
-
-        print(
-            f"  ⚠️ Git LFS pull 失败："
-            f"exit code {exc.returncode}"
-        )
-
-        return False
-
-
-def load_kokoro_with_recovery(
-    model_path: Path,
-    voices_path: Path,
-    project_root: Path,
-):
-    """
-    加载 Kokoro。
-
-    第一次失败：
-
-        如果是 InvalidProtobuf，
-        尝试 Git LFS pull 后再次加载。
-
-    这样可以处理 GitHub Actions 中模型文件
-    checkout / LFS 状态异常的情况。
-    """
-
-    Kokoro = load_kokoro()
 
     model_size = get_file_size(
         model_path
@@ -1324,59 +1051,87 @@ def load_kokoro_with_recovery(
         f"{voices_size:,} bytes"
     )
 
-    # --------------------------------------------------------------
-    # 163 MB 左右的正式模型如果只有几 KB，
-    # 基本就是 LFS pointer / checkout 异常。
-    # --------------------------------------------------------------
-
     if model_size < 100_000_000:
 
-        print()
-        print(
-            "  ⚠️ ONNX 模型文件异常偏小"
+        raise RuntimeError(
+            "Kokoro ONNX 模型文件不是完整模型。"
+            "\n"
+            f"Model: {model_path}"
+            "\n"
+            f"Model size: {model_size:,} bytes"
+            "\n"
+            "\n"
+            "正常模型约为 163 MB。"
+            "\n"
+            "当前文件很可能是 Git LFS pointer。"
+            "\n"
+            "请确认 GitHub Actions checkout 使用："
+            "\n"
+            "  actions/checkout@v4"
+            "\n"
+            "  with:"
+            "\n"
+            "    lfs: true"
         )
 
-        print(
-            "  → 当前文件很可能不是完整模型，"
-            "可能仍是 Git LFS pointer。"
-        )
+    if voices_size < 10_000_000:
 
-        try_git_lfs_pull(
-            project_root=project_root,
-            model_path=model_path,
-            voices_path=voices_path,
+        raise RuntimeError(
+            "Kokoro voices 文件不是完整文件。"
+            "\n"
+            f"Voices: {voices_path}"
+            "\n"
+            f"Voices size: {voices_size:,} bytes"
+            "\n"
+            "\n"
+            "正常 voices 文件约为 54 MB。"
+            "\n"
+            "当前文件很可能是 Git LFS pointer。"
+            "\n"
+            "请确认 GitHub Actions checkout 使用："
+            "\n"
+            "  actions/checkout@v4"
+            "\n"
+            "  with:"
+            "\n"
+            "    lfs: true"
         )
-
-        model_size = get_file_size(
-            model_path
-        )
-
-        voices_size = get_file_size(
-            voices_path
-        )
-
-        print()
-        print(
-            "  FILE CHECK AFTER LFS"
-        )
-
-        print(
-            f"  Model size  : "
-            f"{model_size:,} bytes"
-        )
-
-        print(
-            f"  Voices size : "
-            f"{voices_size:,} bytes"
-        )
-
-    # --------------------------------------------------------------
-    # 第一次加载
-    # --------------------------------------------------------------
 
     print()
     print(
-        "  → Kokoro load attempt 1/2"
+        "  ✓ Kokoro model files are real files"
+    )
+
+    return (
+        model_size,
+        voices_size,
+    )
+
+
+def load_kokoro_with_validation(
+    model_path: Path,
+    voices_path: Path,
+):
+    """
+    只负责：
+
+        1. 检查真实文件
+        2. 加载 Kokoro
+        3. 读取 voices
+
+    Git LFS 不在 Python 中处理。
+    """
+
+    Kokoro = load_kokoro()
+
+    validate_kokoro_files(
+        model_path=model_path,
+        voices_path=voices_path,
+    )
+
+    print()
+    print(
+        "  → Kokoro load"
     )
 
     try:
@@ -1386,141 +1141,47 @@ def load_kokoro_with_recovery(
             str(voices_path),
         )
 
-        print(
-            "  ✓ Kokoro ONNX 模型加载完成"
-        )
-
-        return kokoro
-
-    except Exception as first_error:
-
-        error_text = str(
-            first_error
-        )
-
-        is_protobuf_error = (
-            "InvalidProtobuf" in error_text
-            or "INVALID_PROTOBUF" in error_text
-            or "Protobuf parsing failed" in error_text
-        )
-
-        if not is_protobuf_error:
-
-            raise
+    except Exception as exc:
 
         print()
         print(
-            "  ⚠️ Kokoro 第一次加载失败："
-            "InvalidProtobuf"
+            "  ✗ Kokoro 加载失败"
         )
 
         print(
-            f"  Model size: "
+            f"  Error type: "
+            f"{type(exc).__name__}"
+        )
+
+        print(
+            f"  Error: {exc}"
+        )
+
+        raise RuntimeError(
+            "Kokoro ONNX 模型加载失败。"
+            "\n"
+            f"Model: {model_path}"
+            "\n"
+            f"Model size: "
             f"{get_file_size(model_path):,} bytes"
-        )
-
-        print(
-            "  → 尝试 Git LFS 恢复模型后重新加载"
-        )
-
-        lfs_recovered = try_git_lfs_pull(
-            project_root=project_root,
-            model_path=model_path,
-            voices_path=voices_path,
-        )
-
-        if not lfs_recovered:
-
-            print(
-                "  ⚠️ Git LFS 未成功执行"
-            )
-
-        # ----------------------------------------------------------
-        # 第二次文件检查
-        # ----------------------------------------------------------
-
-        print()
-        print(
-            "  FILE CHECK AFTER RECOVERY"
-        )
-
-        print(
-            f"  Model size  : "
-            f"{get_file_size(model_path):,} bytes"
-        )
-
-        print(
-            f"  Voices size : "
+            "\n"
+            "\n"
+            f"Voices: {voices_path}"
+            "\n"
+            f"Voices size: "
             f"{get_file_size(voices_path):,} bytes"
-        )
+            "\n"
+            "\n"
+            "如果文件大小正常，请检查 kokoro-onnx "
+            "与 ONNX Runtime 依赖版本。"
+        ) from exc
 
-        # ----------------------------------------------------------
-        # 第二次加载
-        # ----------------------------------------------------------
+    print()
+    print(
+        "  ✓ Kokoro ONNX 模型加载完成"
+    )
 
-        print()
-        print(
-            "  → Kokoro load attempt 2/2"
-        )
-
-        try:
-
-            kokoro = Kokoro(
-                str(model_path),
-                str(voices_path),
-            )
-
-            print(
-                "  ✓ Kokoro ONNX 模型加载完成"
-            )
-
-            return kokoro
-
-        except Exception as second_error:
-
-            print()
-            print(
-                "  ✗ Kokoro 第二次加载仍然失败"
-            )
-
-            print(
-                f"  Model size: "
-                f"{get_file_size(model_path):,} bytes"
-            )
-
-            print(
-                f"  Voices size: "
-                f"{get_file_size(voices_path):,} bytes"
-            )
-
-            raise RuntimeError(
-                "Kokoro ONNX 模型加载失败。"
-                "\n"
-                "已经完成："
-                "\n"
-                "  1. 第一次 Kokoro 加载"
-                "\n"
-                "  2. Git LFS 模型恢复尝试"
-                "\n"
-                "  3. 第二次 Kokoro 加载"
-                "\n"
-                "\n"
-                f"Model: {model_path}"
-                "\n"
-                f"Model size: "
-                f"{get_file_size(model_path):,} bytes"
-                "\n"
-                "\n"
-                f"Voices: {voices_path}"
-                "\n"
-                f"Voices size: "
-                f"{get_file_size(voices_path):,} bytes"
-                "\n"
-                "\n"
-                f"Second error: "
-                f"{type(second_error).__name__}: "
-                f"{second_error}"
-            ) from second_error
+    return kokoro
 
 
 def validate_and_select_voices(
@@ -1528,9 +1189,6 @@ def validate_and_select_voices(
     requested_male_voice: str,
     requested_female_voice: str,
 ) -> Tuple[str, str]:
-    """
-    从本地 voices-v1.1-zh.bin 获取真实可用声音。
-    """
 
     print()
     print(
@@ -1581,10 +1239,6 @@ def validate_and_select_voices(
             "      <none>"
         )
 
-    # --------------------------------------------------------------
-    # Female
-    # --------------------------------------------------------------
-
     female_voice = None
 
     if requested_female_voice in available_voices:
@@ -1612,10 +1266,6 @@ def validate_and_select_voices(
             f"请求的 voice={requested_female_voice}。"
             f"本地可用英语 voice={english_voices}"
         )
-
-    # --------------------------------------------------------------
-    # Male
-    # --------------------------------------------------------------
 
     male_voice = None
 
@@ -1670,19 +1320,10 @@ def synthesize_to_wav(
     output_wav: Path,
 ):
     """
-    使用官方 kokoro-onnx API 生成 WAV。
+    使用官方 kokoro-onnx API。
 
-    当前经过 GitHub Actions 验证：
-
-        samples, sample_rate = kokoro.create(
-            text,
-            voice=voice,
-            speed=speed,
-        )
-
-    注意：
-
-        不传 lang=language。
+    language 参数仅为了 CLI 兼容保留，
+    不传给 kokoro.create()。
     """
 
     if not text.strip():
@@ -1707,9 +1348,6 @@ def run_ffmpeg(
     input_wav: Path,
     output_audio: Path,
 ):
-    """
-    WAV -> mp3/m4a/wav
-    """
 
     if output_audio.suffix.lower() == ".wav":
 
@@ -1776,9 +1414,6 @@ def create_silence_wav(
     output_wav: Path,
     duration: float,
 ):
-    """
-    使用 ffmpeg 创建静音 WAV。
-    """
 
     subprocess.run(
         [
@@ -1806,9 +1441,6 @@ def concat_wavs(
     wav_files: List[Path],
     output_wav: Path,
 ):
-    """
-    使用 ffmpeg concat demuxer 合并 WAV。
-    """
 
     concat_file = (
         output_wav.parent
@@ -1853,11 +1485,8 @@ def concat_wavs(
     )
 
     try:
-
         concat_file.unlink()
-
     except FileNotFoundError:
-
         pass
 
 
@@ -1873,9 +1502,6 @@ def render_segments(
     language: str,
     temp_dir: Path,
 ):
-    """
-    将 Segment 列表生成一个完整音频。
-    """
 
     temp_dir.mkdir(
         parents=True,
@@ -1986,7 +1612,7 @@ def main():
     parser = argparse.ArgumentParser(
         description=(
             "748686 英语学习系统 "
-            "Audio Generator V2.2.3"
+            "Audio Generator V2.2.4"
         )
     )
 
@@ -2043,10 +1669,7 @@ def main():
     parser.add_argument(
         "--language",
         default="en-us",
-        help=(
-            "保留 CLI 兼容性；"
-            "当前 kokoro-onnx create API 不直接使用该参数"
-        ),
+        help="CLI 兼容参数；不传给 kokoro.create()",
     )
 
     args = parser.parse_args()
@@ -2065,59 +1688,21 @@ def main():
     # CONFIG
     # ==================================================================
 
-    print(
-        "=" * 70
-    )
-
-    print(
-        "748686 英语学习系统"
-    )
-
-    print(
-        "Audio Generator V2.2.3"
-    )
-
-    print(
-        "=" * 70
-    )
+    print("=" * 70)
+    print("748686 英语学习系统")
+    print("Audio Generator V2.2.4")
+    print("=" * 70)
 
     print()
-
-    print(
-        "CONFIG"
-    )
-
-    print(
-        f"  Date          : {date}"
-    )
-
-    print(
-        f"  Exam          : {exam_file}"
-    )
-
-    print(
-        f"  Answer        : {answer_file}"
-    )
-
-    print(
-        f"  Format        : {args.audio_format}"
-    )
-
-    print(
-        f"  Speed         : {args.speed}"
-    )
-
-    print(
-        f"  Male voice    : {args.male_voice}"
-    )
-
-    print(
-        f"  Female voice  : {args.female_voice}"
-    )
-
-    print(
-        f"  Language      : {args.language}"
-    )
+    print("CONFIG")
+    print(f"  Date          : {date}")
+    print(f"  Exam          : {exam_file}")
+    print(f"  Answer        : {answer_file}")
+    print(f"  Format        : {args.audio_format}")
+    print(f"  Speed         : {args.speed}")
+    print(f"  Male voice    : {args.male_voice}")
+    print(f"  Female voice  : {args.female_voice}")
+    print(f"  Language      : {args.language}")
 
     # ==================================================================
     # File Validation
@@ -2148,15 +1733,9 @@ def main():
     # ==================================================================
 
     print()
-    print(
-        "=" * 70
-    )
-    print(
-        "PART A"
-    )
-    print(
-        "=" * 70
-    )
+    print("=" * 70)
+    print("PART A")
+    print("=" * 70)
 
     exam_part_a = extract_part(
         exam_text,
@@ -2202,15 +1781,9 @@ def main():
     # ==================================================================
 
     print()
-    print(
-        "=" * 70
-    )
-    print(
-        "PART B"
-    )
-    print(
-        "=" * 70
-    )
+    print("=" * 70)
+    print("PART B")
+    print("=" * 70)
 
     exam_part_b = extract_part(
         exam_text,
@@ -2293,15 +1866,9 @@ def main():
     # ==================================================================
 
     print()
-    print(
-        "=" * 70
-    )
-    print(
-        "PART C"
-    )
-    print(
-        "=" * 70
-    )
+    print("=" * 70)
+    print("PART C")
+    print("=" * 70)
 
     exam_part_c = extract_part(
         exam_text,
@@ -2343,15 +1910,9 @@ def main():
     if part_c_errors:
 
         print()
-        print(
-            "=" * 70
-        )
-        print(
-            "ERROR"
-        )
-        print(
-            "=" * 70
-        )
+        print("=" * 70)
+        print("ERROR")
+        print("=" * 70)
 
         print(
             "Part C 校验失败："
@@ -2374,21 +1935,10 @@ def main():
         )
 
     print()
-    print(
-        "  ✓ Part C 原文存在"
-    )
-
-    print(
-        "  ✓ Part C = 5 questions"
-    )
-
-    print(
-        "  ✓ 每题 = 4 options"
-    )
-
-    print(
-        "  ✓ 题号 = 1 / 2 / 3 / 4 / 5"
-    )
+    print("  ✓ Part C 原文存在")
+    print("  ✓ Part C = 5 questions")
+    print("  ✓ 每题 = 4 options")
+    print("  ✓ 题号 = 1 / 2 / 3 / 4 / 5")
 
     # ==================================================================
     # Build Segments
@@ -2413,15 +1963,9 @@ def main():
     )
 
     print()
-    print(
-        "=" * 70
-    )
-    print(
-        "AUDIO PLAN"
-    )
-    print(
-        "=" * 70
-    )
+    print("=" * 70)
+    print("AUDIO PLAN")
+    print("=" * 70)
 
     print(
         f"  Listening A segments: "
@@ -2459,9 +2003,7 @@ def main():
     # Output
     # ==================================================================
 
-    output_dir = (
-        exam_file.parent
-    )
+    output_dir = exam_file.parent
 
     listening_dir = (
         output_dir / "听力"
@@ -2472,9 +2014,7 @@ def main():
         exist_ok=True,
     )
 
-    suffix = (
-        f".{args.audio_format}"
-    )
+    suffix = f".{args.audio_format}"
 
     output_a = (
         listening_dir
@@ -2501,15 +2041,9 @@ def main():
     # ==================================================================
 
     print()
-    print(
-        "=" * 70
-    )
-    print(
-        "KOKORO"
-    )
-    print(
-        "=" * 70
-    )
+    print("=" * 70)
+    print("KOKORO")
+    print("=" * 70)
 
     print(
         "  → 正在加载本地 Kokoro ONNX 模型"
@@ -2537,20 +2071,6 @@ def main():
         / "voices-v1.1-zh.bin"
     )
 
-    if not model_path.exists():
-
-        raise FileNotFoundError(
-            f"Kokoro 模型不存在："
-            f"{model_path}"
-        )
-
-    if not voices_path.exists():
-
-        raise FileNotFoundError(
-            f"Kokoro voices 不存在："
-            f"{voices_path}"
-        )
-
     print(
         f"  Model: {model_path}"
     )
@@ -2559,21 +2079,10 @@ def main():
         f"  Voices: {voices_path}"
     )
 
-    # --------------------------------------------------------------
-    # 加载 Kokoro
-    #
-    # 增加 InvalidProtobuf + Git LFS recovery。
-    # --------------------------------------------------------------
-
-    kokoro = load_kokoro_with_recovery(
+    kokoro = load_kokoro_with_validation(
         model_path=model_path,
         voices_path=voices_path,
-        project_root=project_root,
     )
-
-    # --------------------------------------------------------------
-    # 从实际本地 voices 中选择 voice
-    # --------------------------------------------------------------
 
     (
         actual_male_voice,
@@ -2584,9 +2093,9 @@ def main():
         requested_female_voice=args.female_voice,
     )
 
-    # --------------------------------------------------------------
-    # 使用实际 voice 重新构建 segments。
-    # --------------------------------------------------------------
+    # ==================================================================
+    # 使用实际 voice 重新构建 segments
+    # ==================================================================
 
     segments_a = build_part_a(
         questions=part_a_questions,
@@ -2633,15 +2142,9 @@ def main():
     # ==================================================================
 
     print()
-    print(
-        "=" * 70
-    )
-    print(
-        "GENERATE LISTENING A"
-    )
-    print(
-        "=" * 70
-    )
+    print("=" * 70)
+    print("GENERATE LISTENING A")
+    print("=" * 70)
 
     render_segments(
         kokoro=kokoro,
@@ -2661,15 +2164,9 @@ def main():
     # ==================================================================
 
     print()
-    print(
-        "=" * 70
-    )
-    print(
-        "GENERATE LISTENING B"
-    )
-    print(
-        "=" * 70
-    )
+    print("=" * 70)
+    print("GENERATE LISTENING B")
+    print("=" * 70)
 
     render_segments(
         kokoro=kokoro,
@@ -2689,15 +2186,9 @@ def main():
     # ==================================================================
 
     print()
-    print(
-        "=" * 70
-    )
-    print(
-        "GENERATE LISTENING C"
-    )
-    print(
-        "=" * 70
-    )
+    print("=" * 70)
+    print("GENERATE LISTENING C")
+    print("=" * 70)
 
     render_segments(
         kokoro=kokoro,
@@ -2717,15 +2208,9 @@ def main():
     # ==================================================================
 
     print()
-    print(
-        "=" * 70
-    )
-    print(
-        "GENERATE TOTAL LISTENING"
-    )
-    print(
-        "=" * 70
-    )
+    print("=" * 70)
+    print("GENERATE TOTAL LISTENING")
+    print("=" * 70)
 
     combined_temp = (
         temp_root
@@ -2832,15 +2317,9 @@ def main():
     # ==================================================================
 
     print()
-    print(
-        "=" * 70
-    )
-    print(
-        "FINAL VALIDATION"
-    )
-    print(
-        "=" * 70
-    )
+    print("=" * 70)
+    print("FINAL VALIDATION")
+    print("=" * 70)
 
     outputs = [
         output_a,
@@ -2873,25 +2352,15 @@ def main():
         )
 
     print()
-    print(
-        "=" * 70
-    )
+    print("=" * 70)
     print(
         "748686 英语学习系统 AUDIO COMPLETE"
     )
-    print(
-        "=" * 70
-    )
+    print("=" * 70)
 
     print()
-    print(
-        "Output directory:"
-    )
-
-    print(
-        f"  {listening_dir}"
-    )
-
+    print("Output directory:")
+    print(f"  {listening_dir}")
     print()
 
     return 0
@@ -2921,15 +2390,9 @@ if __name__ == "__main__":
     except Exception as exc:
 
         print()
-        print(
-            "=" * 70
-        )
-        print(
-            "ERROR"
-        )
-        print(
-            "=" * 70
-        )
+        print("=" * 70)
+        print("ERROR")
+        print("=" * 70)
 
         print(
             f"{type(exc).__name__}: {exc}"
