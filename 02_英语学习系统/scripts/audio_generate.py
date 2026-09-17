@@ -88,39 +88,66 @@ V2.2.3 修复
 
 5. 保持 A / B 原有音频逻辑。
 
-6. Kokoro 修复：
+======================================================================
+KOKORO ONNX 修复
+======================================================================
 
-       使用官方 kokoro-onnx API
+正式程序使用：
 
-       Kokoro(
-           model_path,
-           voices_path,
-       )
+    from kokoro_onnx import Kokoro
 
-       kokoro.get_voices()
+    kokoro = Kokoro(
+        model_path,
+        voices_path,
+    )
 
-       kokoro.create(
-           text,
-           voice=voice,
-           speed=speed,
-       )
+    voices = kokoro.get_voices()
 
-   不再向 create() 传入 lang 参数。
+    samples, sample_rate = kokoro.create(
+        text,
+        voice=voice,
+        speed=speed,
+    )
 
-7. 本地 Voice 修复：
+已经通过 GitHub Actions 独立测试验证：
 
-   当前 voices-v1.1-zh.bin 实际验证存在：
+    ✓ ONNX model exists
+    ✓ voices file exists
+    ✓ Kokoro loaded successfully
+    ✓ Voices detected: 103
+    ✓ af_maple available
+    ✓ bf_vale available
+    ✓ TTS generation succeeded
+    ✓ WAV file created
 
-       af_maple
-       af_sol
-       bf_vale
+本地 voices-v1.1-zh.bin 中实际存在的英语声音：
 
-   默认：
+    af_maple
+    af_sol
+    bf_vale
 
-       female = af_maple
-       male   = bf_vale
+因此默认：
 
-   同时在运行时检查指定 voice 是否真实存在。
+    female = af_maple
+    male   = bf_vale
+
+不再使用不存在的：
+
+    af_sarah
+    af_heart
+
+同时不再向 kokoro.create() 传递：
+
+    lang=...
+
+因为当前经过 GitHub Actions 验证的 kokoro-onnx
+官方调用方式为：
+
+    kokoro.create(
+        text,
+        voice=voice,
+        speed=1.0,
+    )
 ======================================================================
 """
 
@@ -169,22 +196,42 @@ def clean_line(line: str) -> str:
         return ""
 
     # Markdown heading
-    line = re.sub(r"^\s*#{1,6}\s*", "", line)
+    line = re.sub(
+        r"^\s*#{1,6}\s*",
+        "",
+        line,
+    )
 
     # Markdown bullet
-    line = re.sub(r"^\s*[-*+]\s+", "", line)
+    line = re.sub(
+        r"^\s*[-*+]\s+",
+        "",
+        line,
+    )
 
     # Markdown bold
-    line = re.sub(r"^\*\*(.*?)\*\*$", r"\1", line)
+    line = re.sub(
+        r"^\*\*(.*?)\*\*$",
+        r"\1",
+        line,
+    )
 
     # Markdown italic
-    line = re.sub(r"^\*(.*?)\*$", r"\1", line)
+    line = re.sub(
+        r"^\*(.*?)\*$",
+        r"\1",
+        line,
+    )
 
     return line.strip()
 
 
 def normalize_space(text: str) -> str:
-    return re.sub(r"\s+", " ", text).strip()
+    return re.sub(
+        r"\s+",
+        " ",
+        text,
+    ).strip()
 
 
 def is_top_level_heading(line: str) -> bool:
@@ -204,14 +251,22 @@ def is_top_level_heading(line: str) -> bool:
     时必须停止。
     """
 
-    return bool(re.match(r"^\s*#\s+.+", line))
+    return bool(
+        re.match(
+            r"^\s*#\s+.+",
+            line,
+        )
+    )
 
 
 # ======================================================================
 # Part Header
 # ======================================================================
 
-def is_part_header(line: str, part: str) -> bool:
+def is_part_header(
+    line: str,
+    part: str,
+) -> bool:
     """
     统一识别 Listening Part A/B/C。
     """
@@ -229,7 +284,10 @@ def is_part_header(line: str, part: str) -> bool:
 
     for pattern in english_patterns:
 
-        if re.match(pattern, cleaned_upper):
+        if re.match(
+            pattern,
+            cleaned_upper,
+        ):
             return True
 
     chinese_patterns = {
@@ -253,9 +311,15 @@ def is_part_header(line: str, part: str) -> bool:
         ],
     }
 
-    for pattern in chinese_patterns.get(part, []):
+    for pattern in chinese_patterns.get(
+        part,
+        [],
+    ):
 
-        if re.match(pattern, cleaned):
+        if re.match(
+            pattern,
+            cleaned,
+        ):
             return True
 
     return False
@@ -271,7 +335,10 @@ def find_part_start(
 
     for i, line in enumerate(lines):
 
-        if is_part_header(line, part):
+        if is_part_header(
+            line,
+            part,
+        ):
             return i
 
     return None
@@ -331,6 +398,7 @@ def extract_part(
             is_part_header(lines[i], "A")
             and part.upper() != "A"
         ):
+
             end = i
             break
 
@@ -338,6 +406,7 @@ def extract_part(
             is_part_header(lines[i], "B")
             and part.upper() != "B"
         ):
+
             end = i
             break
 
@@ -345,6 +414,7 @@ def extract_part(
             is_part_header(lines[i], "C")
             and part.upper() != "C"
         ):
+
             end = i
             break
 
@@ -356,6 +426,7 @@ def extract_part(
             i > start + 1
             and is_top_level_heading(lines[i])
         ):
+
             end = i
             break
 
@@ -644,9 +715,7 @@ def parse_questions(
                     current
                 )
 
-            number, question_text = (
-                question_header
-            )
+            number, question_text = question_header
 
             current = Question(
                 number=number,
@@ -771,8 +840,7 @@ def extract_dialogue(
             continue
 
         # --------------------------------------------------------------
-        # 如果正在收集某个 speaker，
-        # 普通行视为该 speaker 的续句。
+        # 普通行视为当前 speaker 的续句
         # --------------------------------------------------------------
 
         if current_voice:
@@ -797,23 +865,20 @@ def attach_dialogue(
     dialogue: List[Tuple[str, str]],
 ) -> List[Question]:
     """
-    将对话按题目切分。
+    将对话附加到 Question。
 
-    当前系统的答案解析通常是：
+    当前系统 Part B 通常是一组连续对话。
 
-        1. M...
-           F...
-
-        2. M...
-           F...
-
-    如果无法可靠切分，则将全部对话作为整体保留。
+    如果存在真实 dialogue，
+    则将完整 dialogue 保存到每道题，
+    由 build_part_b 决定播放。
     """
 
     if (
         not questions
         or not dialogue
     ):
+
         return questions
 
     full_dialogue = " ".join(
@@ -823,9 +888,7 @@ def attach_dialogue(
 
     for question in questions:
 
-        question.dialogue = (
-            full_dialogue
-        )
+        question.dialogue = full_dialogue
 
     return questions
 
@@ -861,6 +924,7 @@ def is_answer_section(
             cleaned,
             flags=re.IGNORECASE,
         ):
+
             return True
 
     return False
@@ -909,6 +973,7 @@ def extract_passage(
             line,
             flags=re.IGNORECASE,
         ):
+
             break
 
         # --------------------------------------------------------------
@@ -925,6 +990,7 @@ def extract_passage(
         if is_top_level_heading(
             raw_line
         ):
+
             break
 
         passage_lines.append(
@@ -932,9 +998,7 @@ def extract_passage(
         )
 
     passage = normalize_space(
-        " ".join(
-            passage_lines
-        )
+        " ".join(passage_lines)
     )
 
     return passage
@@ -993,8 +1057,7 @@ def validate_part_c(
     if not passage.strip():
 
         errors.append(
-            "Part C 原文为空："
-            "无法从答案与解析中恢复 Part C 原文"
+            "Part C 原文为空：无法从答案与解析中恢复 Part C 原文"
         )
 
     # --------------------------------------------------------------
@@ -1004,8 +1067,7 @@ def validate_part_c(
     if len(questions) != 5:
 
         errors.append(
-            f"Part C 题目数量错误："
-            f"期望 5，实际 {len(questions)}"
+            f"Part C 题目数量错误：期望 5，实际 {len(questions)}"
         )
 
     # --------------------------------------------------------------
@@ -1017,10 +1079,7 @@ def validate_part_c(
         for q in questions
     ]
 
-    if (
-        len(numbers)
-        != len(set(numbers))
-    ):
+    if len(numbers) != len(set(numbers)):
 
         errors.append(
             "Part C 存在重复题号"
@@ -1041,8 +1100,7 @@ def validate_part_c(
     if sorted(numbers) != expected:
 
         errors.append(
-            f"Part C 题号错误："
-            f"期望 {expected}，实际 {numbers}"
+            f"Part C 题号错误：期望 {expected}，实际 {numbers}"
         )
 
     # --------------------------------------------------------------
@@ -1054,11 +1112,9 @@ def validate_part_c(
         if len(question.options) != 4:
 
             errors.append(
-                f"Part C 第 "
-                f"{question.number} 题"
+                f"Part C 第 {question.number} 题"
                 f"选项数量错误："
-                f"期望 4，实际 "
-                f"{len(question.options)}"
+                f"期望 4，实际 {len(question.options)}"
             )
 
     return errors
@@ -1141,7 +1197,8 @@ def build_part_b(
 
         # ----------------------------------------------------------
         # 没有 speaker 时，
-        # 使用 question dialogue fallback。
+        # 如果 Question 内部存在 dialogue，
+        # 使用 female voice 作为安全 fallback。
         # ----------------------------------------------------------
 
         for question in questions:
@@ -1247,6 +1304,18 @@ def build_part_c(
 # ======================================================================
 
 def load_kokoro():
+    """
+    加载官方 kokoro-onnx.Kokoro。
+
+    注意：
+
+        不使用 KPipeline。
+
+        不使用旧版 Kokoro API。
+
+        当前正式程序与 GitHub Actions
+        独立测试使用同一套 API。
+    """
 
     try:
 
@@ -1259,9 +1328,184 @@ def load_kokoro():
             file=sys.stderr,
         )
 
+        print(
+            "请安装：pip install -U kokoro-onnx",
+            file=sys.stderr,
+        )
+
         raise
 
     return Kokoro
+
+
+def validate_and_select_voices(
+    kokoro,
+    requested_male_voice: str,
+    requested_female_voice: str,
+) -> Tuple[str, str]:
+    """
+    从本地 voices-v1.1-zh.bin 获取真实可用声音。
+
+    不相信官方完整 VOICES 列表，
+    只相信当前本地 Kokoro.get_voices()。
+
+    当前已经通过 GitHub Actions 验证的本地英语声音：
+
+        af_maple
+        af_sol
+        bf_vale
+
+    默认：
+
+        female -> af_maple
+        male   -> bf_vale
+    """
+
+    print()
+    print(
+        "  → 正在读取本地 Kokoro voices"
+    )
+
+    available_voices = set(
+        kokoro.get_voices()
+    )
+
+    if not available_voices:
+
+        raise RuntimeError(
+            "Kokoro voices-v1.1-zh.bin 中没有检测到任何 voice"
+        )
+
+    print(
+        f"  ✓ Available voices: "
+        f"{len(available_voices)}"
+    )
+
+    # --------------------------------------------------------------
+    # 当前本地英语 voice
+    # --------------------------------------------------------------
+
+    english_voices = sorted(
+        voice
+        for voice in available_voices
+        if (
+            voice.startswith("af_")
+            or voice.startswith("am_")
+            or voice.startswith("bf_")
+            or voice.startswith("bm_")
+        )
+    )
+
+    print(
+        "  ✓ Local English voices:"
+    )
+
+    if english_voices:
+
+        for voice in english_voices:
+
+            print(
+                f"      {voice}"
+            )
+
+    else:
+
+        print(
+            "      <none>"
+        )
+
+    # --------------------------------------------------------------
+    # Female
+    #
+    # 如果用户明确传入一个存在的 voice，
+    # 优先使用用户指定。
+    #
+    # 如果不存在：
+    #
+    #   af_maple
+    #   af_sol
+    #
+    # --------------------------------------------------------------
+
+    female_voice = None
+
+    if requested_female_voice in available_voices:
+
+        female_voice = requested_female_voice
+
+    else:
+
+        female_fallbacks = [
+            "af_maple",
+            "af_sol",
+        ]
+
+        for voice in female_fallbacks:
+
+            if voice in available_voices:
+
+                female_voice = voice
+                break
+
+    if female_voice is None:
+
+        raise RuntimeError(
+            "没有可用的英语女性 Kokoro voice。"
+            f"请求的 voice={requested_female_voice}。"
+            f"本地可用英语 voice={english_voices}"
+        )
+
+    # --------------------------------------------------------------
+    # Male
+    #
+    # 当前本地验证：
+    #
+    #   bf_vale
+    #
+    # --------------------------------------------------------------
+
+    male_voice = None
+
+    if requested_male_voice in available_voices:
+
+        male_voice = requested_male_voice
+
+    else:
+
+        male_fallbacks = [
+            "bf_vale",
+        ]
+
+        for voice in male_fallbacks:
+
+            if voice in available_voices:
+
+                male_voice = voice
+                break
+
+    if male_voice is None:
+
+        raise RuntimeError(
+            "没有可用的英语男性 Kokoro voice。"
+            f"请求的 voice={requested_male_voice}。"
+            f"本地可用英语 voice={english_voices}"
+        )
+
+    print()
+    print(
+        f"  ✓ Selected female voice: "
+        f"{female_voice}"
+    )
+
+    print(
+        f"  ✓ Selected male voice: "
+        f"{male_voice}"
+    )
+
+    return (
+        male_voice,
+        female_voice,
+    )
 
 
 def synthesize_to_wav(
@@ -1275,11 +1519,9 @@ def synthesize_to_wav(
     """
     使用官方 kokoro-onnx API 生成 WAV。
 
-    注意：
+    重要：
 
-        language 参数保留，用于兼容现有 Workflow。
-
-        当前 kokoro-onnx 的稳定调用：
+        当前经过 GitHub Actions 验证的调用方式：
 
             kokoro.create(
                 text,
@@ -1287,11 +1529,21 @@ def synthesize_to_wav(
                 speed=speed,
             )
 
-        不向 create() 传 lang 参数。
+        不再传：
+
+            lang=language
+
+    language 参数保留在函数签名中，
+    以保持现有程序结构和 CLI 兼容性，
+    但不传给 Kokoro。
     """
 
     if not text.strip():
         return
+
+    # --------------------------------------------------------------
+    # 官方 kokoro-onnx API
+    # --------------------------------------------------------------
 
     samples, sample_rate = kokoro.create(
         text,
@@ -1660,7 +1912,10 @@ def main():
     parser.add_argument(
         "--language",
         default="en-us",
-        help="兼容现有 Workflow 的 language 参数",
+        help=(
+            "保留 CLI 兼容性；"
+            "当前 kokoro-onnx create API 不直接使用该参数"
+        ),
     )
 
     args = parser.parse_args()
@@ -1697,7 +1952,9 @@ def main():
 
     print()
 
-    print("CONFIG")
+    print(
+        "CONFIG"
+    )
 
     print(
         f"  Date          : {date}"
@@ -1760,9 +2017,15 @@ def main():
     # ==================================================================
 
     print()
-    print("=" * 70)
-    print("PART A")
-    print("=" * 70)
+    print(
+        "=" * 70
+    )
+    print(
+        "PART A"
+    )
+    print(
+        "=" * 70
+    )
 
     exam_part_a = extract_part(
         exam_text,
@@ -1798,8 +2061,7 @@ def main():
         if len(question.options) != 4:
 
             raise RuntimeError(
-                f"Part A 第 "
-                f"{question.number} 题"
+                f"Part A 第 {question.number} 题"
                 f"选项数量错误："
                 f"{len(question.options)}"
             )
@@ -1809,9 +2071,15 @@ def main():
     # ==================================================================
 
     print()
-    print("=" * 70)
-    print("PART B")
-    print("=" * 70)
+    print(
+        "=" * 70
+    )
+    print(
+        "PART B"
+    )
+    print(
+        "=" * 70
+    )
 
     exam_part_b = extract_part(
         exam_text,
@@ -1859,8 +2127,7 @@ def main():
         if dialogue:
 
             print(
-                "  ✓ 已从答案与解析补充 "
-                "Part B 对话"
+                "  ✓ 已从答案与解析补充 Part B 对话"
             )
 
             print(
@@ -1895,8 +2162,7 @@ def main():
         if len(question.options) != 4:
 
             raise RuntimeError(
-                f"Part B 第 "
-                f"{question.number} 题"
+                f"Part B 第 {question.number} 题"
                 f"选项数量错误："
                 f"{len(question.options)}"
             )
@@ -1906,9 +2172,15 @@ def main():
     # ==================================================================
 
     print()
-    print("=" * 70)
-    print("PART C")
-    print("=" * 70)
+    print(
+        "=" * 70
+    )
+    print(
+        "PART C"
+    )
+    print(
+        "=" * 70
+    )
 
     # --------------------------------------------------------------
     # 题目和选项：
@@ -1966,9 +2238,15 @@ def main():
     if part_c_errors:
 
         print()
-        print("=" * 70)
-        print("ERROR")
-        print("=" * 70)
+        print(
+            "=" * 70
+        )
+        print(
+            "ERROR"
+        )
+        print(
+            "=" * 70
+        )
 
         print(
             "Part C 校验失败："
@@ -2030,9 +2308,15 @@ def main():
     )
 
     print()
-    print("=" * 70)
-    print("AUDIO PLAN")
-    print("=" * 70)
+    print(
+        "=" * 70
+    )
+    print(
+        "AUDIO PLAN"
+    )
+    print(
+        "=" * 70
+    )
 
     print(
         f"  Listening A segments: "
@@ -2068,10 +2352,8 @@ def main():
 
         raise RuntimeError(
             "Part C 音频片段数量错误："
-            f"期望 "
-            f"{expected_part_c_segments}，"
-            f"实际 "
-            f"{len(segments_c)}"
+            f"期望 {expected_part_c_segments}，"
+            f"实际 {len(segments_c)}"
         )
 
     print(
@@ -2124,9 +2406,15 @@ def main():
     # ==================================================================
 
     print()
-    print("=" * 70)
-    print("KOKORO")
-    print("=" * 70)
+    print(
+        "=" * 70
+    )
+    print(
+        "KOKORO"
+    )
+    print(
+        "=" * 70
+    )
 
     print(
         "  → 正在加载本地 Kokoro ONNX 模型"
@@ -2168,7 +2456,19 @@ def main():
             f"{voices_path}"
         )
 
+    print(
+        f"  Model: {model_path}"
+    )
+
+    print(
+        f"  Voices: {voices_path}"
+    )
+
     Kokoro = load_kokoro()
+
+    # --------------------------------------------------------------
+    # 官方 kokoro-onnx 初始化
+    # --------------------------------------------------------------
 
     kokoro = Kokoro(
         str(model_path),
@@ -2176,61 +2476,46 @@ def main():
     )
 
     print(
-        "  ✓ Kokoro 模型加载完成"
+        "  ✓ Kokoro ONNX 模型加载完成"
     )
 
-    # ==================================================================
-    # Voice Validation
-    # ==================================================================
+    # --------------------------------------------------------------
+    # 从实际本地 voices 中选择 voice
+    # --------------------------------------------------------------
 
-    print()
-    print(
-        "  → 正在检查本地 Kokoro voices"
+    (
+        actual_male_voice,
+        actual_female_voice,
+    ) = validate_and_select_voices(
+        kokoro=kokoro,
+        requested_male_voice=args.male_voice,
+        requested_female_voice=args.female_voice,
     )
 
-    available_voices = set(
-        kokoro.get_voices()
+    # --------------------------------------------------------------
+    # 使用实际 voice 重新构建 segments。
+    #
+    # 这样即使 CLI 没有传 voice，
+    # 或默认 voice 与本地 voices 不一致，
+    # 也不会把不存在的 voice 传给 Kokoro。
+    # --------------------------------------------------------------
+
+    segments_a = build_part_a(
+        questions=part_a_questions,
+        female_voice=actual_female_voice,
     )
 
-    print(
-        f"  ✓ Available voices: "
-        f"{len(available_voices)}"
+    segments_b = build_part_b(
+        questions=part_b_questions,
+        dialogue=dialogue,
+        male_voice=actual_male_voice,
+        female_voice=actual_female_voice,
     )
 
-    print(
-        f"  → Requested male voice: "
-        f"{args.male_voice}"
-    )
-
-    print(
-        f"  → Requested female voice: "
-        f"{args.female_voice}"
-    )
-
-    if args.male_voice not in available_voices:
-
-        raise RuntimeError(
-            "Kokoro 男性 voice 不存在："
-            f"{args.male_voice}\n"
-            "当前本地 voices 中没有该 voice。"
-        )
-
-    if args.female_voice not in available_voices:
-
-        raise RuntimeError(
-            "Kokoro 女性 voice 不存在："
-            f"{args.female_voice}\n"
-            "当前本地 voices 中没有该 voice。"
-        )
-
-    print(
-        f"  ✓ Male voice available: "
-        f"{args.male_voice}"
-    )
-
-    print(
-        f"  ✓ Female voice available: "
-        f"{args.female_voice}"
+    segments_c = build_part_c(
+        passage=part_c_passage,
+        questions=part_c_questions,
+        female_voice=actual_female_voice,
     )
 
     # ==================================================================
@@ -2260,9 +2545,15 @@ def main():
     # ==================================================================
 
     print()
-    print("=" * 70)
-    print("GENERATE LISTENING A")
-    print("=" * 70)
+    print(
+        "=" * 70
+    )
+    print(
+        "GENERATE LISTENING A"
+    )
+    print(
+        "=" * 70
+    )
 
     render_segments(
         kokoro=kokoro,
@@ -2282,9 +2573,15 @@ def main():
     # ==================================================================
 
     print()
-    print("=" * 70)
-    print("GENERATE LISTENING B")
-    print("=" * 70)
+    print(
+        "=" * 70
+    )
+    print(
+        "GENERATE LISTENING B"
+    )
+    print(
+        "=" * 70
+    )
 
     render_segments(
         kokoro=kokoro,
@@ -2304,9 +2601,15 @@ def main():
     # ==================================================================
 
     print()
-    print("=" * 70)
-    print("GENERATE LISTENING C")
-    print("=" * 70)
+    print(
+        "=" * 70
+    )
+    print(
+        "GENERATE LISTENING C"
+    )
+    print(
+        "=" * 70
+    )
 
     render_segments(
         kokoro=kokoro,
@@ -2326,9 +2629,15 @@ def main():
     # ==================================================================
 
     print()
-    print("=" * 70)
-    print("GENERATE TOTAL LISTENING")
-    print("=" * 70)
+    print(
+        "=" * 70
+    )
+    print(
+        "GENERATE TOTAL LISTENING"
+    )
+    print(
+        "=" * 70
+    )
 
     combined_temp = (
         temp_root
@@ -2343,10 +2652,7 @@ def main():
     total_wavs: List[Path] = []
 
     # --------------------------------------------------------------
-    # 为保证不同格式都可以正确合并：
-    #
-    # 如果 A/B/C 是 mp3/m4a，
-    # 这里重新从已有文件转换为 WAV。
+    # A / B / C 转 WAV
     # --------------------------------------------------------------
 
     for index, audio_file in enumerate(
@@ -2438,8 +2744,7 @@ def main():
     except Exception as exc:
 
         print(
-            f"  ⚠️ 临时目录清理失败："
-            f"{exc}"
+            f"  ⚠️ 临时目录清理失败：{exc}"
         )
 
     # ==================================================================
@@ -2447,9 +2752,15 @@ def main():
     # ==================================================================
 
     print()
-    print("=" * 70)
-    print("FINAL VALIDATION")
-    print("=" * 70)
+    print(
+        "=" * 70
+    )
+    print(
+        "FINAL VALIDATION"
+    )
+    print(
+        "=" * 70
+    )
 
     outputs = [
         output_a,
@@ -2482,11 +2793,15 @@ def main():
         )
 
     print()
-    print("=" * 70)
+    print(
+        "=" * 70
+    )
     print(
         "748686 英语学习系统 AUDIO COMPLETE"
     )
-    print("=" * 70)
+    print(
+        "=" * 70
+    )
 
     print()
     print(
@@ -2526,9 +2841,15 @@ if __name__ == "__main__":
     except Exception as exc:
 
         print()
-        print("=" * 70)
-        print("ERROR")
-        print("=" * 70)
+        print(
+            "=" * 70
+        )
+        print(
+            "ERROR"
+        )
+        print(
+            "=" * 70
+        )
 
         print(
             f"{type(exc).__name__}: {exc}"
