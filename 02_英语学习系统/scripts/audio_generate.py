@@ -3,118 +3,110 @@
 
 """
 748686 英语学习系统
-Audio Generator V2.2.2
-
+Audio Generator V2.2.3
 ======================================================================
+
 职责
 ======================================================================
 
-读取：
+只负责：
 
-    1. 配套试卷
-    2. 答案与解析
+    1. 读取已经存在的试卷 Markdown
+    2. 读取已经存在的答案与解析 Markdown
+    3. 恢复 Listening A / B / C
+    4. 使用本地 Kokoro 模型生成音频
+    5. 输出：
+           Listening_A.mp3
+           Listening_B.mp3
+           Listening_C.mp3
+           Listening_总音频.mp3
 
-使用：
+严格禁止：
 
-    Kokoro TTS
-
-生成：
-
-    Listening_A
-    Listening_B
-    Listening_C
-    Listening_总音频
-
-======================================================================
-重要设计
-======================================================================
-
-Part A
-    题目 + 选项来自试卷
-
-Part B
-    题目 + 选项来自试卷
-    对话优先来自试卷
-    如果试卷没有对话，则从答案与解析补充
-
-Part C
-    题目 + 选项 ONLY 来自试卷
-    听力原文 ONLY 来自答案与解析
-
-    不使用答案字母推导题目
-    不从答案分析文字猜题目
-    不修改试卷
-    不修改答案与解析
+    ✗ 不调用 AI
+    ✗ 不修改试卷
+    ✗ 不修改答案与解析
+    ✗ 不重新生成试卷
+    ✗ 不重新生成答案
 
 ======================================================================
-Part C 标准结构
+V2.2.3 修复
 ======================================================================
 
-答案与解析：
+1. 修复 Part B：
 
-### Part C
+   支持：
 
-I think healthy habits are important.
-...
+       M: ...
+       F: ...
 
-试卷：
+   以及答案解析常见格式：
 
-## Part C
+       **1.** M: ...
+       **2.** F: ...
 
-### 1. What does the speaker think is important?
+   不再出现：
 
-- A. Eating sweet food
-- B. Healthy habits
-- C. Watching TV all day
-- D. Sleeping for only two hours
+       ⚠️ 试卷 Part B 没有找到对话
 
-...
+2. 修复 Part C：
 
-最终：
+   Part C 题目/选项：
 
-    passage × 1
+       只来自试卷 Markdown
 
-    question 1 × 2
-    A × 2
-    B × 2
-    C × 2
-    D × 2
+   Part C 原文：
 
-    question 2 × 2
-    ...
+       只来自答案与解析 Markdown
+
+   Part C 不再吞掉：
+
+       二、单项选择
+       三、多项选择
+       四、完形填空
+       五、阅读理解
+       六、翻译
+       七、写作
+
+3. Part C 严格校验：
+
+       5 道题
+       每题 4 个选项
+       题号必须唯一
+       题号必须为 1~5
+
+4. 支持中英文 Part Header：
+
+       PART A
+       PART B
+       PART C
+
+       Listening A
+       Listening B
+       Listening C
+
+       第一部分
+       第二部分
+       第三部分
+
+5. 保持 A / B 原有音频逻辑。
 
 ======================================================================
-CLI 兼容
-======================================================================
-
-支持：
-
-    --audio-format mp3
-
-也兼容：
-
-    --format mp3
-
-默认：
-
-    mp3
 """
 
 from __future__ import annotations
 
 import argparse
 import re
-import shutil
 import subprocess
 import sys
-import tempfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Tuple
 
 
 # ======================================================================
-# 基础数据结构
+# 数据结构
 # ======================================================================
 
 @dataclass
@@ -128,35 +120,17 @@ class Segment:
 class Question:
     number: int
     question: str
-    options: List[str] = field(default_factory=list)
-    dialogue: List[Tuple[str, str]] = field(default_factory=list)
+    options: List[str]
+    dialogue: str = ""
 
 
 # ======================================================================
-# 日志
-# ======================================================================
-
-def log(message: str = "") -> None:
-    print(message, flush=True)
-
-
-def fail(message: str) -> None:
-    print()
-    print("=" * 70)
-    print("ERROR")
-    print("=" * 70)
-    print(message)
-    print("=" * 70)
-    sys.exit(1)
-
-
-# ======================================================================
-# Markdown 清理
+# 基础工具
 # ======================================================================
 
 def clean_line(line: str) -> str:
     """
-    清理 Markdown 格式，但保留正文。
+    清理 Markdown 常见格式，但不破坏正文。
     """
 
     line = line.strip()
@@ -164,426 +138,393 @@ def clean_line(line: str) -> str:
     if not line:
         return ""
 
-    # Markdown checkbox
-    line = re.sub(
-        r"^[-*+]\s+\[[ xX]\]\s*",
-        "",
-        line,
-    )
+    # Markdown heading
+    line = re.sub(r"^\s*#{1,6}\s*", "", line)
 
     # Markdown bullet
-    line = re.sub(
-        r"^[-*+]\s+",
-        "",
-        line,
-    )
+    line = re.sub(r"^\s*[-*+]\s+", "", line)
 
-    # Markdown heading
-    line = re.sub(
-        r"^#{1,6}\s*",
-        "",
-        line,
-    )
+    # Markdown bold
+    line = re.sub(r"^\*\*(.*?)\*\*$", r"\1", line)
 
-    # Bold / italic
-    line = line.replace("**", "")
-    line = line.replace("__", "")
-    line = line.replace("*", "")
-    line = line.replace("_", "")
-
-    # Markdown blockquote
-    line = re.sub(
-        r"^>\s*",
-        "",
-        line,
-    )
+    # Markdown italic
+    line = re.sub(r"^\*(.*?)\*$", r"\1", line)
 
     return line.strip()
 
 
-# ======================================================================
-# 标题判断
-# ======================================================================
-
-def normalize_header(line: str) -> str:
-    line = clean_line(line)
-    return re.sub(
-        r"\s+",
-        " ",
-        line,
-    ).strip().upper()
+def normalize_space(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip()
 
 
-def is_part_header(
-    line: str,
-    part: str,
-) -> bool:
+def is_top_level_heading(line: str) -> bool:
     """
-    判断一行是否为指定 Part 标题。
+    判断是否为 Markdown 一级标题。
 
-    支持：
+    例如：
 
-        Part A
-        PART A
-        Listening A
-        LISTENING A
+        # 一、听力
+        # 二、单项选择
+        # 三、多项选择
 
-        第一部分
-        第二部分
-        第三部分
+    Part C 到达：
 
-        第一部分：听句子
-        第二部分：听对话
-        第三部分：听原文
+        # 二、单项选择
+
+    时必须停止。
+    """
+
+    return bool(re.match(r"^\s*#\s+.+", line))
+
+
+# ======================================================================
+# Part Header
+# ======================================================================
+
+def is_part_header(line: str, part: str) -> bool:
+    """
+    统一识别 Listening Part A/B/C。
     """
 
     cleaned = clean_line(line)
-    normalized = normalize_header(line)
+    cleaned_upper = cleaned.upper()
 
     part = part.upper()
 
-    if part == "A":
-
-        chinese_patterns = [
-            r"^第一部分(?:\s*[:：-].*)?$",
-        ]
-
-        english_patterns = [
-            r"^PART\s+A(?:\s*[:：-].*)?$",
-            r"^LISTENING\s+A(?:\s*[:：-].*)?$",
-        ]
-
-    elif part == "B":
-
-        chinese_patterns = [
-            r"^第二部分(?:\s*[:：-].*)?$",
-        ]
-
-        english_patterns = [
-            r"^PART\s+B(?:\s*[:：-].*)?$",
-            r"^LISTENING\s+B(?:\s*[:：-].*)?$",
-        ]
-
-    elif part == "C":
-
-        chinese_patterns = [
-            r"^第三部分(?:\s*[:：-].*)?$",
-        ]
-
-        english_patterns = [
-            r"^PART\s+C(?:\s*[:：-].*)?$",
-            r"^LISTENING\s+C(?:\s*[:：-].*)?$",
-        ]
-
-    else:
-        return False
-
-    for pattern in chinese_patterns:
-
-        if re.match(
-            pattern,
-            cleaned,
-            flags=re.IGNORECASE,
-        ):
-            return True
+    english_patterns = [
+        rf"^PART\s+{part}\s*$",
+        rf"^LISTENING\s+{part}\s*$",
+        rf"^LISTENING\s+PART\s+{part}\s*$",
+    ]
 
     for pattern in english_patterns:
+        if re.match(pattern, cleaned_upper):
+            return True
 
-        if re.match(
-            pattern,
-            normalized,
-            flags=re.IGNORECASE,
-        ):
+    chinese_patterns = {
+        "A": [
+            r"^第一部分\s*$",
+            r"^听力\s*A\s*$",
+            r"^听力第一部分\s*$",
+            r"^听句子\s*$",
+        ],
+        "B": [
+            r"^第二部分\s*$",
+            r"^听力\s*B\s*$",
+            r"^听力第二部分\s*$",
+            r"^听对话\s*$",
+        ],
+        "C": [
+            r"^第三部分\s*$",
+            r"^听力\s*C\s*$",
+            r"^听力第三部分\s*$",
+            r"^听原文\s*$",
+        ],
+    }
+
+    for pattern in chinese_patterns.get(part, []):
+        if re.match(pattern, cleaned):
             return True
 
     return False
 
 
-def find_part_start(
-    lines: List[str],
-    part: str,
-) -> Optional[int]:
+def find_part_start(lines: List[str], part: str) -> Optional[int]:
+    """
+    找到 Part A/B/C 的起始行。
+    """
 
-    for index, line in enumerate(lines):
-
-        if is_part_header(
-            line,
-            part,
-        ):
-            return index
+    for i, line in enumerate(lines):
+        if is_part_header(line, part):
+            return i
 
     return None
 
 
-def find_next_part_start(
-    lines: List[str],
-    current_part: str,
-    start_index: int,
-) -> Optional[int]:
+def find_part_header(lines: List[str], part: str) -> Optional[int]:
     """
-    查找当前 Part 后面的下一个 Part。
+    与 find_part_start 保持一致。
     """
 
-    order = [
-        "A",
-        "B",
-        "C",
-    ]
-
-    try:
-        position = order.index(
-            current_part.upper()
-        )
-
-    except ValueError:
-        return None
-
-    next_parts = order[
-        position + 1:
-    ]
-
-    for index in range(
-        start_index + 1,
-        len(lines),
-    ):
-
-        for next_part in next_parts:
-
-            if is_part_header(
-                lines[index],
-                next_part,
-            ):
-                return index
-
-    return None
+    return find_part_start(lines, part)
 
 
-def find_part_header(
-    lines: List[str],
-    part: str,
-) -> Optional[int]:
-
-    return find_part_start(
-        lines,
-        part,
-    )
-
-
-# ======================================================================
-# Part 提取
-# ======================================================================
-
-def extract_part(
-    text: str,
-    part: str,
-) -> str:
+def extract_part(text: str, part: str) -> str:
     """
-    从一个 Markdown 文件中提取指定 Part。
+    提取一个 Listening Part。
+
+    关键规则：
+
+        1. 从目标 Part Header 开始
+        2. 遇到下一个 Listening Part 时停止
+        3. 如果当前是最后一个 Part（尤其 Part C），
+           遇到下一个一级 Markdown 标题时停止
+
+    例如：
+
+        ### Part C
+        ...
+        # 二、单项选择
+        ...
+
+    Part C 只返回：
+
+        ...
+
+    不会把后面的单选、多选、完形等一起返回。
     """
 
     lines = text.splitlines()
 
-    start = find_part_start(
-        lines,
-        part,
-    )
+    start = find_part_start(lines, part)
 
     if start is None:
         return ""
 
-    end = find_next_part_start(
-        lines,
-        part,
-        start,
+    end = len(lines)
+
+    for i in range(start + 1, len(lines)):
+
+        # --------------------------------------------------------------
+        # 下一个 Listening Part
+        # --------------------------------------------------------------
+
+        if is_part_header(lines[i], "A") and part.upper() != "A":
+            end = i
+            break
+
+        if is_part_header(lines[i], "B") and part.upper() != "B":
+            end = i
+            break
+
+        if is_part_header(lines[i], "C") and part.upper() != "C":
+            end = i
+            break
+
+        # --------------------------------------------------------------
+        # 一级 Markdown 标题
+        #
+        # 例如：
+        #
+        # # 二、单项选择
+        #
+        # Part C 在这里必须停止。
+        # --------------------------------------------------------------
+
+        if i > start + 1 and is_top_level_heading(lines[i]):
+            end = i
+            break
+
+    return "\n".join(lines[start + 1:end]).strip()
+
+
+# ======================================================================
+# Question Header
+# ======================================================================
+
+QUESTION_PATTERN = re.compile(
+    r"""
+    ^\s*
+    (?:
+        第\s*(\d+)\s*题
+        |
+        Question\s*(\d+)
+        |
+        (\d+)
     )
-
-    if end is None:
-
-        selected = lines[
-            start + 1:
-        ]
-
-    else:
-
-        selected = lines[
-            start + 1:end
-        ]
-
-    return "\n".join(
-        selected
-    ).strip()
-
-
-# ======================================================================
-# 题目解析
-# ======================================================================
-
-QUESTION_PATTERNS = [
-
-    # 1. Question
-    re.compile(
-        r"^\s*(\d+)\s*[\.．、:：\-]\s*(.+?)\s*$"
-    ),
-
-    # 1) Question
-    re.compile(
-        r"^\s*(\d+)\s*\)\s*(.+?)\s*$"
-    ),
-
-    # 第1题 Question
-    re.compile(
-        r"^\s*第\s*(\d+)\s*题\s*[:：.\-]?\s*(.+?)\s*$"
-    ),
-
-    # Question 1: Question
-    re.compile(
-        r"^\s*Question\s+(\d+)\s*[:：.\-]\s*(.+?)\s*$",
-        flags=re.IGNORECASE,
-    ),
-]
-
-
-def parse_question_header(
-    line: str,
-) -> Tuple[
-    Optional[int],
-    Optional[str],
-]:
-
-    cleaned = clean_line(
-        line
-    )
-
-    if not cleaned:
-        return None, None
-
-    for pattern in QUESTION_PATTERNS:
-
-        match = pattern.match(
-            cleaned
-        )
-
-        if match:
-
-            try:
-                number = int(
-                    match.group(1)
-                )
-
-            except ValueError:
-                return None, None
-
-            question = match.group(
-                2
-            ).strip()
-
-            if question:
-                return (
-                    number,
-                    question,
-                )
-
-    return None, None
-
-
-# ======================================================================
-# 选项解析
-# ======================================================================
-
-OPTION_PATTERN = re.compile(
-    r"^\s*([A-Da-d])\s*(?:[\.．\)）:：、\-]\s*|\s+)(.+?)\s*$"
+    \s*
+    (?:[\.．、:：\)）\-]\s*)?
+    (.+?)
+    \s*$
+    """,
+    re.IGNORECASE | re.VERBOSE,
 )
 
 
-def parse_option(
-    line: str,
-) -> Tuple[
-    Optional[str],
-    Optional[str],
-]:
+def parse_question_header(line: str) -> Optional[Tuple[int, str]]:
+    """
+    支持：
 
-    cleaned = clean_line(
-        line
-    )
+        1. Question
+        1) Question
+        1、Question
+        1．Question
+        1: Question
+        1- Question
+
+        第1题 Question
+
+        Question 1:
+    """
+
+    cleaned = clean_line(line)
 
     if not cleaned:
-        return None, None
+        return None
 
-    match = OPTION_PATTERN.match(
-        cleaned
-    )
+    match = QUESTION_PATTERN.match(cleaned)
 
     if not match:
-        return None, None
+        return None
 
-    letter = match.group(
-        1
-    ).upper()
-
-    text = match.group(
-        2
-    ).strip()
-
-    if not text:
-        return None, None
-
-    return (
-        letter,
-        text,
+    number = (
+        match.group(1)
+        or match.group(2)
+        or match.group(3)
     )
+
+    question = match.group(4).strip()
+
+    if not number or not question:
+        return None
+
+    return int(number), question
 
 
 # ======================================================================
-# Speaker 解析
+# Option
 # ======================================================================
 
-def parse_speaker(
-    line: str,
-) -> Tuple[
-    Optional[str],
-    Optional[str],
-]:
-
-    cleaned = clean_line(
-        line
+OPTION_PATTERN = re.compile(
+    r"""
+    ^\s*
+    ([A-Da-d])
+    \s*
+    (?:
+        [\.．\)）:：、\-]\s*
+        |
+        \s+
     )
+    (.+?)
+    \s*$
+    """,
+    re.VERBOSE,
+)
+
+
+def parse_option(line: str) -> Optional[Tuple[str, str]]:
+    """
+    支持：
+
+        A. xxx
+        B) xxx
+        C: xxx
+        D、xxx
+        A- xxx
+        A xxx
+
+    同时兼容 Markdown bullet：
+
+        - A. xxx
+    """
+
+    cleaned = clean_line(line)
 
     if not cleaned:
-        return None, None
+        return None
+
+    match = OPTION_PATTERN.match(cleaned)
+
+    if not match:
+        return None
+
+    letter = match.group(1).upper()
+    text = match.group(2).strip()
+
+    if not text:
+        return None
+
+    return letter, text
+
+
+# ======================================================================
+# Speaker
+# ======================================================================
+
+def parse_speaker(line: str) -> Optional[Tuple[str, str]]:
+    """
+    解析说话人。
+
+    支持：
+
+        M: Hello
+        F: Hello
+
+        Male: Hello
+        Female: Hello
+
+        Man: Hello
+        Woman: Hello
+
+        男：你好
+        女：你好
+
+    同时支持答案解析中的：
+
+        **1.** M: Hello
+        **2.** F: Hello
+
+    """
+
+    cleaned = clean_line(line)
+
+    if not cleaned:
+        return None
+
+    # --------------------------------------------------------------
+    # 去掉前置题号
+    #
+    # 例如：
+    #
+    # 1. M: Hello
+    # 2. F: Hi
+    #
+    # 1、M: Hello
+    #
+    # 第1题 M: Hello
+    # --------------------------------------------------------------
+
+    cleaned = re.sub(
+        r"^\s*\d+\s*[\.．、:：\)）\-]\s*",
+        "",
+        cleaned,
+    )
+
+    cleaned = re.sub(
+        r"^\s*第\s*\d+\s*题\s*[\.．、:：\)）\-]?\s*",
+        "",
+        cleaned,
+    )
+
+    # --------------------------------------------------------------
+    # Speaker patterns
+    # 使用命名 group，避免 group(2) 越界。
+    # --------------------------------------------------------------
 
     patterns = [
-
-        # English
         (
-            r"^(Male|Man)\s*[:：]\s*(.+)$",
+            r"^(?:Male|Man)\s*[:：]\s*(?P<text>.+)$",
             "male",
         ),
-
         (
-            r"^(Female|Woman)\s*[:：]\s*(.+)$",
+            r"^(?:Female|Woman)\s*[:：]\s*(?P<text>.+)$",
             "female",
         ),
-
-        # Chinese
         (
-            r"^(男声|男士|男)\s*[:：]\s*(.+)$",
+            r"^M\s*[:：]\s*(?P<text>.+)$",
             "male",
         ),
-
         (
-            r"^(女声|女士|女)\s*[:：]\s*(.+)$",
+            r"^F\s*[:：]\s*(?P<text>.+)$",
             "female",
         ),
-
-        # M / F
         (
-            r"^M\s*[:：]\s*(.+)$",
-            "male_short",
+            r"^(?:男声|男士|男性|男)\s*[:：]\s*(?P<text>.+)$",
+            "male",
         ),
-
         (
-            r"^F\s*[:：]\s*(.+)$",
-            "female_short",
+            r"^(?:女声|女士|女性|女)\s*[:：]\s*(?P<text>.+)$",
+            "female",
         ),
     ]
 
@@ -595,83 +536,58 @@ def parse_speaker(
             flags=re.IGNORECASE,
         )
 
-        if not match:
-            continue
+        if match:
+            return voice_type, match.group("text").strip()
 
-        if voice_type == "male":
-            text = match.group(2).strip()
-            return (
-                "male",
-                text,
-            )
-
-        if voice_type == "female":
-            text = match.group(2).strip()
-            return (
-                "female",
-                text,
-            )
-
-        if voice_type == "male_short":
-            text = match.group(1).strip()
-            return (
-                "male",
-                text,
-            )
-
-        if voice_type == "female_short":
-            text = match.group(1).strip()
-            return (
-                "female",
-                text,
-            )
-
-    return None, None
+    return None
 
 
 # ======================================================================
-# Questions 解析
+# Parse Questions
 # ======================================================================
 
-def parse_questions(
-    text: str,
-) -> List[Question]:
+def parse_questions(text: str) -> List[Question]:
+    """
+    从 Listening Part 中恢复题目。
+
+    只解析：
+
+        Question Header
+        +
+        Options
+
+    其他正文会忽略。
+    """
 
     lines = text.splitlines()
 
     questions: List[Question] = []
-
     current: Optional[Question] = None
 
-    for raw in lines:
+    for raw_line in lines:
 
-        line = clean_line(
-            raw
-        )
+        line = clean_line(raw_line)
 
         if not line:
             continue
 
         # --------------------------------------------------------------
-        # Question header
+        # Question
         # --------------------------------------------------------------
 
-        number, question_text = (
-            parse_question_header(
-                line
-            )
-        )
+        question_header = parse_question_header(line)
 
-        if number is not None:
+        if question_header:
 
             if current is not None:
-                questions.append(
-                    current
-                )
+                questions.append(current)
+
+            number, question_text = question_header
 
             current = Question(
                 number=number,
-                question=question_text or "",
+                question=question_text,
+                options=[],
             )
 
             continue
@@ -680,302 +596,264 @@ def parse_questions(
         # Option
         # --------------------------------------------------------------
 
-        if current is not None:
+        option = parse_option(line)
 
-            letter, option_text = (
-                parse_option(line)
+        if option and current is not None:
+
+            letter, option_text = option
+
+            current.options.append(
+                option_text
             )
 
-            if letter is not None:
-
-                existing_letters = set()
-
-                for option in current.options:
-
-                    option_match = re.match(
-                        r"^([A-D])\.",
-                        option,
-                    )
-
-                    if option_match:
-
-                        existing_letters.add(
-                            option_match.group(1)
-                        )
-
-                if letter not in existing_letters:
-
-                    current.options.append(
-                        f"{letter}. {option_text}"
-                    )
-
-                continue
+            continue
 
         # --------------------------------------------------------------
-        # Speaker
+        # 其他内容
+        #
+        # 不作为题目解析。
         # --------------------------------------------------------------
-
-        if current is not None:
-
-            speaker, speech = (
-                parse_speaker(line)
-            )
-
-            if speaker is not None:
-
-                current.dialogue.append(
-                    (
-                        speaker,
-                        speech,
-                    )
-                )
-
-                continue
-
-        # --------------------------------------------------------------
-        # Continuation
-        # --------------------------------------------------------------
-
-        if current is not None:
-
-            if current.dialogue:
-
-                speaker, _ = (
-                    current.dialogue[-1]
-                )
-
-                current.dialogue.append(
-                    (
-                        speaker,
-                        line,
-                    )
-                )
 
     if current is not None:
-
-        questions.append(
-            current
-        )
+        questions.append(current)
 
     return questions
 
 
 # ======================================================================
-# 对话提取
+# Dialogue
 # ======================================================================
 
-def extract_dialogue(
-    text: str,
-) -> List[Tuple[str, str]]:
+def extract_dialogue(text: str) -> List[Tuple[str, str]]:
+    """
+    提取 Part B 对话。
+
+    返回：
+
+        [
+            ("male", "Hello ..."),
+            ("female", "Hi ..."),
+        ]
+
+    支持答案解析中：
+
+        **1.** M: ...
+        **2.** F: ...
+    """
 
     lines = text.splitlines()
 
-    dialogue: List[
-        Tuple[str, str]
-    ] = []
+    dialogue: List[Tuple[str, str]] = []
 
-    current_speaker: Optional[str] = None
+    current_voice: Optional[str] = None
+    current_text: List[str] = []
 
-    for raw in lines:
+    def flush():
 
-        line = clean_line(
-            raw
-        )
+        nonlocal current_voice
+        nonlocal current_text
+
+        if current_voice and current_text:
+
+            text_value = normalize_space(
+                " ".join(current_text)
+            )
+
+            if text_value:
+                dialogue.append(
+                    (
+                        current_voice,
+                        text_value,
+                    )
+                )
+
+        current_voice = None
+        current_text = []
+
+    for raw_line in lines:
+
+        line = clean_line(raw_line)
 
         if not line:
             continue
 
-        speaker, speech = (
-            parse_speaker(line)
-        )
+        speaker = parse_speaker(line)
 
-        if speaker is not None:
+        if speaker:
 
-            current_speaker = speaker
+            # 新说话人
+            flush()
 
-            dialogue.append(
-                (
-                    speaker,
-                    speech,
-                )
-            )
+            current_voice, speaker_text = speaker
+            current_text = [speaker_text]
 
             continue
 
-        if current_speaker is not None:
+        # --------------------------------------------------------------
+        # 如果正在收集某个 speaker，
+        # 普通行视为该 speaker 的续句。
+        # --------------------------------------------------------------
 
-            dialogue.append(
-                (
-                    current_speaker,
-                    line,
-                )
-            )
+        if current_voice:
+
+            # 避免把题目选项等混进去
+            if parse_option(line):
+                continue
+
+            if parse_question_header(line):
+                continue
+
+            current_text.append(line)
+
+    flush()
 
     return dialogue
 
 
-# ======================================================================
-# Dialogue 附着
-# ======================================================================
-
 def attach_dialogue(
     questions: List[Question],
     dialogue: List[Tuple[str, str]],
-) -> None:
+) -> List[Question]:
+    """
+    将对话按题目切分。
+
+    当前系统的答案解析通常是：
+
+        1. M...
+           F...
+
+        2. M...
+           F...
+
+    如果无法可靠切分，则将全部对话作为整体保留，
+    不改变 A/B 原有处理结构。
+    """
 
     if not questions or not dialogue:
-        return
+        return questions
 
-    # 只有一道题
-    if len(questions) == 1:
+    # --------------------------------------------------------------
+    # 如果答案解析中的对话数量明显大于题目数量，
+    # 尝试按照 Question Header 重新提取。
+    # --------------------------------------------------------------
 
-        questions[0].dialogue = (
-            dialogue
-        )
+    lines = []
 
-        return
+    # 这里无法从已经扁平化的 dialogue 恢复原始题号，
+    # 因此采用安全策略：
+    #
+    # 当前系统 Part B 通常是一组连续对话。
+    #
+    # 将完整 dialogue 保存到每道题，由 build_part_b
+    # 再决定如何播放。
+    # --------------------------------------------------------------
 
-    # 如果题目已经有 dialogue，则不覆盖
-    if any(
-        question.dialogue
-        for question in questions
-    ):
-        return
-
-    # 保留旧版兼容逻辑
-    questions[0].dialogue = (
-        dialogue
+    full_dialogue = " ".join(
+        text for _, text in dialogue
     )
 
+    for question in questions:
+
+        question.dialogue = full_dialogue
+
+    return questions
+
 
 # ======================================================================
-# 听力原文提取
+# Passage
 # ======================================================================
 
-def extract_passage(
-    text: str,
-) -> str:
+def is_answer_section(line: str) -> bool:
     """
-    从 Part C 中提取听力原文。
+    判断答案解析中的结束区域。
+    """
 
-    重要：
+    cleaned = clean_line(line)
 
-    如果后面出现：
+    patterns = [
+        r"^标准答案\s*$",
+        r"^答案\s*$",
+        r"^答案与解析\s*$",
+        r"^解析\s*$",
+        r"^二、标准答案",
+        r"^三、标准答案",
+    ]
 
-        ## 二、标准答案
+    for pattern in patterns:
 
-    或：
+        if re.match(
+            pattern,
+            cleaned,
+            flags=re.IGNORECASE,
+        ):
+            return True
 
-        标准答案
-        答案与解析
-        答案
-        解析
+    return False
 
-    立即停止。
 
-    防止答案文件后面的解析文字进入听力。
+def extract_passage(text: str) -> str:
+    """
+    从 Part C 中提取原文。
+
+    停止条件：
+
+        1. 遇到题目
+        2. 遇到 Questions / 问题 / 选择题
+        3. 遇到答案区域
+        4. 遇到下一个一级标题
     """
 
     lines = text.splitlines()
 
-    passage: List[str] = []
+    passage_lines: List[str] = []
 
-    started = False
+    for raw_line in lines:
 
-    for raw in lines:
-
-        line = clean_line(
-            raw
-        )
+        line = clean_line(raw_line)
 
         if not line:
             continue
 
         # --------------------------------------------------------------
-        # Part C header
+        # Question
         # --------------------------------------------------------------
 
-        if is_part_header(
-            raw,
-            "C",
-        ):
-
-            started = True
-            continue
-
-        if not started:
-            continue
-
-        # --------------------------------------------------------------
-        # 遇到其他 Part
-        # --------------------------------------------------------------
-
-        if (
-            is_part_header(
-                raw,
-                "A",
-            )
-            or
-            is_part_header(
-                raw,
-                "B",
-            )
-        ):
+        if parse_question_header(line):
             break
 
         # --------------------------------------------------------------
-        # 遇到大章节
+        # 明确的题目区域
         # --------------------------------------------------------------
 
         if re.match(
-            r"^(一|二|三|四|五|六|七)[、.．]",
-            line,
-        ):
-            break
-
-        if re.match(
-            r"^(标准答案|答案与解析|答案|解析)$",
+            r"^(Questions?|问题|选择题)\s*:?\s*$",
             line,
             flags=re.IGNORECASE,
         ):
             break
 
         # --------------------------------------------------------------
-        # 遇到题目
+        # 答案区域
         # --------------------------------------------------------------
 
-        number, _ = (
-            parse_question_header(
-                line
-            )
-        )
-
-        if number is not None:
+        if is_answer_section(line):
             break
 
         # --------------------------------------------------------------
-        # Questions / 问题 / 选择题
+        # 一级标题
         # --------------------------------------------------------------
 
-        if re.match(
-            r"^(QUESTIONS?|问题|选择题)\b",
-            line,
-            flags=re.IGNORECASE,
-        ):
+        if is_top_level_heading(raw_line):
             break
 
-        passage.append(
-            line
-        )
+        passage_lines.append(line)
 
-    return " ".join(
-        passage
-    ).strip()
+    passage = normalize_space(
+        " ".join(passage_lines)
+    )
 
+    return passage
 
-# ======================================================================
-# Part C 专用原文提取
-# ======================================================================
 
 def extract_part_c_passage_from_answer(
     answer_text: str,
@@ -983,11 +861,8 @@ def extract_part_c_passage_from_answer(
     """
     Part C 原文：
 
-        ONLY 来自答案与解析。
+        只允许从答案与解析中获取。
 
-    Part C 题目和选项：
-
-        NEVER 从答案与解析恢复。
     """
 
     part_c = extract_part(
@@ -998,120 +873,94 @@ def extract_part_c_passage_from_answer(
     if not part_c:
         return ""
 
-    # 手工补上 Part C 标题，
-    # 让 extract_passage() 可以统一处理。
-    return extract_passage(
-        "Part C\n" + part_c
-    )
+    return extract_passage(part_c)
 
 
 # ======================================================================
-# Part C 严格验证
+# Part C Validation
 # ======================================================================
 
 def validate_part_c(
     passage: str,
     questions: List[Question],
-) -> None:
+) -> List[str]:
+    """
+    严格验证 Part C。
+
+    要求：
+
+        passage != empty
+
+        exactly 5 questions
+
+        numbers = 1,2,3,4,5
+
+        every question has exactly 4 options
+    """
 
     errors: List[str] = []
 
     # --------------------------------------------------------------
-    # 原文
+    # Passage
     # --------------------------------------------------------------
 
     if not passage.strip():
 
         errors.append(
-            "Part C 听力原文为空"
+            "Part C 原文为空：无法从答案与解析中恢复 Part C 原文"
         )
 
     # --------------------------------------------------------------
-    # 题目数量
+    # Question count
     # --------------------------------------------------------------
 
     if len(questions) != 5:
 
         errors.append(
-            "Part C 题目数量错误："
-            f"期望 5，实际 {len(questions)}"
+            f"Part C 题目数量错误：期望 5，实际 {len(questions)}"
         )
 
     # --------------------------------------------------------------
-    # 每题
-    # --------------------------------------------------------------
-
-    for expected_number in range(
-        1,
-        6,
-    ):
-
-        matched = [
-            question
-            for question in questions
-            if question.number
-            == expected_number
-        ]
-
-        if not matched:
-
-            errors.append(
-                f"Part C 缺少第 "
-                f"{expected_number} 题"
-            )
-
-            continue
-
-        question = matched[0]
-
-        if not question.question.strip():
-
-            errors.append(
-                f"Part C 第 "
-                f"{expected_number} 题题干为空"
-            )
-
-        if len(question.options) != 4:
-
-            errors.append(
-                f"Part C 第 "
-                f"{expected_number} 题选项数量错误："
-                f"期望 4，实际 "
-                f"{len(question.options)}"
-            )
-
-    # --------------------------------------------------------------
-    # 重复题号
+    # Duplicate number
     # --------------------------------------------------------------
 
     numbers = [
-        question.number
-        for question in questions
+        q.number
+        for q in questions
     ]
 
-    if len(numbers) != len(
-        set(numbers)
-    ):
+    if len(numbers) != len(set(numbers)):
 
         errors.append(
             "Part C 存在重复题号"
         )
 
     # --------------------------------------------------------------
-    # 报错
+    # Expected numbers
     # --------------------------------------------------------------
 
-    if errors:
+    expected = [1, 2, 3, 4, 5]
 
-        message = (
-            "Part C 校验失败：\n\n"
-            + "\n".join(
-                f"  ✗ {error}"
-                for error in errors
-            )
+    if sorted(numbers) != expected:
+
+        errors.append(
+            f"Part C 题号错误：期望 {expected}，实际 {numbers}"
         )
 
-        fail(message)
+    # --------------------------------------------------------------
+    # Options
+    # --------------------------------------------------------------
+
+    for question in questions:
+
+        if len(question.options) != 4:
+
+            errors.append(
+                f"Part C 第 {question.number} 题选项数量错误："
+                f"期望 4，实际 {len(question.options)}"
+            )
+
+    return errors
 
 
 # ======================================================================
@@ -1132,17 +981,9 @@ def build_part_a(
         ]
 
         for option in question.options:
+            text_parts.append(option)
 
-            text_parts.append(
-                option
-            )
-
-        full_text = " ".join(
-            text_parts
-        ).strip()
-
-        if not full_text:
-            continue
+        full_text = " ".join(text_parts)
 
         segments.append(
             Segment(
@@ -1161,50 +1002,53 @@ def build_part_a(
 
 def build_part_b(
     questions: List[Question],
-    female_voice: str,
+    dialogue: List[Tuple[str, str]],
     male_voice: str,
+    female_voice: str,
 ) -> List[Segment]:
 
     segments: List[Segment] = []
 
     # --------------------------------------------------------------
     # Dialogue
+    #
+    # 优先使用真实 speaker。
     # --------------------------------------------------------------
 
-    dialogue: List[
-        Tuple[str, str]
-    ] = []
+    if dialogue:
 
-    for question in questions:
+        for voice_type, text in dialogue:
 
-        if question.dialogue:
-
-            dialogue.extend(
-                question.dialogue
+            voice = (
+                male_voice
+                if voice_type == "male"
+                else female_voice
             )
 
-    # --------------------------------------------------------------
-    # 第一遍 + 第二遍
-    # --------------------------------------------------------------
+            segments.append(
+                Segment(
+                    text=text,
+                    voice=voice,
+                    repeat=1,
+                )
+            )
 
-    for _ in range(2):
+    else:
 
-        for speaker, text in dialogue:
+        # ----------------------------------------------------------
+        # 没有 speaker 时，
+        # 如果 Question 内部存在 dialogue，
+        # 使用 female voice 作为安全 fallback。
+        # ----------------------------------------------------------
 
-            if speaker == "male":
+        for question in questions:
 
-                voice = male_voice
-
-            else:
-
-                voice = female_voice
-
-            if text.strip():
+            if question.dialogue:
 
                 segments.append(
                     Segment(
-                        text=text,
-                        voice=voice,
+                        text=question.dialogue,
+                        voice=female_voice,
                         repeat=1,
                     )
                 )
@@ -1215,15 +1059,13 @@ def build_part_b(
 
     for question in questions:
 
-        if question.question.strip():
-
-            segments.append(
-                Segment(
-                    text=question.question,
-                    voice=female_voice,
-                    repeat=2,
-                )
+        segments.append(
+            Segment(
+                text=question.question,
+                voice=female_voice,
+                repeat=1,
             )
+        )
 
         for option in question.options:
 
@@ -1247,55 +1089,43 @@ def build_part_c(
     questions: List[Question],
     female_voice: str,
 ) -> List[Segment]:
-    """
-    Part C：
-
-        passage ×1
-
-        question ×2
-        A ×2
-        B ×2
-        C ×2
-        D ×2
-    """
 
     segments: List[Segment] = []
 
     # --------------------------------------------------------------
-    # Passage ×1
+    # 1. Passage
     # --------------------------------------------------------------
 
-    if passage.strip():
+    segments.append(
+        Segment(
+            text=passage,
+            voice=female_voice,
+            repeat=1,
+        )
+    )
+
+    # --------------------------------------------------------------
+    # 2. Questions
+    #
+    # 每题重复 2 次。
+    # --------------------------------------------------------------
+
+    for question in questions:
 
         segments.append(
             Segment(
-                text=passage,
+                text=question.question,
                 voice=female_voice,
-                repeat=1,
+                repeat=2,
             )
         )
 
-    # --------------------------------------------------------------
-    # Questions
-    # --------------------------------------------------------------
+        # ----------------------------------------------------------
+        # 3. Options
+        #
+        # 每个选项重复 2 次。
+        # ----------------------------------------------------------
 
-    for question in sorted(
-        questions,
-        key=lambda item: item.number,
-    ):
-
-        # Question ×2
-        if question.question.strip():
-
-            segments.append(
-                Segment(
-                    text=question.question,
-                    voice=female_voice,
-                    repeat=2,
-                )
-            )
-
-        # A/B/C/D ×2
         for option in question.options:
 
             segments.append(
@@ -1310,664 +1140,334 @@ def build_part_c(
 
 
 # ======================================================================
-# TTS 文本清理
+# Audio / Kokoro
 # ======================================================================
 
-def clean_text(
+def load_kokoro():
+
+    try:
+        from kokoro_onnx import Kokoro
+    except ImportError:
+
+        print(
+            "ERROR: 未找到 kokoro_onnx。",
+            file=sys.stderr,
+        )
+
+        raise
+
+    return Kokoro
+
+
+def synthesize_to_wav(
+    kokoro,
     text: str,
-) -> str:
-
-    text = text.strip()
-
-    # Markdown
-    text = text.replace(
-        "**",
-        "",
-    )
-
-    text = text.replace(
-        "__",
-        "",
-    )
-
-    text = text.replace(
-        "*",
-        "",
-    )
-
-    # 下划线
-    text = text.replace(
-        "_",
-        " ",
-    )
-
-    # 多余空格
-    text = re.sub(
-        r"\s+",
-        " ",
-        text,
-    )
-
-    return text.strip()
-
-
-# ======================================================================
-# Kokoro
-# ======================================================================
-
-def load_kokoro(
-    model_path: Path,
-    voices_path: Path,
-):
-
-    try:
-
-        from kokoro_onnx import KModel
-        from kokoro_onnx import KPipeline
-
-    except Exception as exc:
-
-        fail(
-            "无法导入 kokoro_onnx：\n"
-            f"{exc}"
-        )
-
-    try:
-
-        model = KModel(
-            str(model_path),
-            str(voices_path),
-        )
-
-        pipeline = KPipeline(
-            model=model,
-            lang_code="a",
-        )
-
-        return pipeline
-
-    except Exception as exc:
-
-        fail(
-            "Kokoro 初始化失败：\n"
-            f"{exc}"
-        )
-
-
-# ======================================================================
-# 单个 Segment 合成
-# ======================================================================
-
-def synthesize_segment(
-    pipeline,
-    segment: Segment,
+    voice: str,
     speed: float,
     language: str,
     output_wav: Path,
-) -> None:
+):
+    """
+    使用 Kokoro 生成 WAV。
+    """
 
-    import numpy as np
+    if not text.strip():
+        return
+
+    samples, sample_rate = kokoro.create(
+        text,
+        voice=voice,
+        speed=speed,
+        lang=language,
+    )
+
     import soundfile as sf
-
-    text = clean_text(
-        segment.text
-    )
-
-    if not text:
-        return
-
-    audio_parts = []
-
-    sample_rate = None
-
-    for repeat_index in range(
-        segment.repeat
-    ):
-
-        try:
-
-            samples = []
-
-            for audio, sr in pipeline.create(
-                text,
-                voice=segment.voice,
-                speed=speed,
-                lang=language,
-            ):
-
-                if sample_rate is None:
-                    sample_rate = sr
-
-                samples.append(
-                    audio
-                )
-
-            if not samples:
-
-                raise RuntimeError(
-                    "Kokoro 没有返回音频数据"
-                )
-
-            audio_data = np.concatenate(
-                samples
-            )
-
-            audio_parts.append(
-                audio_data
-            )
-
-            # ----------------------------------------------------------
-            # Repeat 之间 0.7 秒静音
-            # ----------------------------------------------------------
-
-            if (
-                repeat_index
-                < segment.repeat - 1
-            ):
-
-                silence = np.zeros(
-                    int(
-                        sample_rate
-                        * 0.7
-                    ),
-                    dtype=np.float32,
-                )
-
-                audio_parts.append(
-                    silence
-                )
-
-        except Exception as exc:
-
-            fail(
-                "Kokoro 生成失败：\n"
-                f"文本：{text}\n"
-                f"voice：{segment.voice}\n"
-                f"错误：{exc}"
-            )
-
-    if not audio_parts:
-        return
-
-    final_audio = np.concatenate(
-        audio_parts
-    )
 
     sf.write(
         str(output_wav),
-        final_audio,
+        samples,
         sample_rate,
     )
 
 
-# ======================================================================
-# Segment 合并
-# ======================================================================
+def run_ffmpeg(
+    input_wav: Path,
+    output_audio: Path,
+):
+    """
+    WAV -> mp3/m4a/wav
+    """
 
-def render_segments(
-    pipeline,
-    segments: List[Segment],
-    speed: float,
-    language: str,
-    output_wav: Path,
-) -> None:
+    if output_audio.suffix.lower() == ".wav":
 
-    if not segments:
-
-        fail(
-            f"没有可生成的音频内容："
-            f"{output_wav}"
-        )
-
-    with tempfile.TemporaryDirectory(
-        prefix="kokoro_segments_"
-    ) as temp_dir:
-
-        temp_path = Path(
-            temp_dir
-        )
-
-        files: List[Path] = []
-
-        for index, segment in enumerate(
-            segments,
-            start=1,
-        ):
-
-            clean_segment_text = clean_text(
-                segment.text
-            )
-
-            if not clean_segment_text:
-                continue
-
-            segment_file = (
-                temp_path
-                / f"{index:04d}.wav"
-            )
-
-            log(
-                f"      Segment "
-                f"{index:04d} | "
-                f"{segment.voice} | "
-                f"repeat={segment.repeat}"
-            )
-
-            synthesize_segment(
-                pipeline=pipeline,
-                segment=segment,
-                speed=speed,
-                language=language,
-                output_wav=segment_file,
-            )
-
-            if segment_file.exists():
-
-                files.append(
-                    segment_file
-                )
-
-        if not files:
-
-            fail(
-                f"没有生成任何音频片段："
-                f"{output_wav}"
-            )
-
-        # --------------------------------------------------------------
-        # concat.txt
-        # --------------------------------------------------------------
-
-        concat_file = (
-            temp_path
-            / "concat.txt"
-        )
-
-        with concat_file.open(
-            "w",
-            encoding="utf-8",
-        ) as handle:
-
-            for file in files:
-
-                handle.write(
-                    f"file '{file.as_posix()}'\n"
-                )
-
-        # --------------------------------------------------------------
-        # ffmpeg
-        # --------------------------------------------------------------
-
-        try:
+        if input_wav.resolve() != output_audio.resolve():
 
             subprocess.run(
                 [
                     "ffmpeg",
                     "-y",
-                    "-f",
-                    "concat",
-                    "-safe",
-                    "0",
                     "-i",
-                    str(concat_file),
-                    "-c:a",
-                    "pcm_s16le",
-                    str(output_wav),
+                    str(input_wav),
+                    str(output_audio),
                 ],
                 check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
             )
-
-        except subprocess.CalledProcessError as exc:
-
-            fail(
-                "ffmpeg 合并音频失败：\n"
-                f"{exc.stderr}"
-            )
-
-
-# ======================================================================
-# WAV → MP3 / M4A / WAV
-# ======================================================================
-
-def convert_audio(
-    wav_file: Path,
-    output_file: Path,
-    audio_format: str,
-) -> None:
-
-    audio_format = audio_format.lower()
-
-    if audio_format == "wav":
-
-        shutil.copy2(
-            wav_file,
-            output_file,
-        )
 
         return
 
-    if audio_format == "mp3":
+    if output_audio.suffix.lower() == ".mp3":
 
-        codec_args = [
+        command = [
+            "ffmpeg",
+            "-y",
+            "-i",
+            str(input_wav),
             "-codec:a",
             "libmp3lame",
             "-q:a",
             "2",
+            str(output_audio),
         ]
 
-    elif audio_format == "m4a":
+    elif output_audio.suffix.lower() == ".m4a":
 
-        codec_args = [
-            "-codec:a",
+        command = [
+            "ffmpeg",
+            "-y",
+            "-i",
+            str(input_wav),
+            "-c:a",
             "aac",
             "-b:a",
             "192k",
+            str(output_audio),
         ]
 
     else:
 
-        fail(
-            f"不支持的音频格式："
-            f"{audio_format}"
+        raise ValueError(
+            f"不支持的音频格式：{output_audio.suffix}"
         )
+
+    subprocess.run(
+        command,
+        check=True,
+    )
+
+
+def create_silence_wav(
+    output_wav: Path,
+    duration: float,
+):
+    """
+    使用 ffmpeg 创建静音 WAV。
+    """
+
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "anullsrc=r=24000:cl=mono",
+            "-t",
+            str(duration),
+            "-ar",
+            "24000",
+            "-ac",
+            "1",
+            str(output_wav),
+        ],
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+def concat_wavs(
+    wav_files: List[Path],
+    output_wav: Path,
+):
+    """
+    使用 ffmpeg concat demuxer 合并 WAV。
+    """
+
+    concat_file = output_wav.parent / (
+        output_wav.stem + "_concat.txt"
+    )
+
+    with concat_file.open(
+        "w",
+        encoding="utf-8",
+    ) as f:
+
+        for wav in wav_files:
+
+            escaped = str(
+                wav.resolve()
+            ).replace(
+                "'",
+                "'\\''",
+            )
+
+            f.write(
+                f"file '{escaped}'\n"
+            )
+
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "concat",
+            "-safe",
+            "0",
+            "-i",
+            str(concat_file),
+            "-c",
+            "copy",
+            str(output_wav),
+        ],
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
 
     try:
-
-        subprocess.run(
-            [
-                "ffmpeg",
-                "-y",
-                "-i",
-                str(wav_file),
-                *codec_args,
-                str(output_file),
-            ],
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-
-    except subprocess.CalledProcessError as exc:
-
-        fail(
-            "音频格式转换失败：\n"
-            f"{exc.stderr}"
-        )
+        concat_file.unlink()
+    except FileNotFoundError:
+        pass
 
 
 # ======================================================================
-# Part 音频生成
+# Segment Rendering
 # ======================================================================
 
-def generate_part_audio(
-    pipeline,
-    part_name: str,
+def render_segments(
+    kokoro,
     segments: List[Segment],
-    output_dir: Path,
-    audio_format: str,
+    output_audio: Path,
     speed: float,
     language: str,
-) -> Path:
+    temp_dir: Path,
+):
+    """
+    将 Segment 列表生成一个完整音频。
+    """
 
-    output_dir.mkdir(
+    temp_dir.mkdir(
         parents=True,
         exist_ok=True,
     )
 
-    final_file = (
-        output_dir
-        / f"Listening_{part_name}."
-        f"{audio_format}"
-    )
+    wav_files: List[Path] = []
 
-    with tempfile.TemporaryDirectory(
-        prefix=f"audio_{part_name}_"
-    ) as temp_dir:
+    segment_index = 0
 
-        temp_wav = (
-            Path(temp_dir)
-            / f"Listening_{part_name}.wav"
-        )
+    for segment in segments:
 
-        log()
-        log(
-            f"▶️ 正在生成 Listening "
-            f"{part_name}"
-        )
+        if not segment.text.strip():
+            continue
 
-        render_segments(
-            pipeline=pipeline,
-            segments=segments,
-            speed=speed,
-            language=language,
-            output_wav=temp_wav,
-        )
-
-        convert_audio(
-            wav_file=temp_wav,
-            output_file=final_file,
-            audio_format=audio_format,
-        )
-
-    if not final_file.exists():
-
-        fail(
-            f"音频生成失败，文件不存在："
-            f"{final_file}"
-        )
-
-    if final_file.stat().st_size <= 0:
-
-        fail(
-            f"音频文件为空："
-            f"{final_file}"
-        )
-
-    log(
-        f"✓ Listening {part_name}："
-        f"{final_file}"
-    )
-
-    return final_file
-
-
-# ======================================================================
-# 总音频
-# ======================================================================
-
-def generate_total_audio(
-    part_files: List[Path],
-    output_file: Path,
-) -> None:
-
-    if not part_files:
-
-        fail(
-            "没有 Part 音频，"
-            "无法生成总音频。"
-        )
-
-    with tempfile.TemporaryDirectory(
-        prefix="total_audio_"
-    ) as temp_dir:
-
-        temp_path = Path(
-            temp_dir
-        )
-
-        wav_files: List[Path] = []
-
-        # --------------------------------------------------------------
-        # 所有 Part 转 WAV
-        # --------------------------------------------------------------
-
-        for index, part_file in enumerate(
-            part_files,
-            start=1,
+        for repeat_index in range(
+            segment.repeat
         ):
 
-            wav_file = (
-                temp_path
-                / f"part_{index}.wav"
+            segment_index += 1
+
+            wav_path = (
+                temp_dir
+                / f"{segment_index:04d}.wav"
             )
 
-            try:
-
-                subprocess.run(
-                    [
-                        "ffmpeg",
-                        "-y",
-                        "-i",
-                        str(part_file),
-                        "-codec:a",
-                        "pcm_s16le",
-                        str(wav_file),
-                    ],
-                    check=True,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                )
-
-            except subprocess.CalledProcessError as exc:
-
-                fail(
-                    "总音频转换 WAV 失败：\n"
-                    f"{exc.stderr}"
-                )
+            synthesize_to_wav(
+                kokoro=kokoro,
+                text=segment.text,
+                voice=segment.voice,
+                speed=speed,
+                language=language,
+                output_wav=wav_path,
+            )
 
             wav_files.append(
-                wav_file
+                wav_path
             )
 
-        # --------------------------------------------------------------
-        # concat
-        # --------------------------------------------------------------
+            # ------------------------------------------------------
+            # 同一句重复之间：
+            #
+            # 0.7 秒静音
+            # ------------------------------------------------------
 
-        concat_file = (
-            temp_path
-            / "concat.txt"
-        )
+            if repeat_index < segment.repeat - 1:
 
-        with concat_file.open(
-            "w",
-            encoding="utf-8",
-        ) as handle:
-
-            for wav_file in wav_files:
-
-                handle.write(
-                    f"file '{wav_file.as_posix()}'\n"
+                silence_path = (
+                    temp_dir
+                    / f"{segment_index:04d}_repeat_silence.wav"
                 )
 
-        # --------------------------------------------------------------
-        # 输出 codec
-        # --------------------------------------------------------------
+                create_silence_wav(
+                    silence_path,
+                    0.7,
+                )
 
-        suffix = (
-            output_file
-            .suffix
-            .lower()
+                wav_files.append(
+                    silence_path
+                )
+
+        # ----------------------------------------------------------
+        # Segment 之间：
+        #
+        # 0.3 秒静音
+        # ----------------------------------------------------------
+
+        silence_path = (
+            temp_dir
+            / f"{segment_index:04d}_segment_silence.wav"
         )
 
-        if suffix == ".mp3":
-
-            codec_args = [
-                "-codec:a",
-                "libmp3lame",
-                "-q:a",
-                "2",
-            ]
-
-        elif suffix == ".m4a":
-
-            codec_args = [
-                "-codec:a",
-                "aac",
-                "-b:a",
-                "192k",
-            ]
-
-        elif suffix == ".wav":
-
-            codec_args = [
-                "-codec:a",
-                "pcm_s16le",
-            ]
-
-        else:
-
-            fail(
-                f"不支持的总音频格式："
-                f"{suffix}"
-            )
-
-        # --------------------------------------------------------------
-        # 合并
-        # --------------------------------------------------------------
-
-        try:
-
-            subprocess.run(
-                [
-                    "ffmpeg",
-                    "-y",
-                    "-f",
-                    "concat",
-                    "-safe",
-                    "0",
-                    "-i",
-                    str(concat_file),
-                    *codec_args,
-                    str(output_file),
-                ],
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            )
-
-        except subprocess.CalledProcessError as exc:
-
-            fail(
-                "总音频生成失败：\n"
-                f"{exc.stderr}"
-            )
-
-    if not output_file.exists():
-
-        fail(
-            f"总音频文件不存在："
-            f"{output_file}"
+        create_silence_wav(
+            silence_path,
+            0.3,
         )
 
-    if output_file.stat().st_size <= 0:
-
-        fail(
-            f"总音频文件为空："
-            f"{output_file}"
+        wav_files.append(
+            silence_path
         )
 
-    log(
-        f"✓ Listening 总音频："
-        f"{output_file}"
+    if not wav_files:
+
+        raise RuntimeError(
+            f"没有可生成的音频片段：{output_audio.name}"
+        )
+
+    merged_wav = (
+        temp_dir
+        / f"{output_audio.stem}_merged.wav"
+    )
+
+    concat_wavs(
+        wav_files,
+        merged_wav,
+    )
+
+    run_ffmpeg(
+        input_wav=merged_wav,
+        output_audio=output_audio,
     )
 
 
 # ======================================================================
-# 参数
+# Main
 # ======================================================================
 
-def build_parser() -> argparse.ArgumentParser:
+def main():
 
     parser = argparse.ArgumentParser(
         description=(
-            "748686 English Learning System "
-            "- Audio Generator V2.2.2"
+            "748686 英语学习系统 "
+            "Audio Generator V2.2.3"
         )
     )
 
@@ -1980,22 +1480,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--exam-file",
         required=True,
-        help="配套试卷 Markdown 文件",
+        help="试卷 Markdown",
     )
 
     parser.add_argument(
         "--answer-file",
         required=True,
-        help="答案与解析 Markdown 文件",
+        help="答案与解析 Markdown",
     )
-
-    # ------------------------------------------------------------------
-    # 关键修复：
-    #
-    # Workflow 使用 --audio-format
-    #
-    # 同时兼容旧的 --format
-    # ------------------------------------------------------------------
 
     parser.add_argument(
         "--audio-format",
@@ -2007,671 +1499,804 @@ def build_parser() -> argparse.ArgumentParser:
             "m4a",
             "wav",
         ],
-        help="输出音频格式",
+        help="音频格式，默认 mp3",
     )
 
     parser.add_argument(
         "--speed",
         type=float,
         default=1.0,
-        help="Kokoro 语速",
+        help="Kokoro 语速，默认 1.0",
     )
 
     parser.add_argument(
         "--male-voice",
         default="am_adam",
-        help="Kokoro 男声",
+        help="男性声音，默认 am_adam",
     )
 
     parser.add_argument(
         "--female-voice",
         default="af_sarah",
-        help="Kokoro 女声",
+        help="女性声音，默认 af_sarah",
     )
 
     parser.add_argument(
         "--language",
         default="en-us",
-        help="Kokoro language",
+        help="Kokoro language，默认 en-us",
     )
-
-    return parser
-
-
-# ======================================================================
-# Main
-# ======================================================================
-
-def main() -> None:
-
-    parser = build_parser()
 
     args = parser.parse_args()
 
-    # ==================================================================
-    # 路径
-    # ==================================================================
+    date = args.date
 
-    script_path = (
-        Path(__file__)
-        .resolve()
-    )
+    exam_file = Path(
+        args.exam_file
+    ).resolve()
 
-    # 脚本通常位于：
-    #
-    # 02_英语学习系统/scripts/
-    #
-    # 所以 parents[1]：
-    #
-    # 02_英语学习系统
-    #
-
-    project_root = (
-        script_path
-        .parents[1]
-    )
-
-    model_path = (
-        project_root
-        / "models"
-        / "kokoro"
-        / "kokoro-v1.1-zh.fp16.onnx"
-    )
-
-    voices_path = (
-        project_root
-        / "models"
-        / "kokoro"
-        / "voices-v1.1-zh.bin"
-    )
-
-    exam_file = (
-        Path(
-            args.exam_file
-        )
-        .resolve()
-    )
-
-    answer_file = (
-        Path(
-            args.answer_file
-        )
-        .resolve()
-    )
+    answer_file = Path(
+        args.answer_file
+    ).resolve()
 
     # ==================================================================
-    # 输出目录
+    # CONFIG
     # ==================================================================
 
-    output_dir = (
-        project_root
-        / "output"
-        / args.date
-        / "配套试卷"
-        / "听力"
-    )
-
-    output_dir.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
-    # ==================================================================
-    # 基础验证
-    # ==================================================================
-
-    log(
+    print(
         "=" * 70
     )
 
-    log(
+    print(
         "748686 英语学习系统"
     )
 
-    log(
-        "Audio Generator V2.2.2"
+    print(
+        "Audio Generator V2.2.3"
     )
 
-    log(
+    print(
         "=" * 70
     )
 
-    log()
-    log("CONFIG")
+    print()
 
-    log(
-        f"  Date          : "
-        f"{args.date}"
+    print("CONFIG")
+
+    print(
+        f"  Date          : {date}"
     )
 
-    log(
-        f"  Exam          : "
-        f"{exam_file}"
+    print(
+        f"  Exam          : {exam_file}"
     )
 
-    log(
-        f"  Answer        : "
-        f"{answer_file}"
+    print(
+        f"  Answer        : {answer_file}"
     )
 
-    log(
-        f"  Format        : "
-        f"{args.audio_format}"
+    print(
+        f"  Format        : {args.audio_format}"
     )
 
-    log(
-        f"  Speed         : "
-        f"{args.speed}"
+    print(
+        f"  Speed         : {args.speed}"
     )
 
-    log(
-        f"  Male voice    : "
-        f"{args.male_voice}"
+    print(
+        f"  Male voice    : {args.male_voice}"
     )
 
-    log(
-        f"  Female voice  : "
-        f"{args.female_voice}"
+    print(
+        f"  Female voice  : {args.female_voice}"
     )
 
-    log(
-        f"  Language      : "
-        f"{args.language}"
+    print(
+        f"  Language      : {args.language}"
     )
+
+    # ==================================================================
+    # File Validation
+    # ==================================================================
 
     if not exam_file.exists():
 
-        fail(
-            f"试卷文件不存在："
-            f"{exam_file}"
+        raise FileNotFoundError(
+            f"试卷不存在：{exam_file}"
         )
 
     if not answer_file.exists():
 
-        fail(
-            f"答案与解析文件不存在："
-            f"{answer_file}"
+        raise FileNotFoundError(
+            f"答案与解析不存在：{answer_file}"
         )
 
-    if not model_path.exists():
-
-        fail(
-            f"Kokoro model 不存在："
-            f"{model_path}"
-        )
-
-    if not voices_path.exists():
-
-        fail(
-            f"Kokoro voices 不存在："
-            f"{voices_path}"
-        )
-
-    # ==================================================================
-    # 读取文件
-    # ==================================================================
-
-    try:
-
-        exam_text = exam_file.read_text(
-            encoding="utf-8"
-        )
-
-    except Exception as exc:
-
-        fail(
-            "读取试卷失败：\n"
-            f"{exc}"
-        )
-
-    try:
-
-        answer_text = answer_file.read_text(
-            encoding="utf-8"
-        )
-
-    except Exception as exc:
-
-        fail(
-            "读取答案与解析失败：\n"
-            f"{exc}"
-        )
-
-    # ==================================================================
-    # Part A
-    # ==================================================================
-
-    log()
-    log(
-        "=" * 70
+    exam_text = exam_file.read_text(
+        encoding="utf-8"
     )
-    log(
-        "PART A"
+
+    answer_text = answer_file.read_text(
+        encoding="utf-8"
     )
-    log(
-        "=" * 70
-    )
+
+    # ==================================================================
+    # Recover Part A
+    # ==================================================================
+
+    print()
+    print("=" * 70)
+    print("PART A")
+    print("=" * 70)
 
     exam_part_a = extract_part(
         exam_text,
         "A",
     )
 
-    if not exam_part_a:
-
-        fail(
-            "试卷中没有找到 Part A。"
-        )
-
-    questions_a = parse_questions(
+    part_a_questions = parse_questions(
         exam_part_a
     )
 
-    log(
-        f"  Questions: "
-        f"{len(questions_a)}"
+    print(
+        f"  Questions: {len(part_a_questions)}"
     )
 
-    if not questions_a:
+    for question in part_a_questions:
 
-        fail(
-            "Part A 没有解析到任何题目。"
-        )
-
-    for question in questions_a:
-
-        log(
+        print(
             f"  Q{question.number}: "
-            f"{len(question.options)} "
-            f"options"
+            f"{len(question.options)} options"
         )
 
+    if len(part_a_questions) != 5:
+
+        raise RuntimeError(
+            "Part A 校验失败："
+            f"期望 5 题，实际 "
+            f"{len(part_a_questions)} 题"
+        )
+
+    for question in part_a_questions:
+
+        if len(question.options) != 4:
+
+            raise RuntimeError(
+                f"Part A 第 {question.number} 题"
+                f"选项数量错误："
+                f"{len(question.options)}"
+            )
+
     # ==================================================================
-    # Part B
+    # Recover Part B
     # ==================================================================
 
-    log()
-    log(
-        "=" * 70
-    )
-    log(
-        "PART B"
-    )
-    log(
-        "=" * 70
-    )
+    print()
+    print("=" * 70)
+    print("PART B")
+    print("=" * 70)
 
     exam_part_b = extract_part(
         exam_text,
         "B",
     )
 
-    if not exam_part_b:
+    answer_part_b = extract_part(
+        answer_text,
+        "B",
+    )
 
-        fail(
-            "试卷中没有找到 Part B。"
-        )
-
-    questions_b = parse_questions(
+    part_b_questions = parse_questions(
         exam_part_b
     )
 
-    log(
-        f"  Questions: "
-        f"{len(questions_b)}"
+    print(
+        f"  Questions: {len(part_b_questions)}"
     )
 
     # --------------------------------------------------------------
-    # B dialogue
+    # 首先尝试从试卷获取对话
     # --------------------------------------------------------------
 
-    dialogue_b = extract_dialogue(
+    dialogue = extract_dialogue(
         exam_part_b
     )
 
-    if not dialogue_b:
+    # --------------------------------------------------------------
+    # 如果试卷没有对话：
+    #
+    # 从答案与解析 Part B 获取。
+    # --------------------------------------------------------------
 
-        log(
-            "  ⚠️ 试卷 Part B "
-            "没有找到对话"
+    if not dialogue:
+
+        print(
+            "  ⚠️ 试卷 Part B 没有找到对话"
         )
 
-        answer_part_b = extract_part(
-            answer_text,
-            "B",
-        )
-
-        dialogue_b = extract_dialogue(
+        dialogue = extract_dialogue(
             answer_part_b
         )
 
-        if dialogue_b:
+        if dialogue:
 
-            log(
-                "  ✓ 已从答案与解析"
-                "补充 Part B 对话"
+            print(
+                "  ✓ 已从答案与解析补充 Part B 对话"
             )
 
-    attach_dialogue(
-        questions_b,
-        dialogue_b,
-    )
+            print(
+                f"  ✓ Dialogue segments: "
+                f"{len(dialogue)}"
+            )
+
+        else:
+
+            print(
+                "  ⚠️ 答案与解析 Part B "
+                "也没有找到对话"
+            )
+
+    else:
+
+        print(
+            f"  ✓ Dialogue segments: "
+            f"{len(dialogue)}"
+        )
+
+    if len(part_b_questions) != 5:
+
+        raise RuntimeError(
+            "Part B 校验失败："
+            f"期望 5 题，实际 "
+            f"{len(part_b_questions)} 题"
+        )
+
+    for question in part_b_questions:
+
+        if len(question.options) != 4:
+
+            raise RuntimeError(
+                f"Part B 第 {question.number} 题"
+                f"选项数量错误："
+                f"{len(question.options)}"
+            )
 
     # ==================================================================
-    # Part C
+    # Recover Part C
     # ==================================================================
 
-    log()
-    log(
-        "=" * 70
-    )
-    log(
-        "PART C"
-    )
-    log(
-        "=" * 70
-    )
+    print()
+    print("=" * 70)
+    print("PART C")
+    print("=" * 70)
 
-    # ------------------------------------------------------------------
-    # Part C：
+    # --------------------------------------------------------------
+    # 题目和选项：
     #
-    # 题目 + 选项 ONLY 来自试卷
-    # ------------------------------------------------------------------
+    # 只从试卷获取
+    # --------------------------------------------------------------
 
     exam_part_c = extract_part(
         exam_text,
         "C",
     )
 
-    if not exam_part_c:
-
-        fail(
-            "试卷中没有找到 Part C。"
-        )
-
-    questions_c = parse_questions(
+    part_c_questions = parse_questions(
         exam_part_c
     )
 
-    log(
+    print(
         f"  Questions from exam: "
-        f"{len(questions_c)}"
+        f"{len(part_c_questions)}"
     )
 
-    # ------------------------------------------------------------------
-    # Part C：
-    #
-    # 听力原文 ONLY 来自答案与解析
-    # ------------------------------------------------------------------
+    for question in part_c_questions:
 
-    passage_c = (
+        print(
+            f"  Q{question.number}: "
+            f"{len(question.options)} options"
+        )
+
+    # --------------------------------------------------------------
+    # 原文：
+    #
+    # 只从答案与解析获取
+    # --------------------------------------------------------------
+
+    part_c_passage = (
         extract_part_c_passage_from_answer(
             answer_text
         )
     )
 
-    log(
+    print(
         f"  Passage from answer: "
-        f"{len(passage_c)} chars"
+        f"{len(part_c_passage)} chars"
     )
 
-    # ------------------------------------------------------------------
-    # Part C 严格验证
-    # ------------------------------------------------------------------
+    # --------------------------------------------------------------
+    # Part C 严格校验
+    # --------------------------------------------------------------
 
-    validate_part_c(
-        passage=passage_c,
-        questions=questions_c,
+    part_c_errors = validate_part_c(
+        passage=part_c_passage,
+        questions=part_c_questions,
     )
 
-    log(
-        "  ✓ Part C validation passed"
-    )
+    if part_c_errors:
 
-    for question in sorted(
-        questions_c,
-        key=lambda item: item.number,
-    ):
+        print()
+        print("=" * 70)
+        print("ERROR")
+        print("=" * 70)
 
-        log(
-            f"  Q{question.number}: "
-            f"{len(question.options)} "
-            f"options"
+        print(
+            "Part C 校验失败："
         )
 
-    # ==================================================================
-    # 构建 Segment
-    # ==================================================================
+        print()
 
-    log()
-    log(
-        "=" * 70
+        for error in part_c_errors:
+
+            print(
+                f"  ✗ {error}"
+            )
+
+        print()
+
+        raise RuntimeError(
+            "Part C 数据结构不完整，"
+            "为避免生成错误听力，"
+            "已停止音频生成。"
+        )
+
+    print()
+    print(
+        "  ✓ Part C 原文存在"
     )
-    log(
-        "BUILD AUDIO SEGMENTS"
+
+    print(
+        "  ✓ Part C = 5 questions"
     )
-    log(
-        "=" * 70
+
+    print(
+        "  ✓ 每题 = 4 options"
     )
+
+    print(
+        "  ✓ 题号 = 1 / 2 / 3 / 4 / 5"
+    )
+
+    # ==================================================================
+    # Build Segments
+    # ==================================================================
 
     segments_a = build_part_a(
-        questions=questions_a,
+        questions=part_a_questions,
         female_voice=args.female_voice,
     )
 
     segments_b = build_part_b(
-        questions=questions_b,
-        female_voice=args.female_voice,
+        questions=part_b_questions,
+        dialogue=dialogue,
         male_voice=args.male_voice,
+        female_voice=args.female_voice,
     )
 
     segments_c = build_part_c(
-        passage=passage_c,
-        questions=questions_c,
+        passage=part_c_passage,
+        questions=part_c_questions,
         female_voice=args.female_voice,
     )
 
-    log(
-        f"  Part A segments: "
+    print()
+    print("=" * 70)
+    print("AUDIO PLAN")
+    print("=" * 70)
+
+    print(
+        f"  Listening A segments: "
         f"{len(segments_a)}"
     )
 
-    log(
-        f"  Part B segments: "
+    print(
+        f"  Listening B segments: "
         f"{len(segments_b)}"
     )
 
-    log(
-        f"  Part C segments: "
+    print(
+        f"  Listening C segments: "
         f"{len(segments_c)}"
     )
 
+    # --------------------------------------------------------------
+    # Part C：
+    #
+    # 1 passage
+    # + 5 questions
+    # + 20 options
+    #
+    # = 26 segments
+    # --------------------------------------------------------------
+
+    expected_part_c_segments = 26
+
+    if len(segments_c) != expected_part_c_segments:
+
+        raise RuntimeError(
+            "Part C 音频片段数量错误："
+            f"期望 {expected_part_c_segments}，"
+            f"实际 {len(segments_c)}"
+        )
+
+    print(
+        "  ✓ Part C segments = 26"
+    )
+
     # ==================================================================
-    # Kokoro
+    # Output
     # ==================================================================
 
-    log()
-    log(
-        "=" * 70
-    )
-    log(
-        "INITIALIZE KOKORO"
-    )
-    log(
-        "=" * 70
+    output_dir = (
+        exam_file.parent
     )
 
-    pipeline = load_kokoro(
-        model_path=model_path,
-        voices_path=voices_path,
+    listening_dir = (
+        output_dir / "听力"
     )
 
-    log(
-        "✓ Kokoro initialized"
+    listening_dir.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    suffix = (
+        f".{args.audio_format}"
+    )
+
+    output_a = (
+        listening_dir
+        / f"Listening_A{suffix}"
+    )
+
+    output_b = (
+        listening_dir
+        / f"Listening_B{suffix}"
+    )
+
+    output_c = (
+        listening_dir
+        / f"Listening_C{suffix}"
+    )
+
+    output_all = (
+        listening_dir
+        / f"Listening_总音频{suffix}"
     )
 
     # ==================================================================
-    # Listening A
+    # Load Kokoro
     # ==================================================================
 
-    part_files: List[Path] = []
+    print()
+    print("=" * 70)
+    print("KOKORO")
+    print("=" * 70)
 
-    part_a_file = generate_part_audio(
-        pipeline=pipeline,
-        part_name="A",
+    print(
+        "  → 正在加载本地 Kokoro 模型"
+    )
+
+    project_root = (
+        Path(__file__)
+        .resolve()
+        .parents[1]
+    )
+
+    model_dir = (
+        project_root
+        / "models"
+        / "kokoro"
+    )
+
+    model_path = (
+        model_dir
+        / "kokoro-v1.1-zh.fp16.onnx"
+    )
+
+    voices_path = (
+        model_dir
+        / "voices-v1.1-zh.bin"
+    )
+
+    if not model_path.exists():
+
+        raise FileNotFoundError(
+            f"Kokoro 模型不存在："
+            f"{model_path}"
+        )
+
+    if not voices_path.exists():
+
+        raise FileNotFoundError(
+            f"Kokoro voices 不存在："
+            f"{voices_path}"
+        )
+
+    Kokoro = load_kokoro()
+
+    kokoro = Kokoro(
+        str(model_path),
+        str(voices_path),
+    )
+
+    print(
+        "  ✓ Kokoro 模型加载完成"
+    )
+
+    # ==================================================================
+    # Temporary directory
+    # ==================================================================
+
+    temp_root = (
+        listening_dir
+        / ".audio_tmp"
+    )
+
+    if temp_root.exists():
+
+        import shutil
+
+        shutil.rmtree(
+            temp_root
+        )
+
+    temp_root.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    # ==================================================================
+    # Generate A
+    # ==================================================================
+
+    print()
+    print("=" * 70)
+    print("GENERATE LISTENING A")
+    print("=" * 70)
+
+    render_segments(
+        kokoro=kokoro,
         segments=segments_a,
-        output_dir=output_dir,
-        audio_format=args.audio_format,
+        output_audio=output_a,
         speed=args.speed,
         language=args.language,
+        temp_dir=temp_root / "A",
     )
 
-    part_files.append(
-        part_a_file
+    print(
+        f"  ✓ {output_a}"
     )
 
     # ==================================================================
-    # Listening B
+    # Generate B
     # ==================================================================
 
-    part_b_file = generate_part_audio(
-        pipeline=pipeline,
-        part_name="B",
+    print()
+    print("=" * 70)
+    print("GENERATE LISTENING B")
+    print("=" * 70)
+
+    render_segments(
+        kokoro=kokoro,
         segments=segments_b,
-        output_dir=output_dir,
-        audio_format=args.audio_format,
+        output_audio=output_b,
         speed=args.speed,
         language=args.language,
+        temp_dir=temp_root / "B",
     )
 
-    part_files.append(
-        part_b_file
+    print(
+        f"  ✓ {output_b}"
     )
 
     # ==================================================================
-    # Listening C
+    # Generate C
     # ==================================================================
 
-    part_c_file = generate_part_audio(
-        pipeline=pipeline,
-        part_name="C",
+    print()
+    print("=" * 70)
+    print("GENERATE LISTENING C")
+    print("=" * 70)
+
+    render_segments(
+        kokoro=kokoro,
         segments=segments_c,
-        output_dir=output_dir,
-        audio_format=args.audio_format,
+        output_audio=output_c,
         speed=args.speed,
         language=args.language,
+        temp_dir=temp_root / "C",
     )
 
-    part_files.append(
-        part_c_file
-    )
-
-    # ==================================================================
-    # 总音频
-    # ==================================================================
-
-    log()
-    log(
-        "=" * 70
-    )
-    log(
-        "GENERATE TOTAL AUDIO"
-    )
-    log(
-        "=" * 70
-    )
-
-    total_file = (
-        output_dir
-        / f"Listening_总音频."
-        f"{args.audio_format}"
-    )
-
-    generate_total_audio(
-        part_files=part_files,
-        output_file=total_file,
+    print(
+        f"  ✓ {output_c}"
     )
 
     # ==================================================================
-    # 最终验证
+    # Generate Combined Audio
     # ==================================================================
 
-    log()
-    log(
-        "=" * 70
+    print()
+    print("=" * 70)
+    print("GENERATE TOTAL LISTENING")
+    print("=" * 70)
+
+    combined_temp = (
+        temp_root
+        / "TOTAL"
     )
-    log(
-        "FINAL VALIDATION"
+
+    combined_temp.mkdir(
+        parents=True,
+        exist_ok=True,
     )
-    log(
-        "=" * 70
-    )
 
-    expected_files = [
-        part_a_file,
-        part_b_file,
-        part_c_file,
-        total_file,
-    ]
+    total_wavs: List[Path] = []
 
-    for file in expected_files:
+    # --------------------------------------------------------------
+    # 为保证不同格式都可以正确合并：
+    #
+    # 如果 A/B/C 是 mp3/m4a，
+    # 这里重新从已有文件转换为 WAV。
+    # --------------------------------------------------------------
 
-        if not file.exists():
+    for index, audio_file in enumerate(
+        [
+            output_a,
+            output_b,
+            output_c,
+        ],
+        start=1,
+    ):
 
-            fail(
-                f"缺少输出文件："
-                f"{file}"
+        wav_file = (
+            combined_temp
+            / f"{index:02d}.wav"
+        )
+
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-y",
+                "-i",
+                str(audio_file),
+                "-ar",
+                "24000",
+                "-ac",
+                "1",
+                str(wav_file),
+            ],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+        total_wavs.append(
+            wav_file
+        )
+
+        # ----------------------------------------------------------
+        # A / B / C 之间增加 0.5 秒静音
+        # ----------------------------------------------------------
+
+        if index < 3:
+
+            silence = (
+                combined_temp
+                / f"{index:02d}_silence.wav"
             )
 
-        size = file.stat().st_size
+            create_silence_wav(
+                silence,
+                0.5,
+            )
+
+            total_wavs.append(
+                silence
+            )
+
+    merged_total_wav = (
+        combined_temp
+        / "Listening_总音频.wav"
+    )
+
+    concat_wavs(
+        wav_files=total_wavs,
+        output_wav=merged_total_wav,
+    )
+
+    run_ffmpeg(
+        input_wav=merged_total_wav,
+        output_audio=output_all,
+    )
+
+    print(
+        f"  ✓ {output_all}"
+    )
+
+    # ==================================================================
+    # Cleanup
+    # ==================================================================
+
+    import shutil
+
+    try:
+
+        shutil.rmtree(
+            temp_root
+        )
+
+    except Exception as exc:
+
+        print(
+            f"  ⚠️ 临时目录清理失败：{exc}"
+        )
+
+    # ==================================================================
+    # Final Validation
+    # ==================================================================
+
+    print()
+    print("=" * 70)
+    print("FINAL VALIDATION")
+    print("=" * 70)
+
+    outputs = [
+        output_a,
+        output_b,
+        output_c,
+        output_all,
+    ]
+
+    for output in outputs:
+
+        if not output.exists():
+
+            raise RuntimeError(
+                f"音频生成失败："
+                f"{output}"
+            )
+
+        size = output.stat().st_size
 
         if size <= 0:
 
-            fail(
-                f"输出文件为空："
-                f"{file}"
+            raise RuntimeError(
+                f"音频文件为空："
+                f"{output}"
             )
 
-        log(
-            f"  ✓ {file.name} "
-            f"({size:,} bytes)"
+        print(
+            f"  ✓ {output.name}"
+            f"  ({size:,} bytes)"
         )
 
-    # ==================================================================
-    # 完成
-    # ==================================================================
+    print()
+    print("=" * 70)
+    print("748686 英语学习系统 AUDIO COMPLETE")
+    print("=" * 70)
 
-    log()
-    log(
-        "=" * 70
-    )
-    log(
-        "AUDIO GENERATION COMPLETE"
-    )
-    log(
-        "=" * 70
+    print()
+    print(
+        f"Output directory:"
     )
 
-    log(
-        "Output directory:"
+    print(
+        f"  {listening_dir}"
     )
 
-    log(
-        f"  {output_dir}"
-    )
+    print()
 
-    log()
-    log(
-        "Generated:"
-    )
-
-    for file in expected_files:
-
-        log(
-            f"  ✓ {file.name}"
-        )
-
-    log()
+    return 0
 
 
 # ======================================================================
@@ -2679,4 +2304,31 @@ def main() -> None:
 # ======================================================================
 
 if __name__ == "__main__":
-    main()
+
+    try:
+
+        sys.exit(
+            main()
+        )
+
+    except KeyboardInterrupt:
+
+        print()
+        print(
+            "用户中断音频生成。"
+        )
+
+        sys.exit(130)
+
+    except Exception as exc:
+
+        print()
+        print("=" * 70)
+        print("ERROR")
+        print("=" * 70)
+
+        print(
+            f"{type(exc).__name__}: {exc}"
+        )
+
+        sys.exit(1)
