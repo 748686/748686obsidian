@@ -8,6 +8,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
       # ============================================================
       # 1. CHECKOUT
       # ============================================================
@@ -28,7 +29,7 @@ jobs:
       # ============================================================
       # 3. INSTALL DEPENDENCIES
       # ============================================================
-      - name: Install dependencies
+      - name: Install Kokoro
         run: |
           python -m pip install --upgrade pip
 
@@ -38,7 +39,7 @@ jobs:
             numpy
 
       # ============================================================
-      # 4. CHECK KOKORO FILES
+      # 4. CHECK MODEL FILES
       # ============================================================
       - name: Check Kokoro model files
         run: |
@@ -74,14 +75,337 @@ jobs:
           head -c 200 "$MODEL" | strings || true
 
       # ============================================================
-      # 5. RUN STANDALONE TEST
+      # 5. LOAD KOKORO + GENERATE RANDOM AUDIO
       # ============================================================
-      - name: Run Kokoro standalone test
+      - name: Test Kokoro load and audio generation
         run: |
-          python 02_英语学习系统/scripts/test_kokoro.py
+          python - <<'PY'
+          from pathlib import Path
+          import random
+          import sys
+          import time
+
+          import numpy as np
+          import soundfile as sf
+          from kokoro_onnx import Kokoro
+
+
+          # ========================================================
+          # PATH
+          # ========================================================
+
+          project_root = Path("02_英语学习系统")
+
+          model_path = (
+              project_root
+              / "models"
+              / "kokoro"
+              / "kokoro-v1.1-zh.fp16.onnx"
+          )
+
+          voices_path = (
+              project_root
+              / "models"
+              / "kokoro"
+              / "voices-v1.1-zh.bin"
+          )
+
+          output_dir = (
+              project_root
+              / "output"
+              / "kokoro_test"
+          )
+
+          output_path = output_dir / "kokoro_test.mp3"
+
+
+          # ========================================================
+          # CONFIG
+          # ========================================================
+
+          language = "en-us"
+          voice = "af_sarah"
+          speed = 1.0
+
+          test_sentences = [
+              "This is a test of the Kokoro text to speech system.",
+              "The local Kokoro model is being loaded successfully.",
+              "If you can hear this sentence, the audio generation test has passed.",
+              "Today is a good day to learn something new.",
+              "This is a completely local audio generation test.",
+          ]
+
+
+          # ========================================================
+          # HEADER
+          # ========================================================
+
+          print()
+          print("=" * 70)
+          print("748686 英语学习系统")
+          print("Kokoro Standalone Test")
+          print("=" * 70)
+
+          print()
+          print("CONFIG")
+          print(f"  Model    : {model_path}")
+          print(f"  Voices   : {voices_path}")
+          print(f"  Language : {language}")
+          print(f"  Voice    : {voice}")
+          print(f"  Speed    : {speed}")
+
+
+          # ========================================================
+          # FILE CHECK
+          # ========================================================
+
+          print()
+          print("=" * 70)
+          print("FILE CHECK")
+          print("=" * 70)
+
+          if not model_path.exists():
+              print()
+              print("❌ ONNX MODEL NOT FOUND")
+              print(model_path)
+              sys.exit(1)
+
+          if not voices_path.exists():
+              print()
+              print("❌ VOICES FILE NOT FOUND")
+              print(voices_path)
+              sys.exit(1)
+
+          model_size = model_path.stat().st_size
+          voices_size = voices_path.stat().st_size
+
+          print(f"  ✓ ONNX exists")
+          print(f"    Size: {model_size:,} bytes")
+
+          print(f"  ✓ Voices exists")
+          print(f"    Size: {voices_size:,} bytes")
+
+
+          # ========================================================
+          # LFS POINTER CHECK
+          # ========================================================
+
+          print()
+          print("=" * 70)
+          print("LFS / MODEL CONTENT CHECK")
+          print("=" * 70)
+
+          with model_path.open("rb") as f:
+              header = f.read(512)
+
+          header_text = header.decode(
+              "utf-8",
+              errors="ignore",
+          )
+
+          if "version https://git-lfs.github.com/spec/v1" in header_text:
+              print()
+              print("❌ MODEL IS A GIT LFS POINTER")
+              print()
+              print(header_text)
+              sys.exit(1)
+
+          print("  ✓ Model is not a Git LFS pointer")
+
+          print()
+          print("  First 32 bytes:")
+          print("   ", header[:32].hex(" "))
+
+
+          # ========================================================
+          # LOAD KOKORO
+          # ========================================================
+
+          print()
+          print("=" * 70)
+          print("LOAD KOKORO MODEL")
+          print("=" * 70)
+
+          print()
+          print("  → 正在加载本地 Kokoro 模型")
+
+          started = time.time()
+
+          try:
+              kokoro = Kokoro(
+                  str(model_path),
+                  str(voices_path),
+              )
+          except Exception as exc:
+              elapsed = time.time() - started
+
+              print()
+              print("❌ KOKORO MODEL LOAD FAILED")
+              print()
+              print(f"Loading time: {elapsed:.2f}s")
+              print()
+              print(f"Error type:")
+              print(f"  {type(exc).__name__}")
+              print()
+              print(f"Error:")
+              print(f"  {exc}")
+
+              sys.exit(1)
+
+          elapsed = time.time() - started
+
+          print()
+          print("✓ KOKORO MODEL LOADED SUCCESSFULLY")
+          print(f"  Loading time: {elapsed:.2f}s")
+
+
+          # ========================================================
+          # RANDOM TEST SENTENCE
+          # ========================================================
+
+          text = random.choice(test_sentences)
+
+          print()
+          print("=" * 70)
+          print("TTS GENERATION TEST")
+          print("=" * 70)
+
+          print()
+          print("Random sentence:")
+          print()
+          print(f"  {text}")
+
+          print()
+          print("  → 正在生成音频")
+
+          started = time.time()
+
+          try:
+              samples, sample_rate = kokoro.create(
+                  text,
+                  voice=voice,
+                  speed=speed,
+                  lang=language,
+              )
+          except Exception as exc:
+              elapsed = time.time() - started
+
+              print()
+              print("❌ TTS GENERATION FAILED")
+              print()
+              print(f"Generation time: {elapsed:.2f}s")
+              print()
+              print(f"Error type:")
+              print(f"  {type(exc).__name__}")
+              print()
+              print(f"Error:")
+              print(f"  {exc}")
+
+              sys.exit(1)
+
+          elapsed = time.time() - started
+
+          sample_count = len(samples)
+
+          if sample_count <= 0:
+              print()
+              print("❌ GENERATED AUDIO IS EMPTY")
+              sys.exit(1)
+
+          duration = sample_count / float(sample_rate)
+
+          print()
+          print("✓ TTS GENERATION SUCCESS")
+          print(f"  Generation time: {elapsed:.2f}s")
+          print(f"  Sample rate     : {sample_rate}")
+          print(f"  Samples         : {sample_count}")
+          print(f"  Duration        : {duration:.2f}s")
+
+
+          # ========================================================
+          # SAVE MP3
+          # ========================================================
+
+          print()
+          print("=" * 70)
+          print("SAVE MP3")
+          print("=" * 70)
+
+          output_dir.mkdir(
+              parents=True,
+              exist_ok=True,
+          )
+
+          print()
+          print(f"  Output:")
+          print(f"    {output_path}")
+
+          try:
+              sf.write(
+                  str(output_path),
+                  np.asarray(samples),
+                  sample_rate,
+                  format="MP3",
+              )
+          except Exception as exc:
+              print()
+              print("❌ MP3 SAVE FAILED")
+              print()
+              print(f"Error type:")
+              print(f"  {type(exc).__name__}")
+              print()
+              print(f"Error:")
+              print(f"  {exc}")
+
+              sys.exit(1)
+
+          if not output_path.exists():
+              print()
+              print("❌ MP3 FILE WAS NOT CREATED")
+              sys.exit(1)
+
+          output_size = output_path.stat().st_size
+
+          if output_size <= 0:
+              print()
+              print("❌ MP3 FILE IS EMPTY")
+              sys.exit(1)
+
+          print()
+          print("✓ MP3 CREATED SUCCESSFULLY")
+          print(f"  File size: {output_size:,} bytes")
+
+
+          # ========================================================
+          # FINAL RESULT
+          # ========================================================
+
+          print()
+          print("=" * 70)
+          print("TEST COMPLETE")
+          print("=" * 70)
+
+          print()
+          print("✓ Model files exist")
+          print("✓ Model is not an LFS pointer")
+          print("✓ kokoro_onnx imported")
+          print("✓ Kokoro model loaded")
+          print("✓ TTS inference succeeded")
+          print("✓ MP3 generated")
+
+          print()
+          print("TEST RESULT: PASS")
+
+          print()
+          print(f"Audio file:")
+          print(f"  {output_path}")
+
+          print()
+          print("=" * 70)
+          PY
 
       # ============================================================
-      # 6. SHOW OUTPUT
+      # 6. LIST OUTPUT
       # ============================================================
       - name: Check generated audio
         if: always()
@@ -95,7 +419,7 @@ jobs:
             || true
 
       # ============================================================
-      # 7. UPLOAD TEST AUDIO
+      # 7. UPLOAD MP3
       # ============================================================
       - name: Upload test audio
         if: success()
