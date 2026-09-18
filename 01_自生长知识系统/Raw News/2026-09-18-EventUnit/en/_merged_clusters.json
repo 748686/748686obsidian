@@ -5,8 +5,8 @@
   "clusters": [
     {
       "event_id": "EVT-20260918-000002",
-      "event_title": "第23届中国-东盟博览会开幕及平陆运河通航",
-      "event_reason": "Cluster 1提到平陆运河通航与第23届中国-东盟博览会开幕，Cluster 7提及中国-东盟博览会蓝图与展望。两者均围绕第23届中国-东盟博览会这一具体大型活动及其相关基础设施（平陆运河）的协同效应，属于同一现实事件的不同侧面报道。",
+      "event_title": "平陆运河通航与中国-东盟博览会开幕",
+      "event_reason": "Cluster 2包含平陆运河通航和第23届中国-东盟博览会开幕；Cluster 7关于中国-东盟博览会蓝图与新征程。两者均围绕同一场博览会（第23届）及同期发生的平陆运河通航这一特定时间点的相关报道，属于同一综合事件报道的不同侧面",
       "article_indexes": [
         1,
         8,
@@ -785,10 +785,17 @@
     },
     {
       "event_id": "EVT-20260918-000099",
-      "event_title": "Social media regulation debate: Harms vs. Ban effectiveness",
-      "event_reason": "这两个Cluster讨论同一特定议题（社交媒体有害性及禁令有效性）。Cluster 9是研究人员声称危害大于益处，Cluster 10是德国媒体视角认为仅靠禁令不是解决方案。两者均针对“是否应通过禁令解决社交媒体有害性”这一具体政策辩论的不同声音，属于同一公共政策讨论事件的不同方面，故合并。",
+      "event_title": "Researcher claims social media harms outweigh benefits",
+      "event_reason": "Statement from a researcher on the net negative impact of social media, part of the social media discourse.",
       "article_indexes": [
-        102,
+        102
+      ]
+    },
+    {
+      "event_id": "EVT-20260918-000100",
+      "event_title": "German view: Social media ban alone is not the solution",
+      "event_reason": "German media perspective arguing against banning social media as the sole remedy, related but distinct from the researcher's claim in C012; kept separate to avoid over-merging unless explicitly the same article/author, here appears as a separate commentary/perspective piece.",
+      "article_indexes": [
         103
       ]
     },
@@ -1602,10 +1609,13 @@
     },
     {
       "event_id": "EVT-20260918-000202",
-      "event_title": "Germany Merz faces polls",
-      "event_reason": "Friedrich Merz facing new state polls after far-right win.",
+      "event_title": "Merz political crisis and regional elections",
+      "event_reason": "Clusters 21, 28, and 29 all relate to the immediate political crisis faced by Chancellor Merz: the impact of regional elections on his government (21), the backlash against his fuel price promise (28), and speculation about his potential successors due to the crisis (29). These are facets of the same ongoing political event regarding Merz's stability in power.",
       "article_indexes": [
-        205
+        205,
+        213,
+        214,
+        215
       ]
     },
     {
@@ -1642,8 +1652,8 @@
     },
     {
       "event_id": "EVT-20260918-000207",
-      "event_title": "Carney on EU alliance",
-      "event_reason": "Both clusters cover Mark Carney's address in the EU Parliament and the resulting Canada-EU economic partnership discussions, representing the same developing event.",
+      "event_title": "Carney on EU alliance and Canada-EU Partnership",
+      "event_reason": "Cluster 27 describes Mark Carney presenting a vision of alliance with the EU in Strasbourg. Cluster 29 covers Mark Carney's address in the EU Parliament and the resulting Canada-EU economic partnership discussions. These refer to the same speech/event and its immediate diplomatic implications.",
       "article_indexes": [
         210,
         212,
@@ -1656,30 +1666,6 @@
       "event_reason": "Specific event regarding US military infrastructure development in Poland mentioned by Trump.",
       "article_indexes": [
         211
-      ]
-    },
-    {
-      "event_id": "EVT-20260918-000210",
-      "event_title": "Merz and Mecklenburg-Vorpommern/Berlin Elections",
-      "event_reason": "Analysis of how specific regional elections impact Chancellor Friedrich Merz.",
-      "article_indexes": [
-        213
-      ]
-    },
-    {
-      "event_id": "EVT-20260918-000211",
-      "event_title": "Merz Fuel Price Promise Backlash",
-      "event_reason": "Focuses on the political fallout of Merz's fuel price promise conflicting with his own government.",
-      "article_indexes": [
-        214
-      ]
-    },
-    {
-      "event_id": "EVT-20260918-000212",
-      "event_title": "Merz Potential Successors",
-      "event_reason": "Report on potential successors observing Merz's political crisis.",
-      "article_indexes": [
-        215
       ]
     },
     {
@@ -2012,8 +1998,8 @@
     },
     {
       "event_id": "EVT-20260918-000254",
-      "event_title": "Macklemore Controversy and Ed Sheeran Backlash",
-      "event_reason": "这两个Cluster描述的是同一具体现实事件的不同方面：Cluster 12 提到 Ed Sheeran 因 Macklemore 被移除和电台禁播而面临抵制；Cluster 26 提到 Macklemore 的争议言论影响了 Ed Sheeran 的票务持有者。两者均指向由 Macklemore 言论/行为引发的、涉及 Ed Sheeran 的音乐行业纠纷/争议，属于同一正在持续发展的单一现实事件。",
+      "event_title": "Macklemore Removal and Ed Sheeran Backlash",
+      "event_reason": "Cluster 14 reports on Ed Sheeran facing backlash specifically because of Macklemore's removal, and Cluster 28 describes the Macklemore controversy affecting Ed Sheeran ticket holders. These clusters describe the exact same specific incident involving the dispute between the artists and the impact on the tour/booking.",
       "article_indexes": [
         258,
         272
@@ -2381,8 +2367,8 @@
     },
     {
       "event_id": "EVT-20260918-000301",
-      "event_title": "Korea's participation in the 2026 Asian Games in Nagoya",
-      "event_reason": "Both clusters describe specific sub-events of the same reality: the arrival of the team in Nagoya (Cluster 3) and the preparation/interview of the volleyball team for the medal pursuit within the same Asian Games context (Cluster 1). They are closely linked facets of Korea's participation in this specific sports event.",
+      "event_title": "Korea team arrival and medal pursuit at 2026 Asian Games",
+      "event_reason": "Cluster 3 describes Team Korea arriving in Nagoya for the 2026 Asian Games, and Cluster 1 describes an interview with the same team looking to turn momentum into a medal at the same Games. These are part of the immediate news cycle surrounding the team's arrival and their performance aspirations at the specific event. While distinct actions (arrival vs. interview), they are tightly linked components of the single news story regarding the Korean team's participation in the 2026 Asian Games on this date.",
       "article_indexes": [
         305,
         307
@@ -2630,8 +2616,8 @@
     },
     {
       "event_id": "EVT-20260918-000333",
-      "event_title": "Fuel price crisis and response",
-      "event_reason": "这三者构成同一持续发展的现实事件链条：[349]报道柴油价格创历史新高是触发因素；[344]CDU党团提出具体的燃油价格救济提案是政策响应；[337]关于燃油价格和州补贴的辩论是同期伴随的经济政策讨论。它们共同指向2026年9月德国燃油价格飙升及其引发的政策应对这一具体现实事件流。",
+      "event_title": "Fuel price subsidy and relief debate",
+      "event_reason": "这些集群共同构成关于燃油价格高企及其应对措施（补贴/减免）的同一现实事件。Cluster 3（讨论/分析）、Cluster 10（CDU提出具体25分减免政策）和 Cluster 15（柴油价格创历史新高）都是针对“燃油价格高涨及政策应对”这一核心现实事件的不同侧面（现象、政策提议、背景数据）。虽然判断描述略有不同，但它们指向同一个具体的政治经济议题和正在发生的政策辩论/市场状况。",
       "article_indexes": [
         337,
         344,
@@ -3070,17 +3056,10 @@
     },
     {
       "event_id": "EVT-20260918-000386",
-      "event_title": "伊朗代表团参加联大",
-      "event_reason": "伊朗代表团获准参加联合国大会，昂贵采购受监控",
-      "article_indexes": [
-        420
-      ]
-    },
-    {
-      "event_id": "EVT-20260918-000387",
       "event_title": "伊朗战争局势与外交评估",
-      "event_reason": "均聚焦于伊朗冲突的当前状态及其在政治与外交层面引发的具体关切",
+      "event_reason": "Cluster 19（伊朗参加联大）与Cluster 20（伊朗战争与外交）均属于伊朗国家当前处于被封锁/战争状态下的国际外交应对。它们共同描述了伊朗在制裁、冲突背景下的外交处境和具体动作，属于同一现实发展事件（伊朗的国际地位与外交活动），而非仅仅主题相似。",
       "article_indexes": [
+        420,
         421,
         449
       ]
@@ -3472,5 +3451,5 @@
       ]
     }
   ],
-  "saved_at": "2026-09-18T12:57:45.583274+08:00"
+  "saved_at": "2026-09-18T14:15:47.164204+08:00"
 }
