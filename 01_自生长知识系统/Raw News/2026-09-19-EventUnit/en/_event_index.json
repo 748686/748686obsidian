@@ -37,8 +37,8 @@
     "event_id": "EVT-20260919-000001",
     "date": "2026-09-19",
     "language": "en",
-    "event_title": "Trump bans media outlets CNN, MSNOW, and Politico from the White House",
-    "event_reason": "Cluster 1和Cluster 27均报道特朗普禁止特定媒体（CNN, MSNOW, Politico等）进入白宫的具体事件。尽管Cluster 1包含多篇多语言报道，Cluster 27为单一报道，但指向同一现实世界事件。",
+    "event_title": "Trump bans media outlets from the White House",
+    "event_reason": "Cluster 1 (Articles 3, 12, 19) and Cluster 27 (Article 31) both report on the same specific incident of Trump restricting access for media outlets like CNN, MSNOW, and Politico from the White House.",
     "source_count": 4,
     "articles": [
       {
@@ -548,27 +548,13 @@
     "event_id": "EVT-20260919-000032",
     "date": "2026-09-19",
     "language": "en",
-    "event_title": "Trump administration's aggressive stance on AI, dismissing risks and pushing pro-AI policies",
-    "event_reason": "Clusters 1 (Trust in Chinese AI), 12 (Trump becomes AI evangelist), and 16 (Trump calls AI fears hoax) all describe the same specific political narrative and policy direction: the Trump administration's public dismissal of AI safety concerns and active promotion/support of AI development, representing a unified political stance and campaign narrative in the US regarding AI.",
-    "source_count": 3,
+    "event_title": "Trust in Chinese AI",
+    "event_reason": "Opinion piece on geopolitical AI trust",
+    "source_count": 1,
     "articles": [
       {
         "index": 36,
         "title": "[Volkswagen kappt Gewinnerwartung für 2026 – Aktie rauscht ab](#item-tech-news-36) ⭐️",
-        "source": "AP",
-        "source_url": "",
-        "path": ""
-      },
-      {
-        "index": 47,
-        "title": "[US-Denmark agreement on Greenland security framework](#item-tech-news-47) ⭐️",
-        "source": "Unknown",
-        "source_url": "",
-        "path": ""
-      },
-      {
-        "index": 51,
-        "title": "[Japan rescued North Korean sailors, raising diplomatic questions](#item-tech-news-51) ⭐️",
         "source": "AP",
         "source_url": "",
         "path": ""
@@ -664,22 +650,15 @@
     "event_id": "EVT-20260919-000038",
     "date": "2026-09-19",
     "language": "en",
-    "event_title": "South Korean President Lee Jae-myung's recent political challenges and actions regarding legislative conflicts and public approval",
-    "event_reason": "Clusters 7 (Lee urges assembly to drop indictment clause) and 19 (Lee takes responsibility for low approval) involve the same specific actor (South Korean President Lee) navigating the same ongoing political crisis/context involving low public approval and legislative conflicts. The 'urging to drop clause' is a specific action taken within the broader event of his response to low approval and political pressure.",
-    "source_count": 2,
+    "event_title": "Lee urges assembly to drop indictment clause",
+    "event_reason": "Specific political action by South Korean President Lee",
+    "source_count": 1,
     "articles": [
       {
         "index": 42,
         "title": "[College allowing students to earn a bachelor’s in under a year draws scrutiny](#item-tech-news-42) ⭐️",
         "source": "news.google.com",
         "source_url": "https://news.google.com/rss/articles/CBMiigFBVV95cUxNTnpMczVsNm1wamVZc1VfckI1Uk1KRHFBSGZ1WGlRRVMydmZKVUhpdm9zdWFkVnFaRy1UZUtQaEQtQWVnekJObURfUThESEtQLWNrNGc2dmNHMUZvYWRuMHp6YWpndl9DOHNjZE5Rc1JqenljZEdyVXBLR2djNU02STlPblpJSUNOY1E?oc=5&hl=en-US&gl=US&ceid=US:en",
-        "path": ""
-      },
-      {
-        "index": 54,
-        "title": "[PPP Slams Lee’s News Conference as Self-Congratulatory Blame-Shifting](#item-tech-news-54) ⭐️",
-        "source": "Unknown",
-        "source_url": "",
         "path": ""
       }
     ]
@@ -748,6 +727,30 @@
         "title": "[Trump administration pushes on with construction of controversial Big Bend border wall](#item-tech-news-46) ⭐️",
         "source": "news.google.com",
         "source_url": "https://news.google.com/rss/articles/CBMirAFBVV95cUxNR1JfMWVBWjhPcl94T3FNLThZWTRNbXR6SlhSN0JyTS1hSDBhVTBHOTZ0M0pRSy1RNUgtR0NNVk9DVmIzcHlBX2ZON3JzcXd6UEt2MnVoQzFHR1lvTGwwSGtOaGFGbV9NX1ZlRHNMdnBHR182ZFdFNmI4ek9jaENmcGVldlVDU3hrQVZVQ3ZSMXR4ZTZUOFhMaERzakdORXpNMGtpbktDRHhXaTQ5?oc=5&hl=en-US&gl=US&ceid=US:en",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260919-000043",
+    "date": "2026-09-19",
+    "language": "en",
+    "event_title": "Trump's stance on AI risks and security",
+    "event_reason": "Clusters 12 ('Trump becomes AI evangelist') and 16 ('Trump calls AI fears hoax') both describe the specific public narrative and statements made by President Trump regarding AI risks during this period. Cluster 11 ('Stopgap AI security measures') is excluded as it is a general discussion on immediate security threats, not specifically attributed to Trump's statements in these inputs, and merging it would blur the specific attribute of Trump's public position. However, looking closely, Cluster 12 and 16 are very likely the same event or tightly linked series of comments by the same subject on the same specific day/timeline. Cluster 16 is 'Trump calls AI fears hoax', Cluster 12 is 'Trump becomes AI evangelist'. These are two angles on the same event: Trump's public push to alleviate AI fears. They are merged.",
+    "source_count": 2,
+    "articles": [
+      {
+        "index": 47,
+        "title": "[US-Denmark agreement on Greenland security framework](#item-tech-news-47) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 51,
+        "title": "[Japan rescued North Korean sailors, raising diplomatic questions](#item-tech-news-51) ⭐️",
+        "source": "AP",
+        "source_url": "",
         "path": ""
       }
     ]
@@ -833,6 +836,23 @@
         "title": "[Cho Meets US Lawmakers ahead of Talks with Rubio](#item-tech-news-53) ⭐️",
         "source": "news.google.com",
         "source_url": "https://news.google.com/rss/articles/CBMibkFVX3lxTE5odWhhUWpZS2wwTHhLdDJLQzhlZ29UWWJtYnZ0YkFPZTVleHJzOEFVQkRmSXFDVG5wWG9EcjlpekhKalhjMmdfNnVFS0t5LXl1M3RNS3JuWER5T1kzOUstVWkyRkt5SkFkaEVFUE5n?oc=5&hl=en-US&gl=US&ceid=US:en",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260919-000050",
+    "date": "2026-09-19",
+    "language": "en",
+    "event_title": "Lee takes responsibility for low approval",
+    "event_reason": "Political statement by South Korean President Lee",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 54,
+        "title": "[PPP Slams Lee’s News Conference as Self-Congratulatory Blame-Shifting](#item-tech-news-54) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
         "path": ""
       }
     ]
@@ -1079,9 +1099,9 @@
     "event_id": "EVT-20260919-000065",
     "date": "2026-09-19",
     "language": "en",
-    "event_title": "2026年9月19日多领域独立事件集合",
-    "event_reason": "各Cluster涉及足球管理、德国铁路、AI研究、科学发现、外交声明、货币政策、评论观点、学术行动、跨国执法、市场数据、政治冲突、企业财务、文化遗产、灾难后续、文化专栏、教育推荐、生态理念、美丹协议、情报评估、移民政策、教育审视、军事医疗、王室评论、个人叙事、边境建设、英国政治、基础设施建设、朝鲜半岛局势及商业继承等，均为彼此独立且互不相关的现实事件，无法合并为同一具体事件。",
-    "source_count": 38,
+    "event_title": "UEFA与CONCACAF要求FIFA支付21亿美元",
+    "event_reason": "特定的足球管理资金纠纷",
+    "source_count": 1,
     "articles": [
       {
         "index": 69,
@@ -1089,28 +1109,68 @@
         "source": "AP",
         "source_url": "",
         "path": ""
-      },
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260919-000066",
+    "date": "2026-09-19",
+    "language": "en",
+    "event_title": "德国铁路Bilger提案引争议",
+    "event_reason": "特定的公共交通政策讨论",
+    "source_count": 1,
+    "articles": [
       {
         "index": 70,
         "title": "[Volkswagen sharply cuts 2026 profit forecast to near-zero](#item-tech-news-70) ⭐️",
         "source": "Unknown",
         "source_url": "",
         "path": ""
-      },
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260919-000067",
+    "date": "2026-09-19",
+    "language": "en",
+    "event_title": "AI J-Space辩论与Agent Swarms讨论",
+    "event_reason": "特定的AI研究概念探讨",
+    "source_count": 1,
+    "articles": [
       {
         "index": 71,
         "title": "[Indonesia to Acquire Italy&\\\\\\\\#x27;s Decommissioned Aircraft Carrier](#item-tech-news-71) ⭐️",
         "source": "Unknown",
         "source_url": "",
         "path": ""
-      },
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260919-000068",
+    "date": "2026-09-19",
+    "language": "en",
+    "event_title": "发现新猫科物种",
+    "event_reason": "独立的科学发现",
+    "source_count": 1,
+    "articles": [
       {
         "index": 72,
         "title": "[torvalds pushed 0 commit\\\\\\\\(s\\\\\\\\) to torvalds/GuitarPedal](#item-tech-news-72) ⭐️",
         "source": "Unknown",
         "source_url": "",
         "path": ""
-      },
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260919-000069",
+    "date": "2026-09-19",
+    "language": "en",
+    "event_title": "俄罗斯混合威胁与选举干扰引发的国际安全反应",
+    "event_reason": "Cluster 7 (马克龙警告俄罗斯混合攻击) 与 Cluster 28 (施压英国反对党行动以应对俄罗斯威胁) 均直接源于美国情报评估及国际局势中俄罗斯对西方国家的混合攻击与选举干扰行为。马克龙的警告针对的是此类“混合攻击”，而英国国内的政治压力也是针对同一类型的俄罗斯安全威胁，二者属于同一地缘政治安全态势下的具体反应事件。",
+    "source_count": 2,
+    "articles": [
       {
         "index": 73,
         "title": "[torvalds pushed 0 commit\\\\\\\\(s\\\\\\\\) to torvalds/linux](#item-tech-news-73) ⭐️",
@@ -1119,143 +1179,231 @@
         "path": ""
       },
       {
+        "index": 95,
+        "title": "[Duncan Sheik, Who Traded Pop Stardom for Broadway, Dies at 56](#item-tech-news-95) ⭐️",
+        "source": "news.google.com",
+        "source_url": "https://news.google.com/rss/articles/CBMid0FVX3lxTE9PQ0NvZDZCRHpwY25GbjhSbG9RWFJoV2M4eXJvV1lkZ0V6UXFLUUgydVlGcklFN2pMemRYTTM1YTgyWHFlYlZwUGU3RU5uMDBFZnRTX2puR0FhN29fb3dQYUN6YVNkc0pHMnBDaXUtTEktaHhxYnlV?oc=5&hl=en-US&gl=US&ceid=US:en",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260919-000070",
+    "date": "2026-09-19",
+    "language": "en",
+    "event_title": "日本加息至31年高位",
+    "event_reason": "特定的货币政策调整",
+    "source_count": 1,
+    "articles": [
+      {
         "index": 74,
         "title": "[02版 - 图片报道](#item-tech-news-74) ⭐️",
         "source": "Unknown",
         "source_url": "",
         "path": ""
-      },
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260919-000071",
+    "date": "2026-09-19",
+    "language": "en",
+    "event_title": "物理学家批评科技富豪追求永生",
+    "event_reason": "独立的观点评论",
+    "source_count": 1,
+    "articles": [
       {
         "index": 75,
         "title": "[02版 - 调水新增每秒四立方米，如何支撑平陆运河通航（读者点题·共同关注）](#item-tech-news-75) ⭐️",
         "source": "Unknown",
         "source_url": "",
         "path": ""
-      },
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260919-000072",
+    "date": "2026-09-19",
+    "language": "en",
+    "event_title": "学者支持全球不平等面板",
+    "event_reason": "特定的学术界集体行动",
+    "source_count": 1,
+    "articles": [
       {
         "index": 76,
         "title": "[03版 - 走进人民城市 读懂中国之治](#item-tech-news-76) ⭐️",
         "source": "Unknown",
         "source_url": "",
         "path": ""
-      },
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260919-000073",
+    "date": "2026-09-19",
+    "language": "en",
+    "event_title": "四名日本人在曼谷因欺诈被捕",
+    "event_reason": "独立的跨国执法事件",
+    "source_count": 1,
+    "articles": [
       {
         "index": 77,
         "title": "[03版 - 以共赢精神推动“大金砖合作”走深走实（国际论坛）](#item-tech-news-77) ⭐️",
         "source": "Unknown",
         "source_url": "",
         "path": ""
-      },
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260919-000074",
+    "date": "2026-09-19",
+    "language": "en",
+    "event_title": "KOSPI指数大涨2.66%",
+    "event_reason": "当日市场数据表现",
+    "source_count": 1,
+    "articles": [
       {
         "index": 78,
         "title": "[03版 - 图片报道](#item-tech-news-78) ⭐️",
         "source": "Unknown",
         "source_url": "",
         "path": ""
-      },
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260919-000075",
+    "date": "2026-09-19",
+    "language": "en",
+    "event_title": "特朗普驱逐部分媒体出白宫",
+    "event_reason": "特定的政治媒体冲突",
+    "source_count": 1,
+    "articles": [
       {
         "index": 79,
         "title": "[03版 - 多元赋能，体育强国建设步入快车道（“十五五”开好局起好步）](#item-tech-news-79) ⭐️",
         "source": "Unknown",
         "source_url": "",
         "path": ""
-      },
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260919-000076",
+    "date": "2026-09-19",
+    "language": "en",
+    "event_title": "大众降低2026年盈利预期",
+    "event_reason": "具体的企业财务决策",
+    "source_count": 1,
+    "articles": [
       {
         "index": 80,
         "title": "[04版 - 勿忘九一八撞钟鸣警仪式在沈阳举行](#item-tech-news-80) ⭐️",
         "source": "Unknown",
         "source_url": "",
         "path": ""
-      },
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260919-000077",
+    "date": "2026-09-19",
+    "language": "en",
+    "event_title": "美国向中方返还文物",
+    "event_reason": "特定的外交文化遗产事件",
+    "source_count": 1,
+    "articles": [
       {
         "index": 81,
         "title": "[05版 - 目标笃定 专注前行（亚运观澜）](#item-tech-news-81) ⭐️",
         "source": "Unknown",
         "source_url": "",
         "path": ""
-      },
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260919-000078",
+    "date": "2026-09-19",
+    "language": "en",
+    "event_title": "海伦妮洪水两年后寻获遗体",
+    "event_reason": "特定的灾难后续事件",
+    "source_count": 1,
+    "articles": [
       {
         "index": 82,
         "title": "[China&\\\\\\\\#x27;s Delegation at Nagoya Asian Games Welcome Ceremony](#item-tech-news-82) ⭐️",
         "source": "Unknown",
         "source_url": "",
         "path": ""
-      },
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260919-000079",
+    "date": "2026-09-19",
+    "language": "en",
+    "event_title": "文化专栏：大塔的陪伴",
+    "event_reason": "独立的文化文学内容",
+    "source_count": 1,
+    "articles": [
       {
         "index": 83,
         "title": "[China&\\\\\\\\#x27;s Men&\\\\\\\\#x27;s Hockey and Women&\\\\\\\\#x27;s Volleyball Teams Win at Asian Games](#item-tech-news-83) ⭐️",
         "source": "Unknown",
         "source_url": "",
         "path": ""
-      },
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260919-000080",
+    "date": "2026-09-19",
+    "language": "en",
+    "event_title": "Inkhaven申请建议",
+    "event_reason": "独立的教育/职业推荐",
+    "source_count": 1,
+    "articles": [
       {
         "index": 84,
         "title": "[2026 Asian Games Logistical Challenges](#item-tech-news-84) ⭐️",
         "source": "Unknown",
         "source_url": "",
         "path": ""
-      },
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260919-000081",
+    "date": "2026-09-19",
+    "language": "en",
+    "event_title": "生态文明建设观点文章",
+    "event_reason": "独立的理念阐述",
+    "source_count": 1,
+    "articles": [
       {
         "index": 85,
         "title": "[Wu Yu and Hu Mingxuan Named Chinese Flagbearers for 2026 Asian Games](#item-tech-news-85) ⭐️",
         "source": "Unknown",
         "source_url": "",
         "path": ""
-      },
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260919-000082",
+    "date": "2026-09-19",
+    "language": "en",
+    "event_title": "美丹达成格陵兰安全协议",
+    "event_reason": "Cluster 22 (美丹达成格陵兰安全协议) 和 Cluster 30 (US-Denmark Agreement on Greenland Security) 描述的是同一个现实世界事件，即美国与丹麦之间关于格陵兰岛安全/军事存在的协议。",
+    "source_count": 3,
+    "articles": [
       {
         "index": 86,
         "title": "[No Substantive News Content Provided](#item-tech-news-86) ⭐️",
         "source": "Unknown",
         "source_url": "",
-        "path": ""
-      },
-      {
-        "index": 87,
-        "title": "[Poly Developments Promotes Residential Community Culture Initiatives](#item-tech-news-87) ⭐️",
-        "source": "Unknown",
-        "source_url": "",
-        "path": ""
-      },
-      {
-        "index": 88,
-        "title": "[07版 - 月升东方 万家灯和](#item-tech-news-88) ⭐️",
-        "source": "Unknown",
-        "source_url": "",
-        "path": ""
-      },
-      {
-        "index": 89,
-        "title": "[08版 - 长征文物，照见胜利之源](#item-tech-news-89) ⭐️",
-        "source": "Unknown",
-        "source_url": "",
-        "path": ""
-      },
-      {
-        "index": 90,
-        "title": "[Russia Holds Stage-Managed Elections](#item-tech-news-90) ⭐️",
-        "source": "Unknown",
-        "source_url": "",
-        "path": ""
-      },
-      {
-        "index": 91,
-        "title": "[Historical Account of a Reporter at Gettysburg](#item-tech-news-91) ⭐️",
-        "source": "Unknown",
-        "source_url": "",
-        "path": ""
-      },
-      {
-        "index": 92,
-        "title": "[James Talarico, Seeking Black Votes in Texas Senate Rate, Wins Crucial Endorsement](#item-tech-news-92) ⭐️",
-        "source": "news.google.com",
-        "source_url": "https://news.google.com/rss/articles/CBMiqgFBVV95cUxNbnFvSDE3dVFqb192aEdvNFp0T0h6SWpHT3dSTjVYMGE3YTdCb3puY3hoeWc0VW9wMEl5MHRSaks5clNZZmNlUHNxSlMxX1F3amVfZEFEU3E2Z3U2a1ZESmhJVXE1T1hQZmJyeW5PdzZOYmdwaXBVckhyU0dkdm5LQ0dhYkdxemRLT294c1hiT2NFZVVGNnpTQnFfM1lCdU9vYUVPVmwyWnFsdw?oc=5&hl=en-US&gl=US&ceid=US:en",
-        "path": ""
-      },
-      {
-        "index": 93,
-        "title": "[A Central African Hotel Has Become a Nightmare Prison for U.S. Deportees](#item-tech-news-93) ⭐️",
-        "source": "news.google.com",
-        "source_url": "https://news.google.com/rss/articles/CBMilgFBVV95cUxQWjhPTWdfWnBiM2JLNGt5ajFrSTQ5ZmRvd05iOUk5SkZEV0o2UGxzV1RxWUxneVZTdVprZkE2ZXNWWTdUSi1WbzBQNmpRZXNXQXJyb1ZPS1luZzV5NVJDekFIdkR3UEEtSzRDelNkWi1sY005cXNQeE1jMWFBZEZrX2JFSjZjTkZjZkRiODZQMDhydFdNSUE?oc=5&hl=en-US&gl=US&ceid=US:en",
         "path": ""
       },
       {
@@ -1266,19 +1414,158 @@
         "path": ""
       },
       {
-        "index": 95,
-        "title": "[Duncan Sheik, Who Traded Pop Stardom for Broadway, Dies at 56](#item-tech-news-95) ⭐️",
-        "source": "news.google.com",
-        "source_url": "https://news.google.com/rss/articles/CBMid0FVX3lxTE9PQ0NvZDZCRHpwY25GbjhSbG9RWFJoV2M4eXJvV1lkZ0V6UXFLUUgydVlGcklFN2pMemRYTTM1YTgyWHFlYlZwUGU3RU5uMDBFZnRTX2puR0FhN29fb3dQYUN6YVNkc0pHMnBDaXUtTEktaHhxYnlV?oc=5&hl=en-US&gl=US&ceid=US:en",
+        "index": 106,
+        "title": "[&\\\\\\\\#x27;The View&\\\\\\\\#x27; co-hosts challenge Joy Behar after she says Trump&\\\\\\\\#x27;s health gets less media scrutiny than Biden&\\\\\\\\#x27;s](#item-tech-news-106) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
         "path": ""
-      },
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260919-000083",
+    "date": "2026-09-19",
+    "language": "en",
+    "event_title": "美情报发现俄罗斯试图干扰选举",
+    "event_reason": "特定的国家情报评估",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 87,
+        "title": "[Poly Developments Promotes Residential Community Culture Initiatives](#item-tech-news-87) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260919-000084",
+    "date": "2026-09-19",
+    "language": "en",
+    "event_title": "移民使用福利可能被拒绿卡",
+    "event_reason": "具体的移民政策变化",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 88,
+        "title": "[07版 - 月升东方 万家灯和](#item-tech-news-88) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260919-000085",
+    "date": "2026-09-19",
+    "language": "en",
+    "event_title": "学院快速学位项目受审视",
+    "event_reason": "特定的教育质量问题",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 89,
+        "title": "[08版 - 长征文物，照见胜利之源](#item-tech-news-89) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260919-000086",
+    "date": "2026-09-19",
+    "language": "en",
+    "event_title": "五角大楼发布睾酮筛查指南",
+    "event_reason": "特定的军事医疗政策",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 90,
+        "title": "[Russia Holds Stage-Managed Elections](#item-tech-news-90) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260919-000087",
+    "date": "2026-09-19",
+    "language": "en",
+    "event_title": "Prince Charles's reaction to Princess Diana's death",
+    "event_reason": "Report on a phone call and public statement by Princess Diana's brother regarding Prince Charles's reaction years after her death.",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 91,
+        "title": "[Historical Account of a Reporter at Gettysburg](#item-tech-news-91) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260919-000088",
+    "date": "2026-09-19",
+    "language": "en",
+    "event_title": "Personal story of finding love at Irish matchmaking festival",
+    "event_reason": "Personal narrative article from a specific user at an Irish event, unrelated to other news items.",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 92,
+        "title": "[James Talarico, Seeking Black Votes in Texas Senate Rate, Wins Crucial Endorsement](#item-tech-news-92) ⭐️",
+        "source": "news.google.com",
+        "source_url": "https://news.google.com/rss/articles/CBMiqgFBVV95cUxNbnFvSDE3dVFqb192aEdvNFp0T0h6SWpHT3dSTjVYMGE3YTdCb3puY3hoeWc0VW9wMEl5MHRSaks5clNZZmNlUHNxSlMxX1F3amVfZEFEU3E2Z3U2a1ZESmhJVXE1T1hQZmJyeW5PdzZOYmdwaXBVckhyU0dkdm5LQ0dhYkdxemRLT294c1hiT2NFZVVGNnpTQnFfM1lCdU9vYUVPVmwyWnFsdw?oc=5&hl=en-US&gl=US&ceid=US:en",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260919-000089",
+    "date": "2026-09-19",
+    "language": "en",
+    "event_title": "Construction of Big Bend border wall",
+    "event_reason": "US administration's physical construction project on the US-Mexico border, distinct from diplomatic agreements with other nations.",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 93,
+        "title": "[A Central African Hotel Has Become a Nightmare Prison for U.S. Deportees](#item-tech-news-93) ⭐️",
+        "source": "news.google.com",
+        "source_url": "https://news.google.com/rss/articles/CBMilgFBVV95cUxQWjhPTWdfWnBiM2JLNGt5ajFrSTQ5ZmRvd05iOUk5SkZEV0o2UGxzV1RxWUxneVZTdVprZkE2ZXNWWTdUSi1WbzBQNmpRZXNXQXJyb1ZPS1luZzV5NVJDekFIdkR3UEEtSzRDelNkWi1sY005cXNQeE1jMWFBZEZrX2JFSjZjTkZjZkRiODZQMDhydFdNSUE?oc=5&hl=en-US&gl=US&ceid=US:en",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260919-000092",
+    "date": "2026-09-19",
+    "language": "en",
+    "event_title": "Reopening of Kyushu Shinkansen",
+    "event_reason": "Specific infrastructure event in Japan involving the reopening of a train line after an earthquake.",
+    "source_count": 1,
+    "articles": [
       {
         "index": 96,
         "title": "[Appeals court says Trump administration’s third-country deportation policy is unlawful](#item-tech-news-96) ⭐️",
         "source": "news.google.com",
         "source_url": "https://news.google.com/rss/articles/CBMi1wFBVV95cUxQaVRaN2pUcDB5aXpnSU1OLTNRMlhHY3o1bUZLVWRaZzdFOHZnQkMwOFFSTVlicGVQYTZfQ3BNeXdMMGVCdzE5d3JoZ1M1NUxCYU51WmdXOWh0c2dTZ19GX19UbjNLbzRuX2lFXzNrcXJHVTdWdnptY1hyYVNEUUJRekhQVERBb1RzZExaWUl0eTVaa3duSlRlVmY5VzJNZTBfTW9RVlFBV0hSaGNtMlZMaHFCclVoYnRiU1FlREFpcGlBYVBTS1JBcnRybnVvQWFqT0RGZkRkRQ?oc=5&hl=en-US&gl=US&ceid=US:en",
         "path": ""
-      },
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260919-000093",
+    "date": "2026-09-19",
+    "language": "en",
+    "event_title": "North Korea Diplomatic and Nuclear Issues",
+    "event_reason": "All articles report on the specific cluster of events involving North Korea's nuclear program, IAEA resolution, rescue of sailors, and diplomatic meetings with the US.",
+    "source_count": 4,
+    "articles": [
       {
         "index": 97,
         "title": "[How this common age-related eye disease leads to hallucinations](#item-tech-news-97) ⭐️",
@@ -1306,7 +1593,17 @@
         "source": "Unknown",
         "source_url": "",
         "path": ""
-      },
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260919-000094",
+    "date": "2026-09-19",
+    "language": "en",
+    "event_title": "South Korean President Lee's Press Conference and US MFA Deal",
+    "event_reason": "Both Clusters relate to the same press conference by President Lee. Cluster 3 covers the substance of his statements (US military limits, MFA investment negotiations), while Cluster 2 covers the political reaction/criticism from the PPP regarding those statements. They are two sides of the same specific event: the press conference and its immediate political fallout/content.",
+    "source_count": 4,
+    "articles": [
       {
         "index": 101,
         "title": "[Hasan Piker&\\\\\\\\#x27;s Controversial 9/11 and Bin Laden Remarks](#item-tech-news-101) ⭐️",
@@ -1334,19 +1631,22 @@
         "source": "Unknown",
         "source_url": "",
         "path": ""
-      },
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260919-000096",
+    "date": "2026-09-19",
+    "language": "en",
+    "event_title": "Warren Buffett succession plan",
+    "event_reason": "Report on the inheritance of Warren Buffett's financial empire to his son.",
+    "source_count": 1,
+    "articles": [
       {
         "index": 105,
         "title": "[Midair brawl erupts on packed flight as screaming passengers jump from seats](#item-tech-news-105) ⭐️",
         "source": "news.google.com",
         "source_url": "https://news.google.com/rss/articles/CBMiowFBVV95cUxPUFUyOTZWWUMyRVlGRWlmaWlrZHE3bHUtUUpGRmp5UkVOcldpZnZDc2EzTWdEZjlqaXlkUVlqZXJNYlNZcTFmaUIyWXFDa1BXOWJaQzFFSjFuT1E0d1RDdjlhSkFVX0dXWXU2dUZwZmx0NS1BanpQLWVSUjNETHR1d0xQajV1VjVnd3hGWWthcnVOT1hPeWFQRTNkcC1kaEtqWGdJ0gGoAUFVX3lxTE1rNFRZd3lPZ1Mtdl9YQTNFbHY4b3ZlTmhhS2VCUUNFU05VZzFDVFMyODNHQ1lLRk1kU1ZwRFMwZEZQcnNhYWJqSC1wZTNyNUF6WHF2c1dfUDJTNnUyTUEzeEw0UmlxMDVzLU1HVEdWajVsUVE5SVh2X3plZXN0VFhaaU5sMTg2MkcyejRtZThmOV9BWG4wVURLb1d5TVZlY2pqTUp4cGt2TA?oc=5&hl=en-US&gl=US&ceid=US:en",
-        "path": ""
-      },
-      {
-        "index": 106,
-        "title": "[&\\\\\\\\#x27;The View&\\\\\\\\#x27; co-hosts challenge Joy Behar after she says Trump&\\\\\\\\#x27;s health gets less media scrutiny than Biden&\\\\\\\\#x27;s](#item-tech-news-106) ⭐️",
-        "source": "Unknown",
-        "source_url": "",
         "path": ""
       }
     ]
@@ -3449,8 +3749,8 @@
     "event_id": "EVT-20260919-000214",
     "date": "2026-09-19",
     "language": "en",
-    "event_title": "中国先进制造业增长",
-    "event_reason": "Cluster 4和Cluster 17都报道中国先进制造业的发展，属于同一产业趋势的具体事件",
+    "event_title": "中国先进制造业发展相关报道",
+    "event_reason": "Cluster 1 (EVT-20260919-000214) 报道了中国先进制造业的增长，Cluster 14 (EVT-20260919-000227) 强调持续做大做强先进制造业。两者均属于同一主题下的具体经济报道，符合“同产业/领域内具体事件报道”的合并逻辑，且内容高度相关，视为同一宏观事件的不同侧面。",
     "source_count": 2,
     "articles": [
       {
@@ -4531,13 +4831,20 @@
     "event_id": "EVT-20260919-000277",
     "date": "2026-09-19",
     "language": "en",
-    "event_title": "Logistical chaos at the Asian Games",
-    "event_reason": "Organizational issues at the Asian Games led to severe transport and accommodation problems, leaving South Korean athletes stranded.",
-    "source_count": 1,
+    "event_title": "Logistical and sports issues at the Asian Games involving South Korea",
+    "event_reason": "Cluster 2 describes logistical chaos (transport/accommodation) affecting South Korean athletes at the Asian Games. Cluster 7 describes the South Korean baseball team's travel to the Asian Games. Both refer to the same specific event (Asian Games) and the same participating delegation (South Korea) and their immediate context. While one is an incident and the other is a sports goal, they are facets of the same ongoing event (the Asian Games participation of SK athletes) reported on the same date.",
+    "source_count": 2,
     "articles": [
       {
         "index": 305,
         "title": "[REchte Verbindungen: Polizist in Frankreich unter Terrorverdacht festgenommen](#item-tech-news-305) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 310,
+        "title": "[Wildberger über KI: „Wir müssen imstande sein, diese Systeme wenn nötig zu stoppen“](#item-tech-news-310) ⭐️ ?/10",
         "source": "Unknown",
         "source_url": "",
         "path": ""
@@ -4613,23 +4920,6 @@
     ]
   },
   {
-    "event_id": "EVT-20260919-000282",
-    "date": "2026-09-19",
-    "language": "en",
-    "event_title": "S. Korea Baseball Team targets consecutive gold at Asian Games",
-    "event_reason": "The South Korean baseball team traveled to the Asian Games aiming to win their fifth consecutive gold medal.",
-    "source_count": 1,
-    "articles": [
-      {
-        "index": 310,
-        "title": "[Wildberger über KI: „Wir müssen imstande sein, diese Systeme wenn nötig zu stoppen“](#item-tech-news-310) ⭐️ ?/10",
-        "source": "Unknown",
-        "source_url": "",
-        "path": ""
-      }
-    ]
-  },
-  {
     "event_id": "EVT-20260919-000283",
     "date": "2026-09-19",
     "language": "en",
@@ -4684,8 +4974,8 @@
     "event_id": "EVT-20260919-000286",
     "date": "2026-09-19",
     "language": "en",
-    "event_title": "Germany announces fuel price relief measures",
-    "event_reason": "Cluster 10提到德国政府引入缓解燃油高价的措施，Cluster 26详细描述了德政府拟设燃油价格上限及财长呼吁欧盟信号。两者均指向德国政府针对当前高油价的同一系列应对政策/立法进程。",
+    "event_title": "Germany sets fuel price cap and minister calls for EU action",
+    "event_reason": "Clusters 14 and 30 describe the same specific German policy process regarding fuel price relief, ranging from announcement to compromise details.",
     "source_count": 3,
     "articles": [
       {
@@ -6079,15 +6369,22 @@
     "event_id": "EVT-20260919-000367",
     "date": "2026-09-19",
     "language": "en",
-    "event_title": "俄罗斯国家杜马选举投票率",
-    "event_reason": "关于俄罗斯国家杜马选举第一天投票情况的独立政治报道",
-    "source_count": 1,
+    "event_title": "俄罗斯2026年国家杜马选举及地方投票率",
+    "event_reason": "Cluster 5报道了俄罗斯国家杜马选举第一天的整体投票情况，Cluster 13报道了楚科奇地区在选举第二天的具体投票率。两者均发生在2026年9月18-19日的时间窗口内，属于同一场俄罗斯联邦选举事件的不同维度（全国/联邦层级 vs 地方/具体选区表现），故合并。",
+    "source_count": 2,
     "articles": [
       {
         "index": 399,
         "title": "[Billionaire Man United owner says he has lost confidence in the UK](#item-finance-news-29) ⭐️",
         "source": "news.google.com",
         "source_url": "https://news.google.com/rss/articles/CBMiXkFVX3lxTE1rRDVBTllEZnpNUG95TjFuMC1fWHZ5OEFxU0xZbERSdk5JQkZXanlDWGlVa3pPdzl4RS1Da1JVUFVmaFlZUm1tZFdxNEdGS3RxcWJQY2psMWZ5bjdBNGc?oc=5&hl=en-US&gl=US&ceid=US:en",
+        "path": ""
+      },
+      {
+        "index": 410,
+        "title": "[03版 - 美国向中方返还64件（套）文物艺术品和古生物化石](#item-finance-news-40) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
         "path": ""
       }
     ]
@@ -6096,8 +6393,8 @@
     "event_id": "EVT-20260919-000368",
     "date": "2026-09-19",
     "language": "en",
-    "event_title": "拉夫罗夫与鲁比奥联合国会晤及乌克兰议题谈判",
-    "event_reason": "Cluster 4报道拉夫罗夫与鲁比奥在联合国大会期间会晤的筹备情况，Cluster 10报道乌克兰议题将在拉夫罗夫的国际谈判中成为关键议题。两者均指向俄罗斯外长拉夫罗夫在联合国大会期间进行的外交活动及具体谈判内容，属于同一现实世界外交事件的不同侧面报道。",
+    "event_title": "拉夫罗夫联合国大会外交活动（会晤鲁比奥及乌克兰议题）",
+    "event_reason": "Cluster 6报道拉夫罗夫与鲁比奥在联合国大会期间的会晤筹备，Cluster 12报道拉夫罗夫在国际谈判中将乌克兰列为关键议题。这两者均发生在同一时间段（联合国大会期间），涉及同一核心人物（拉夫罗夫）在同一外交舞台上的不同议题/会晤安排，属于同一系列外交活动的具体组成部分，故合并。",
     "source_count": 2,
     "articles": [
       {
@@ -6218,23 +6515,6 @@
         "title": "[UEFA, CONCACAF demand FIFA make $2.1 billion payout to member groups amid funding row](#item-finance-news-38) ⭐️",
         "source": "news.google.com",
         "source_url": "https://news.google.com/rss/articles/CBMigAFBVV95cUxNeUlta1VTT1dFMkJwV3IwcWtnVUxJN3d1QjQ0clpycURXSjhSLVJLTk1Fa1pwTWhMMTBpdXllRl8zRG1vY1FGVDZuNnc1N05GcWNHd2N1c1JvRWlhTVBEUGpTZG1Ua0d5SHRtQjVwaFdCMmpGRFliMWFySjRNNHF1Qg?oc=5&hl=en-US&gl=US&ceid=US:en",
-        "path": ""
-      }
-    ]
-  },
-  {
-    "event_id": "EVT-20260919-000375",
-    "date": "2026-09-19",
-    "language": "en",
-    "event_title": "楚科奇地区选举投票率",
-    "event_reason": "关于楚科奇地区Wankarem村在选举第二天实现100%投票率的独立地方政治报道",
-    "source_count": 1,
-    "articles": [
-      {
-        "index": 410,
-        "title": "[03版 - 美国向中方返还64件（套）文物艺术品和古生物化石](#item-finance-news-40) ⭐️",
-        "source": "Unknown",
-        "source_url": "",
         "path": ""
       }
     ]
