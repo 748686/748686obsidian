@@ -73,8 +73,6 @@ Workflow 传入 --today 时：
 Workflow 未传 --today 时：
 
     使用 Asia/Shanghai
-
-======================================================================
 """
 
 from __future__ import annotations
@@ -84,7 +82,7 @@ import json
 import os
 import re
 import time
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from urllib import error, request
 from zoneinfo import ZoneInfo
@@ -149,7 +147,7 @@ AGNES_BASE_URL = os.getenv(
 
 AGNES_MODEL = os.getenv(
     "AGNES_MODEL",
-    "agnes-3.0-flash"
+    "agnes-2.5-flash"
 )
 
 AGNES_API_KEY = os.getenv(
@@ -877,8 +875,8 @@ def save_batch_summary(
         "event_ids": event_ids,
         "dates": dates,
         "created_at": datetime.now(
-    timezone.utc
-       ).isoformat(),
+            timezone.utc
+        ).isoformat(),
     }
 
     atomic_write(
