@@ -5,7 +5,7 @@ status: active
 importance: 4
 confidence: 0.8
 created_at: 2026-09-14
-last_updated: 2026-09-14
+last_updated: 2026-09-19
 ---
 
 # Anthropic
@@ -515,3 +515,16 @@ AI 公司，CEO 呼吁放缓 AI 发展。据报道其模型被胡塞武装试图
 
 - [[Dario Amodei]]
 - [[胡塞武装]]
+
+## 知识更新｜2026-09-19
+
+尽管面临AI安全领域的争议与警告，Anthropic于2026年9月仍推进IPO进程，显示科技行业资本化路径的分歧。
+
+### 新增事实
+
+- Anthropic在2026年9月推进IPO
+
+### 来源 EventUnit
+
+- `EVT-20260919-000386`
+
