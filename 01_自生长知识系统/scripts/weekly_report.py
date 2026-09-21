@@ -877,8 +877,8 @@ def save_batch_summary(
         "event_ids": event_ids,
         "dates": dates,
         "created_at": datetime.now(
-            timezone=TIMEZONE
-        ).isoformat(),
+    timezone.utc
+       ).isoformat(),
     }
 
     atomic_write(
