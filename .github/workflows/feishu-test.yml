@@ -15,27 +15,38 @@ jobs:
     steps:
 
       # ==========================================================
-      # 1. Checkout 748686obsidian
+      # 1. Checkout
       # ==========================================================
 
       - name: Checkout 748686obsidian
         uses: actions/checkout@v4
 
       # ==========================================================
-      # 2. 检查飞书 Secrets
+      # 2. 检查飞书 Webhook
+      #
+      # 注意：
+      #
+      # 这里完全按照之前已经测试成功的飞书方式。
+      #
+      # 只使用：
+      #
+      #     FEISHU_WEBHOOK
+      #
+      # 不再要求：
+      #
+      #     FEISHU_APP_ID
+      #     FEISHU_APP_SECRET
       # ==========================================================
 
-      - name: 检查飞书 Secrets
+      - name: 检查飞书 Webhook
         env:
           FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
-          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
-          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
         run: |
           set -e
 
           echo
           echo "=================================================="
-          echo "检查飞书 Secrets"
+          echo "检查飞书 Webhook"
           echo "=================================================="
 
           if [ -z "$FEISHU_WEBHOOK" ]; then
@@ -45,24 +56,8 @@ jobs:
 
           echo "✅ FEISHU_WEBHOOK 已配置"
 
-          if [ -z "$FEISHU_APP_ID" ]; then
-            echo "❌ FEISHU_APP_ID 未配置"
-            exit 1
-          fi
-
-          echo "✅ FEISHU_APP_ID 已配置"
-
-          if [ -z "$FEISHU_APP_SECRET" ]; then
-            echo "❌ FEISHU_APP_SECRET 未配置"
-            exit 1
-          fi
-
-          echo "✅ FEISHU_APP_SECRET 已配置"
-
       # ==========================================================
-      # 3. 检查仓库实际目录
-      #
-      # 方便确认日报 / 周报真实结构。
+      # 3. 检查日报 / 周报目录
       # ==========================================================
 
       - name: 检查日报周报目录
@@ -115,7 +110,10 @@ jobs:
       # ==========================================================
       # 4. 查找最新带图日报
       #
-      # 日报是必须项。
+      # 日报：
+      #
+      #     必须存在
+      #
       # 找不到直接失败。
       # ==========================================================
 
@@ -132,8 +130,10 @@ jobs:
           echo "=================================================="
 
           if [ ! -d "$DAILY_DIR" ]; then
+
             echo "❌ 日报目录不存在：$DAILY_DIR"
             exit 1
+
           fi
 
           DAILY_REPORT=$(
@@ -150,7 +150,7 @@ jobs:
             echo "❌ 没有找到 *_带图.md 日报"
 
             echo
-            echo "当前日报目录内容："
+            echo "当前日报 Markdown："
 
             find "$DAILY_DIR" \
               -type f \
@@ -172,9 +172,11 @@ jobs:
       # ==========================================================
       # 5. 查找最新带图周报
       #
-      # 周报是可选项。
+      # 周报：
       #
-      # 没有周报：
+      #     可选
+      #
+      # 没有：
       #
       #     SKIP
       #
@@ -266,6 +268,11 @@ jobs:
           echo "【日报】"
           echo "$DAILY_REPORT"
 
+          if [ ! -s "$DAILY_REPORT" ]; then
+            echo "❌ 日报文件为空"
+            exit 1
+          fi
+
           echo
           echo "日报大小："
           wc -c "$DAILY_REPORT"
@@ -276,6 +283,11 @@ jobs:
           if [ "$WEEKLY_STATUS" = "FOUND" ]; then
 
             echo "$WEEKLY_REPORT"
+
+            if [ ! -s "$WEEKLY_REPORT" ]; then
+              echo "❌ 周报文件为空"
+              exit 1
+            fi
 
             echo
             echo "周报大小："
@@ -289,165 +301,29 @@ jobs:
           fi
 
       # ==========================================================
-      # 7. 安装 Python 依赖
+      # 7. 发送带图日报
       #
-      # requests：
-      #     获取 tenant_access_token
-      #     上传图片
-      #     调用飞书 Webhook
-      # ==========================================================
-
-      - name: 安装飞书测试依赖
-        run: |
-          set -e
-
-          python -m pip install --disable-pip-version-check --quiet requests
-
-          echo "✅ requests 安装完成"
-
-      # ==========================================================
-      # 8. 获取 Feishu tenant_access_token
+      # 完全使用之前已经成功的：
       #
-      # 用于把本地 PNG 上传到飞书。
-      # ==========================================================
-
-      - name: 获取飞书 tenant_access_token
-        id: feishu_token
-        env:
-          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
-          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
-        run: |
-          set -e
-
-          echo
-          echo "=================================================="
-          echo "获取飞书 tenant_access_token"
-          echo "=================================================="
-
-          python <<'PY'
-
-          import json
-          import os
-          import sys
-
-          import requests
-
-
-          app_id = os.environ["FEISHU_APP_ID"]
-          app_secret = os.environ["FEISHU_APP_SECRET"]
-
-          url = (
-              "https://open.feishu.cn"
-              "/open-apis/auth/v3/tenant_access_token/internal"
-          )
-
-          payload = {
-              "app_id": app_id,
-              "app_secret": app_secret,
-          }
-
-          response = requests.post(
-              url,
-              json=payload,
-              timeout=30,
-          )
-
-          print(
-              "HTTP STATUS:",
-              response.status_code
-          )
-
-          try:
-              data = response.json()
-          except Exception:
-              print(response.text)
-              sys.exit(1)
-
-          if response.status_code != 200:
-              print(
-                  "❌ 获取 tenant_access_token HTTP 失败"
-              )
-              print(
-                  json.dumps(
-                      data,
-                      ensure_ascii=False,
-                      indent=2,
-                  )
-              )
-              sys.exit(1)
-
-          if data.get("code") != 0:
-              print(
-                  "❌ 获取 tenant_access_token API 失败"
-              )
-              print(
-                  json.dumps(
-                      data,
-                      ensure_ascii=False,
-                      indent=2,
-                  )
-              )
-              sys.exit(1)
-
-          token = data.get("tenant_access_token")
-
-          if not token:
-              print(
-                  "❌ 飞书没有返回 tenant_access_token"
-              )
-              sys.exit(1)
-
-          with open(
-              os.environ["GITHUB_OUTPUT"],
-              "a",
-              encoding="utf-8",
-          ) as output:
-
-              output.write(
-                  f"tenant_access_token={token}\n"
-              )
-
-          print(
-              "✅ tenant_access_token 获取成功"
-          )
-
-          PY
-
-      # ==========================================================
-      # 9. 发送带图日报
+      #     FEISHU_WEBHOOK
       #
-      # 这是核心步骤。
-      #
-      # Markdown：
-      #
-      #     ![首图](...)
-      #
-      # 不直接发给飞书。
-      #
-      # 而是：
-      #
-      #     本地 PNG
-      #          ↓
-      #     上传飞书
-      #          ↓
-      #     image_key
-      #          ↓
-      #     Card img
-      #
-      # 所以飞书里是真正显示图片。
+      # 不需要 APP_ID。
+      # 不需要 APP_SECRET。
+      # 不需要 tenant_access_token。
       # ==========================================================
 
       - name: 发送带图日报到飞书
         env:
           FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
-          FEISHU_TOKEN: ${{ steps.feishu_token.outputs.tenant_access_token }}
           DAILY_REPORT: ${{ steps.find_daily.outputs.daily_report }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
         run: |
           set -e
 
           echo
           echo "=================================================="
-          echo "FEISHU DAILY REPORT — 真正带图版"
+          echo "FEISHU DAILY REPORT"
           echo "=================================================="
 
           python - "$DAILY_REPORT" <<'PY'
@@ -456,25 +332,36 @@ jobs:
           import os
           import re
           import sys
+          import urllib.parse
+          import urllib.request
           from pathlib import Path
-
-          import requests
 
 
           REPORT_PATH = Path(sys.argv[1]).resolve()
 
           WEBHOOK = os.environ["FEISHU_WEBHOOK"]
-          TOKEN = os.environ["FEISHU_TOKEN"]
 
+          REPOSITORY = os.environ["GITHUB_REPOSITORY"]
+          BRANCH = os.environ["GITHUB_REF_NAME"]
 
-          # ======================================================
-          # 基础检查
-          # ======================================================
 
           if not REPORT_PATH.exists():
+
               print(
                   f"❌ 日报不存在：{REPORT_PATH}"
               )
+
+              sys.exit(1)
+
+
+          content = REPORT_PATH.read_text(
+              encoding="utf-8"
+          ).strip()
+
+
+          if not content:
+
+              print("❌ 日报内容为空")
               sys.exit(1)
 
 
@@ -484,13 +371,18 @@ jobs:
 
 
           # ======================================================
-          # Markdown 图片解析
+          # Markdown 图片
           #
           # 支持：
           #
-          # ![首图](../04_图片/日报/xxx/首图.png)
+          # ![首图](../04_图片/xxx.png)
           #
-          # ![新闻插图](...)
+          # 把 GitHub 仓库里的本地图片转换成：
+          #
+          # https://raw.githubusercontent.com/
+          #     owner/repo/branch/path
+          #
+          # 这样 Webhook 卡片可以引用公开图片地址。
           # ======================================================
 
           IMAGE_PATTERN = re.compile(
@@ -498,64 +390,29 @@ jobs:
           )
 
 
-          # ======================================================
-          # 获取文本 / 图片混合结构
-          #
-          # 保留原 Markdown 中的顺序。
-          # ======================================================
-
-          content = REPORT_PATH.read_text(
-              encoding="utf-8"
-          ).strip()
-
-
-          matches = list(
-              IMAGE_PATTERN.finditer(content)
-          )
-
-
-          print()
-          print(
-              f"检测到 Markdown 图片：{len(matches)} 张"
-          )
-
-
-          # ======================================================
-          # 解析本地图片
-          # ======================================================
-
-          def resolve_image_path(raw_path):
+          def local_to_raw_url(raw_path):
 
               raw_path = raw_path.strip()
 
-              # HTTP 图片暂不走本地上传
+              # 已经是 HTTP 图片
               if re.match(
                   r"^https?://",
                   raw_path,
                   re.IGNORECASE,
               ):
-                  return None
+                  return raw_path
 
-              # Markdown URL decode
-              from urllib.parse import unquote
-
-              raw_path = unquote(raw_path)
+              raw_path = urllib.parse.unquote(
+                  raw_path
+              )
 
               # 相对于 Markdown 文件所在目录
-              path = (
+              image_path = (
                   REPORT_PATH.parent
                   / raw_path
               ).resolve()
 
-              return path
-
-
-          # ======================================================
-          # 上传图片到飞书
-          # ======================================================
-
-          def upload_image(image_path):
-
+              # 必须存在
               if not image_path.exists():
 
                   raise FileNotFoundError(
@@ -565,663 +422,39 @@ jobs:
               if not image_path.is_file():
 
                   raise RuntimeError(
-                      f"不是图片文件：{image_path}"
+                      f"图片不是文件：{image_path}"
                   )
 
-              size = image_path.stat().st_size
+              # 转换成仓库相对路径
+              repo_root = Path.cwd().resolve()
 
-              if size <= 0:
+              try:
 
-                  raise RuntimeError(
-                      f"图片为空：{image_path}"
+                  relative_path = (
+                      image_path
+                      .relative_to(repo_root)
                   )
 
-              if size > 10 * 1024 * 1024:
+              except ValueError:
 
                   raise RuntimeError(
-                      f"图片超过 10MB："
+                      "图片不在 GitHub 仓库目录内："
                       f"{image_path}"
                   )
 
-              print()
-              print("上传图片到飞书：")
-              print(f"  FILE : {image_path}")
-              print(f"  SIZE : {size} bytes")
-
-              url = (
-                  "https://open.feishu.cn"
-                  "/open-apis/im/v1/images"
+              raw_url = (
+                  "https://raw.githubusercontent.com/"
+                  f"{REPOSITORY}/"
+                  f"{BRANCH}/"
+                  f"{relative_path.as_posix()}"
               )
 
-              headers = {
-                  "Authorization":
-                      f"Bearer {TOKEN}"
-              }
-
-              with open(
-                  image_path,
-                  "rb",
-              ) as image_file:
-
-                  files = {
-                      "image": (
-                          image_path.name,
-                          image_file,
-                          "image/png",
-                      )
-                  }
-
-                  data = {
-                      "image_type": "message"
-                  }
-
-                  response = requests.post(
-                      url,
-                      headers=headers,
-                      data=data,
-                      files=files,
-                      timeout=60,
-                  )
-
-              print(
-                  f"  HTTP  : {response.status_code}"
-              )
-
-              try:
-                  result = response.json()
-              except Exception:
-
-                  print(response.text)
-
-                  raise RuntimeError(
-                      "飞书图片上传返回非 JSON"
-                  )
-
-              if response.status_code != 200:
-
-                  print(
-                      json.dumps(
-                          result,
-                          ensure_ascii=False,
-                          indent=2,
-                      )
-                  )
-
-                  raise RuntimeError(
-                      "飞书图片上传 HTTP 失败"
-                  )
-
-              if result.get("code") != 0:
-
-                  print(
-                      json.dumps(
-                          result,
-                          ensure_ascii=False,
-                          indent=2,
-                      )
-                  )
-
-                  raise RuntimeError(
-                      "飞书图片上传 API 失败"
-                  )
-
-              image_key = (
-                  result
-                  .get("data", {})
-                  .get("image_key")
-              )
-
-              if not image_key:
-
-                  raise RuntimeError(
-                      "飞书图片上传成功但没有 image_key"
-                  )
-
-              print(
-                  f"  IMAGE KEY : {image_key}"
-              )
-
-              return image_key
+              return raw_url
 
 
           # ======================================================
-          # 上传所有图片
-          #
-          # 使用缓存，避免同一图片重复上传。
+          # 转换 Markdown 图片
           # ======================================================
-
-          image_cache = {}
-
-          image_records = []
-
-
-          for index, match in enumerate(
-              matches,
-              start=1,
-          ):
-
-              alt = match.group(1).strip()
-
-              raw_path = match.group(2).strip()
-
-              image_path = resolve_image_path(
-                  raw_path
-              )
-
-              print()
-              print(
-                  f"图片 {index}:"
-              )
-              print(
-                  f"  ALT  : {alt}"
-              )
-              print(
-                  f"  LINK : {raw_path}"
-              )
-
-              if image_path is None:
-
-                  print(
-                      "  ⚠ HTTP 图片暂不上传"
-                  )
-
-                  image_records.append(
-                      {
-                          "start": match.start(),
-                          "end": match.end(),
-                          "type": "remote",
-                          "alt": alt,
-                          "url": raw_path,
-                      }
-                  )
-
-                  continue
-
-              print(
-                  f"  FILE : {image_path}"
-              )
-
-              if not image_path.exists():
-
-                  print(
-                      "❌ 本地图片不存在"
-                  )
-
-                  sys.exit(1)
-
-              cache_key = str(
-                  image_path
-              )
-
-              if cache_key in image_cache:
-
-                  image_key = image_cache[
-                      cache_key
-                  ]
-
-                  print(
-                      "  ♻ 使用已上传 image_key"
-                  )
-
-              else:
-
-                  image_key = upload_image(
-                      image_path
-                  )
-
-                  image_cache[
-                      cache_key
-                  ] = image_key
-
-              image_records.append(
-                  {
-                      "start": match.start(),
-                      "end": match.end(),
-                      "type": "local",
-                      "alt": alt,
-                      "path": str(image_path),
-                      "image_key": image_key,
-                  }
-              )
-
-
-          # ======================================================
-          # 构造 Card Elements
-          #
-          # 原 Markdown：
-          #
-          # 文字
-          # 图片
-          # 文字
-          #
-          # 转换：
-          #
-          # markdown element
-          # img element
-          # markdown element
-          #
-          # 保留原顺序。
-          # ======================================================
-
-          elements = []
-
-          cursor = 0
-
-
-          def add_markdown(text):
-
-              text = text.strip()
-
-              if not text:
-                  return
-
-              # 删除 Markdown 图片已经被单独处理，
-              # 所以这里不会再出现图片语法。
-
-              elements.append(
-                  {
-                      "tag": "markdown",
-                      "content": text,
-                  }
-              )
-
-
-          for record in image_records:
-
-              start = record["start"]
-
-              end = record["end"]
-
-              before = content[
-                  cursor:start
-              ]
-
-              add_markdown(before)
-
-              # --------------------------------------------------
-              # 本地图片
-              # --------------------------------------------------
-
-              if record["type"] == "local":
-
-                  elements.append(
-                      {
-                          "tag": "img",
-                          "img_key":
-                              record["image_key"],
-                          "alt": {
-                              "tag": "plain_text",
-                              "content":
-                                  record["alt"]
-                                  or "新闻插图",
-                          },
-                          "scale_type":
-                              "fit_horizontal",
-                          "preview": True,
-                      }
-                  )
-
-              # --------------------------------------------------
-              # 如果将来出现远程图片
-              #
-              # 当前不直接把远程 URL 当作飞书 image。
-              # --------------------------------------------------
-
-              else:
-
-                  add_markdown(
-                      f"[图片]({record['url']})"
-                  )
-
-              cursor = end
-
-
-          # 最后一段文字
-
-          tail = content[cursor:]
-
-          add_markdown(tail)
-
-
-          # ======================================================
-          # 如果没有图片
-          # ======================================================
-
-          if not image_records:
-
-              print()
-              print(
-                  "⚠ Markdown 中没有检测到图片"
-              )
-
-
-          # ======================================================
-          # 防止 Card 元素过多
-          #
-          # 当前日报测试直接构建一张卡片。
-          # 如果内容非常长，则按元素顺序拆卡片。
-          # ======================================================
-
-          MAX_MARKDOWN_CHARS = 6500
-
-          cards = []
-
-          current_elements = []
-
-          current_chars = 0
-
-
-          def flush():
-
-              nonlocal current_elements
-              nonlocal current_chars
-
-              if current_elements:
-
-                  cards.append(
-                      current_elements
-                  )
-
-              current_elements = []
-
-              current_chars = 0
-
-
-          for element in elements:
-
-              if element["tag"] == "markdown":
-
-                  element_chars = len(
-                      element.get(
-                          "content",
-                          ""
-                      )
-                  )
-
-                  # 单个 Markdown 太长
-                  if (
-                      element_chars
-                      >
-                      MAX_MARKDOWN_CHARS
-                  ):
-
-                      text = element[
-                          "content"
-                      ]
-
-                      while len(text) > MAX_MARKDOWN_CHARS:
-
-                          if current_elements:
-
-                              flush()
-
-                          current_elements = [
-                              {
-                                  "tag": "markdown",
-                                  "content":
-                                      text[
-                                          :MAX_MARKDOWN_CHARS
-                                      ],
-                              }
-                          ]
-
-                          flush()
-
-                          text = text[
-                              MAX_MARKDOWN_CHARS:
-                          ]
-
-                      if text:
-
-                          current_elements = [
-                              {
-                                  "tag": "markdown",
-                                  "content":
-                                      text,
-                              }
-                          ]
-
-                          current_chars = len(
-                              text
-                          )
-
-                      continue
-
-                  if (
-                      current_chars
-                      +
-                      element_chars
-                      >
-                      MAX_MARKDOWN_CHARS
-                  ):
-
-                      flush()
-
-                  current_elements.append(
-                      element
-                  )
-
-                  current_chars += (
-                      element_chars
-                  )
-
-              else:
-
-                  current_elements.append(
-                      element
-                  )
-
-
-          flush()
-
-
-          if not cards:
-
-              cards = [
-                  [
-                      {
-                          "tag": "markdown",
-                          "content":
-                              "带图日报内容为空。",
-                      }
-                  ]
-              ]
-
-
-          # ======================================================
-          # 发送 Card
-          # ======================================================
-
-          total = len(cards)
-
-          print()
-          print(
-              f"最终生成飞书日报卡片：{total} 张"
-          )
-
-
-          for index, card_elements in enumerate(
-              cards,
-              start=1,
-          ):
-
-              if total == 1:
-
-                  header_title = (
-                      "748686｜自生长知识系统"
-                      "｜日报｜带图版"
-                  )
-
-              else:
-
-                  header_title = (
-                      "748686｜自生长知识系统"
-                      "｜日报｜带图版"
-                      f"｜第 {index}/{total} 部分"
-                  )
-
-              payload = {
-
-                  "msg_type": "interactive",
-
-                  "card": {
-
-                      "header": {
-
-                          "template": "blue",
-
-                          "title": {
-                              "tag": "plain_text",
-                              "content":
-                                  header_title,
-                          },
-                      },
-
-                      "elements":
-                          card_elements,
-                  },
-              }
-
-              print()
-              print(
-                  f"发送日报卡片 "
-                  f"{index}/{total}"
-              )
-
-              response = requests.post(
-                  WEBHOOK,
-                  json=payload,
-                  timeout=60,
-              )
-
-              print(
-                  "HTTP:",
-                  response.status_code
-              )
-
-              try:
-                  result = response.json()
-              except Exception:
-
-                  print(response.text)
-
-                  raise RuntimeError(
-                      "飞书 Webhook 返回非 JSON"
-                  )
-
-              print(
-                  json.dumps(
-                      result,
-                      ensure_ascii=False,
-                      indent=2,
-                  )
-              )
-
-              if (
-                  response.status_code
-                  != 200
-              ):
-
-                  raise RuntimeError(
-                      "飞书日报发送 HTTP 失败"
-                  )
-
-              if result.get("code") != 0:
-
-                  raise RuntimeError(
-                      "飞书日报发送失败"
-                  )
-
-              print(
-                  f"✅ 日报卡片 "
-                  f"{index}/{total} 发送成功"
-              )
-
-
-          print()
-          print(
-              "=================================================="
-          )
-          print(
-              "✅ 带图日报发送完成"
-          )
-          print(
-              f"   图片数量：{len(image_records)}"
-          )
-          print(
-              f"   卡片数量：{total}"
-          )
-          print(
-              "=================================================="
-          )
-
-          PY
-
-      # ==========================================================
-      # 10. 发送带图周报
-      #
-      # 周报不存在：
-      #
-      #     SKIP
-      #
-      # 不失败。
-      # ==========================================================
-
-      - name: 发送带图周报到飞书
-        if: steps.find_weekly.outputs.weekly_status == 'FOUND'
-        env:
-          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
-          FEISHU_TOKEN: ${{ steps.feishu_token.outputs.tenant_access_token }}
-          WEEKLY_REPORT: ${{ steps.find_weekly.outputs.weekly_report }}
-        run: |
-          set -e
-
-          echo
-          echo "=================================================="
-          echo "FEISHU WEEKLY REPORT — 真正带图版"
-          echo "=================================================="
-
-          python - "$WEEKLY_REPORT" <<'PY'
-
-          import json
-          import os
-          import re
-          import sys
-          from pathlib import Path
-          from urllib.parse import unquote
-
-          import requests
-
-
-          REPORT_PATH = Path(sys.argv[1]).resolve()
-
-          WEBHOOK = os.environ["FEISHU_WEBHOOK"]
-          TOKEN = os.environ["FEISHU_TOKEN"]
-
-
-          if not REPORT_PATH.exists():
-
-              print(
-                  f"❌ 周报不存在：{REPORT_PATH}"
-              )
-
-              sys.exit(1)
-
-
-          print()
-          print("周报：")
-          print(REPORT_PATH)
-
-
-          IMAGE_PATTERN = re.compile(
-              r"!\[([^\]]*)\]\(\s*<?([^)>]+)>?\s*\)"
-          )
-
-
-          content = REPORT_PATH.read_text(
-              encoding="utf-8"
-          ).strip()
-
 
           matches = list(
               IMAGE_PATTERN.finditer(content)
@@ -1230,648 +463,62 @@ jobs:
 
           print()
           print(
-              f"检测到 Markdown 图片：{len(matches)} 张"
+              f"检测到 Markdown 图片："
+              f"{len(matches)} 张"
           )
 
 
-          def resolve_image_path(raw_path):
-
-              raw_path = raw_path.strip()
-
-              if re.match(
-                  r"^https?://",
-                  raw_path,
-                  re.IGNORECASE,
-              ):
-
-                  return None
-
-              raw_path = unquote(
-                  raw_path
-              )
-
-              return (
-                  REPORT_PATH.parent
-                  / raw_path
-              ).resolve()
+          converted_images = 0
 
 
-          def upload_image(image_path):
+          def replace_image(match):
 
-              if not image_path.exists():
-
-                  raise FileNotFoundError(
-                      f"图片不存在：{image_path}"
-                  )
-
-              if not image_path.is_file():
-
-                  raise RuntimeError(
-                      f"不是图片文件：{image_path}"
-                  )
-
-              size = image_path.stat().st_size
-
-              if size <= 0:
-
-                  raise RuntimeError(
-                      f"图片为空：{image_path}"
-                  )
-
-              if size > 10 * 1024 * 1024:
-
-                  raise RuntimeError(
-                      f"图片超过 10MB：{image_path}"
-                  )
-
-              print()
-              print("上传图片到飞书：")
-              print(f"  FILE : {image_path}")
-              print(f"  SIZE : {size} bytes")
-
-              url = (
-                  "https://open.feishu.cn"
-                  "/open-apis/im/v1/images"
-              )
-
-              headers = {
-                  "Authorization":
-                      f"Bearer {TOKEN}"
-              }
-
-              with open(
-                  image_path,
-                  "rb",
-              ) as image_file:
-
-                  response = requests.post(
-                      url,
-                      headers=headers,
-                      data={
-                          "image_type": "message"
-                      },
-                      files={
-                          "image": (
-                              image_path.name,
-                              image_file,
-                              "image/png",
-                          )
-                      },
-                      timeout=60,
-                  )
-
-              print(
-                  "HTTP:",
-                  response.status_code
-              )
-
-              try:
-
-                  result = response.json()
-
-              except Exception:
-
-                  print(response.text)
-
-                  raise RuntimeError(
-                      "飞书图片上传返回非 JSON"
-                  )
-
-              if (
-                  response.status_code
-                  != 200
-              ):
-
-                  print(
-                      json.dumps(
-                          result,
-                          ensure_ascii=False,
-                          indent=2,
-                      )
-                  )
-
-                  raise RuntimeError(
-                      "飞书图片上传 HTTP 失败"
-                  )
-
-              if result.get("code") != 0:
-
-                  print(
-                      json.dumps(
-                          result,
-                          ensure_ascii=False,
-                          indent=2,
-                      )
-                  )
-
-                  raise RuntimeError(
-                      "飞书图片上传 API 失败"
-                  )
-
-              image_key = (
-                  result
-                  .get("data", {})
-                  .get("image_key")
-              )
-
-              if not image_key:
-
-                  raise RuntimeError(
-                      "没有返回 image_key"
-                  )
-
-              print(
-                  "IMAGE KEY:",
-                  image_key
-              )
-
-              return image_key
-
-
-          image_cache = {}
-
-          image_records = []
-
-          for index, match in enumerate(
-              matches,
-              start=1,
-          ):
+              global converted_images
 
               alt = match.group(1).strip()
 
               raw_path = match.group(2).strip()
 
-              image_path = resolve_image_path(
-                  raw_path
-              )
-
-              print()
-              print(
-                  f"图片 {index}:"
-              )
-
-              print(
-                  f"  ALT  : {alt}"
-              )
-
-              print(
-                  f"  LINK : {raw_path}"
-              )
-
-              if image_path is None:
-
-                  print(
-                      "  ⚠ HTTP 图片暂不上传"
-                  )
-
-                  image_records.append(
-                      {
-                          "start": match.start(),
-                          "end": match.end(),
-                          "type": "remote",
-                          "alt": alt,
-                          "url": raw_path,
-                      }
-                  )
-
-                  continue
-
-              print(
-                  f"  FILE : {image_path}"
-              )
-
-              if not image_path.exists():
-
-                  print(
-                      "❌ 本地图片不存在"
-                  )
-
-                  sys.exit(1)
-
-              cache_key = str(
-                  image_path
-              )
-
-              if cache_key in image_cache:
-
-                  image_key = image_cache[
-                      cache_key
-                  ]
-
-              else:
-
-                  image_key = upload_image(
-                      image_path
-                  )
-
-                  image_cache[
-                      cache_key
-                  ] = image_key
-
-              image_records.append(
-                  {
-                      "start": match.start(),
-                      "end": match.end(),
-                      "type": "local",
-                      "alt": alt,
-                      "image_key": image_key,
-                  }
-              )
-
-
-          # ======================================================
-          # Markdown → Feishu Card Elements
-          # ======================================================
-
-          elements = []
-
-          cursor = 0
-
-
-          def add_markdown(text):
-
-              text = text.strip()
-
-              if not text:
-                  return
-
-              elements.append(
-                  {
-                      "tag": "markdown",
-                      "content": text,
-                  }
-              )
-
-
-          for record in image_records:
-
-              start = record["start"]
-
-              end = record["end"]
-
-              before = content[
-                  cursor:start
-              ]
-
-              add_markdown(before)
-
-              if record["type"] == "local":
-
-                  elements.append(
-                      {
-                          "tag": "img",
-                          "img_key":
-                              record["image_key"],
-                          "alt": {
-                              "tag": "plain_text",
-                              "content":
-                                  record["alt"]
-                                  or "新闻插图",
-                          },
-                          "scale_type":
-                              "fit_horizontal",
-                          "preview": True,
-                      }
-                  )
-
-              else:
-
-                  add_markdown(
-                      f"[图片]({record['url']})"
-                  )
-
-              cursor = end
-
-
-          add_markdown(
-              content[cursor:]
-          )
-
-
-          if not elements:
-
-              elements = [
-                  {
-                      "tag": "markdown",
-                      "content":
-                          "带图周报内容为空。",
-                  }
-              ]
-
-
-          # ======================================================
-          # 卡片拆分
-          # ======================================================
-
-          MAX_MARKDOWN_CHARS = 6500
-
-          cards = []
-
-          current_elements = []
-
-          current_chars = 0
-
-
-          def flush():
-
-              nonlocal current_elements
-              nonlocal current_chars
-
-              if current_elements:
-
-                  cards.append(
-                      current_elements
-                  )
-
-              current_elements = []
-
-              current_chars = 0
-
-
-          for element in elements:
-
-              if element["tag"] == "markdown":
-
-                  text = element.get(
-                      "content",
-                      ""
-                  )
-
-                  while len(text) > MAX_MARKDOWN_CHARS:
-
-                      if current_elements:
-
-                          flush()
-
-                      current_elements = [
-                          {
-                              "tag": "markdown",
-                              "content":
-                                  text[
-                                      :MAX_MARKDOWN_CHARS
-                                  ],
-                          }
-                      ]
-
-                      flush()
-
-                      text = text[
-                          MAX_MARKDOWN_CHARS:
-                      ]
-
-                  if text:
-
-                      if (
-                          current_chars
-                          +
-                          len(text)
-                          >
-                          MAX_MARKDOWN_CHARS
-                      ):
-
-                          flush()
-
-                      current_elements.append(
-                          {
-                              "tag": "markdown",
-                              "content": text,
-                          }
-                      )
-
-                      current_chars += len(text)
-
-              else:
-
-                  current_elements.append(
-                      element
-                  )
-
-
-          flush()
-
-
-          if not cards:
-
-              cards = [
-                  [
-                      {
-                          "tag": "markdown",
-                          "content":
-                              "带图周报内容为空。",
-                      }
-                  ]
-              ]
-
-
-          total = len(cards)
-
-
-          print()
-          print(
-              f"最终生成飞书周报卡片：{total} 张"
-          )
-
-
-          for index, card_elements in enumerate(
-              cards,
-              start=1,
-          ):
-
-              if total == 1:
-
-                  header_title = (
-                      "748686｜自生长知识系统"
-                      "｜周报｜带图版"
-                  )
-
-              else:
-
-                  header_title = (
-                      "748686｜自生长知识系统"
-                      "｜周报｜带图版"
-                      f"｜第 {index}/{total} 部分"
-                  )
-
-              payload = {
-
-                  "msg_type": "interactive",
-
-                  "card": {
-
-                      "header": {
-
-                          "template": "green",
-
-                          "title": {
-                              "tag": "plain_text",
-                              "content":
-                                  header_title,
-                          },
-                      },
-
-                      "elements":
-                          card_elements,
-                  },
-              }
-
-
-              print()
-              print(
-                  f"发送周报卡片 "
-                  f"{index}/{total}"
-              )
-
-
-              response = requests.post(
-                  WEBHOOK,
-                  json=payload,
-                  timeout=60,
-              )
-
-
-              print(
-                  "HTTP:",
-                  response.status_code
-              )
-
-
               try:
 
-                  result = response.json()
-
-              except Exception:
-
-                  print(response.text)
-
-                  raise RuntimeError(
-                      "飞书 Webhook 返回非 JSON"
+                  raw_url = local_to_raw_url(
+                      raw_path
                   )
 
+              except Exception as exc:
 
-              print(
-                  json.dumps(
-                      result,
-                      ensure_ascii=False,
-                      indent=2,
+                  print()
+                  print(
+                      f"❌ 图片解析失败：{raw_path}"
                   )
+                  print(
+                      f"   {exc}"
+                  )
+
+                  raise
+
+              print()
+              print("图片：")
+              print(f"  ALT : {alt}")
+              print(f"  原始: {raw_path}")
+              print(f"  URL : {raw_url}")
+
+              converted_images += 1
+
+              return (
+                  f"![{alt or '图片'}]"
+                  f"({raw_url})"
               )
 
 
-              if (
-                  response.status_code
-                  != 200
-              ):
-
-                  raise RuntimeError(
-                      "飞书周报发送 HTTP 失败"
-                  )
-
-
-              if result.get("code") != 0:
-
-                  raise RuntimeError(
-                      "飞书周报发送失败"
-                  )
-
-
-              print(
-                  f"✅ 周报卡片 "
-                  f"{index}/{total} 发送成功"
-              )
-
-
-          print()
-          print(
-              "=================================================="
+          converted_content = IMAGE_PATTERN.sub(
+              replace_image,
+              content,
           )
 
-          print(
-              "✅ 带图周报发送完成"
-          )
 
-          print(
-              f"   图片数量：{len(image_records)}"
-          )
-
-          print(
-              f"   卡片数量：{total}"
-          )
-
-          print(
-              "=================================================="
-
-          )
-
-          PY
-
-      # ==========================================================
-      # 11. 最终测试结果
-      # ==========================================================
-
-      - name: 飞书日报周报带图卡片测试完成
-        env:
-          WEEKLY_STATUS: ${{ steps.find_weekly.outputs.weekly_status }}
-        run: |
-          set -e
-
-          echo
-          echo "=================================================="
-          echo "748686 飞书日报周报带图卡片测试完成"
-          echo "=================================================="
-
-          echo
-          echo "日报："
-          echo "  ✅ 已发送"
-          echo "  ✅ Markdown 图片已解析"
-          echo "  ✅ 本地 PNG 已上传飞书"
-          echo "  ✅ image_key 已插入 Card"
-          echo "  ✅ 飞书卡片应直接显示图片"
-
-          echo
-          echo "周报："
-
-          if [ "$WEEKLY_STATUS" = "FOUND" ]; then
-
-            echo "  ✅ 找到带图周报"
-            echo "  ✅ 已发送"
-            echo "  ✅ Markdown 图片已解析"
-            echo "  ✅ 本地 PNG 已上传飞书"
-            echo "  ✅ image_key 已插入 Card"
-
-          else
-
-            echo "  ⏭ SKIPPED"
-            echo "  ℹ 当前没有带图周报"
-            echo "  ℹ 不影响本次测试成功"
-
-          fi
-
-          echo
-          echo "本次测试没有运行："
-          echo "  - Horizon"
-          echo "  - 新闻抓取"
-          echo "  - AI 分析"
-          echo "  - EventUnit"
-          echo "  - Skills"
-          echo "  - Knowledge Asset"
-          echo "  - 图片重新生成"
-
-          echo
-          echo "实际测试链路："
-          echo
-          echo " *_带图.md"
-          echo "      ↓"
-          echo " Markdown 图片路径"
-          echo "      ↓"
-          echo " 找到本地 PNG"
-          echo "      ↓"
-          echo " 上传到飞书"
-          echo "      ↓"
-          echo " image_key"
-          echo "      ↓"
-          echo " Interactive Card"
-          echo "      ↓"
-          echo " 飞书直接显示图片"
-
-          echo
-          echo "=================================================="
+          # ======================================================
+          # 为了测试 Webhook 卡片，
+          # 这里保留 Markdown 原始内容。
+          #
+          # 图片路径已经变
