@@ -17,19 +17,23 @@ jobs:
       # ============================================================
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          lfs: true
 
       # ============================================================
-      # 2. 检查 FEISHU_WEBHOOK
+      # 2. 检查飞书配置
       # ============================================================
-      - name: Check Feishu Webhook
+      - name: Check Feishu Secrets
         env:
           FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+          APP_ID: ${{ secrets.APP_ID }}
+          APP_SECRET: ${{ secrets.APP_SECRET }}
         run: |
           set -e
 
           echo
           echo "=================================================="
-          echo "检查飞书 Webhook"
+          echo "检查飞书配置"
           echo "=================================================="
 
           if [ -z "$FEISHU_WEBHOOK" ]; then
@@ -37,13 +41,26 @@ jobs:
             exit 1
           fi
 
+          if [ -z "$APP_ID" ]; then
+            echo "❌ APP_ID 未配置"
+            exit 1
+          fi
+
+          if [ -z "$APP_SECRET" ]; then
+            echo "❌ APP_SECRET 未配置"
+            exit 1
+          fi
+
           echo "✅ FEISHU_WEBHOOK 已配置"
+          echo "✅ APP_ID 已配置"
+          echo "✅ APP_SECRET 已配置"
 
       # ============================================================
       # 3. 查找最新日报 / 周报带图版
       # ============================================================
       - name: Find latest image reports
         id: find_reports
+        shell: bash
         run: |
           set -e
 
@@ -54,6 +71,10 @@ jobs:
 
           DAILY_ROOT="01_自生长知识系统/05_日报"
           WEEKLY_ROOT="01_自生长知识系统/06_周报"
+
+          # ----------------------------------------------------------
+          # 日报
+          # ----------------------------------------------------------
 
           echo
           echo "日报目录：$DAILY_ROOT"
@@ -79,12 +100,17 @@ jobs:
 
           echo "✅ 最新日报：$DAILY_REPORT"
 
+          # ----------------------------------------------------------
+          # 周报
+          # ----------------------------------------------------------
+
           echo
           echo "周报目录：$WEEKLY_ROOT"
 
           WEEKLY_REPORT=""
 
           if [ -d "$WEEKLY_ROOT" ]; then
+
             WEEKLY_REPORT=$(
               find "$WEEKLY_ROOT" \
                 -type f \
@@ -93,6 +119,7 @@ jobs:
               | sort \
               | tail -n 1
             )
+
           fi
 
           if [ -n "$WEEKLY_REPORT" ]; then
@@ -108,14 +135,23 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       # ============================================================
-      # 4. 发送日报带图版
+      # 4. Setup Python
+      # ============================================================
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # ============================================================
+      # 5. 发送日报带图版
       # ============================================================
       - name: Send Daily Image Report
         env:
           FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+          APP_ID: ${{ secrets.APP_ID }}
+          APP_SECRET: ${{ secrets.APP_SECRET }}
           DAILY_REPORT: ${{ steps.find_reports.outputs.daily_report }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          GITHUB_REF_NAME: ${{ github.ref_name }}
+        shell: bash
         run: |
           set -e
 
@@ -125,68 +161,404 @@ jobs:
           echo "=================================================="
 
           echo "日报文件：$DAILY_REPORT"
-          echo "GitHub Repository：$GITHUB_REPOSITORY"
-          echo "GitHub Branch：$GITHUB_REF_NAME"
 
-          python - "$DAILY_REPORT" "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME" "$FEISHU_WEBHOOK" <<'PY'
+          python - "$DAILY_REPORT" "$FEISHU_WEBHOOK" "$APP_ID" "$APP_SECRET" <<'PY'
           import sys
           import json
           import re
+          import mimetypes
           import urllib.parse
           import urllib.request
+          import urllib.error
           from pathlib import Path
 
-          report_file = Path(sys.argv[1])
-          repository = sys.argv[2]
-          branch = sys.argv[3]
-          webhook = sys.argv[4]
 
-          if not report_file.exists():
-              print(f"❌ 报告文件不存在：{report_file}")
-              sys.exit(1)
+          # ==========================================================
+          # 参数
+          # ==========================================================
+
+          report_file = Path(sys.argv[1])
+          webhook = sys.argv[2]
+          app_id = sys.argv[3]
+          app_secret = sys.argv[4]
+
+          BASE_URL = "https://open.feishu.cn"
+
+
+          # ==========================================================
+          # 基础 HTTP JSON
+          # ==========================================================
+
+          def post_json(url, payload, headers=None, timeout=60):
+
+              data = json.dumps(
+                  payload,
+                  ensure_ascii=False
+              ).encode("utf-8")
+
+              request_headers = {
+                  "Content-Type":
+                      "application/json; charset=utf-8"
+              }
+
+              if headers:
+                  request_headers.update(headers)
+
+              request = urllib.request.Request(
+                  url,
+                  data=data,
+                  headers=request_headers,
+                  method="POST"
+              )
+
+              try:
+
+                  with urllib.request.urlopen(
+                      request,
+                      timeout=timeout
+                  ) as response:
+
+                      status = response.status
+
+                      body = response.read().decode(
+                          "utf-8",
+                          errors="replace"
+                      )
+
+              except urllib.error.HTTPError as exc:
+
+                  body = exc.read().decode(
+                      "utf-8",
+                      errors="replace"
+                  )
+
+                  raise RuntimeError(
+                      f"HTTP {exc.code}: {body}"
+                  )
+
+              if status != 200:
+
+                  raise RuntimeError(
+                      f"HTTP {status}: {body}"
+                  )
+
+              try:
+                  result = json.loads(body)
+              except json.JSONDecodeError:
+                  raise RuntimeError(
+                      f"返回内容不是合法 JSON：{body}"
+                  )
+
+              return result
+
+
+          # ==========================================================
+          # 1. 获取 tenant_access_token
+          # ==========================================================
 
           print()
           print("--------------------------------------------------")
-          print("读取日报 Markdown")
+          print("STEP 1 | 获取 tenant_access_token")
           print("--------------------------------------------------")
 
-          content = report_file.read_text(encoding="utf-8")
-
-          if not content.strip():
-              print("❌ 日报 Markdown 为空")
-              sys.exit(1)
-
-          print(f"原始字符数：{len(content)}")
-
-          # ==========================================================
-          # GitHub Raw 基础地址
-          # ==========================================================
-
-          raw_base = (
-              f"https://raw.githubusercontent.com/"
-              f"{repository}/"
-              f"{branch}/"
+          token_result = post_json(
+              BASE_URL
+              + "/open-apis/auth/v3/tenant_access_token/internal",
+              {
+                  "app_id": app_id,
+                  "app_secret": app_secret
+              }
           )
 
-          print(f"Raw Base：{raw_base}")
+          if token_result.get("code") != 0:
+
+              raise RuntimeError(
+                  "获取 tenant_access_token 失败："
+                  + json.dumps(
+                      token_result,
+                      ensure_ascii=False
+                  )
+              )
+
+          tenant_access_token = (
+              token_result.get(
+                  "tenant_access_token"
+              )
+          )
+
+          if not tenant_access_token:
+
+              raise RuntimeError(
+                  "飞书没有返回 tenant_access_token"
+              )
+
+          print("✅ tenant_access_token 获取成功")
+
 
           # ==========================================================
-          # Markdown 图片路径转换
-          #
-          # 只修改：
-          #
-          # ![xxx](图片路径)
-          #
-          # 其他 Markdown 内容完全保持不变。
+          # 2. 上传图片
           # ==========================================================
+
+          def upload_image(image_path):
+
+              image_path = Path(image_path)
+
+              if not image_path.exists():
+
+                  raise RuntimeError(
+                      f"图片不存在：{image_path}"
+                  )
+
+              image_data = image_path.read_bytes()
+
+              if not image_data:
+
+                  raise RuntimeError(
+                      f"图片为空：{image_path}"
+                  )
+
+              filename = image_path.name
+
+              mime_type = (
+                  mimetypes.guess_type(filename)[0]
+                  or "application/octet-stream"
+              )
+
+              print()
+              print(
+                  f"🖼️ 上传图片：{image_path}"
+              )
+
+              print(
+                  f"   文件大小：{len(image_data):,} bytes"
+              )
+
+              upload_url = (
+                  BASE_URL
+                  + "/open-apis/im/v1/images"
+              )
+
+              boundary = (
+                  "----748686FeishuImageBoundary"
+              )
+
+              body_parts = []
+
+              # image_type
+              body_parts.append(
+                  (
+                      f"--{boundary}\r\n"
+                      f'Content-Disposition: form-data; '
+                      f'name="image_type"\r\n\r\n'
+                      f"message\r\n"
+                  ).encode("utf-8")
+              )
+
+              # image
+              body_parts.append(
+                  (
+                      f"--{boundary}\r\n"
+                      f'Content-Disposition: form-data; '
+                      f'name="image"; '
+                      f'filename="{filename}"\r\n'
+                      f"Content-Type: {mime_type}\r\n\r\n"
+                  ).encode("utf-8")
+              )
+
+              body_parts.append(image_data)
+
+              body_parts.append(
+                  f"\r\n--{boundary}--\r\n"
+                  .encode("utf-8")
+              )
+
+              body = b"".join(body_parts)
+
+              request = urllib.request.Request(
+                  upload_url,
+                  data=body,
+                  headers={
+                      "Authorization":
+                          "Bearer "
+                          + tenant_access_token,
+
+                      "Content-Type":
+                          "multipart/form-data; "
+                          f"boundary={boundary}"
+                  },
+                  method="POST"
+              )
+
+              try:
+
+                  with urllib.request.urlopen(
+                      request,
+                      timeout=120
+                  ) as response:
+
+                      status = response.status
+
+                      response_body = (
+                          response
+                          .read()
+                          .decode(
+                              "utf-8",
+                              errors="replace"
+                          )
+                      )
+
+              except urllib.error.HTTPError as exc:
+
+                  response_body = (
+                      exc.read()
+                      .decode(
+                          "utf-8",
+                          errors="replace"
+                      )
+                  )
+
+                  raise RuntimeError(
+                      f"图片上传失败 HTTP {exc.code}: "
+                      f"{response_body}"
+                  )
+
+              if status != 200:
+
+                  raise RuntimeError(
+                      f"图片上传失败 HTTP {status}: "
+                      f"{response_body}"
+                  )
+
+              try:
+
+                  result = json.loads(
+                      response_body
+                  )
+
+              except json.JSONDecodeError:
+
+                  raise RuntimeError(
+                      "图片上传返回内容不是 JSON："
+                      + response_body
+                  )
+
+              if result.get("code") != 0:
+
+                  raise RuntimeError(
+                      "图片上传失败："
+                      + json.dumps(
+                          result,
+                          ensure_ascii=False
+                      )
+                  )
+
+              image_key = (
+                  result
+                  .get("data", {})
+                  .get("image_key")
+              )
+
+              if not image_key:
+
+                  raise RuntimeError(
+                      "飞书上传成功但没有返回 image_key"
+                  )
+
+              print(
+                  f"   ✅ image_key：{image_key}"
+              )
+
+              return image_key
+
+
+          # ==========================================================
+          # 3. 读取 Markdown
+          # ==========================================================
+
+          print()
+          print("--------------------------------------------------")
+          print("STEP 2 | 读取日报 Markdown")
+          print("--------------------------------------------------")
+
+          if not report_file.exists():
+
+              raise RuntimeError(
+                  f"日报文件不存在：{report_file}"
+              )
+
+          content = report_file.read_text(
+              encoding="utf-8"
+          )
+
+          if not content.strip():
+
+              raise RuntimeError(
+                  "日报 Markdown 为空"
+              )
+
+          print(
+              f"原始字符数：{len(content)}"
+          )
+
+
+          # ==========================================================
+          # 4. Markdown 图片处理
+          # ==========================================================
+
+          print()
+          print("--------------------------------------------------")
+          print("STEP 3 | 上传日报图片并替换 image_key")
+          print("--------------------------------------------------")
 
           image_pattern = re.compile(
               r'(!\[[^\]]*\]\()([^)]+)(\))'
           )
 
-          # 使用可变对象保存计数。
-          # 不使用 nonlocal，避免 Python 顶层作用域错误。
           image_count = [0]
+          uploaded_images = {}
+
+
+          def locate_repo_image(markdown_path):
+
+              decoded_path = urllib.parse.unquote(
+                  markdown_path
+              )
+
+              marker = "04_图片/"
+
+              # ------------------------------------------------------
+              # 例如：
+              #
+              # ../04_图片/2026-09-21/首图.png
+              #
+              # → 01_自生长知识系统/04_图片/2026-09-21/首图.png
+              # ------------------------------------------------------
+
+              if marker in decoded_path:
+
+                  suffix_path = decoded_path.split(
+                      marker,
+                      1
+                  )[1]
+
+                  return Path(
+                      "01_自生长知识系统"
+                  ) / "04_图片" / suffix_path
+
+              # ------------------------------------------------------
+              # 其他相对路径
+              # ------------------------------------------------------
+
+              clean_path = decoded_path
+
+              while clean_path.startswith("../"):
+                  clean_path = clean_path[3:]
+
+              while clean_path.startswith("./"):
+                  clean_path = clean_path[2:]
+
+              return Path(clean_path)
+
 
           def replace_image(match):
 
@@ -197,152 +569,176 @@ jobs:
               image_path = image_path.strip()
 
               # ------------------------------------------------------
-              # 已经是网络图片，完全不动
+              # 已经是网络图片
               # ------------------------------------------------------
 
               if (
                   image_path.startswith("http://")
                   or image_path.startswith("https://")
               ):
+
                   print(
-                      f"ℹ️ 已是 URL，不修改：{image_path}"
+                      f"ℹ️ 已是网络图片，跳过："
+                      f"{image_path}"
                   )
+
                   return match.group(0)
 
               # ------------------------------------------------------
-              # 分离可能存在的 Markdown 图片标题
-              #
-              # ![alt](image.png "title")
+              # 分离 title
               # ------------------------------------------------------
 
               path_only = image_path
+
               title_part = ""
 
               if " " in image_path:
 
                   possible_path, possible_title = (
-                      image_path.split(" ", 1)
+                      image_path.split(
+                          " ",
+                          1
+                      )
                   )
 
                   if (
-                      possible_title.strip().startswith('"')
+                      possible_title
+                      .strip()
+                      .startswith('"')
                       or
-                      possible_title.strip().startswith("'")
+                      possible_title
+                      .strip()
+                      .startswith("'")
                   ):
+
                       path_only = possible_path
-                      title_part = " " + possible_title
+
+                      title_part = (
+                          " "
+                          + possible_title
+                      )
 
               # ------------------------------------------------------
-              # URL 解码
+              # 找到真实仓库图片
               # ------------------------------------------------------
 
-              decoded_path = urllib.parse.unquote(
+              repo_image = locate_repo_image(
                   path_only
               )
 
+              print()
+              print(
+                  f"🖼️ 图片 #{image_count[0] + 1}"
+              )
+
+              print(
+                  f"   Markdown：{image_path}"
+              )
+
+              print(
+                  f"   本地文件：{repo_image}"
+              )
+
+              if not repo_image.exists():
+
+                  raise RuntimeError(
+                      f"Markdown 引用的图片不存在："
+                      f"{repo_image}"
+                  )
+
               # ------------------------------------------------------
-              # 找到 04_图片/
-              #
-              # 例如：
-              #
-              # ../04_图片/2026-09-21/首图.png
-              #
-              # 最终：
-              #
-              # 01_自生长知识系统/04_图片/2026-09-21/首图.png
+              # 同一图片只上传一次
               # ------------------------------------------------------
 
-              marker = "04_图片/"
+              cache_key = str(
+                  repo_image.resolve()
+              )
 
-              if marker in decoded_path:
+              if cache_key in uploaded_images:
 
-                  suffix_path = decoded_path.split(
-                      marker,
-                      1
-                  )[1]
+                  image_key = uploaded_images[
+                      cache_key
+                  ]
 
-                  repo_image_path = (
-                      "01_自生长知识系统/"
-                      "04_图片/"
-                      + suffix_path
+                  print(
+                      "   ♻️ 使用已经上传的 image_key"
                   )
 
               else:
 
-                  # --------------------------------------------------
-                  # 不是 04_图片 的情况
-                  # 按仓库相对路径处理
-                  # --------------------------------------------------
+                  image_key = upload_image(
+                      repo_image
+                  )
 
-                  clean_path = decoded_path
-
-                  while clean_path.startswith("../"):
-                      clean_path = clean_path[3:]
-
-                  while clean_path.startswith("./"):
-                      clean_path = clean_path[2:]
-
-                  repo_image_path = clean_path
-
-              # ------------------------------------------------------
-              # 生成 GitHub Raw URL
-              # ------------------------------------------------------
-
-              encoded_path = urllib.parse.quote(
-                  repo_image_path,
-                  safe="/"
-              )
-
-              raw_url = raw_base + encoded_path
+                  uploaded_images[
+                      cache_key
+                  ] = image_key
 
               image_count[0] += 1
 
-              print()
-              print(
-                  f"🖼️ 图片 #{image_count[0]}"
-              )
-              print(
-                  f"   Markdown：{image_path}"
-              )
-              print(
-                  f"   Repo：    {repo_image_path}"
-              )
-              print(
-                  f"   Raw：     {raw_url}"
-              )
+              # ------------------------------------------------------
+              # 关键：
+              #
+              # 原来：
+              #
+              # ![首图](GitHub Raw URL)
+              #
+              # 现在：
+              #
+              # ![首图](image_key)
+              #
+              # 飞书卡片会把 image_key 识别为飞书图片资源。
+              # ------------------------------------------------------
 
               return (
                   prefix
-                  + raw_url
+                  + image_key
                   + title_part
                   + suffix
               )
+
 
           transformed = image_pattern.sub(
               replace_image,
               content
           )
 
+
           print()
           print("--------------------------------------------------")
-          print("Markdown 图片转换完成")
+          print("图片处理完成")
           print("--------------------------------------------------")
 
           print(
               f"发现图片数量：{image_count[0]}"
           )
 
+          print(
+              f"实际上传图片数量："
+              f"{len(uploaded_images)}"
+          )
+
           if image_count[0] == 0:
-              print("⚠️ 没有发现 Markdown 图片")
-          else:
+
               print(
-                  f"✅ 已转换 "
-                  f"{image_count[0]} 个图片引用"
+                  "⚠️ 日报没有发现 Markdown 图片"
               )
 
+          else:
+
+              print(
+                  "✅ 日报图片已经全部转换为 image_key"
+              )
+
+
           # ==========================================================
-          # Markdown 分块
+          # 5. Markdown 分块
           # ==========================================================
+
+          print()
+          print("--------------------------------------------------")
+          print("STEP 4 | Markdown 分块")
+          print("--------------------------------------------------")
 
           MAX_CHARS = 28000
 
@@ -354,7 +750,9 @@ jobs:
           for line in lines:
 
               candidate = (
-                  current + "\n" + line
+                  current
+                  + "\n"
+                  + line
                   if current
                   else line
               )
@@ -366,9 +764,11 @@ jobs:
               else:
 
                   if current:
-                      chunks.append(current)
 
-                  # 单独一行超过限制时强制切开
+                      chunks.append(
+                          current
+                      )
+
                   if len(line) > MAX_CHARS:
 
                       start = 0
@@ -391,19 +791,16 @@ jobs:
                       current = line
 
           if current:
-              chunks.append(current)
 
-          print()
-          print("--------------------------------------------------")
-          print("准备发送飞书")
-          print("--------------------------------------------------")
+              chunks.append(current)
 
           print(
               f"消息块数量：{len(chunks)}"
           )
 
+
           # ==========================================================
-          # 飞书发送函数
+          # 6. 发送飞书卡片
           # ==========================================================
 
           def send_feishu(
@@ -417,20 +814,28 @@ jobs:
               )
 
               payload = {
+
                   "msg_type": "interactive",
+
                   "card": {
+
                       "header": {
+
                           "title": {
                               "tag": "plain_text",
                               "content": title
                           },
+
                           "template": "blue"
                       },
+
                       "elements": [
+
                           {
                               "tag": "markdown",
                               "content": content_chunk
                           }
+
                       ]
                   }
               }
@@ -474,13 +879,20 @@ jobs:
                           )
                       )
 
-              except Exception as exc:
+              except urllib.error.HTTPError as exc:
 
-                  print(
-                      f"❌ 飞书请求失败：{exc}"
+                  response_body = (
+                      exc.read()
+                      .decode(
+                          "utf-8",
+                          errors="replace"
+                      )
                   )
 
-                  raise
+                  raise RuntimeError(
+                      f"飞书 HTTP {exc.code}: "
+                      f"{response_body}"
+                  )
 
               print(
                   f"HTTP Status：{status}"
@@ -513,16 +925,26 @@ jobs:
               if code != 0:
 
                   raise RuntimeError(
-                      f"飞书发送失败：{result}"
+                      "飞书发送失败："
+                      + json.dumps(
+                          result,
+                          ensure_ascii=False
+                      )
                   )
 
               print(
                   "✅ 飞书发送成功"
               )
 
+
           # ==========================================================
-          # 正式发送
+          # 7. 正式发送
           # ==========================================================
+
+          print()
+          print("--------------------------------------------------")
+          print("STEP 5 | 发送日报")
+          print("--------------------------------------------------")
 
           total = len(chunks)
 
@@ -541,21 +963,24 @@ jobs:
           print("==================================================")
           print("✅ 日报带图版发送完成")
           print("==================================================")
+
           PY
 
+
       # ============================================================
-      # 5. 发送周报带图版
+      # 6. 发送周报带图版
       #
       # 周报没有 *_带图.md：
-      # SKIP，不失败。
+      # SKIP，不失败
       # ============================================================
       - name: Send Weekly Image Report
         if: ${{ steps.find_reports.outputs.weekly_report != '' }}
         env:
           FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+          APP_ID: ${{ secrets.APP_ID }}
+          APP_SECRET: ${{ secrets.APP_SECRET }}
           WEEKLY_REPORT: ${{ steps.find_reports.outputs.weekly_report }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          GITHUB_REF_NAME: ${{ github.ref_name }}
+        shell: bash
         run: |
           set -e
 
@@ -565,58 +990,387 @@ jobs:
           echo "=================================================="
 
           echo "周报文件：$WEEKLY_REPORT"
-          echo "GitHub Repository：$GITHUB_REPOSITORY"
-          echo "GitHub Branch：$GITHUB_REF_NAME"
 
-          python - "$WEEKLY_REPORT" "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME" "$FEISHU_WEBHOOK" <<'PY'
+          python - "$WEEKLY_REPORT" "$FEISHU_WEBHOOK" "$APP_ID" "$APP_SECRET" <<'PY'
           import sys
           import json
           import re
+          import mimetypes
           import urllib.parse
           import urllib.request
+          import urllib.error
           from pathlib import Path
 
-          report_file = Path(sys.argv[1])
-          repository = sys.argv[2]
-          branch = sys.argv[3]
-          webhook = sys.argv[4]
 
-          if not report_file.exists():
-              print(f"❌ 报告文件不存在：{report_file}")
-              sys.exit(1)
+          report_file = Path(sys.argv[1])
+          webhook = sys.argv[2]
+          app_id = sys.argv[3]
+          app_secret = sys.argv[4]
+
+          BASE_URL = "https://open.feishu.cn"
+
+
+          # ==========================================================
+          # JSON POST
+          # ==========================================================
+
+          def post_json(url, payload, headers=None, timeout=60):
+
+              data = json.dumps(
+                  payload,
+                  ensure_ascii=False
+              ).encode("utf-8")
+
+              request_headers = {
+                  "Content-Type":
+                      "application/json; charset=utf-8"
+              }
+
+              if headers:
+                  request_headers.update(headers)
+
+              request = urllib.request.Request(
+                  url,
+                  data=data,
+                  headers=request_headers,
+                  method="POST"
+              )
+
+              try:
+
+                  with urllib.request.urlopen(
+                      request,
+                      timeout=timeout
+                  ) as response:
+
+                      status = response.status
+
+                      body = response.read().decode(
+                          "utf-8",
+                          errors="replace"
+                      )
+
+              except urllib.error.HTTPError as exc:
+
+                  body = exc.read().decode(
+                      "utf-8",
+                      errors="replace"
+                  )
+
+                  raise RuntimeError(
+                      f"HTTP {exc.code}: {body}"
+                  )
+
+              if status != 200:
+
+                  raise RuntimeError(
+                      f"HTTP {status}: {body}"
+                  )
+
+              try:
+
+                  return json.loads(body)
+
+              except json.JSONDecodeError:
+
+                  raise RuntimeError(
+                      f"返回内容不是合法 JSON：{body}"
+                  )
+
+
+          # ==========================================================
+          # 1. 获取 token
+          # ==========================================================
 
           print()
           print("--------------------------------------------------")
-          print("读取周报 Markdown")
+          print("STEP 1 | 获取 tenant_access_token")
           print("--------------------------------------------------")
+
+          token_result = post_json(
+              BASE_URL
+              + "/open-apis/auth/v3/tenant_access_token/internal",
+              {
+                  "app_id": app_id,
+                  "app_secret": app_secret
+              }
+          )
+
+          if token_result.get("code") != 0:
+
+              raise RuntimeError(
+                  "获取 tenant_access_token 失败："
+                  + json.dumps(
+                      token_result,
+                      ensure_ascii=False
+                  )
+              )
+
+          tenant_access_token = (
+              token_result.get(
+                  "tenant_access_token"
+              )
+          )
+
+          if not tenant_access_token:
+
+              raise RuntimeError(
+                  "飞书没有返回 tenant_access_token"
+              )
+
+          print("✅ tenant_access_token 获取成功")
+
+
+          # ==========================================================
+          # 2. 上传图片
+          # ==========================================================
+
+          def upload_image(image_path):
+
+              image_path = Path(image_path)
+
+              if not image_path.exists():
+
+                  raise RuntimeError(
+                      f"图片不存在：{image_path}"
+                  )
+
+              image_data = image_path.read_bytes()
+
+              if not image_data:
+
+                  raise RuntimeError(
+                      f"图片为空：{image_path}"
+                  )
+
+              filename = image_path.name
+
+              mime_type = (
+                  mimetypes.guess_type(filename)[0]
+                  or "application/octet-stream"
+              )
+
+              print()
+              print(
+                  f"🖼️ 上传图片：{image_path}"
+              )
+
+              print(
+                  f"   文件大小：{len(image_data):,} bytes"
+              )
+
+              upload_url = (
+                  BASE_URL
+                  + "/open-apis/im/v1/images"
+              )
+
+              boundary = (
+                  "----748686FeishuImageBoundary"
+              )
+
+              body_parts = []
+
+              body_parts.append(
+                  (
+                      f"--{boundary}\r\n"
+                      f'Content-Disposition: form-data; '
+                      f'name="image_type"\r\n\r\n'
+                      f"message\r\n"
+                  ).encode("utf-8")
+              )
+
+              body_parts.append(
+                  (
+                      f"--{boundary}\r\n"
+                      f'Content-Disposition: form-data; '
+                      f'name="image"; '
+                      f'filename="{filename}"\r\n'
+                      f"Content-Type: {mime_type}\r\n\r\n"
+                  ).encode("utf-8")
+              )
+
+              body_parts.append(image_data)
+
+              body_parts.append(
+                  f"\r\n--{boundary}--\r\n"
+                  .encode("utf-8")
+              )
+
+              body = b"".join(body_parts)
+
+              request = urllib.request.Request(
+                  upload_url,
+                  data=body,
+                  headers={
+                      "Authorization":
+                          "Bearer "
+                          + tenant_access_token,
+
+                      "Content-Type":
+                          "multipart/form-data; "
+                          f"boundary={boundary}"
+                  },
+                  method="POST"
+              )
+
+              try:
+
+                  with urllib.request.urlopen(
+                      request,
+                      timeout=120
+                  ) as response:
+
+                      status = response.status
+
+                      response_body = (
+                          response
+                          .read()
+                          .decode(
+                              "utf-8",
+                              errors="replace"
+                          )
+                      )
+
+              except urllib.error.HTTPError as exc:
+
+                  response_body = (
+                      exc.read()
+                      .decode(
+                          "utf-8",
+                          errors="replace"
+                      )
+                  )
+
+                  raise RuntimeError(
+                      f"图片上传失败 HTTP {exc.code}: "
+                      f"{response_body}"
+                  )
+
+              if status != 200:
+
+                  raise RuntimeError(
+                      f"图片上传失败 HTTP {status}: "
+                      f"{response_body}"
+                  )
+
+              try:
+
+                  result = json.loads(
+                      response_body
+                  )
+
+              except json.JSONDecodeError:
+
+                  raise RuntimeError(
+                      "图片上传返回内容不是 JSON："
+                      + response_body
+                  )
+
+              if result.get("code") != 0:
+
+                  raise RuntimeError(
+                      "图片上传失败："
+                      + json.dumps(
+                          result,
+                          ensure_ascii=False
+                      )
+                  )
+
+              image_key = (
+                  result
+                  .get("data", {})
+                  .get("image_key")
+              )
+
+              if not image_key:
+
+                  raise RuntimeError(
+                      "飞书上传成功但没有返回 image_key"
+                  )
+
+              print(
+                  f"   ✅ image_key：{image_key}"
+              )
+
+              return image_key
+
+
+          # ==========================================================
+          # 3. 读取周报
+          # ==========================================================
+
+          print()
+          print("--------------------------------------------------")
+          print("STEP 2 | 读取周报 Markdown")
+          print("--------------------------------------------------")
+
+          if not report_file.exists():
+
+              raise RuntimeError(
+                  f"周报文件不存在：{report_file}"
+              )
 
           content = report_file.read_text(
               encoding="utf-8"
           )
 
           if not content.strip():
-              print("❌ 周报 Markdown 为空")
-              sys.exit(1)
+
+              raise RuntimeError(
+                  "周报 Markdown 为空"
+              )
 
           print(
               f"原始字符数：{len(content)}"
           )
 
-          raw_base = (
-              f"https://raw.githubusercontent.com/"
-              f"{repository}/"
-              f"{branch}/"
-          )
 
-          print(
-              f"Raw Base：{raw_base}"
-          )
+          # ==========================================================
+          # 4. 图片转换
+          # ==========================================================
+
+          print()
+          print("--------------------------------------------------")
+          print("STEP 3 | 上传周报图片并替换 image_key")
+          print("--------------------------------------------------")
 
           image_pattern = re.compile(
               r'(!\[[^\]]*\]\()([^)]+)(\))'
           )
 
           image_count = [0]
+          uploaded_images = {}
+
+
+          def locate_repo_image(markdown_path):
+
+              decoded_path = urllib.parse.unquote(
+                  markdown_path
+              )
+
+              marker = "04_图片/"
+
+              if marker in decoded_path:
+
+                  suffix_path = decoded_path.split(
+                      marker,
+                      1
+                  )[1]
+
+                  return Path(
+                      "01_自生长知识系统"
+                  ) / "04_图片" / suffix_path
+
+              clean_path = decoded_path
+
+              while clean_path.startswith("../"):
+                  clean_path = clean_path[3:]
+
+              while clean_path.startswith("./"):
+                  clean_path = clean_path[2:]
+
+              return Path(clean_path)
+
 
           def replace_image(match):
 
@@ -630,9 +1384,12 @@ jobs:
                   image_path.startswith("http://")
                   or image_path.startswith("https://")
               ):
+
                   print(
-                      f"ℹ️ 已是 URL，不修改：{image_path}"
+                      f"ℹ️ 已是网络图片，跳过："
+                      f"{image_path}"
                   )
+
                   return match.group(0)
 
               path_only = image_path
@@ -641,99 +1398,111 @@ jobs:
               if " " in image_path:
 
                   possible_path, possible_title = (
-                      image_path.split(" ", 1)
+                      image_path.split(
+                          " ",
+                          1
+                      )
                   )
 
                   if (
-                      possible_title.strip().startswith('"')
+                      possible_title
+                      .strip()
+                      .startswith('"')
                       or
-                      possible_title.strip().startswith("'")
+                      possible_title
+                      .strip()
+                      .startswith("'")
                   ):
-                      path_only = possible_path
-                      title_part = " " + possible_title
 
-              decoded_path = urllib.parse.unquote(
+                      path_only = possible_path
+
+                      title_part = (
+                          " "
+                          + possible_title
+                      )
+
+              repo_image = locate_repo_image(
                   path_only
               )
 
-              marker = "04_图片/"
+              print()
+              print(
+                  f"🖼️ 图片 #{image_count[0] + 1}"
+              )
 
-              if marker in decoded_path:
+              print(
+                  f"   Markdown：{image_path}"
+              )
 
-                  suffix_path = decoded_path.split(
-                      marker,
-                      1
-                  )[1]
+              print(
+                  f"   本地文件：{repo_image}"
+              )
 
-                  repo_image_path = (
-                      "01_自生长知识系统/"
-                      "04_图片/"
-                      + suffix_path
+              if not repo_image.exists():
+
+                  raise RuntimeError(
+                      f"Markdown 引用的图片不存在："
+                      f"{repo_image}"
+                  )
+
+              cache_key = str(
+                  repo_image.resolve()
+              )
+
+              if cache_key in uploaded_images:
+
+                  image_key = uploaded_images[
+                      cache_key
+                  ]
+
+                  print(
+                      "   ♻️ 使用已经上传的 image_key"
                   )
 
               else:
 
-                  clean_path = decoded_path
+                  image_key = upload_image(
+                      repo_image
+                  )
 
-                  while clean_path.startswith("../"):
-                      clean_path = clean_path[3:]
-
-                  while clean_path.startswith("./"):
-                      clean_path = clean_path[2:]
-
-                  repo_image_path = clean_path
-
-              encoded_path = urllib.parse.quote(
-                  repo_image_path,
-                  safe="/"
-              )
-
-              raw_url = raw_base + encoded_path
+                  uploaded_images[
+                      cache_key
+                  ] = image_key
 
               image_count[0] += 1
 
-              print()
-              print(
-                  f"🖼️ 图片 #{image_count[0]}"
-              )
-              print(
-                  f"   Markdown：{image_path}"
-              )
-              print(
-                  f"   Repo：    {repo_image_path}"
-              )
-              print(
-                  f"   Raw：     {raw_url}"
-              )
-
               return (
                   prefix
-                  + raw_url
+                  + image_key
                   + title_part
                   + suffix
               )
+
 
           transformed = image_pattern.sub(
               replace_image,
               content
           )
 
+
           print()
           print("--------------------------------------------------")
-          print("Markdown 图片转换完成")
+          print("图片处理完成")
           print("--------------------------------------------------")
 
           print(
               f"发现图片数量：{image_count[0]}"
           )
 
-          if image_count[0] == 0:
-              print("⚠️ 没有发现 Markdown 图片")
-          else:
-              print(
-                  f"✅ 已转换 "
-                  f"{image_count[0]} 个图片引用"
-              )
+          print(
+              f"实际上传图片数量："
+              f"{len(uploaded_images)}"
+          )
+
+
+          # ==========================================================
+          # 5. Markdown 分块
+          # ==========================================================
 
           MAX_CHARS = 28000
 
@@ -745,7 +1514,9 @@ jobs:
           for line in lines:
 
               candidate = (
-                  current + "\n" + line
+                  current
+                  + "\n"
+                  + line
                   if current
                   else line
               )
@@ -757,7 +1528,10 @@ jobs:
               else:
 
                   if current:
-                      chunks.append(current)
+
+                      chunks.append(
+                          current
+                      )
 
                   if len(line) > MAX_CHARS:
 
@@ -781,16 +1555,22 @@ jobs:
                       current = line
 
           if current:
+
               chunks.append(current)
 
           print()
           print("--------------------------------------------------")
-          print("准备发送飞书")
+          print("Markdown 分块完成")
           print("--------------------------------------------------")
 
           print(
               f"消息块数量：{len(chunks)}"
           )
+
+
+          # ==========================================================
+          # 6. 发送飞书
+          # ==========================================================
 
           def send_feishu(
               content_chunk,
@@ -803,20 +1583,28 @@ jobs:
               )
 
               payload = {
+
                   "msg_type": "interactive",
+
                   "card": {
+
                       "header": {
+
                           "title": {
                               "tag": "plain_text",
                               "content": title
                           },
+
                           "template": "green"
                       },
+
                       "elements": [
+
                           {
                               "tag": "markdown",
                               "content": content_chunk
                           }
+
                       ]
                   }
               }
@@ -860,13 +1648,20 @@ jobs:
                           )
                       )
 
-              except Exception as exc:
+              except urllib.error.HTTPError as exc:
 
-                  print(
-                      f"❌ 飞书请求失败：{exc}"
+                  response_body = (
+                      exc.read()
+                      .decode(
+                          "utf-8",
+                          errors="replace"
+                      )
                   )
 
-                  raise
+                  raise RuntimeError(
+                      f"飞书 HTTP {exc.code}: "
+                      f"{response_body}"
+                  )
 
               print(
                   f"HTTP Status：{status}"
@@ -899,12 +1694,26 @@ jobs:
               if code != 0:
 
                   raise RuntimeError(
-                      f"飞书发送失败：{result}"
+                      "飞书发送失败："
+                      + json.dumps(
+                          result,
+                          ensure_ascii=False
+                      )
                   )
 
               print(
                   "✅ 飞书发送成功"
               )
+
+
+          # ==========================================================
+          # 7. 正式发送
+          # ==========================================================
+
+          print()
+          print("--------------------------------------------------")
+          print("STEP 4 | 发送周报")
+          print("--------------------------------------------------")
 
           total = len(chunks)
 
@@ -923,22 +1732,31 @@ jobs:
           print("==================================================")
           print("✅ 周报带图版发送完成")
           print("==================================================")
+
           PY
 
+
       # ============================================================
-      # 6. 最终结果
+      # 7. 最终结果
       # ============================================================
       - name: Final result
         run: |
           echo
           echo "=================================================="
-          echo "飞书日报 / 周报带图版测试完成"
+          echo "飞书日报 / 周报带图版发送完成"
           echo "=================================================="
           echo
           echo "日报：必发"
-          echo "周报：有则发送，无则 SKIP"
+          echo "周报：有 *_带图.md 才发送"
+          echo "周报不存在或没有带图版：SKIP"
           echo
-          echo "本次不检查 Runner 本地 04_图片。"
-          echo "图片地址直接使用 GitHub Raw。"
+          echo "图片："
+          echo "GitHub PNG"
+          echo "  ↓"
+          echo "飞书图片上传"
+          echo "  ↓"
+          echo "image_key"
+          echo "  ↓"
+          echo "飞书 Interactive Card"
           echo
           echo "=================================================="
