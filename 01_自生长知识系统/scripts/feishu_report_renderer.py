@@ -3,7 +3,7 @@
 
 """
 748686 自生长知识系统
-Feishu Report Renderer V1.0
+Feishu Report Renderer V1.1
 
 ======================================================================
 职责
@@ -16,60 +16,84 @@ Feishu Report Renderer V1.0
 
 转换为：
 
-    飞书 Card 2.0 高级报告
+    飞书 Interactive Card
 
 支持：
 
     1. Markdown 图片
+       -> 本地 PNG
        -> 上传飞书
        -> image_key
-       -> 原生图片
+       -> 飞书原生图片
 
     2. Markdown 表格
-       -> 飞书 Card 2.0 原生 table
+       -> 数据表格
 
     3. 关键数字
        -> KPI 卡片
 
-    4. 数值型表格
-       -> 自动生成柱状图
+    4. 分类数值
+       -> 柱状图
 
-    5. 百分比构成型数据
-       -> 自动生成饼图
+    5. 构成比例
+       -> 饼图
 
     6. 时间序列
-       -> 自动生成折线图
+       -> 折线图
 
-    7. 标题层级
+    7. 标题
 
-    8. 普通 Markdown 正文
+    8. 普通 Markdown
 
-    9. 长报告自动拆卡
+    9. 长报告自动拆分多个 Card
 
 ======================================================================
-设计原则
+重要原则
 ======================================================================
 
-不修改原始 Markdown。
+本程序：
+
+    不修改原始 Markdown
+    不修改日报
+    不修改周报
+    不修改图片
 
 只负责：
 
     Markdown
-       ↓
+        ↓
     Renderer
-       ↓
-    Feishu Card JSON
-       ↓
+        ↓
+    Feishu Card
+        ↓
     Webhook
 
 ======================================================================
+V1.1 修复
+======================================================================
+
+修复：
+
+    ErrCode: 11310
+    ErrMsg: margin invalid
+
+原因：
+
+    Card 2.0 markdown element 不接受之前使用的
+    margin 字段。
+
+因此 V1.1：
+
+    所有 markdown element
+    删除 margin 字段。
+
+同时尽量减少非必要 Card Schema 字段，
+优先保证飞书实际发送稳定性。
 """
 
 from __future__ import annotations
 
 import argparse
-import json
-import math
 import os
 import re
 import sys
@@ -81,30 +105,37 @@ import requests
 
 
 # ======================================================================
-# 常量
+# Feishu
 # ======================================================================
 
 FEISHU_HOST = "https://open.feishu.cn"
 
-UPLOAD_URL = (
-    f"{FEISHU_HOST}/open-apis/im/v1/images"
-)
-
 TOKEN_URL = (
-    f"{FEISHU_HOST}/open-apis/auth/v3/tenant_access_token/internal"
+    f"{FEISHU_HOST}"
+    "/open-apis/auth/v3/tenant_access_token/internal"
 )
 
-MAX_CARD_ELEMENTS = 18
-
-MAX_TABLE_ROWS = 30
-
-MAX_CHART_ROWS = 12
+UPLOAD_URL = (
+    f"{FEISHU_HOST}"
+    "/open-apis/im/v1/images"
+)
 
 REQUEST_TIMEOUT = 30
 
 
 # ======================================================================
-# 工具
+# Renderer
+# ======================================================================
+
+MAX_CARD_ELEMENTS = 16
+
+MAX_TABLE_ROWS = 30
+
+MAX_CHART_ROWS = 12
+
+
+# ======================================================================
+# 通用工具
 # ======================================================================
 
 def log(message: str) -> None:
@@ -112,6 +143,7 @@ def log(message: str) -> None:
 
 
 def clean_text(value: Any) -> str:
+
     if value is None:
         return ""
 
@@ -124,50 +156,55 @@ def clean_text(value: Any) -> str:
 
 
 def strip_markdown(value: str) -> str:
+
     value = clean_text(value)
 
-    value = re.sub(r"\*\*(.*?)\*\*", r"\1", value)
-    value = re.sub(r"__(.*?)__", r"\1", value)
-    value = re.sub(r"`(.*?)`", r"\1", value)
-    value = re.sub(r"~~(.*?)~~", r"\1", value)
+    value = re.sub(
+        r"\*\*(.*?)\*\*",
+        r"\1",
+        value,
+    )
+
+    value = re.sub(
+        r"__(.*?)__",
+        r"\1",
+        value,
+    )
+
+    value = re.sub(
+        r"`(.*?)`",
+        r"\1",
+        value,
+    )
+
+    value = re.sub(
+        r"~~(.*?)~~",
+        r"\1",
+        value,
+    )
 
     return value.strip()
 
 
-def escape_pipe(value: str) -> str:
-    return value.replace("|", "｜")
+def safe_filename(value: str) -> str:
 
-
-def is_number(value: str) -> bool:
-    value = clean_text(value)
-
-    if not value:
-        return False
-
-    value = (
-        value
-        .replace(",", "")
-        .replace("，", "")
-        .replace("%", "")
-        .replace("％", "")
-        .replace("¥", "")
-        .replace("$", "")
-        .replace("€", "")
-        .replace("£", "")
-        .replace("万", "")
-        .replace("亿", "")
+    value = re.sub(
+        r"[^\w\u4e00-\u9fff.-]+",
+        "_",
+        value,
     )
 
-    value = value.strip()
-
-    try:
-        float(value)
-        return True
-    except Exception:
-        return False
+    return value[:100]
 
 
-def numeric_value(value: str) -> float | None:
+# ======================================================================
+# 数字
+# ======================================================================
+
+def numeric_value(
+    value: str,
+) -> float | None:
+
     value = clean_text(value)
 
     if not value:
@@ -196,23 +233,50 @@ def numeric_value(value: str) -> float | None:
     )
 
     try:
+
         return float(value) * multiplier
+
     except Exception:
+
         return None
 
 
-def is_percentage(value: str) -> bool:
-    return "%" in value or "％" in value
+def is_number(
+    value: str,
+) -> bool:
+
+    return (
+        numeric_value(value)
+        is not None
+    )
 
 
-def percentage_value(value: str) -> float | None:
+def is_percentage(
+    value: str,
+) -> bool:
+
+    value = clean_text(value)
+
+    return (
+        "%" in value
+        or "％" in value
+    )
+
+
+def percentage_value(
+    value: str,
+) -> float | None:
+
     if not is_percentage(value):
         return None
 
     return numeric_value(value)
 
 
-def looks_like_date(value: str) -> bool:
+def looks_like_date(
+    value: str,
+) -> bool:
+
     value = clean_text(value)
 
     patterns = [
@@ -223,16 +287,17 @@ def looks_like_date(value: str) -> bool:
         r"\d{4}",
     ]
 
-    return any(re.search(p, value) for p in patterns)
-
-
-def safe_filename(value: str) -> str:
-    value = re.sub(r"[^\w\u4e00-\u9fff.-]+", "_", value)
-    return value[:100]
+    return any(
+        re.search(
+            pattern,
+            value,
+        )
+        for pattern in patterns
+    )
 
 
 # ======================================================================
-# Feishu
+# Feishu Client
 # ======================================================================
 
 class FeishuClient:
@@ -243,10 +308,16 @@ class FeishuClient:
         app_secret: str,
         webhook: str,
     ):
+
         self.app_id = app_id
         self.app_secret = app_secret
         self.webhook = webhook
-        self.token = None
+
+        self.token: str | None = None
+
+    # ------------------------------------------------------------------
+    # Token
+    # ------------------------------------------------------------------
 
     def get_token(self) -> str:
 
@@ -264,37 +335,57 @@ class FeishuClient:
         data = response.json()
 
         if data.get("code") != 0:
+
             raise RuntimeError(
-                f"获取 tenant_access_token 失败：{data}"
+                "获取 tenant_access_token 失败："
+                f"{data}"
             )
 
-        token = data.get("tenant_access_token")
+        token = (
+            data.get(
+                "tenant_access_token"
+            )
+        )
 
         if not token:
+
             raise RuntimeError(
-                f"tenant_access_token 缺失：{data}"
+                "tenant_access_token 缺失："
+                f"{data}"
             )
 
         self.token = token
 
         return token
 
-    def upload_image(self, image_path: Path) -> str:
+    # ------------------------------------------------------------------
+    # Upload image
+    # ------------------------------------------------------------------
+
+    def upload_image(
+        self,
+        image_path: Path,
+    ) -> str:
 
         if not self.token:
+
             self.get_token()
 
         if not image_path.exists():
+
             raise FileNotFoundError(
                 f"图片不存在：{image_path}"
             )
 
-        with image_path.open("rb") as file:
+        with image_path.open(
+            "rb"
+        ) as file:
 
             response = requests.post(
                 UPLOAD_URL,
                 headers={
-                    "Authorization": f"Bearer {self.token}",
+                    "Authorization":
+                        f"Bearer {self.token}",
                 },
                 files={
                     "image": (
@@ -314,26 +405,36 @@ class FeishuClient:
         data = response.json()
 
         if data.get("code") != 0:
+
             raise RuntimeError(
-                f"飞书图片上传失败：{data}"
+                "飞书图片上传失败："
+                f"{data}"
             )
 
         image_key = (
-            data.get("data", {})
+            data
+            .get("data", {})
             .get("image_key")
         )
 
         if not image_key:
+
             raise RuntimeError(
-                f"飞书没有返回 image_key：{data}"
+                "飞书没有返回 image_key："
+                f"{data}"
             )
 
         log(
-            f"      ✓ 图片上传成功："
-            f"{image_path.name} -> {image_key}"
+            "      ✓ 图片上传成功："
+            f"{image_path.name}"
+            f" -> {image_key}"
         )
 
         return image_key
+
+    # ------------------------------------------------------------------
+    # Send Card
+    # ------------------------------------------------------------------
 
     def send_card(
         self,
@@ -359,7 +460,8 @@ class FeishuClient:
         if data.get("code") != 0:
 
             raise RuntimeError(
-                f"飞书发送失败 [{label}]：{data}"
+                f"飞书发送失败 [{label}]："
+                f"{data}"
             )
 
         log(
@@ -368,20 +470,25 @@ class FeishuClient:
 
 
 # ======================================================================
-# Markdown Parser
+# Markdown Block
 # ======================================================================
 
 class MarkdownBlock:
+
     def __init__(
         self,
         block_type: str,
         content: Any = None,
-        title: str = "",
     ):
-        self.type = block_type
-        self.content = content
-        self.title = title
 
+        self.type = block_type
+
+        self.content = content
+
+
+# ======================================================================
+# Markdown Parser
+# ======================================================================
 
 class MarkdownParser:
 
@@ -389,29 +496,43 @@ class MarkdownParser:
         r"!\[([^\]]*)\]\(([^)]+)\)"
     )
 
-    TABLE_SEPARATOR_RE = re.compile(
-        r"^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$"
-    )
-
     HEADING_RE = re.compile(
         r"^(#{1,6})\s+(.*)$"
     )
+
+    TABLE_SEPARATOR_RE = re.compile(
+        r"^\s*\|?\s*:?-+:?\s*"
+        r"(\|\s*:?-+:?\s*)+"
+        r"\|?\s*$"
+    )
+
+    # ------------------------------------------------------------------
+    # Parse
+    # ------------------------------------------------------------------
 
     def __init__(
         self,
         markdown_path: Path,
     ):
+
         self.markdown_path = markdown_path
 
-    def parse(self) -> list[MarkdownBlock]:
+    def parse(
+        self,
+    ) -> list[MarkdownBlock]:
 
-        text = self.markdown_path.read_text(
-            encoding="utf-8"
+        text = (
+            self.markdown_path
+            .read_text(
+                encoding="utf-8"
+            )
         )
 
         lines = text.splitlines()
 
-        blocks: list[MarkdownBlock] = []
+        blocks: list[
+            MarkdownBlock
+        ] = []
 
         paragraph: list[str] = []
 
@@ -425,6 +546,7 @@ class MarkdownParser:
             ).strip()
 
             if content:
+
                 blocks.append(
                     MarkdownBlock(
                         "paragraph",
@@ -440,9 +562,9 @@ class MarkdownParser:
 
             line = lines[i]
 
-            # ----------------------------------------------------------
-            # 空行
-            # ----------------------------------------------------------
+            # ==========================================================
+            # Empty
+            # ==========================================================
 
             if not line.strip():
 
@@ -452,12 +574,14 @@ class MarkdownParser:
 
                 continue
 
-            # ----------------------------------------------------------
+            # ==========================================================
             # Heading
-            # ----------------------------------------------------------
+            # ==========================================================
 
-            heading_match = self.HEADING_RE.match(
-                line
+            heading_match = (
+                self.HEADING_RE.match(
+                    line
+                )
             )
 
             if heading_match:
@@ -469,7 +593,8 @@ class MarkdownParser:
                 )
 
                 title = (
-                    heading_match.group(2)
+                    heading_match
+                    .group(2)
                     .strip()
                 )
 
@@ -487,12 +612,14 @@ class MarkdownParser:
 
                 continue
 
-            # ----------------------------------------------------------
-            # Image
-            # ----------------------------------------------------------
+            # ==========================================================
+            # Standalone image
+            # ==========================================================
 
-            image_match = self.IMAGE_RE.fullmatch(
-                line.strip()
+            image_match = (
+                self.IMAGE_RE.fullmatch(
+                    line.strip()
+                )
             )
 
             if image_match:
@@ -503,8 +630,10 @@ class MarkdownParser:
                     MarkdownBlock(
                         "image",
                         {
-                            "alt": image_match.group(1),
-                            "path": image_match.group(2),
+                            "alt":
+                                image_match.group(1),
+                            "path":
+                                image_match.group(2),
                         },
                     )
                 )
@@ -513,9 +642,9 @@ class MarkdownParser:
 
                 continue
 
-            # ----------------------------------------------------------
-            # Markdown Table
-            # ----------------------------------------------------------
+            # ==========================================================
+            # Table
+            # ==========================================================
 
             if (
                 i + 1 < len(lines)
@@ -527,8 +656,10 @@ class MarkdownParser:
 
                 flush_paragraph()
 
-                headers = self.parse_table_row(
-                    line
+                headers = (
+                    self.parse_table_row(
+                        line
+                    )
                 )
 
                 i += 2
@@ -565,9 +696,9 @@ class MarkdownParser:
 
                 continue
 
-            # ----------------------------------------------------------
+            # ==========================================================
             # Horizontal rule
-            # ----------------------------------------------------------
+            # ==========================================================
 
             if re.match(
                 r"^\s*(---+|\*\*\*+|___+)\s*$",
@@ -577,16 +708,18 @@ class MarkdownParser:
                 flush_paragraph()
 
                 blocks.append(
-                    MarkdownBlock("hr")
+                    MarkdownBlock(
+                        "hr"
+                    )
                 )
 
                 i += 1
 
                 continue
 
-            # ----------------------------------------------------------
-            # Normal
-            # ----------------------------------------------------------
+            # ==========================================================
+            # Paragraph
+            # ==========================================================
 
             paragraph.append(line)
 
@@ -595,6 +728,10 @@ class MarkdownParser:
         flush_paragraph()
 
         return blocks
+
+    # ------------------------------------------------------------------
+    # Table row
+    # ------------------------------------------------------------------
 
     @staticmethod
     def parse_table_row(
@@ -618,7 +755,7 @@ class MarkdownParser:
 
 
 # ======================================================================
-# 图片解析
+# Image Resolver
 # ======================================================================
 
 def resolve_image_path(
@@ -631,37 +768,51 @@ def resolve_image_path(
 
     image_ref = image_ref.strip()
 
-    # URL 不允许直接发送
+    # --------------------------------------------------------------
+    # External URL
+    # --------------------------------------------------------------
+
     if image_ref.startswith(
-        ("http://", "https://")
+        (
+            "http://",
+            "https://",
+        )
     ):
+
         raise RuntimeError(
-            f"报告仍然引用外部图片 URL：{image_ref}"
+            "报告引用了外部图片 URL，"
+            "当前 Renderer 要求本地图片："
+            f"{image_ref}"
         )
 
-    # 去 query
+    # --------------------------------------------------------------
+    # Remove query
+    # --------------------------------------------------------------
+
     image_ref = image_ref.split("?")[0]
 
+    # --------------------------------------------------------------
+    # Relative to Markdown
+    # --------------------------------------------------------------
+
     candidate_1 = (
-        markdown_path.parent / image_ref
+        markdown_path.parent
+        / image_ref
     ).resolve()
 
     if candidate_1.exists():
+
         return candidate_1
 
     # --------------------------------------------------------------
-    # 你的实际目录结构
+    # Actual repository image structure
     #
     # 日报：
-    # 05_日报/YYYY/MM/report.md
     #
-    # 图片：
     # 04_图片/日报/YYYY-MM-DD/
     #
     # 周报：
-    # 06_周报/YYYY/MM/report.md
     #
-    # 图片：
     # 04_图片/周报/YYYY-MM-DD/
     # --------------------------------------------------------------
 
@@ -673,26 +824,33 @@ def resolve_image_path(
         / report_date
     )
 
-    filename = Path(image_ref).name
+    filename = Path(
+        image_ref
+    ).name
 
     candidate_2 = (
-        image_root / filename
+        image_root
+        / filename
     ).resolve()
 
     if candidate_2.exists():
+
         return candidate_2
 
     # --------------------------------------------------------------
-    # 最后尝试：直接在对应日期图片目录寻找
+    # Recursive fallback
     # --------------------------------------------------------------
 
     if image_root.exists():
 
         matches = list(
-            image_root.rglob(filename)
+            image_root.rglob(
+                filename
+            )
         )
 
         if matches:
+
             return matches[0].resolve()
 
     raise RuntimeError(
@@ -712,6 +870,7 @@ def resolve_image_path(
 class ChartGenerator:
 
     def __init__(self):
+
         import matplotlib
 
         matplotlib.use("Agg")
@@ -719,6 +878,10 @@ class ChartGenerator:
         import matplotlib.pyplot as plt
 
         self.plt = plt
+
+    # ------------------------------------------------------------------
+    # Create chart
+    # ------------------------------------------------------------------
 
     def create_chart(
         self,
@@ -728,6 +891,7 @@ class ChartGenerator:
     ) -> Path | None:
 
         headers = table["headers"]
+
         rows = table["rows"]
 
         if len(rows) < 2:
@@ -736,14 +900,12 @@ class ChartGenerator:
         if len(rows) > MAX_CHART_ROWS:
             return None
 
-        # --------------------------------------------------------------
-        # 只处理 2 列或 3 列
-        # --------------------------------------------------------------
-
         if len(headers) < 2:
             return None
 
-        label_index = 0
+        # --------------------------------------------------------------
+        # Find numeric column
+        # --------------------------------------------------------------
 
         numeric_index = None
 
@@ -762,6 +924,7 @@ class ChartGenerator:
                 if is_number(
                     row[index]
                 ):
+
                     numeric_count += 1
 
             if numeric_count >= max(
@@ -785,8 +948,7 @@ class ChartGenerator:
         for row in rows:
 
             if (
-                label_index >= len(row)
-                or numeric_index >= len(row)
+                len(row) <= numeric_index
             ):
                 continue
 
@@ -799,7 +961,7 @@ class ChartGenerator:
 
             labels.append(
                 strip_markdown(
-                    row[label_index]
+                    row[0]
                 )
             )
 
@@ -813,12 +975,14 @@ class ChartGenerator:
             return None
 
         # --------------------------------------------------------------
-        # 判断图表类型
+        # Determine chart type
         # --------------------------------------------------------------
 
         percentage_values = [
-            percentage_value(v)
-            for v in raw_values
+            percentage_value(
+                value
+            )
+            for value in raw_values
         ]
 
         all_percentage = all(
@@ -827,7 +991,9 @@ class ChartGenerator:
         )
 
         percentage_sum = (
-            sum(percentage_values)
+            sum(
+                percentage_values
+            )
             if all_percentage
             else None
         )
@@ -845,13 +1011,20 @@ class ChartGenerator:
         )
 
         if is_pie:
+
             chart_type = "pie"
 
         elif is_line:
+
             chart_type = "line"
 
         else:
+
             chart_type = "bar"
+
+        # --------------------------------------------------------------
+        # Output
+        # --------------------------------------------------------------
 
         output_dir.mkdir(
             parents=True,
@@ -871,8 +1044,15 @@ class ChartGenerator:
         plt = self.plt
 
         plt.figure(
-            figsize=(10, 5.6)
+            figsize=(
+                10,
+                5.6,
+            )
         )
+
+        # ==============================================================
+        # Pie
+        # ==============================================================
 
         if chart_type == "pie":
 
@@ -885,10 +1065,16 @@ class ChartGenerator:
 
             plt.axis("equal")
 
+        # ==============================================================
+        # Line
+        # ==============================================================
+
         elif chart_type == "line":
 
             x = list(
-                range(len(labels))
+                range(
+                    len(labels)
+                )
             )
 
             plt.plot(
@@ -910,13 +1096,21 @@ class ChartGenerator:
             )
 
             plt.ylabel(
-                headers[numeric_index]
+                headers[
+                    numeric_index
+                ]
             )
+
+        # ==============================================================
+        # Bar
+        # ==============================================================
 
         else:
 
             y_positions = list(
-                range(len(labels))
+                range(
+                    len(labels)
+                )
             )
 
             plt.barh(
@@ -930,7 +1124,9 @@ class ChartGenerator:
             )
 
             plt.xlabel(
-                headers[numeric_index]
+                headers[
+                    numeric_index
+                ]
             )
 
             plt.grid(
@@ -939,7 +1135,9 @@ class ChartGenerator:
             )
 
         plt.title(
-            strip_markdown(title)
+            strip_markdown(
+                title
+            )
         )
 
         plt.tight_layout()
@@ -953,7 +1151,7 @@ class ChartGenerator:
         plt.close()
 
         log(
-            f"      ✓ 图表生成："
+            "      ✓ 图表生成："
             f"{output_path.name}"
         )
 
@@ -961,7 +1159,7 @@ class ChartGenerator:
 
 
 # ======================================================================
-# Renderer
+# Feishu Report Renderer
 # ======================================================================
 
 class FeishuReportRenderer:
@@ -976,13 +1174,25 @@ class FeishuReportRenderer:
     ):
 
         self.client = client
-        self.repo_root = repo_root
-        self.report_type = report_type
-        self.report_date = report_date
-        self.markdown_path = markdown_path
 
-        self.parser = MarkdownParser(
+        self.repo_root = repo_root
+
+        self.report_type = (
+            report_type
+        )
+
+        self.report_date = (
+            report_date
+        )
+
+        self.markdown_path = (
             markdown_path
+        )
+
+        self.parser = (
+            MarkdownParser(
+                markdown_path
+            )
         )
 
         self.chart_generator = (
@@ -1000,21 +1210,28 @@ class FeishuReportRenderer:
             str,
         ] = {}
 
-    # ------------------------------------------------------------------
-    # 上传图片
-    # ------------------------------------------------------------------
+    # ==================================================================
+    # Upload cache
+    # ==================================================================
 
     def upload_cached(
         self,
         path: Path,
     ) -> str:
 
-        key = str(
+        cache_key = str(
             path.resolve()
         )
 
-        if key in self.upload_cache:
-            return self.upload_cache[key]
+        if cache_key in (
+            self.upload_cache
+        ):
+
+            return (
+                self.upload_cache[
+                    cache_key
+                ]
+            )
 
         image_key = (
             self.client.upload_image(
@@ -1022,13 +1239,15 @@ class FeishuReportRenderer:
             )
         )
 
-        self.upload_cache[key] = image_key
+        self.upload_cache[
+            cache_key
+        ] = image_key
 
         return image_key
 
-    # ------------------------------------------------------------------
-    # 图片 element
-    # ------------------------------------------------------------------
+    # ==================================================================
+    # Image element
+    # ==================================================================
 
     def image_element(
         self,
@@ -1041,15 +1260,20 @@ class FeishuReportRenderer:
             "img_key": image_key,
             "alt": {
                 "tag": "plain_text",
-                "content": alt or "",
+                "content": (
+                    alt or ""
+                ),
             },
             "mode": "fit_horizontal",
             "preview": True,
         }
 
-    # ------------------------------------------------------------------
-    # 标题
-    # ------------------------------------------------------------------
+    # ==================================================================
+    # Heading
+    #
+    # 重要：
+    # 不再使用 margin。
+    # ==================================================================
 
     def heading_element(
         self,
@@ -1061,47 +1285,55 @@ class FeishuReportRenderer:
             title
         )
 
+        # --------------------------------------------------------------
+        # H1
+        # --------------------------------------------------------------
+
         if level == 1:
 
             return {
                 "tag": "markdown",
-                "content": (
-                    f"## {title}"
-                ),
-                "margin": "large",
+                "content":
+                    f"## {title}",
             }
+
+        # --------------------------------------------------------------
+        # H2
+        # --------------------------------------------------------------
 
         if level == 2:
 
             return {
                 "tag": "markdown",
-                "content": (
-                    f"### {title}"
-                ),
-                "margin": "large",
+                "content":
+                    f"### {title}",
             }
+
+        # --------------------------------------------------------------
+        # H3
+        # --------------------------------------------------------------
 
         if level == 3:
 
             return {
                 "tag": "markdown",
-                "content": (
-                    f"**{title}**"
-                ),
-                "margin": "medium",
+                "content":
+                    f"**{title}**",
             }
+
+        # --------------------------------------------------------------
+        # H4/H5/H6
+        # --------------------------------------------------------------
 
         return {
             "tag": "markdown",
-            "content": (
-                f"**{title}**"
-            ),
-            "margin": "small",
+            "content":
+                f"**{title}**",
         }
 
-    # ------------------------------------------------------------------
-    # KPI
-    # ------------------------------------------------------------------
+    # ==================================================================
+    # KPI detection
+    # ==================================================================
 
     def is_kpi_table(
         self,
@@ -1110,9 +1342,13 @@ class FeishuReportRenderer:
     ) -> bool:
 
         headers = table["headers"]
+
         rows = table["rows"]
 
-        if len(rows) < 1 or len(rows) > 6:
+        if not rows:
+            return False
+
+        if len(rows) > 6:
             return False
 
         heading = (
@@ -1133,30 +1369,47 @@ class FeishuReportRenderer:
         ]
 
         if any(
-            word.lower() in heading
+            word.lower()
+            in heading
             for word in kpi_words
         ):
+
             return True
 
-        # 没有标题时，如果是两列且第二列基本都是数字，也视为 KPI
-        if len(headers) in (2, 3):
+        # --------------------------------------------------------------
+        # 2~3 列数字表
+        # --------------------------------------------------------------
+
+        if len(headers) in (
+            2,
+            3,
+        ):
 
             numeric_count = 0
 
             for row in rows:
 
-                if len(row) >= 2 and is_number(
+                if len(row) < 2:
+                    continue
+
+                if is_number(
                     row[1]
                 ):
+
                     numeric_count += 1
 
             if numeric_count >= max(
                 2,
                 len(rows) // 2,
             ):
+
                 return True
 
         return False
+
+    # ==================================================================
+    # KPI
+    # ==================================================================
 
     def build_kpi_element(
         self,
@@ -1165,7 +1418,11 @@ class FeishuReportRenderer:
 
         columns = []
 
-        for row in table["rows"][:4]:
+        for row in table[
+            "rows"
+        ][
+            :4
+        ]:
 
             if len(row) < 2:
                 continue
@@ -1178,60 +1435,81 @@ class FeishuReportRenderer:
                 row[1]
             )
 
-            background = {
-                "tag": "column",
-                "width": "weighted",
-                "weight": 1,
-                "background_style": "grey",
-                "padding": "8px",
-                "elements": [
-                    {
-                        "tag": "markdown",
-                        "content": (
-                            f"**{label}**\n\n"
-                            f"## {value}"
-                        ),
-                    }
-                ],
-            }
-
             columns.append(
-                background
+                {
+                    "tag": "column",
+                    "width": "weighted",
+                    "weight": 1,
+                    "elements": [
+                        {
+                            "tag": "markdown",
+                            "content": (
+                                f"**{label}**\n\n"
+                                f"## {value}"
+                            ),
+                        }
+                    ],
+                }
             )
 
         if not columns:
+
             return {
                 "tag": "markdown",
-                "content": "暂无关键指标。",
+                "content":
+                    "暂无关键指标。",
             }
+
+        # --------------------------------------------------------------
+        # 根据数量决定布局
+        # --------------------------------------------------------------
+
+        if len(columns) == 1:
+
+            flex_mode = "none"
+
+        elif len(columns) == 2:
+
+            flex_mode = "bisect"
+
+        elif len(columns) == 3:
+
+            flex_mode = "trisect"
+
+        else:
+
+            flex_mode = "flow"
 
         return {
             "tag": "column_set",
-            "flex_mode": "bisect"
-            if len(columns) == 2
-            else "trisect"
-            if len(columns) == 3
-            else "flow",
-            "horizontal_spacing": "8px",
+            "flex_mode": flex_mode,
             "columns": columns,
         }
 
-    # ------------------------------------------------------------------
+    # ==================================================================
     # Table
-    # ------------------------------------------------------------------
+    # ==================================================================
 
     def build_table_element(
         self,
         table: dict,
     ) -> dict:
 
-        headers = table["headers"]
+        headers = table[
+            "headers"
+        ]
 
-        rows = table["rows"]
+        rows = table[
+            "rows"
+        ]
+
+        # --------------------------------------------------------------
+        # 不使用过多高级字段
+        # --------------------------------------------------------------
 
         columns = []
 
-        names = []
+        column_names = []
 
         for index, header in enumerate(
             headers
@@ -1241,36 +1519,53 @@ class FeishuReportRenderer:
                 f"col_{index}"
             )
 
-            names.append(name)
-
-            data_type = "text"
+            column_names.append(
+                name
+            )
 
             values = []
 
             for row in rows:
 
                 if index < len(row):
+
                     values.append(
                         row[index]
                     )
 
-            if values and all(
-                is_number(value)
+            numeric_count = sum(
+                1
                 for value in values
-                if value
-            ):
+                if is_number(value)
+            )
 
-                data_type = "number"
+            data_type = (
+                "number"
+                if (
+                    values
+                    and numeric_count
+                    == len(
+                        [
+                            value
+                            for value
+                            in values
+                            if value
+                        ]
+                    )
+                )
+                else "text"
+            )
 
             columns.append(
                 {
                     "name": name,
-                    "display_name": strip_markdown(
-                        header
-                    ),
-                    "data_type": data_type,
+                    "display_name":
+                        strip_markdown(
+                            header
+                        ),
+                    "data_type":
+                        data_type,
                     "width": "auto",
-                    "vertical_align": "center",
                 }
             )
 
@@ -1283,7 +1578,7 @@ class FeishuReportRenderer:
             item = {}
 
             for index, name in enumerate(
-                names
+                column_names
             ):
 
                 value = (
@@ -1292,8 +1587,13 @@ class FeishuReportRenderer:
                     else ""
                 )
 
+                column_type = (
+                    columns[index]
+                    ["data_type"]
+                )
+
                 if (
-                    columns[index]["data_type"]
+                    column_type
                     == "number"
                 ):
 
@@ -1309,11 +1609,19 @@ class FeishuReportRenderer:
 
                 else:
 
-                    item[name] = strip_markdown(
-                        value
+                    item[name] = (
+                        strip_markdown(
+                            value
+                        )
                     )
 
-            output_rows.append(item)
+            output_rows.append(
+                item
+            )
+
+        # --------------------------------------------------------------
+        # Table
+        # --------------------------------------------------------------
 
         return {
             "tag": "table",
@@ -1324,39 +1632,33 @@ class FeishuReportRenderer:
                     len(output_rows),
                 ),
             ),
-            "row_height": "low",
-            "freeze_first_column": True,
-            "header_style": {
-                "bold": True,
-                "text_align": "left",
-                "text_size": "normal",
-                "background_style": "grey",
-                "text_color": "default",
-                "lines": 1,
-            },
             "columns": columns,
             "rows": output_rows,
         }
 
-    # ------------------------------------------------------------------
-    # Markdown image URL/path
-    # ------------------------------------------------------------------
+    # ==================================================================
+    # Markdown Image
+    # ==================================================================
 
     def build_image(
         self,
         image_data: dict,
     ) -> dict:
 
-        image_path = resolve_image_path(
-            self.markdown_path,
-            image_data["path"],
-            self.repo_root,
-            self.report_type,
-            self.report_date,
+        image_path = (
+            resolve_image_path(
+                self.markdown_path,
+                image_data["path"],
+                self.repo_root,
+                self.report_type,
+                self.report_date,
+            )
         )
 
-        image_key = self.upload_cached(
-            image_path
+        image_key = (
+            self.upload_cached(
+                image_path
+            )
         )
 
         return self.image_element(
@@ -1367,17 +1669,19 @@ class FeishuReportRenderer:
             ),
         )
 
-    # ------------------------------------------------------------------
-    # Main render
-    # ------------------------------------------------------------------
+    # ==================================================================
+    # Render
+    # ==================================================================
 
     def render(
         self,
     ) -> list[dict]:
 
-        blocks = self.parser.parse()
+        blocks = (
+            self.parser.parse()
+        )
 
-        elements: list[dict] = []
+        elements = []
 
         previous_heading = ""
 
@@ -1385,28 +1689,34 @@ class FeishuReportRenderer:
 
         for block in blocks:
 
-            # ----------------------------------------------------------
+            # ==========================================================
             # Heading
-            # ----------------------------------------------------------
+            # ==========================================================
 
             if block.type == "heading":
 
                 previous_heading = (
-                    block.content["title"]
+                    block.content[
+                        "title"
+                    ]
                 )
 
                 elements.append(
                     self.heading_element(
-                        block.content["level"],
-                        block.content["title"],
+                        block.content[
+                            "level"
+                        ],
+                        block.content[
+                            "title"
+                        ],
                     )
                 )
 
                 continue
 
-            # ----------------------------------------------------------
+            # ==========================================================
             # Image
-            # ----------------------------------------------------------
+            # ==========================================================
 
             if block.type == "image":
 
@@ -1418,9 +1728,9 @@ class FeishuReportRenderer:
 
                 continue
 
-            # ----------------------------------------------------------
+            # ==========================================================
             # Table
-            # ----------------------------------------------------------
+            # ==========================================================
 
             if block.type == "table":
 
@@ -1428,7 +1738,10 @@ class FeishuReportRenderer:
 
                 table = block.content
 
+                # ------------------------------------------------------
                 # KPI
+                # ------------------------------------------------------
+
                 if self.is_kpi_table(
                     table,
                     previous_heading,
@@ -1440,7 +1753,10 @@ class FeishuReportRenderer:
                         )
                     )
 
-                # 原生表格
+                # ------------------------------------------------------
+                # Table
+                # ------------------------------------------------------
+
                 elements.append(
                     self.build_table_element(
                         table
@@ -1448,17 +1764,21 @@ class FeishuReportRenderer:
                 )
 
                 # ------------------------------------------------------
-                # 自动图表
+                # Chart
                 # ------------------------------------------------------
 
                 try:
 
                     chart_path = (
-                        self.chart_generator
+                        self
+                        .chart_generator
                         .create_chart(
                             table,
                             previous_heading
-                            or f"数据图表 {table_counter}",
+                            or (
+                                f"数据图表 "
+                                f"{table_counter}"
+                            ),
                             self.temp_dir,
                         )
                     )
@@ -1466,7 +1786,8 @@ class FeishuReportRenderer:
                     if chart_path:
 
                         chart_key = (
-                            self.upload_cached(
+                            self
+                            .upload_cached(
                                 chart_path
                             )
                         )
@@ -1474,7 +1795,10 @@ class FeishuReportRenderer:
                         elements.append(
                             self.image_element(
                                 chart_key,
-                                f"{previous_heading} 数据图表",
+                                (
+                                    f"{previous_heading}"
+                                    " 数据图表"
+                                ),
                             )
                         )
 
@@ -1487,9 +1811,9 @@ class FeishuReportRenderer:
 
                 continue
 
-            # ----------------------------------------------------------
+            # ==========================================================
             # HR
-            # ----------------------------------------------------------
+            # ==========================================================
 
             if block.type == "hr":
 
@@ -1501,9 +1825,9 @@ class FeishuReportRenderer:
 
                 continue
 
-            # ----------------------------------------------------------
+            # ==========================================================
             # Paragraph
-            # ----------------------------------------------------------
+            # ==========================================================
 
             if block.type == "paragraph":
 
@@ -1515,34 +1839,43 @@ class FeishuReportRenderer:
                 if not content:
                     continue
 
-                # 普通 Markdown 图片可能混在段落里
-                # 这里把图片提取出来
                 cursor = 0
 
                 found_image = False
 
-                for match in MarkdownParser.IMAGE_RE.finditer(
-                    content
+                for match in (
+                    MarkdownParser
+                    .IMAGE_RE
+                    .finditer(
+                        content
+                    )
                 ):
 
                     found_image = True
 
-                    before = content[
-                        cursor:
-                        match.start()
-                    ].strip()
+                    before = (
+                        content[
+                            cursor:
+                            match.start()
+                        ].strip()
+                    )
 
                     if before:
+
                         elements.append(
                             {
-                                "tag": "markdown",
-                                "content": before,
+                                "tag":
+                                    "markdown",
+                                "content":
+                                    before,
                             }
                         )
 
                     image_data = {
-                        "alt": match.group(1),
-                        "path": match.group(2),
+                        "alt":
+                            match.group(1),
+                        "path":
+                            match.group(2),
                     }
 
                     elements.append(
@@ -1551,17 +1884,24 @@ class FeishuReportRenderer:
                         )
                     )
 
-                    cursor = match.end()
+                    cursor = (
+                        match.end()
+                    )
 
-                remaining = content[
-                    cursor:
-                ].strip()
+                remaining = (
+                    content[
+                        cursor:
+                    ].strip()
+                )
 
                 if remaining:
+
                     elements.append(
                         {
-                            "tag": "markdown",
-                            "content": remaining,
+                            "tag":
+                                "markdown",
+                            "content":
+                                remaining,
                         }
                     )
 
@@ -1569,9 +1909,9 @@ class FeishuReportRenderer:
 
         return elements
 
-    # ------------------------------------------------------------------
-    # Cards
-    # ------------------------------------------------------------------
+    # ==================================================================
+    # Build cards
+    # ==================================================================
 
     def build_cards(
         self,
@@ -1585,9 +1925,14 @@ class FeishuReportRenderer:
 
         for element in elements:
 
-            current.append(element)
+            current.append(
+                element
+            )
 
-            if len(current) >= MAX_CARD_ELEMENTS:
+            if (
+                len(current)
+                >= MAX_CARD_ELEMENTS
+            ):
 
                 cards.append(
                     self.make_card(
@@ -1611,6 +1956,10 @@ class FeishuReportRenderer:
 
         return cards
 
+    # ==================================================================
+    # Make card
+    # ==================================================================
+
     def make_card(
         self,
         elements: list[dict],
@@ -1618,12 +1967,9 @@ class FeishuReportRenderer:
         index: int,
     ) -> dict:
 
-        subtitle = None
-
-        if index > 1:
-            subtitle = (
-                f"第 {index} 部分"
-            )
+        # --------------------------------------------------------------
+        # Card header
+        # --------------------------------------------------------------
 
         header = {
             "title": {
@@ -1632,67 +1978,107 @@ class FeishuReportRenderer:
             },
             "template": (
                 "blue"
-                if self.report_type == "日报"
+                if self.report_type
+                == "日报"
                 else "green"
             ),
         }
 
-        if subtitle:
-            header["subtitle"] = {
-                "tag": "plain_text",
-                "content": subtitle,
+        # --------------------------------------------------------------
+        # 第 2 / 3 ... 卡
+        # --------------------------------------------------------------
+
+        if index > 1:
+
+            header[
+                "subtitle"
+            ] = {
+                "tag":
+                    "plain_text",
+                "content":
+                    f"第 {index} 部分",
             }
+
+        # --------------------------------------------------------------
+        # Card 2.0
+        # --------------------------------------------------------------
 
         return {
             "schema": "2.0",
+
             "config": {
                 "width_mode": "fill",
                 "enable_forward": True,
             },
+
             "header": header,
+
             "body": {
-                "direction": "vertical",
-                "padding": "12px 12px 12px 12px",
-                "vertical_spacing": "8px",
-                "elements": elements,
+                "direction":
+                    "vertical",
+                "padding":
+                    "12px",
+                "vertical_spacing":
+                    "8px",
+                "elements":
+                    elements,
             },
         }
+
+    # ==================================================================
+    # Send
+    # ==================================================================
 
     def send(
         self,
         title: str,
     ) -> None:
 
-        elements = self.render()
+        elements = (
+            self.render()
+        )
 
         if not elements:
+
             raise RuntimeError(
                 "报告渲染后没有任何内容。"
             )
 
-        cards = self.build_cards(
-            elements,
-            title,
+        cards = (
+            self.build_cards(
+                elements,
+                title,
+            )
         )
 
         log("")
-        log(
-            "======================================================================"
-        )
-        log(
-            f"RENDER RESULT | {self.report_type}"
-        )
+
         log(
             "======================================================================"
         )
 
         log(
-            f"   Elements : {len(elements)}"
+            f"RENDER RESULT | "
+            f"{self.report_type}"
         )
 
         log(
-            f"   Cards    : {len(cards)}"
+            "======================================================================"
         )
+
+        log(
+            f"   Elements : "
+            f"{len(elements)}"
+        )
+
+        log(
+            f"   Cards    : "
+            f"{len(cards)}"
+        )
+
+        # --------------------------------------------------------------
+        # Send
+        # --------------------------------------------------------------
 
         for index, card in enumerate(
             cards,
@@ -1701,7 +2087,10 @@ class FeishuReportRenderer:
 
             self.client.send_card(
                 card,
-                f"{self.report_type} #{index}",
+                (
+                    f"{self.report_type} "
+                    f"#{index}"
+                ),
             )
 
 
@@ -1711,7 +2100,12 @@ class FeishuReportRenderer:
 
 def main():
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description=(
+            "748686 Feishu "
+            "Report Renderer"
+        )
+    )
 
     parser.add_argument(
         "--markdown",
@@ -1744,6 +2138,10 @@ def main():
 
     args = parser.parse_args()
 
+    # ==================================================================
+    # Secrets
+    # ==================================================================
+
     app_id = os.environ.get(
         "APP_ID"
     )
@@ -1757,32 +2155,49 @@ def main():
     )
 
     if not app_id:
+
         raise RuntimeError(
             "缺少 APP_ID"
         )
 
     if not app_secret:
+
         raise RuntimeError(
             "缺少 APP_SECRET"
         )
 
     if not webhook:
+
         raise RuntimeError(
             "缺少 FEISHU_WEBHOOK"
         )
 
-    markdown_path = Path(
-        args.markdown
-    ).resolve()
+    # ==================================================================
+    # Paths
+    # ==================================================================
 
-    repo_root = Path(
-        args.repo_root
-    ).resolve()
+    markdown_path = (
+        Path(
+            args.markdown
+        ).resolve()
+    )
+
+    repo_root = (
+        Path(
+            args.repo_root
+        ).resolve()
+    )
 
     if not markdown_path.exists():
+
         raise FileNotFoundError(
-            f"Markdown 不存在：{markdown_path}"
+            "Markdown 不存在："
+            f"{markdown_path}"
         )
+
+    # ==================================================================
+    # Client
+    # ==================================================================
 
     client = FeishuClient(
         app_id=app_id,
@@ -1790,18 +2205,59 @@ def main():
         webhook=webhook,
     )
 
-    renderer = FeishuReportRenderer(
-        client=client,
-        repo_root=repo_root,
-        report_type=args.report_type,
-        report_date=args.date,
-        markdown_path=markdown_path,
+    # ==================================================================
+    # Renderer
+    # ==================================================================
+
+    renderer = (
+        FeishuReportRenderer(
+            client=client,
+            repo_root=repo_root,
+            report_type=
+                args.report_type,
+            report_date=
+                args.date,
+            markdown_path=
+                markdown_path,
+        )
     )
+
+    # ==================================================================
+    # Send
+    # ==================================================================
 
     renderer.send(
         args.title
     )
 
 
+# ======================================================================
+# Main
+# ======================================================================
+
 if __name__ == "__main__":
-    main()
+
+    try:
+
+        main()
+
+    except KeyboardInterrupt:
+
+        print(
+            "\n❌ 用户中断"
+        )
+
+        sys.exit(130)
+
+    except Exception as exc:
+
+        print(
+            "\n❌ Feishu Report Renderer "
+            "失败："
+        )
+
+        print(
+            str(exc)
+        )
+
+        sys.exit(1)
