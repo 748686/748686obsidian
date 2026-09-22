@@ -1,0 +1,2016 @@
+name: 748686 自生长知识系统
+
+on:
+  workflow_dispatch:
+    inputs:
+      enable_horizon:
+        description: "是否运行 Horizon 新闻采集"
+        required: true
+        type: choice
+        options:
+          - "启用"
+          - "不启用"
+        default: "启用"
+
+  schedule:
+    - cron: "0 0 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+
+  knowledge-system:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      ######################################################################
+      # 01. CHECKOUT
+      ######################################################################
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      ######################################################################
+      # 02. SAFE GIT PUSH HELPER
+      ######################################################################
+
+      - name: Prepare Safe Git Push Helper
+        shell: bash
+        run: |
+          cat > /tmp/748686_git_push_safe.sh <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+
+          BRANCH="${GITHUB_REF_NAME:-main}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git fetch origin "$BRANCH"
+
+          for i in 1 2 3 4 5; do
+
+            if git push origin "HEAD:$BRANCH"; then
+              echo "✅ Git push succeeded."
+              exit 0
+            fi
+
+            echo "⚠️ Git push failed. Synchronizing with origin..."
+
+            git fetch origin "$BRANCH"
+
+            if git rebase "origin/$BRANCH"; then
+              echo "✅ Rebase succeeded."
+            else
+              echo "⚠️ Rebase failed. Aborting rebase."
+              git rebase --abort || true
+
+              git merge --strategy-option=theirs "origin/$BRANCH" || true
+            fi
+
+            sleep 3
+          done
+
+          echo "❌ Git push failed after multiple retries."
+          exit 1
+          EOF
+
+          chmod +x /tmp/748686_git_push_safe.sh
+
+          echo "GIT_HELPER=/tmp/748686_git_push_safe.sh" >> "$GITHUB_ENV"
+
+      ######################################################################
+      # 03. PYTHON
+      ######################################################################
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      ######################################################################
+      # 04. INSTALL PYTHON RUNTIME DEPENDENCIES
+      ######################################################################
+
+      - name: Install Python Runtime Dependencies
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install requests
+
+      ######################################################################
+      # 05. UV
+      ######################################################################
+
+      - name: Install uv
+        shell: bash
+        run: |
+          python -m pip install uv
+
+      ######################################################################
+      # 06. DATE
+      ######################################################################
+
+      - name: Calculate UTC Dates
+        shell: bash
+        run: |
+
+          TODAY="$(date -u +%Y-%m-%d)"
+          YESTERDAY="$(date -u -d "$TODAY -1 day" +%Y-%m-%d)"
+          DAY_BEFORE="$(date -u -d "$TODAY -2 days" +%Y-%m-%d)"
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            HORIZON_INPUT="${{ inputs.enable_horizon }}"
+          else
+            HORIZON_INPUT="启用"
+          fi
+
+          if [[ "$HORIZON_INPUT" == "启用" ]]; then
+            HORIZON_ENABLED="true"
+          else
+            HORIZON_ENABLED="false"
+          fi
+
+          echo "TODAY=$TODAY" >> "$GITHUB_ENV"
+          echo "YESTERDAY=$YESTERDAY" >> "$GITHUB_ENV"
+          echo "DAY_BEFORE=$DAY_BEFORE" >> "$GITHUB_ENV"
+          echo "HORIZON_ENABLED=$HORIZON_ENABLED" >> "$GITHUB_ENV"
+
+          echo
+          echo "TODAY       = $TODAY"
+          echo "YESTERDAY   = $YESTERDAY"
+          echo "DAY_BEFORE  = $DAY_BEFORE"
+          echo "HORIZON     = $HORIZON_ENABLED"
+
+      ######################################################################
+      # 07. CHECK HORIZON
+      ######################################################################
+
+      - name: Checkout Horizon
+        if: env.HORIZON_ENABLED == 'true'
+        shell: bash
+        run: |
+
+          rm -rf /tmp/Horizon
+
+          git clone \
+            --depth 1 \
+            https://github.com/748686/Horizon.git \
+            /tmp/Horizon
+
+          cd /tmp/Horizon
+
+          echo "Horizon repository:"
+          git log -1 --oneline
+
+      ######################################################################
+      # 08. INSTALL HORIZON
+      ######################################################################
+
+      - name: Install Horizon
+        if: env.HORIZON_ENABLED == 'true'
+        shell: bash
+        run: |
+
+          cd /tmp/Horizon
+
+          if [[ ! -f "data/config.github.json" ]]; then
+            echo "❌ Missing Horizon configuration:"
+            echo "data/config.github.json"
+            exit 1
+          fi
+
+          uv sync
+
+          echo "✅ Horizon installed."
+
+      ######################################################################
+      # 09. HORIZON DISABLED STATUS
+      ######################################################################
+
+      - name: Horizon Disabled
+        if: env.HORIZON_ENABLED != 'true'
+        shell: bash
+        run: |
+          echo "⏸️ Horizon is disabled."
+          echo "Existing Raw News will be used."
+
+      ######################################################################
+      # 10. AGNES API KEY
+      ######################################################################
+
+      - name: Check AGNES API Key
+        shell: bash
+        env:
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+        run: |
+
+          if [[ -z "${AGNES_API_KEY:-}" ]]; then
+            echo "❌ AGNES_API_KEY is not configured."
+            exit 1
+          fi
+
+          echo "AGNES_API_KEY is configured."
+
+      ######################################################################
+      # 11. HORIZON GH-PAGES
+      ######################################################################
+
+      - name: Checkout Horizon gh-pages
+        if: env.HORIZON_ENABLED == 'true'
+        shell: bash
+        run: |
+
+          rm -rf /tmp/Horizon-gh-pages
+
+          git clone \
+            --depth 1 \
+            --branch gh-pages \
+            https://github.com/748686/Horizon.git \
+            /tmp/Horizon-gh-pages
+
+          echo "✅ Horizon gh-pages ready."
+
+      ######################################################################
+      # 12. ACQUIRE TODAY RAW NEWS
+      ######################################################################
+
+      - name: Acquire TODAY Raw News
+        shell: bash
+        env:
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
+        run: |
+
+          set -e
+
+          ROOT="01_自生长知识系统"
+          RAW="$ROOT/Raw News/$TODAY"
+
+          mkdir -p "$RAW"
+
+          EXISTING_COUNT="$(find "$RAW" -maxdepth 1 -type f -name '*.md' -size +0c | wc -l)"
+
+          echo
+          echo "TODAY RAW NEWS"
+          echo "Directory : $RAW"
+          echo "Existing  : $EXISTING_COUNT"
+
+          if [[ "$EXISTING_COUNT" -ge 2 ]]; then
+            echo "✅ TODAY Raw News already exists."
+            exit 0
+          fi
+
+          if [[ "$HORIZON_ENABLED" != "true" ]]; then
+            echo "❌ Horizon disabled and TODAY Raw News is incomplete."
+            exit 1
+          fi
+
+          cd /tmp/Horizon
+
+          echo
+          echo "▶ Running Horizon..."
+
+          uv run horizon \
+            --hours 24 \
+            --config data/config.github.json
+
+          echo
+          echo "▶ Waiting for Horizon gh-pages..."
+
+          FOUND="false"
+
+          for i in $(seq 1 10); do
+
+            echo "Attempt $i / 10"
+
+            git -C /tmp/Horizon-gh-pages fetch origin gh-pages
+            git -C /tmp/Horizon-gh-pages reset --hard origin/gh-pages
+
+            FOUND_COUNT="$(
+              find /tmp/Horizon-gh-pages \
+                -type f \
+                -name "${TODAY}*.md" \
+                -size +0c \
+                2>/dev/null | wc -l
+            )"
+
+            echo "Found TODAY files: $FOUND_COUNT"
+
+            if [[ "$FOUND_COUNT" -ge 2 ]]; then
+              FOUND="true"
+              break
+            fi
+
+            sleep 30
+          done
+
+          if [[ "$FOUND" != "true" ]]; then
+            echo "❌ Horizon did not produce enough TODAY articles."
+            exit 1
+          fi
+
+          echo
+          echo "▶ Copying TODAY Raw News..."
+
+          find /tmp/Horizon-gh-pages \
+            -type f \
+            -name "${TODAY}*.md" \
+            -size +0c \
+            -exec cp {} "$RAW/" \;
+
+          FINAL_COUNT="$(
+            find "$RAW" \
+              -maxdepth 1 \
+              -type f \
+              -name '*.md' \
+              -size +0c \
+              | wc -l
+          )"
+
+          echo "Final TODAY Raw News: $FINAL_COUNT"
+
+          if [[ "$FINAL_COUNT" -lt 2 ]]; then
+            echo "❌ TODAY Raw News validation failed."
+            exit 1
+          fi
+
+      ######################################################################
+      # 13. CHECKPOINT TODAY RAW NEWS
+      ######################################################################
+
+      - name: Checkpoint TODAY Raw News
+        shell: bash
+        run: |
+
+          git add "01_自生长知识系统/Raw News/$TODAY"
+
+          if git diff --cached --quiet; then
+            echo "ℹ️ No TODAY Raw News changes."
+          else
+            git commit -m "chore: checkpoint TODAY raw news $TODAY"
+            "$GIT_HELPER"
+          fi
+
+      ######################################################################
+      # 14. ROLLING DATE TRANSACTIONS
+      ######################################################################
+
+      - name: Rolling Date Transactions
+        shell: bash
+        env:
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_MODEL: agnes-2.5-flash
+        run: |
+
+          set +e
+
+          ROOT="01_自生长知识系统"
+
+          SPLITTER="$ROOT/scripts/horizon_split.py"
+          ENRICHMENT="$ROOT/scripts/source_enrichment.py"
+          ORCHESTRATOR="$ROOT/scripts/knowledge_rolling.py"
+
+          process_date() {
+
+            local DATE="$1"
+            local REQUIRED="$2"
+
+            echo
+            echo "======================================================================"
+            echo "PROCESS DATE: $DATE"
+            echo "REQUIRED: $REQUIRED"
+            echo "======================================================================"
+
+            RAW="$ROOT/Raw News/$DATE"
+            EVENT_ROOT="$ROOT/Raw News/${DATE}-EventUnit"
+
+            RAW_COUNT="$(
+              find "$RAW" \
+                -maxdepth 1 \
+                -type f \
+                -name '*.md' \
+                -size +0c \
+                2>/dev/null | wc -l
+            )"
+
+            echo "Raw News: $RAW_COUNT"
+
+            if [[ "$RAW_COUNT" -lt 2 ]]; then
+
+              if [[ "$REQUIRED" == "true" ]]; then
+                echo "❌ TODAY Raw News incomplete."
+                return 1
+              fi
+
+              echo "⏭️ Historical date has no usable Raw News. SKIP."
+              return 10
+            fi
+
+            echo
+            echo "▶ Running splitter..."
+
+            python "$SPLITTER" \
+              --date "$DATE"
+
+            if [[ $? -ne 0 ]]; then
+
+              if [[ "$REQUIRED" == "true" ]]; then
+                return 1
+              fi
+
+              echo "⏭️ Historical splitter failed. SKIP."
+              return 10
+            fi
+
+            echo
+            echo "▶ Running source enrichment..."
+
+            python "$ENRICHMENT" \
+              --date "$DATE"
+
+            if [[ $? -ne 0 ]]; then
+
+              if [[ "$REQUIRED" == "true" ]]; then
+                return 1
+              fi
+
+              echo "⏭️ Historical enrichment failed. SKIP."
+              return 10
+            fi
+
+            for LANG in en zh; do
+
+              ATOMIC="$ROOT/Raw News/${DATE}-Atomic/$LANG"
+              ENRICHED="$ROOT/Raw News/${DATE}-Enriched/$LANG"
+
+              ATOMIC_COUNT="$(
+                find "$ATOMIC" \
+                  -type f \
+                  -name '*.md' \
+                  -size +0c \
+                  2>/dev/null | wc -l
+              )"
+
+              ENRICHED_COUNT="$(
+                find "$ENRICHED" \
+                  -type f \
+                  -name '*.md' \
+                  -size +0c \
+                  2>/dev/null | wc -l
+              )"
+
+              echo
+              echo "$LANG Atomic   : $ATOMIC_COUNT"
+              echo "$LANG Enriched  : $ENRICHED_COUNT"
+
+              if [[ "$ATOMIC_COUNT" -eq 0 || "$ENRICHED_COUNT" -eq 0 ]]; then
+
+                if [[ "$REQUIRED" == "true" ]]; then
+                  echo "❌ $DATE/$LANG input validation failed."
+                  return 1
+                fi
+
+                echo "⏭️ Historical $LANG input incomplete. SKIP."
+                return 10
+              fi
+
+            done
+
+            echo
+            echo "▶ Running knowledge rolling..."
+
+            python "$ORCHESTRATOR" \
+              --date "$DATE"
+
+            if [[ $? -ne 0 ]]; then
+
+              if [[ "$REQUIRED" == "true" ]]; then
+                return 1
+              fi
+
+              echo "⏭️ Historical rolling failed. SKIP."
+              return 10
+            fi
+
+            echo
+            echo "▶ Validating EventUnit..."
+
+            DATE_EVENT_COUNT=0
+
+            for LANG in en zh; do
+
+              LANG_EVENT_ROOT="$EVENT_ROOT/$LANG"
+              EVENT_UNITS_DIR="$LANG_EVENT_ROOT/event_units"
+
+              echo
+              echo "----------------------------------------------------------------------"
+              echo "$DATE | $LANG"
+              echo "----------------------------------------------------------------------"
+
+              if [[ ! -f "$LANG_EVENT_ROOT/_COMPLETE" ]]; then
+                echo "❌ Missing $LANG _COMPLETE."
+                echo "Expected:"
+                echo "$LANG_EVENT_ROOT/_COMPLETE"
+
+                if [[ "$REQUIRED" == "true" ]]; then
+                  return 1
+                fi
+
+                return 10
+              fi
+
+              if [[ ! -d "$EVENT_UNITS_DIR" ]]; then
+                echo "❌ Missing event_units directory."
+                echo "Expected:"
+                echo "$EVENT_UNITS_DIR"
+
+                if [[ "$REQUIRED" == "true" ]]; then
+                  return 1
+                fi
+
+                return 10
+              fi
+
+              ################################################################
+              # EventUnit:
+              # Only EVT-*.md
+              # Explicitly exclude *_analysis.md
+              ################################################################
+
+              EVENT_COUNT="$(
+                find "$EVENT_UNITS_DIR" \
+                  -maxdepth 1 \
+                  -type f \
+                  -name 'EVT-*.md' \
+                  ! -name '*_analysis.md' \
+                  -size +0c \
+                  2>/dev/null | wc -l
+              )"
+
+              ################################################################
+              # Analysis:
+              # Only EVT-*_analysis.md
+              ################################################################
+
+              ANALYSIS_COUNT="$(
+                find "$EVENT_UNITS_DIR" \
+                  -maxdepth 1 \
+                  -type f \
+                  -name 'EVT-*_analysis.md' \
+                  -size +0c \
+                  2>/dev/null | wc -l
+              )"
+
+              echo "EventUnit : $EVENT_COUNT"
+              echo "Analysis  : $ANALYSIS_COUNT"
+
+              if [[ "$EVENT_COUNT" -eq 0 ]]; then
+                echo "❌ No EventUnit generated for $DATE/$LANG."
+
+                if [[ "$REQUIRED" == "true" ]]; then
+                  return 1
+                fi
+
+                return 10
+              fi
+
+              DATE_EVENT_COUNT=$((DATE_EVENT_COUNT + EVENT_COUNT))
+
+              ################################################################
+              # Strict 1:1 count validation
+              ################################################################
+
+              if [[ "$ANALYSIS_COUNT" -ne "$EVENT_COUNT" ]]; then
+
+                echo
+                echo "❌ EventUnit / Analysis count mismatch."
+                echo "EventUnit : $EVENT_COUNT"
+                echo "Analysis  : $ANALYSIS_COUNT"
+
+                echo
+                echo "▶ Searching missing analysis files..."
+
+                MISSING_COUNT=0
+
+                while IFS= read -r EVENT_FILE; do
+
+                  EVENT_BASENAME="$(basename "$EVENT_FILE" .md)"
+
+                  ANALYSIS_FILE="$EVENT_UNITS_DIR/${EVENT_BASENAME}_analysis.md"
+
+                  if [[ ! -s "$ANALYSIS_FILE" ]]; then
+                    echo "❌ Missing analysis:"
+                    echo "   $ANALYSIS_FILE"
+                    MISSING_COUNT=$((MISSING_COUNT + 1))
+                  fi
+
+                done < <(
+                  find "$EVENT_UNITS_DIR" \
+                    -maxdepth 1 \
+                    -type f \
+                    -name 'EVT-*.md' \
+                    ! -name '*_analysis.md' \
+                    -size +0c \
+                    -print
+                )
+
+                echo
+                echo "Missing analysis count: $MISSING_COUNT"
+
+                if [[ "$REQUIRED" == "true" ]]; then
+                  return 1
+                fi
+
+                return 10
+              fi
+
+              echo "✅ EventUnit / Analysis count is 1:1."
+
+              ################################################################
+              # Strict filename pair validation
+              ################################################################
+
+              PAIR_ERROR=0
+
+              while IFS= read -r EVENT_FILE; do
+
+                EVENT_BASENAME="$(basename "$EVENT_FILE" .md)"
+
+                ANALYSIS_FILE="$EVENT_UNITS_DIR/${EVENT_BASENAME}_analysis.md"
+
+                if [[ ! -s "$ANALYSIS_FILE" ]]; then
+                  echo "❌ Missing paired analysis:"
+                  echo "   EventUnit: $EVENT_FILE"
+                  echo "   Expected : $ANALYSIS_FILE"
+                  PAIR_ERROR=1
+                fi
+
+              done < <(
+                find "$EVENT_UNITS_DIR" \
+                  -maxdepth 1 \
+                  -type f \
+                  -name 'EVT-*.md' \
+                  ! -name '*_analysis.md' \
+                  -size +0c \
+                  -print
+              )
+
+              ################################################################
+              # Detect orphan analysis files
+              ################################################################
+
+              while IFS= read -r ANALYSIS_FILE; do
+
+                ANALYSIS_BASENAME="$(basename "$ANALYSIS_FILE" .md)"
+
+                EVENT_BASENAME="${ANALYSIS_BASENAME%_analysis}"
+
+                EVENT_FILE="$EVENT_UNITS_DIR/${EVENT_BASENAME}.md"
+
+                if [[ ! -s "$EVENT_FILE" ]]; then
+                  echo "❌ Orphan analysis file:"
+                  echo "   $ANALYSIS_FILE"
+                  echo "   Missing EventUnit:"
+                  echo "   $EVENT_FILE"
+                  PAIR_ERROR=1
+                fi
+
+              done < <(
+                find "$EVENT_UNITS_DIR" \
+                  -maxdepth 1 \
+                  -type f \
+                  -name 'EVT-*_analysis.md' \
+                  -size +0c \
+                  -print
+              )
+
+              if [[ "$PAIR_ERROR" -ne 0 ]]; then
+                echo
+                echo "❌ Strict EventUnit / Analysis pairing validation failed."
+
+                if [[ "$REQUIRED" == "true" ]]; then
+                  return 1
+                fi
+
+                return 10
+              fi
+
+              echo "✅ Every EventUnit has exactly one matching analysis."
+
+              ################################################################
+              # _SKILLS_COMPLETE
+              #
+              # IMPORTANT:
+              # Actual marker location:
+              #
+              # EventUnit/<lang>/event_units/_SKILLS_COMPLETE
+              ################################################################
+
+              SKILLS_MARKER="$EVENT_UNITS_DIR/_SKILLS_COMPLETE"
+
+              if [[ ! -s "$SKILLS_MARKER" ]]; then
+
+                echo "❌ Missing or empty $LANG _SKILLS_COMPLETE."
+                echo "Expected:"
+                echo "$SKILLS_MARKER"
+
+                if [[ "$REQUIRED" == "true" ]]; then
+                  return 1
+                fi
+
+                return 10
+              fi
+
+              echo "✅ $LANG _SKILLS_COMPLETE verified."
+
+            done
+
+            echo
+            echo "======================================================================"
+            echo "EVENTUNIT SUMMARY: $DATE"
+            echo "======================================================================"
+            echo "Total EventUnit: $DATE_EVENT_COUNT"
+            echo "Strict 1:1 Analysis pairing: VERIFIED"
+            echo "Skills markers: VERIFIED"
+            echo "======================================================================"
+
+            echo
+            echo "✅ $DATE rolling completed."
+
+            git add "$ROOT/Raw News/$DATE" \
+                    "$ROOT/Raw News/${DATE}-Atomic" \
+                    "$ROOT/Raw News/${DATE}-Enriched" \
+                    "$ROOT/Raw News/${DATE}-EventUnit"
+
+            if ! git diff --cached --quiet; then
+              git commit -m "chore: checkpoint rolling $DATE"
+              "$GIT_HELPER"
+            fi
+
+            return 0
+          }
+
+          ##################################################################
+          # TODAY REQUIRED
+          ##################################################################
+
+          process_date "$TODAY" "true"
+
+          TODAY_RESULT=$?
+
+          if [[ "$TODAY_RESULT" -ne 0 ]]; then
+            echo "❌ TODAY processing failed."
+            exit 1
+          fi
+
+          ##################################################################
+          # YESTERDAY OPTIONAL
+          ##################################################################
+
+          process_date "$YESTERDAY" "false"
+
+          YESTERDAY_RESULT=$?
+
+          if [[ "$YESTERDAY_RESULT" -eq 10 ]]; then
+            echo "⏭️ YESTERDAY SKIPPED."
+          elif [[ "$YESTERDAY_RESULT" -ne 0 ]]; then
+            echo "⏭️ YESTERDAY failed but is historical. Continuing."
+          fi
+
+          ##################################################################
+          # DAY BEFORE OPTIONAL
+          ##################################################################
+
+          process_date "$DAY_BEFORE" "false"
+
+          DAY_BEFORE_RESULT=$?
+
+          if [[ "$DAY_BEFORE_RESULT" -eq 10 ]]; then
+            echo "⏭️ DAY_BEFORE SKIPPED."
+          elif [[ "$DAY_BEFORE_RESULT" -ne 0 ]]; then
+            echo "⏭️ DAY_BEFORE failed but is historical. Continuing."
+          fi
+
+          echo
+          echo "======================================================================"
+          echo "ROLLING DATE TRANSACTIONS COMPLETE"
+          echo "======================================================================"
+
+      ######################################################################
+      # 15. DAILY REPORT
+      ######################################################################
+
+      - name: Generate Daily Report
+        shell: bash
+        env:
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_MODEL: agnes-2.5-flash
+        run: |
+
+          python 01_自生长知识系统/scripts/knowledge_daily.py \
+            --day-before "$DAY_BEFORE" \
+            --yesterday "$YESTERDAY" \
+            --today "$TODAY"
+
+      ######################################################################
+      # 16. DAILY REPORT CHECKPOINT
+      ######################################################################
+
+      - name: Checkpoint Daily Report
+        shell: bash
+        run: |
+
+          git add "01_自生长知识系统/05_日报"
+
+          if git diff --cached --quiet; then
+            echo "ℹ️ No Daily Report changes."
+          else
+            git commit -m "chore: update daily report $TODAY"
+            "$GIT_HELPER"
+          fi
+
+      ######################################################################
+      # 17. KNOWLEDGE ASSETIZATION
+      ######################################################################
+
+      - name: Knowledge Assetization
+        shell: bash
+        env:
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_MODEL: agnes-2.5-flash
+        run: |
+
+          python 01_自生长知识系统/scripts/knowledge_asset.py
+
+      ######################################################################
+      # 18. KNOWLEDGE ASSET CHECKPOINT
+      ######################################################################
+
+      - name: Checkpoint Knowledge Assets
+        shell: bash
+        run: |
+
+          git add "01_自生长知识系统"
+
+          if git diff --cached --quiet; then
+            echo "ℹ️ No Knowledge Asset changes."
+          else
+            git commit -m "chore: update knowledge assets $TODAY"
+            "$GIT_HELPER"
+          fi
+
+      ######################################################################
+      # 19. WEEKLY REPORT
+      ######################################################################
+
+      - name: Generate Weekly Report
+        shell: bash
+        env:
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_MODEL: agnes-2.5-flash
+        run: |
+
+          python 01_自生长知识系统/scripts/weekly_report.py \
+            --today "$TODAY"
+
+      ######################################################################
+      # 20. WEEKLY REPORT CHECKPOINT
+      ######################################################################
+
+      - name: Checkpoint Weekly Report
+        shell: bash
+        run: |
+
+          git add "01_自生长知识系统/06_周报"
+
+          if git diff --cached --quiet; then
+            echo "ℹ️ No Weekly Report changes."
+          else
+            git commit -m "chore: update weekly report $TODAY"
+            "$GIT_HELPER"
+          fi
+
+      ######################################################################
+      # 21. KNOWLEDGE GROWTH
+      ######################################################################
+
+      - name: Knowledge Growth
+        shell: bash
+        env:
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_MODEL: agnes-2.5-flash
+        run: |
+
+          python 01_自生长知识系统/scripts/knowledge_growth.py \
+            --today "$TODAY"
+
+      ######################################################################
+      # 22. KNOWLEDGE GROWTH CHECKPOINT
+      ######################################################################
+
+      - name: Checkpoint Knowledge Growth
+        shell: bash
+        run: |
+
+          git add "01_自生长知识系统"
+
+          if git diff --cached --quiet; then
+            echo "ℹ️ No Knowledge Growth changes."
+          else
+            git commit -m "chore: knowledge growth $TODAY"
+            "$GIT_HELPER"
+          fi
+
+      ######################################################################
+      # 23. FINAL ROLLING VALIDATION
+      ######################################################################
+
+      - name: Final Rolling Validation
+        shell: bash
+        run: |
+
+          ROOT="01_自生长知识系统"
+
+          echo
+          echo "======================================================================"
+          echo "FINAL VALIDATION"
+          echo "======================================================================"
+
+          EVENT_ROOT="$ROOT/Raw News/${TODAY}-EventUnit"
+
+          if [[ ! -d "$EVENT_ROOT" ]]; then
+            echo "❌ TODAY EventUnit directory missing:"
+            echo "$EVENT_ROOT"
+            exit 1
+          fi
+
+          ####################################################################
+          # Strict EventUnit / Analysis validation
+          ####################################################################
+
+          for LANG in en zh; do
+
+            LANG_EVENT_ROOT="$EVENT_ROOT/$LANG"
+            EVENT_UNITS_DIR="$LANG_EVENT_ROOT/event_units"
+
+            echo
+            echo "----------------------------------------------------------------------"
+            echo "FINAL VALIDATION | $TODAY | $LANG"
+            echo "----------------------------------------------------------------------"
+
+            if [[ ! -f "$LANG_EVENT_ROOT/_COMPLETE" ]]; then
+              echo "❌ Missing $LANG _COMPLETE:"
+              echo "$LANG_EVENT_ROOT/_COMPLETE"
+              exit 1
+            fi
+
+            if [[ ! -d "$EVENT_UNITS_DIR" ]]; then
+              echo "❌ Missing event_units directory:"
+              echo "$EVENT_UNITS_DIR"
+              exit 1
+            fi
+
+            EVENT_COUNT="$(
+              find "$EVENT_UNITS_DIR" \
+                -maxdepth 1 \
+                -type f \
+                -name 'EVT-*.md' \
+                ! -name '*_analysis.md' \
+                -size +0c \
+                2>/dev/null | wc -l
+            )"
+
+            ANALYSIS_COUNT="$(
+              find "$EVENT_UNITS_DIR" \
+                -maxdepth 1 \
+                -type f \
+                -name 'EVT-*_analysis.md' \
+                -size +0c \
+                2>/dev/null | wc -l
+            )"
+
+            echo "EventUnit : $EVENT_COUNT"
+            echo "Analysis  : $ANALYSIS_COUNT"
+
+            if [[ "$EVENT_COUNT" -eq 0 ]]; then
+              echo "❌ TODAY $LANG has no EventUnit."
+              exit 1
+            fi
+
+            if [[ "$ANALYSIS_COUNT" -ne "$EVENT_COUNT" ]]; then
+              echo "❌ TODAY $LANG EventUnit / Analysis count mismatch."
+              exit 1
+            fi
+
+            ##################################################################
+            # Verify every EventUnit has its exact matching analysis
+            ##################################################################
+
+            PAIR_ERROR=0
+
+            while IFS= read -r EVENT_FILE; do
+
+              EVENT_BASENAME="$(basename "$EVENT_FILE" .md)"
+
+              ANALYSIS_FILE="$EVENT_UNITS_DIR/${EVENT_BASENAME}_analysis.md"
+
+              if [[ ! -s "$ANALYSIS_FILE" ]]; then
+                echo "❌ Missing paired analysis:"
+                echo "   EventUnit: $EVENT_FILE"
+                echo "   Expected : $ANALYSIS_FILE"
+                PAIR_ERROR=1
+              fi
+
+            done < <(
+              find "$EVENT_UNITS_DIR" \
+                -maxdepth 1 \
+                -type f \
+                -name 'EVT-*.md' \
+                ! -name '*_analysis.md' \
+                -size +0c \
+                -print
+            )
+
+            ##################################################################
+            # Verify no orphan analysis
+            ##################################################################
+
+            while IFS= read -r ANALYSIS_FILE; do
+
+              ANALYSIS_BASENAME="$(basename "$ANALYSIS_FILE" .md)"
+
+              EVENT_BASENAME="${ANALYSIS_BASENAME%_analysis}"
+
+              EVENT_FILE="$EVENT_UNITS_DIR/${EVENT_BASENAME}.md"
+
+              if [[ ! -s "$EVENT_FILE" ]]; then
+                echo "❌ Orphan analysis:"
+                echo "   $ANALYSIS_FILE"
+                echo "   Missing EventUnit:"
+                echo "   $EVENT_FILE"
+                PAIR_ERROR=1
+              fi
+
+            done < <(
+              find "$EVENT_UNITS_DIR" \
+                -maxdepth 1 \
+                -type f \
+                -name 'EVT-*_analysis.md' \
+                -size +0c \
+                -print
+            )
+
+            if [[ "$PAIR_ERROR" -ne 0 ]]; then
+              echo "❌ Strict EventUnit / Analysis pairing validation failed."
+              exit 1
+            fi
+
+            echo "✅ $LANG EventUnit / Analysis strict 1:1 verified."
+
+            ##################################################################
+            # Verify Skills marker
+            ##################################################################
+
+            SKILLS_MARKER="$EVENT_UNITS_DIR/_SKILLS_COMPLETE"
+
+            if [[ ! -s "$SKILLS_MARKER" ]]; then
+              echo "❌ Missing or empty $LANG _SKILLS_COMPLETE:"
+              echo "$SKILLS_MARKER"
+              exit 1
+            fi
+
+            echo "✅ $LANG _SKILLS_COMPLETE verified."
+
+          done
+
+          ####################################################################
+          # Daily Report
+          ####################################################################
+
+          DAILY="$ROOT/05_日报/${TODAY:0:4}/${TODAY:5:2}/${TODAY}.md"
+
+          if [[ ! -s "$DAILY" ]]; then
+            echo "❌ Daily Report missing:"
+            echo "$DAILY"
+            exit 1
+          fi
+
+          echo "✅ Daily Report exists."
+
+          ####################################################################
+          # Knowledge Base
+          ####################################################################
+
+          KB_COUNT="$(
+            find "$ROOT/08_知识库" \
+              -type f \
+              -name '*.md' \
+              -size +0c \
+              2>/dev/null | wc -l
+          )"
+
+          if [[ "$KB_COUNT" -eq 0 ]]; then
+            echo "❌ Knowledge Base is empty."
+            exit 1
+          fi
+
+          echo "Knowledge Base: $KB_COUNT"
+
+          ####################################################################
+          # Knowledge Graph
+          ####################################################################
+
+          GRAPH_COUNT="$(
+            find "$ROOT/09_知识图谱" \
+              -type f \
+              -size +0c \
+              2>/dev/null | wc -l
+          )"
+
+          if [[ "$GRAPH_COUNT" -eq 0 ]]; then
+            echo "❌ Knowledge Graph is empty."
+            exit 1
+          fi
+
+          echo "Knowledge Graph: $GRAPH_COUNT"
+
+          ####################################################################
+          # Weekly Report
+          ####################################################################
+
+          WEEK_YEAR="$(date -u -d "$TODAY" +%G)"
+          WEEK_NO="$(date -u -d "$TODAY" +%V)"
+
+          WEEKLY="$ROOT/06_周报/$WEEK_YEAR/W$WEEK_NO.md"
+
+          if [[ ! -s "$WEEKLY" ]]; then
+            echo "❌ Weekly Report missing:"
+            echo "$WEEKLY"
+            exit 1
+          fi
+
+          echo "✅ Weekly Report exists."
+
+          ####################################################################
+          # Knowledge Growth
+          ####################################################################
+
+          GROWTH_MARKER="$ROOT/08_知识库/${TODAY}_COMPLETE"
+
+          if [[ ! -f "$GROWTH_MARKER" ]]; then
+            echo "⚠️ Knowledge Growth marker not found:"
+            echo "$GROWTH_MARKER"
+          else
+            echo "✅ Knowledge Growth complete."
+          fi
+
+          echo
+          echo "======================================================================"
+          echo "✅ FINAL VALIDATION PASSED."
+          echo "======================================================================"
+
+      ######################################################################
+      # 24. FINAL COMMIT
+      ######################################################################
+
+      - name: Final Commit
+        shell: bash
+        run: |
+
+          git add "01_自生长知识系统"
+
+          if git diff --cached --quiet; then
+            echo "ℹ️ No final changes."
+          else
+            git commit -m "chore: finalize knowledge system $TODAY"
+            "$GIT_HELPER"
+          fi
+
+      ######################################################################
+      # 25. GENERATE DAILY / WEEKLY IMAGES
+      ######################################################################
+
+      - name: Generate Daily Weekly Images
+        shell: bash
+        env:
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AI_MODEL: agnes-2.5-flash
+          FORCE_REGENERATE: "true"
+        run: |
+
+          python 01_自生长知识系统/scripts/knowledge_image.py \
+            --today "$TODAY"
+
+      ######################################################################
+      # 26. IMAGE CHECKPOINT
+      ######################################################################
+
+      - name: Image Checkpoint
+        shell: bash
+        run: |
+
+          IMAGE_ROOT="01_自生长知识系统/04_图片"
+
+          if [[ ! -d "$IMAGE_ROOT" ]]; then
+            echo "❌ Image directory missing."
+            exit 1
+          fi
+
+          IMAGE_COUNT="$(
+            find "$IMAGE_ROOT" \
+              -type f \
+              \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) \
+              -size +0c \
+              | wc -l
+          )"
+
+          echo "Image count: $IMAGE_COUNT"
+
+          if [[ "$IMAGE_COUNT" -eq 0 ]]; then
+            echo "❌ No generated images."
+            exit 1
+          fi
+
+          DAILY_MD_COUNT="$(
+            find "01_自生长知识系统/05_日报" \
+              -type f \
+              -name '*_带图.md' \
+              -size +0c \
+              2>/dev/null | wc -l
+          )"
+
+          WEEKLY_MD_COUNT="$(
+            find "01_自生长知识系统/06_周报" \
+              -type f \
+              -name '*_带图.md' \
+              -size +0c \
+              2>/dev/null | wc -l
+          )"
+
+          echo "Daily illustrated reports : $DAILY_MD_COUNT"
+          echo "Weekly illustrated reports: $WEEKLY_MD_COUNT"
+
+          if [[ "$DAILY_MD_COUNT" -eq 0 ]]; then
+            echo "❌ Daily *_带图.md is mandatory."
+            exit 1
+          fi
+
+          git add "$IMAGE_ROOT" \
+                  "01_自生长知识系统/05_日报" \
+                  "01_自生长知识系统/06_周报"
+
+          if git diff --cached --quiet; then
+            echo "ℹ️ No image changes."
+          else
+            git commit -m "chore: add illustrated daily weekly reports $TODAY"
+            "$GIT_HELPER"
+          fi
+
+      ######################################################################
+      # 27. FEISHU ADVANCED RENDERING
+      ######################################################################
+
+      - name: Feishu Advanced Rendering
+        if: success()
+        shell: bash
+        env:
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
+          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+        run: |
+
+          set -euo pipefail
+
+          echo
+          echo "######################################################################"
+          echo "FEISHU ADVANCED RENDERING"
+          echo "######################################################################"
+
+          ####################################################################
+          # Secret validation
+          ####################################################################
+
+          if [[ -z "${FEISHU_WEBHOOK:-}" ]]; then
+            echo "❌ FEISHU_WEBHOOK is missing."
+            exit 1
+          fi
+
+          if [[ -z "${FEISHU_APP_ID:-}" ]]; then
+            echo "❌ FEISHU_APP_ID is missing."
+            exit 1
+          fi
+
+          if [[ -z "${FEISHU_APP_SECRET:-}" ]]; then
+            echo "❌ FEISHU_APP_SECRET is missing."
+            exit 1
+          fi
+
+          ####################################################################
+          # Create temporary renderer
+          ####################################################################
+
+          cat > /tmp/feishu_advanced_renderer.py <<'PY'
+          #!/usr/bin/env python3
+
+          import json
+          import os
+          import re
+          from pathlib import Path
+          from urllib import request
+          import uuid
+
+
+          WEBHOOK = os.environ["FEISHU_WEBHOOK"]
+          APP_ID = os.environ["FEISHU_APP_ID"]
+          APP_SECRET = os.environ["FEISHU_APP_SECRET"]
+
+
+          def http_json(url, method="GET", data=None, headers=None):
+
+              if headers is None:
+                  headers = {}
+
+              body = None
+
+              if data is not None:
+                  body = json.dumps(data, ensure_ascii=False).encode("utf-8")
+                  headers.setdefault("Content-Type", "application/json")
+
+              req = request.Request(
+                  url,
+                  data=body,
+                  headers=headers,
+                  method=method,
+              )
+
+              with request.urlopen(req, timeout=60) as response:
+                  raw = response.read().decode("utf-8")
+
+              result = json.loads(raw)
+
+              if result.get("code", 0) != 0:
+                  raise RuntimeError(
+                      f"Feishu API failed: {result}"
+                  )
+
+              return result
+
+
+          def get_tenant_access_token():
+
+              result = http_json(
+                  "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal",
+                  method="POST",
+                  data={
+                      "app_id": APP_ID,
+                      "app_secret": APP_SECRET,
+                  },
+              )
+
+              token = result.get("tenant_access_token")
+
+              if not token:
+                  raise RuntimeError(
+                      f"tenant_access_token missing: {result}"
+                  )
+
+              return token
+
+
+          def upload_image(token, image_path):
+
+              image_path = Path(image_path)
+
+              if not image_path.exists():
+                  raise RuntimeError(
+                      f"Image does not exist: {image_path}"
+                  )
+
+              if image_path.stat().st_size <= 0:
+                  raise RuntimeError(
+                      f"Image is empty: {image_path}"
+                  )
+
+              boundary = "----748686" + uuid.uuid4().hex
+
+              image_bytes = image_path.read_bytes()
+
+              parts = []
+
+              parts.append(
+                  (
+                      f"--{boundary}\r\n"
+                      'Content-Disposition: form-data; name="image_type"\r\n'
+                      "\r\n"
+                      "message\r\n"
+                  ).encode("utf-8")
+              )
+
+              filename = image_path.name
+
+              parts.append(
+                  (
+                      f"--{boundary}\r\n"
+                      f'Content-Disposition: form-data; name="image"; filename="{filename}"\r\n'
+                      "Content-Type: image/png\r\n"
+                      "\r\n"
+                  ).encode("utf-8")
+              )
+
+              parts.append(image_bytes)
+
+              parts.append(
+                  f"\r\n--{boundary}--\r\n".encode("utf-8")
+              )
+
+              body = b"".join(parts)
+
+              req = request.Request(
+                  "https://open.feishu.cn/open-apis/im/v1/images",
+                  data=body,
+                  headers={
+                      "Authorization": f"Bearer {token}",
+                      "Content-Type": f"multipart/form-data; boundary={boundary}",
+                  },
+                  method="POST",
+              )
+
+              with request.urlopen(req, timeout=120) as response:
+                  raw = response.read().decode("utf-8")
+
+              result = json.loads(raw)
+
+              if result.get("code", 0) != 0:
+                  raise RuntimeError(
+                      f"Image upload failed: {result}"
+                  )
+
+              image_key = (
+                  result.get("data", {})
+                  .get("image_key")
+              )
+
+              if not image_key:
+                  raise RuntimeError(
+                      f"image_key missing: {result}"
+                  )
+
+              return image_key
+
+
+          def resolve_image(md_file, raw_path):
+
+              raw_path = raw_path.strip()
+
+              if raw_path.startswith("<") and raw_path.endswith(">"):
+                  raw_path = raw_path[1:-1]
+
+              raw_path = raw_path.split("?", 1)[0]
+              raw_path = raw_path.split("#", 1)[0]
+
+              if raw_path.startswith("http://"):
+                  return None
+
+              if raw_path.startswith("https://"):
+                  return None
+
+              candidates = []
+
+              path = Path(raw_path)
+
+              if path.is_absolute():
+                  candidates.append(path)
+
+              else:
+                  candidates.append(md_file.parent / path)
+                  candidates.append(Path.cwd() / path)
+
+              for candidate in candidates:
+                  candidate = candidate.resolve()
+
+                  if candidate.exists() and candidate.is_file():
+                      return candidate
+
+              return None
+
+
+          def extract_images(md_file, markdown):
+
+              results = []
+
+              pattern_1 = re.compile(
+                  r"!\[[^\]]*\]\(([^)\s]+)(?:\s+['\"][^'\"]*['\"])?\)"
+              )
+
+              pattern_2 = re.compile(
+                  r'<img[^>]+src=["\']([^"\']+)["\']',
+                  re.IGNORECASE
+              )
+
+              for raw in pattern_1.findall(markdown):
+                  path = resolve_image(md_file, raw)
+
+                  if path is not None:
+                      results.append(path)
+
+              for raw in pattern_2.findall(markdown):
+                  path = resolve_image(md_file, raw)
+
+                  if path is not None:
+                      results.append(path)
+
+              unique = []
+
+              seen = set()
+
+              for item in results:
+                  key = str(item.resolve())
+
+                  if key not in seen:
+                      seen.add(key)
+                      unique.append(item)
+
+              return unique
+
+
+          def clean_markdown(markdown):
+
+              markdown = re.sub(
+                  r"!\[[^\]]*\]\([^)]+\)",
+                  "",
+                  markdown,
+              )
+
+              markdown = re.sub(
+                  r'<img[^>]*>',
+                  "",
+                  markdown,
+                  flags=re.IGNORECASE,
+              )
+
+              markdown = re.sub(
+                  r"\n{3,}",
+                  "\n\n",
+                  markdown,
+              )
+
+              return markdown.strip()
+
+
+          def split_text(text, limit=5000):
+
+              if not text:
+                  return []
+
+              chunks = []
+
+              while len(text) > limit:
+
+                  cut = text.rfind("\n", 0, limit)
+
+                  if cut < limit // 2:
+                      cut = limit
+
+                  chunks.append(text[:cut].strip())
+                  text = text[cut:].strip()
+
+              if text:
+                  chunks.append(text)
+
+              return chunks
+
+
+          def build_card(title, markdown, image_keys):
+
+              elements = []
+
+              for index, image_key in enumerate(image_keys):
+
+                  elements.append(
+                      {
+                          "tag": "img",
+                          "img_key": image_key,
+                          "alt": {
+                              "tag": "plain_text",
+                              "content": f"图片 {index + 1}",
+                          },
+                          "title": {
+                              "tag": "plain_text",
+                              "content": title,
+                          },
+                          "mode": "fit_horizontal",
+                          "preview": True,
+                      }
+                  )
+
+              text_chunks = split_text(markdown)
+
+              for chunk in text_chunks:
+
+                  elements.append(
+                      {
+                          "tag": "markdown",
+                          "content": chunk,
+                      }
+                  )
+
+              return {
+                  "msg_type": "interactive",
+                  "card": {
+                      "schema": "2.0",
+                      "header": {
+                          "template": "blue",
+                          "title": {
+                              "tag": "plain_text",
+                              "content": title,
+                          },
+                      },
+                      "body": {
+                          "elements": elements
+                      },
+                  },
+              }
+
+
+          def send_card(payload):
+
+              body = json.dumps(
+                  payload,
+                  ensure_ascii=False,
+              ).encode("utf-8")
+
+              req = request.Request(
+                  WEBHOOK,
+                  data=body,
+                  headers={
+                      "Content-Type": "application/json",
+                  },
+                  method="POST",
+              )
+
+              with request.urlopen(req, timeout=120) as response:
+                  raw = response.read().decode("utf-8")
+
+              result = json.loads(raw)
+
+              if result.get("code", 0) != 0:
+                  raise RuntimeError(
+                      f"Webhook failed: {result}"
+                  )
+
+              return result
+
+
+          def process_report(md_file, title, required):
+
+              md_file = Path(md_file)
+
+              if not md_file.exists():
+
+                  if required:
+                      raise RuntimeError(
+                          f"Required Daily report missing: {md_file}"
+                      )
+
+                  print(
+                      f"⏭️ Optional Weekly report missing: {md_file}"
+                  )
+
+                  return False
+
+              markdown = md_file.read_text(
+                  encoding="utf-8",
+                  errors="ignore",
+              )
+
+              if not markdown.strip():
+
+                  if required:
+                      raise RuntimeError(
+                          f"Required report is empty: {md_file}"
+                      )
+
+                  print(
+                      f"⏭️ Optional report is empty: {md_file}"
+                  )
+
+                  return False
+
+              images = extract_images(
+                  md_file,
+                  markdown,
+              )
+
+              if required and not images:
+                  raise RuntimeError(
+                      f"Required Daily report contains no local images: {md_file}"
+                  )
+
+              if not images:
+
+                  print(
+                      f"⏭️ Optional Weekly report has no local images: {md_file}"
+                  )
+
+                  return False
+
+              print()
+              print("=" * 70)
+              print(title)
+              print("=" * 70)
+              print(f"Markdown : {md_file}")
+              print(f"Images   : {len(images)}")
+
+              token = get_tenant_access_token()
+
+              image_keys = []
+
+              for image in images:
+
+                  print(f"Uploading: {image}")
+
+                  key = upload_image(
+                      token,
+                      image,
+                  )
+
+                  print(f"image_key: {key}")
+
+                  image_keys.append(key)
+
+              clean = clean_markdown(markdown)
+
+              payload = build_card(
+                  title,
+                  clean,
+                  image_keys,
+              )
+
+              result = send_card(payload)
+
+              print()
+              print("Feishu response:")
+
+              print(
+                  json.dumps(
+                      result,
+                      ensure_ascii=False,
+                      indent=2,
+                  )
+              )
+
+              print(f"✅ {title} sent successfully.")
+
+              return True
+
+
+          def find_daily(today):
+
+              root = Path(
+                  "01_自生长知识系统/05_日报"
+              )
+
+              expected = (
+                  root
+                  / today[:4]
+                  / today[5:7]
+                  / f"{today}_带图.md"
+              )
+
+              if expected.exists():
+                  return expected
+
+              matches = list(
+                  root.glob(
+                      f"{today[:4]}/{today[5:7]}/*_带图.md"
+                  )
+              )
+
+              matches = [
+                  p
+                  for p in matches
+                  if p.is_file()
+                  and p.stat().st_size > 0
+              ]
+
+              if not matches:
+                  return None
+
+              return sorted(matches)[-1]
+
+
+          def find_weekly():
+
+              root = Path(
+                  "01_自生长知识系统/06_周报"
+              )
+
+              if not root.exists():
+                  return None
+
+              matches = list(
+                  root.rglob("*_带图.md")
+              )
+
+              matches = [
+                  p
+                  for p in matches
+                  if p.is_file()
+                  and p.stat().st_size > 0
+              ]
+
+              if not matches:
+                  return None
+
+              return sorted(
+                  matches,
+                  key=lambda p: p.stat().st_mtime,
+              )[-1]
+
+
+          def main():
+
+              today = os.environ["TODAY"]
+
+              daily = find_daily(today)
+
+              if daily is None:
+                  raise RuntimeError(
+                      "❌ Daily *_带图.md not found."
+                  )
+
+              print()
+              print("DAILY ILLUSTRATED REPORT")
+              print(daily)
+
+              process_report(
+                  daily,
+                  f"748686 自生长知识系统｜日报 {today}",
+                  True,
+              )
+
+              weekly = find_weekly()
+
+              if weekly is None:
+
+                  print()
+                  print("⏭️ Weekly *_带图.md not found.")
+                  print("⏭️ Weekly Feishu delivery SKIPPED.")
+
+                  return
+
+              print()
+              print("WEEKLY ILLUSTRATED REPORT")
+              print(weekly)
+
+              process_report(
+                  weekly,
+                  "748686 自生长知识系统｜周报",
+                  False,
+              )
+
+
+          if __name__ == "__main__":
+              main()
+          PY
+
+          chmod +x /tmp/feishu_advanced_renderer.py
+
+          ####################################################################
+          # Execute renderer
+          ####################################################################
+
+          TODAY="$TODAY" \
+          python /tmp/feishu_advanced_renderer.py
+
+          echo
+          echo "######################################################################"
+          echo "FEISHU ADVANCED RENDERING COMPLETE"
+          echo "######################################################################"
+
+      ######################################################################
+      # 28. RETURN LOG
+      ######################################################################
+
+      - name: Return Log
+        if: always()
+        shell: bash
+        run: |
+
+          echo
+          echo "======================================================================"
+          echo "748686 自生长知识系统 FINAL LOG"
+          echo "======================================================================"
+
+          echo
+          echo "DATE"
+          echo "----------------------------------------------------------------------"
+          echo "TODAY      : $TODAY"
+          echo "YESTERDAY  : $YESTERDAY"
+          echo "DAY_BEFORE : $DAY_BEFORE"
+
+          echo
+          echo "HORIZON"
+          echo "----------------------------------------------------------------------"
+          echo "Enabled    : $HORIZON_ENABLED"
+
+          echo
+          echo "REPORT"
+          echo "----------------------------------------------------------------------"
+
+          DAILY_DIR="01_自生长知识系统/05_日报/${TODAY:0:4}/${TODAY:5:2}"
+
+          if [[ -f "$DAILY_DIR/${TODAY}_带图.md" ]]; then
+            echo "Daily illustrated report : READY"
+          else
+            echo "Daily illustrated report : MISSING"
+          fi
+
+          WEEKLY_COUNT="$(
+            find "01_自生长知识系统/06_周报" \
+              -type f \
+              -name '*_带图.md' \
+              -size +0c \
+              2>/dev/null | wc -l
+          )"
+
+          if [[ "$WEEKLY_COUNT" -gt 0 ]]; then
+            echo "Weekly illustrated report: READY"
+          else
+            echo "Weekly illustrated report: SKIPPED"
+          fi
+
+          echo
+          echo "IMAGE"
+          echo "----------------------------------------------------------------------"
+
+          IMAGE_COUNT="$(
+            find "01_自生长知识系统/04_图片" \
+              -type f \
+              \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) \
+              -size +0c \
+              2>/dev/null | wc -l
+          )"
+
+          echo "Images: $IMAGE_COUNT"
+
+          echo
+          echo "======================================================================"
+          echo "WORKFLOW FINISHED"
+          echo "======================================================================"
+
+      ######################################################################
+      # 29. COMPLETE JOB
+      ######################################################################
+
+      - name: Complete Job
+        if: success()
+        shell: bash
+        run: |
+
+          echo
+          echo "======================================================================"
+          echo "✅ 748686 自生长知识系统 COMPLETE"
+          echo "======================================================================"
+
+          echo
+          echo "TODAY:"
+          echo "  $TODAY"
+
+          echo
+          echo "Daily:"
+          echo "  必须完成"
+
+          echo
+          echo "Weekly:"
+          echo "  有 *_带图.md → 发送"
+          echo "  无 *_带图.md → SKIP"
+
+          echo
+          echo "EventUnit:"
+          echo "  EVT-xxxx.md"
+          echo "  ↓"
+          echo "  EVT-xxxx_analysis.md"
+          echo "  严格一对一"
+
+          echo
+          echo "Feishu:"
+          echo "  Markdown → Local PNG"
+          echo "  PNG → Feishu image_key"
+          echo "  image_key → Interactive Card"
+          echo "  Interactive Card → FEISHU_WEBHOOK"
+
+          echo
+          echo "✅ COMPLETE"
