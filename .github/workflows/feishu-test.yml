@@ -1,0 +1,217 @@
+name: 飞书日报周报高级渲染测试
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+
+  render-and-send:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # ================================================================
+      # 1. Checkout
+      # ================================================================
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          lfs: true
+
+      # ================================================================
+      # 2. Python
+      # ================================================================
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # ================================================================
+      # 3. Install
+      # ================================================================
+
+      - name: Install renderer dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests matplotlib
+
+      # ================================================================
+      # 4. Check secrets
+      # ================================================================
+
+      - name: Check Feishu configuration
+        env:
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+          APP_ID: ${{ secrets.APP_ID }}
+          APP_SECRET: ${{ secrets.APP_SECRET }}
+        run: |
+          set -e
+
+          test -n "$FEISHU_WEBHOOK" || {
+            echo "❌ FEISHU_WEBHOOK 未配置"
+            exit 1
+          }
+
+          test -n "$APP_ID" || {
+            echo "❌ APP_ID 未配置"
+            exit 1
+          }
+
+          test -n "$APP_SECRET" || {
+            echo "❌ APP_SECRET 未配置"
+            exit 1
+          }
+
+          echo "✓ Feishu configuration OK"
+
+      # ================================================================
+      # 5. 找最新日报带图版
+      # ================================================================
+
+      - name: Find latest daily report
+        id: daily
+        shell: bash
+        run: |
+
+          set -e
+
+          DAILY_ROOT="01_自生长知识系统/05_日报"
+
+          DAILY_FILE="$(
+            find "$DAILY_ROOT" \
+              -type f \
+              -name '*_带图.md' \
+              -print \
+              | sort \
+              | tail -n 1
+          )"
+
+          if [ -z "$DAILY_FILE" ]; then
+            echo "❌ 没有找到日报 *_带图.md"
+            exit 1
+          fi
+
+          echo "Daily report:"
+          echo "  $DAILY_FILE"
+
+          echo "path=$DAILY_FILE" >> "$GITHUB_OUTPUT"
+
+      # ================================================================
+      # 6. 找最新周报带图版
+      #
+      # 周报是可选项：
+      # 没有就 SKIP
+      # 不能让 Workflow 失败
+      # ================================================================
+
+      - name: Find latest weekly report
+        id: weekly
+        shell: bash
+        run: |
+
+          set -e
+
+          WEEKLY_ROOT="01_自生长知识系统/06_周报"
+
+          WEEKLY_FILE="$(
+            find "$WEEKLY_ROOT" \
+              -type f \
+              -name '*_带图.md' \
+              -print \
+              | sort \
+              | tail -n 1
+          )"
+
+          if [ -z "$WEEKLY_FILE" ]; then
+
+            echo "⚠ 没有找到周报 *_带图.md"
+            echo "found=false" >> "$GITHUB_OUTPUT"
+
+          else
+
+            echo "Weekly report:"
+            echo "  $WEEKLY_FILE"
+
+            echo "found=true" >> "$GITHUB_OUTPUT"
+            echo "path=$WEEKLY_FILE" >> "$GITHUB_OUTPUT"
+
+          fi
+
+      # ================================================================
+      # 7. 日报高级渲染
+      # ================================================================
+
+      - name: Render and send Daily Report
+        env:
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+          APP_ID: ${{ secrets.APP_ID }}
+          APP_SECRET: ${{ secrets.APP_SECRET }}
+        shell: bash
+        run: |
+
+          set -e
+
+          DAILY_FILE="${{ steps.daily.outputs.path }}"
+
+          echo ""
+          echo "======================================================================"
+          echo "DAILY FEISHU ADVANCED RENDER"
+          echo "======================================================================"
+          echo ""
+
+          python \
+            "01_自生长知识系统/scripts/feishu_report_renderer.py" \
+            --markdown "$DAILY_FILE" \
+            --repo-root "$GITHUB_WORKSPACE" \
+            --report-type "日报" \
+            --date "$(basename "$DAILY_FILE" | cut -d'_' -f1)" \
+            --title "📰 748686 · 每日日报"
+
+      # ================================================================
+      # 8. 周报高级渲染
+      # ================================================================
+
+      - name: Render and send Weekly Report
+        if: steps.weekly.outputs.found == 'true'
+        env:
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+          APP_ID: ${{ secrets.APP_ID }}
+          APP_SECRET: ${{ secrets.APP_SECRET }}
+        shell: bash
+        run: |
+
+          set -e
+
+          WEEKLY_FILE="${{ steps.weekly.outputs.path }}"
+
+          echo ""
+          echo "======================================================================"
+          echo "WEEKLY FEISHU ADVANCED RENDER"
+          echo "======================================================================"
+          echo ""
+
+          python \
+            "01_自生长知识系统/scripts/feishu_report_renderer.py" \
+            --markdown "$WEEKLY_FILE" \
+            --repo-root "$GITHUB_WORKSPACE" \
+            --report-type "周报" \
+            --date "$(basename "$WEEKLY_FILE" | cut -d'_' -f1)" \
+            --title "📊 748686 · 每周知识报告"
+
+      # ================================================================
+      # 9. 如果没有周报，只 SKIP
+      # ================================================================
+
+      - name: Weekly report skipped
+        if: steps.weekly.outputs.found != 'true'
+        run: |
+          echo "ℹ️ 当前没有周报 *_带图.md"
+          echo "ℹ️ Weekly report is optional."
+          echo "ℹ️ SKIP，不让 Workflow 失败。"
