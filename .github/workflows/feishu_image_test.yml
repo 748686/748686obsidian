@@ -1,4 +1,4 @@
-name: Feishu Image Test
+name: Feishu Image Test V2
 
 on:
   workflow_dispatch:
@@ -17,7 +17,15 @@ jobs:
           lfs: true
 
       # ============================================================
-      # 2. 找一张现有日报图片
+      # 2. Setup Python
+      # ============================================================
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # ============================================================
+      # 3. Find test image
       # ============================================================
       - name: Find test image
         id: find_image
@@ -26,85 +34,78 @@ jobs:
           set -e
 
           echo "========================================"
-          echo "FEISHU IMAGE TEST"
+          echo "FEISHU IMAGE TEST V2"
           echo "========================================"
 
-          IMAGE=$(find "01_自生长知识系统/04_图片" \
-            -type f \
-            \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" \) \
-            | sort \
-            | tail -n 1)
+          IMAGE="01_自生长知识系统/04_图片/日报/2026-09-21/首图.png"
 
-          if [ -z "$IMAGE" ]; then
-            echo "❌ 没有找到图片"
+          if [ ! -f "$IMAGE" ]; then
+            echo "❌ 图片不存在：$IMAGE"
             exit 1
           fi
 
           echo "Image:"
           echo "$IMAGE"
 
+          SIZE=$(stat -c%s "$IMAGE")
+
+          echo "Image size: ${SIZE} bytes"
+
           echo "IMAGE_PATH=$IMAGE" >> "$GITHUB_OUTPUT"
 
       # ============================================================
-      # 3. Python
+      # 4. Upload image to Feishu and send through existing webhook
       # ============================================================
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      # ============================================================
-      # 4. 尝试通过现有 FEISHU_WEBHOOK 发送图片
-      # ============================================================
-      - name: Send image to Feishu
+      - name: Upload image and send to Feishu
         env:
+          APP_ID: ${{ secrets.APP_ID }}
+          APP_SECRET: ${{ secrets.APP_SECRET }}
           FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
           IMAGE_PATH: ${{ steps.find_image.outputs.IMAGE_PATH }}
         shell: bash
         run: |
           python <<'PY'
-          import os
           import json
-          import base64
+          import os
+          import sys
           import urllib.request
+          import urllib.error
+          import mimetypes
 
-          webhook = os.environ["FEISHU_WEBHOOK"]
-          image_path = os.environ["IMAGE_PATH"]
+          APP_ID = os.environ["APP_ID"]
+          APP_SECRET = os.environ["APP_SECRET"]
+          WEBHOOK = os.environ["FEISHU_WEBHOOK"]
+          IMAGE_PATH = os.environ["IMAGE_PATH"]
+
+          BASE_URL = "https://open.feishu.cn"
 
           print("========================================")
-          print("FEISHU IMAGE TEST")
+          print("FEISHU IMAGE TEST V2")
           print("========================================")
-          print(f"Image: {image_path}")
+          print(f"Image: {IMAGE_PATH}")
 
-          with open(image_path, "rb") as f:
-              image_data = f.read()
+          # ========================================================
+          # 1. Get tenant_access_token
+          # ========================================================
 
-          print(f"Image size: {len(image_data):,} bytes")
+          print()
+          print("----------------------------------------")
+          print("STEP 1 | Get tenant_access_token")
+          print("----------------------------------------")
 
-          # --------------------------------------------------------
-          # 测试方式：
-          # 尝试把图片内容直接放入 Webhook 请求。
-          #
-          # 注意：
-          # 飞书标准 image 消息通常需要 image_key。
-          # 这里故意不使用 App ID / App Secret，
-          # 只是验证当前群机器人是否接受这种直接图片方式。
-          # --------------------------------------------------------
+          token_url = (
+              BASE_URL
+              + "/open-apis/auth/v3/tenant_access_token/internal"
+          )
 
-          encoded = base64.b64encode(image_data).decode("ascii")
+          token_payload = json.dumps({
+              "app_id": APP_ID,
+              "app_secret": APP_SECRET,
+          }).encode("utf-8")
 
-          payload = {
-              "msg_type": "image",
-              "content": {
-                  "image_base64": encoded
-              }
-          }
-
-          body = json.dumps(payload).encode("utf-8")
-
-          request = urllib.request.Request(
-              webhook,
-              data=body,
+          token_request = urllib.request.Request(
+              token_url,
+              data=token_payload,
               headers={
                   "Content-Type": "application/json; charset=utf-8"
               },
@@ -112,48 +113,282 @@ jobs:
           )
 
           try:
-              with urllib.request.urlopen(request, timeout=30) as response:
-                  status = response.status
-                  response_body = response.read().decode("utf-8", errors="replace")
+              with urllib.request.urlopen(
+                  token_request,
+                  timeout=30,
+              ) as response:
+                  token_body = response.read().decode(
+                      "utf-8",
+                      errors="replace",
+                  )
+                  token_status = response.status
 
-              print("----------------------------------------")
-              print(f"HTTP Status: {status}")
-              print(f"Response: {response_body}")
-              print("----------------------------------------")
+          except urllib.error.HTTPError as e:
+              body = e.read().decode(
+                  "utf-8",
+                  errors="replace",
+              )
+              print(f"❌ Token HTTP error: {e.code}")
+              print(body)
+              sys.exit(1)
 
-              if status != 200:
-                  raise RuntimeError(
-                      f"Feishu returned HTTP {status}"
+          print(f"HTTP Status: {token_status}")
+
+          try:
+              token_result = json.loads(token_body)
+          except json.JSONDecodeError:
+              print("❌ Token response is not valid JSON")
+              print(token_body)
+              sys.exit(1)
+
+          token_code = token_result.get("code")
+
+          if token_code != 0:
+              print("❌ Failed to obtain tenant_access_token")
+              print(json.dumps(
+                  token_result,
+                  ensure_ascii=False,
+                  indent=2,
+              ))
+              sys.exit(1)
+
+          tenant_access_token = token_result.get(
+              "tenant_access_token"
+          )
+
+          if not tenant_access_token:
+              print("❌ tenant_access_token missing")
+              print(json.dumps(
+                  token_result,
+                  ensure_ascii=False,
+                  indent=2,
+              ))
+              sys.exit(1)
+
+          print("✅ tenant_access_token obtained")
+
+          # ========================================================
+          # 2. Read image
+          # ========================================================
+
+          print()
+          print("----------------------------------------")
+          print("STEP 2 | Read image")
+          print("----------------------------------------")
+
+          with open(IMAGE_PATH, "rb") as f:
+              image_data = f.read()
+
+          image_size = len(image_data)
+
+          print(f"Image size: {image_size:,} bytes")
+
+          if image_size == 0:
+              print("❌ Image is empty")
+              sys.exit(1)
+
+          # ========================================================
+          # 3. Upload image to Feishu
+          # ========================================================
+
+          print()
+          print("----------------------------------------")
+          print("STEP 3 | Upload image to Feishu")
+          print("----------------------------------------")
+
+          upload_url = (
+              BASE_URL
+              + "/open-apis/im/v1/images"
+          )
+
+          boundary = "----748686FeishuImageBoundary"
+
+          filename = os.path.basename(IMAGE_PATH)
+
+          mime_type = (
+              mimetypes.guess_type(filename)[0]
+              or "application/octet-stream"
+          )
+
+          parts = []
+
+          # image_type
+          parts.append(
+              (
+                  f"--{boundary}\r\n"
+                  f'Content-Disposition: form-data; '
+                  f'name="image_type"\r\n\r\n'
+                  f"message\r\n"
+              ).encode("utf-8")
+          )
+
+          # image
+          parts.append(
+              (
+                  f"--{boundary}\r\n"
+                  f'Content-Disposition: form-data; '
+                  f'name="image"; filename="{filename}"\r\n'
+                  f"Content-Type: {mime_type}\r\n\r\n"
+              ).encode("utf-8")
+          )
+
+          parts.append(image_data)
+
+          parts.append(
+              f"\r\n--{boundary}--\r\n".encode("utf-8")
+          )
+
+          upload_body = b"".join(parts)
+
+          upload_request = urllib.request.Request(
+              upload_url,
+              data=upload_body,
+              headers={
+                  "Authorization": (
+                      "Bearer "
+                      + tenant_access_token
+                  ),
+                  "Content-Type": (
+                      "multipart/form-data; boundary="
+                      + boundary
+                  ),
+              },
+              method="POST",
+          )
+
+          try:
+              with urllib.request.urlopen(
+                  upload_request,
+                  timeout=60,
+              ) as response:
+                  upload_status = response.status
+                  upload_response = response.read().decode(
+                      "utf-8",
+                      errors="replace",
                   )
 
-              # 飞书通常会在 JSON 中返回 code。
-              try:
-                  result = json.loads(response_body)
-              except Exception:
-                  result = {}
+          except urllib.error.HTTPError as e:
+              body = e.read().decode(
+                  "utf-8",
+                  errors="replace",
+              )
+              print(f"❌ Image upload HTTP error: {e.code}")
+              print(body)
+              sys.exit(1)
 
-              code = result.get("code")
+          print(f"HTTP Status: {upload_status}")
 
-              if code not in (None, 0):
-                  print(f"⚠️ Feishu API code = {code}")
-                  print("⚠️ 这说明当前 Webhook 很可能不接受这种图片发送格式。")
-              else:
-                  print("✅ Webhook 请求已经被飞书接受。")
+          try:
+              upload_result = json.loads(upload_response)
+          except json.JSONDecodeError:
+              print("❌ Upload response is not valid JSON")
+              print(upload_response)
+              sys.exit(1)
 
-          except Exception as e:
-              print("----------------------------------------")
-              print("❌ 请求失败")
-              print(str(e))
-              print("----------------------------------------")
-              raise
+          print(
+              json.dumps(
+                  upload_result,
+                  ensure_ascii=False,
+                  indent=2,
+              )
+          )
+
+          upload_code = upload_result.get("code")
+
+          if upload_code != 0:
+              print("❌ Feishu image upload failed")
+              sys.exit(1)
+
+          image_key = (
+              upload_result
+              .get("data", {})
+              .get("image_key")
+          )
+
+          if not image_key:
+              print("❌ image_key was not returned")
+              sys.exit(1)
+
+          print()
+          print("✅ Image uploaded successfully")
+          print(f"image_key: {image_key}")
+
+          # ========================================================
+          # 4. Send image through existing webhook
+          # ========================================================
+
+          print()
+          print("----------------------------------------")
+          print("STEP 4 | Send image through FEISHU_WEBHOOK")
+          print("----------------------------------------")
+
+          message_payload = {
+              "msg_type": "image",
+              "content": {
+                  "image_key": image_key
+              }
+          }
+
+          message_body = json.dumps(
+              message_payload,
+              ensure_ascii=False,
+          ).encode("utf-8")
+
+          message_request = urllib.request.Request(
+              WEBHOOK,
+              data=message_body,
+              headers={
+                  "Content-Type": (
+                      "application/json; charset=utf-8"
+                  )
+              },
+              method="POST",
+          )
+
+          try:
+              with urllib.request.urlopen(
+                  message_request,
+                  timeout=30,
+              ) as response:
+                  message_status = response.status
+                  message_response = response.read().decode(
+                      "utf-8",
+                      errors="replace",
+                  )
+
+          except urllib.error.HTTPError as e:
+              body = e.read().decode(
+                  "utf-8",
+                  errors="replace",
+              )
+              print(f"❌ Webhook HTTP error: {e.code}")
+              print(body)
+              sys.exit(1)
+
+          print(f"HTTP Status: {message_status}")
+          print(f"Response: {message_response}")
+
+          try:
+              message_result = json.loads(message_response)
+          except json.JSONDecodeError:
+              print("❌ Webhook response is not valid JSON")
+              sys.exit(1)
+
+          message_code = message_result.get("code")
+
+          if message_code != 0:
+              print("❌ Feishu Webhook rejected the image message")
+              print(json.dumps(
+                  message_result,
+                  ensure_ascii=False,
+                  indent=2,
+              ))
+              sys.exit(1)
+
+          print()
+          print("========================================")
+          print("✅ FEISHU IMAGE TEST V2 SUCCESS")
+          print("========================================")
+          print("图片已经通过 Feishu image_key 发送。")
+          print("请检查你的飞书群。")
           PY
-
-      # ============================================================
-      # 5. 测试结束
-      # ============================================================
-      - name: Test finished
-        run: |
-          echo "========================================"
-          echo "Feishu image test finished."
-          echo "请检查飞书群聊。"
-          echo "========================================"
