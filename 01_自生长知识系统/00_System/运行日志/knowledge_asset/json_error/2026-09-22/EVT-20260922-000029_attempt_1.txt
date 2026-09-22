@@ -1,0 +1,112 @@
+748686 Knowledge Asset JSON Diagnostic
+
+date:
+2026-09-22
+
+event_id:
+EVT-20260922-000029
+
+attempt:
+1
+
+error_type:
+ValueError
+
+error:
+无法解析 AI JSON | JSONDecodeError line=32 column=18 pos=877: Expecting ',' delimiter
+
+======================================================================
+AI RAW RESPONSE
+======================================================================
+
+{
+  "event_id": "EVT-20260922-000029",
+  "long_term_value": 2,
+  "summary": "2026年9月22日，中国官员赵乐际与印度尼西亚人民协商会议主席希达亚特·努尔·瓦希德举行会晤，体现了中印尼议会层面的外交互动。由于信息有限且缺乏实质成果披露，长期价值较低，但可作为双边外交关系记录保存。",
+  "knowledge_assets": [
+    {
+      "type": "人物",
+      "name": "赵乐际",
+      "action": "update",
+      "importance": 2,
+      "confidence": 0.95,
+      "summary": "中国官员，2026年9月22日会见印尼议会领导层官员。",
+      "new_facts": [
+        "2026年9月22日，赵乐际与印度尼西亚人民协商会议主席希达亚特·努尔·瓦希德举行会见。"
+      ],
+      "changes": [],
+      "related_entities": [
+        "希达亚特·努尔·瓦希德",
+        "印度尼西亚人民协商会议"
+      ]
+    },
+    {
+      "type": "人物",
+      "name": "希达亚特·努尔·瓦希德",
+      "action": "create",
+      "importance": 3,
+      "confidence": 0.85,
+      "summary": "印度尼西亚人民协商会议主席，2026年9月22日与中国官员赵乐际会晤。来源中亦标注为Muzani，身份同一性待核实。",
+      "new_facts": [
+        "2026年9月22日与赵乐际举行会晤。",
+        "职务为印度尼西亚人民协商会议主席。",
+        "来源中同时出现"Muzani"标注，需核实是否为同一人。"
+      ],
+      "changes": [],
+      "related_entities": [
+        "赵乐际",
+        "印度尼西亚人民协商会议"
+      ]
+    },
+    {
+      "type": "组织",
+      "name": "印度尼西亚人民协商会议",
+      "action": "update",
+      "importance": 2,
+      "confidence": 0.9,
+      "summary": "印度尼西亚议会机构，2026年9月与中方保持议会层级外交互动。",
+      "new_facts": [
+        "2026年9月22日，该机构主席希达亚特·努尔·瓦希德与中国官员赵乐际举行会见。"
+      ],
+      "changes": [],
+      "related_entities": [
+        "希达亚特·努尔·瓦希德",
+        "赵乐际"
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "from": "赵乐际",
+      "relation": "会晤",
+      "to": "希达亚特·努尔·瓦希德",
+      "evidence": "2026年9月22日，中国官员赵乐际与印度尼西亚人民协商会议主席希达亚特·努尔·瓦希德举行会见。"
+    },
+    {
+      "from": "希达亚特·努尔·瓦希德",
+      "relation": "职务",
+      "to": "印度尼西亚人民协商会议",
+      "evidence": "希达亚特·努尔·瓦希德（Hidayat Nur Wahid）的职务为印度尼西亚人民协商会议主席。"
+    }
+  ],
+  "knowledge_gaps": [
+    {
+      "question": "希达亚特·努尔·瓦希德与Muzani是否为同一人？",
+      "reason": "来源中存在双重姓名标注，需独立验证身份同一性。",
+      "importance": 3
+    },
+    {
+      "question": "此次会晤的具体议题和成果是什么？",
+      "reason": "当前信息仅确认会晤发生，缺乏议程、协议或联合声明等实质内容。",
+      "importance": 2
+    }
+  ],
+  "contradictions": [
+    {
+      "subject": "印尼官员姓名标注",
+      "description": "来源中该官员既标注为Hidayat Nur Wahid，又标注为Muzani，两者指代关系存在不确定性。",
+      "reason": "信息源内部存在命名歧义，需进一步核实是否为笔误或同一人的不同称呼。",
+      "importance": 3
+    }
+  ]
+}
