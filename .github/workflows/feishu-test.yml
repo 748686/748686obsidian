@@ -90,8 +90,8 @@ jobs:
                 -type f \
                 -name '*_带图.md' \
                 -print \
-            | sort \
-            | tail -n 1
+              | sort \
+              | tail -n 1
             )
           fi
 
@@ -109,20 +109,6 @@ jobs:
 
       # ============================================================
       # 4. 发送日报带图版
-      #
-      # 核心逻辑：
-      #
-      # Markdown 原文：
-      #
-      # ![首图](../04_图片/2026-09-21/首图.png)
-      #
-      # 转换为：
-      #
-      # ![首图](https://raw.githubusercontent.com/748686/748686obsidian/main/01_自生长知识系统/04_图片/2026-09-21/首图.png)
-      #
-      # 其他 Markdown 内容完全不动。
-      #
-      # 不检查 Runner 本地图片是否存在。
       # ============================================================
       - name: Send Daily Image Report
         env:
@@ -191,17 +177,18 @@ jobs:
           #
           # ![xxx](图片路径)
           #
-          # 其他内容完全保持不变。
+          # 其他 Markdown 内容完全保持不变。
           # ==========================================================
 
           image_pattern = re.compile(
               r'(!\[[^\]]*\]\()([^)]+)(\))'
           )
 
-          image_count = 0
+          # 使用可变对象保存计数。
+          # 不使用 nonlocal，避免 Python 顶层作用域错误。
+          image_count = [0]
 
           def replace_image(match):
-              nonlocal image_count
 
               prefix = match.group(1)
               image_path = match.group(2)
@@ -212,55 +199,67 @@ jobs:
               # ------------------------------------------------------
               # 已经是网络图片，完全不动
               # ------------------------------------------------------
-              if image_path.startswith("http://") or image_path.startswith("https://"):
-                  print(f"ℹ️ 已是 URL，不修改：{image_path}")
+
+              if (
+                  image_path.startswith("http://")
+                  or image_path.startswith("https://")
+              ):
+                  print(
+                      f"ℹ️ 已是 URL，不修改：{image_path}"
+                  )
                   return match.group(0)
 
               # ------------------------------------------------------
-              # 去掉可能存在的标题：
+              # 分离可能存在的 Markdown 图片标题
               #
-              # image.png "title"
-              #
-              # 当前只处理最常见的纯路径情况。
+              # ![alt](image.png "title")
               # ------------------------------------------------------
-              path_only = image_path
 
+              path_only = image_path
               title_part = ""
 
               if " " in image_path:
-                  possible_path, possible_title = image_path.split(" ", 1)
 
-                  if possible_title.strip().startswith('"') or possible_title.strip().startswith("'"):
+                  possible_path, possible_title = (
+                      image_path.split(" ", 1)
+                  )
+
+                  if (
+                      possible_title.strip().startswith('"')
+                      or
+                      possible_title.strip().startswith("'")
+                  ):
                       path_only = possible_path
                       title_part = " " + possible_title
 
               # ------------------------------------------------------
               # URL 解码
               # ------------------------------------------------------
-              decoded_path = urllib.parse.unquote(path_only)
+
+              decoded_path = urllib.parse.unquote(
+                  path_only
+              )
 
               # ------------------------------------------------------
               # 找到 04_图片/
               #
-              # 不管 Markdown 原来是：
+              # 例如：
               #
               # ../04_图片/2026-09-21/首图.png
               #
-              # ../../04_图片/2026-09-21/首图.png
+              # 最终：
               #
-              # 还是：
-              #
-              # 04_图片/2026-09-21/首图.png
-              #
-              # 最终统一映射到：
-              #
-              # 01_自生长知识系统/04_图片/...
+              # 01_自生长知识系统/04_图片/2026-09-21/首图.png
               # ------------------------------------------------------
 
               marker = "04_图片/"
 
               if marker in decoded_path:
-                  suffix_path = decoded_path.split(marker, 1)[1]
+
+                  suffix_path = decoded_path.split(
+                      marker,
+                      1
+                  )[1]
 
                   repo_image_path = (
                       "01_自生长知识系统/"
@@ -269,9 +268,12 @@ jobs:
                   )
 
               else:
+
                   # --------------------------------------------------
-                  # 如果不是 04_图片，则尝试按照仓库相对路径处理。
+                  # 不是 04_图片 的情况
+                  # 按仓库相对路径处理
                   # --------------------------------------------------
+
                   clean_path = decoded_path
 
                   while clean_path.startswith("../"):
@@ -283,7 +285,7 @@ jobs:
                   repo_image_path = clean_path
 
               # ------------------------------------------------------
-              # GitHub Raw URL
+              # 生成 GitHub Raw URL
               # ------------------------------------------------------
 
               encoded_path = urllib.parse.quote(
@@ -293,15 +295,28 @@ jobs:
 
               raw_url = raw_base + encoded_path
 
-              image_count += 1
+              image_count[0] += 1
 
               print()
-              print(f"🖼️ 图片 #{image_count}")
-              print(f"   Markdown：{image_path}")
-              print(f"   Repo：    {repo_image_path}")
-              print(f"   Raw：     {raw_url}")
+              print(
+                  f"🖼️ 图片 #{image_count[0]}"
+              )
+              print(
+                  f"   Markdown：{image_path}"
+              )
+              print(
+                  f"   Repo：    {repo_image_path}"
+              )
+              print(
+                  f"   Raw：     {raw_url}"
+              )
 
-              return prefix + raw_url + title_part + suffix
+              return (
+                  prefix
+                  + raw_url
+                  + title_part
+                  + suffix
+              )
 
           transformed = image_pattern.sub(
               replace_image,
@@ -313,19 +328,20 @@ jobs:
           print("Markdown 图片转换完成")
           print("--------------------------------------------------")
 
-          print(f"发现图片数量：{image_count}")
+          print(
+              f"发现图片数量：{image_count[0]}"
+          )
 
-          if image_count == 0:
-              print("⚠️ 没有发现 Markdown 图片引用")
+          if image_count[0] == 0:
+              print("⚠️ 没有发现 Markdown 图片")
           else:
-              print(f"✅ 已转换 {image_count} 个图片引用")
+              print(
+                  f"✅ 已转换 "
+                  f"{image_count[0]} 个图片引用"
+              )
 
           # ==========================================================
-          # 为避免一次 Webhook 内容过长：
-          #
-          # 按 Markdown 行进行切分。
-          #
-          # 不改变行内容。
+          # Markdown 分块
           # ==========================================================
 
           MAX_CHARS = 28000
@@ -344,23 +360,34 @@ jobs:
               )
 
               if len(candidate) <= MAX_CHARS:
+
                   current = candidate
+
               else:
+
                   if current:
                       chunks.append(current)
 
-                  # 单独一行超过限制时，强制切开
+                  # 单独一行超过限制时强制切开
                   if len(line) > MAX_CHARS:
+
                       start = 0
 
                       while start < len(line):
+
                           chunks.append(
-                              line[start:start + MAX_CHARS]
+                              line[
+                                  start:
+                                  start + MAX_CHARS
+                              ]
                           )
+
                           start += MAX_CHARS
 
                       current = ""
+
                   else:
+
                       current = line
 
           if current:
@@ -371,13 +398,19 @@ jobs:
           print("准备发送飞书")
           print("--------------------------------------------------")
 
-          print(f"消息块数量：{len(chunks)}")
+          print(
+              f"消息块数量：{len(chunks)}"
+          )
 
           # ==========================================================
-          # 发送函数
+          # 飞书发送函数
           # ==========================================================
 
-          def send_feishu(content_chunk, index, total):
+          def send_feishu(
+              content_chunk,
+              index,
+              total
+          ):
 
               title = (
                   "748686｜自生长知识系统｜日报｜带图版"
@@ -424,32 +457,53 @@ jobs:
               )
 
               try:
+
                   with urllib.request.urlopen(
                       request,
                       timeout=60
                   ) as response:
 
                       status = response.status
+
                       response_body = (
-                          response.read()
-                          .decode("utf-8", errors="replace")
+                          response
+                          .read()
+                          .decode(
+                              "utf-8",
+                              errors="replace"
+                          )
                       )
 
               except Exception as exc:
-                  print(f"❌ 飞书请求失败：{exc}")
+
+                  print(
+                      f"❌ 飞书请求失败：{exc}"
+                  )
+
                   raise
 
-              print(f"HTTP Status：{status}")
-              print(f"Response：{response_body}")
+              print(
+                  f"HTTP Status：{status}"
+              )
+
+              print(
+                  f"Response：{response_body}"
+              )
 
               if status != 200:
+
                   raise RuntimeError(
                       f"飞书 HTTP 状态异常：{status}"
                   )
 
               try:
-                  result = json.loads(response_body)
+
+                  result = json.loads(
+                      response_body
+                  )
+
               except json.JSONDecodeError:
+
                   raise RuntimeError(
                       "飞书返回内容不是合法 JSON"
                   )
@@ -457,11 +511,14 @@ jobs:
               code = result.get("code")
 
               if code != 0:
+
                   raise RuntimeError(
                       f"飞书发送失败：{result}"
                   )
 
-              print("✅ 飞书发送成功")
+              print(
+                  "✅ 飞书发送成功"
+              )
 
           # ==========================================================
           # 正式发送
@@ -473,6 +530,7 @@ jobs:
               chunks,
               start=1
           ):
+
               send_feishu(
                   chunk,
                   index,
@@ -488,13 +546,8 @@ jobs:
       # ============================================================
       # 5. 发送周报带图版
       #
-      # 周报是可选项：
-      #
-      # 没有周报
-      #      ↓
-      # SKIP
-      #      ↓
-      # Workflow 仍然成功
+      # 周报没有 *_带图.md：
+      # SKIP，不失败。
       # ============================================================
       - name: Send Weekly Image Report
         if: ${{ steps.find_reports.outputs.weekly_report != '' }}
@@ -537,17 +590,17 @@ jobs:
           print("读取周报 Markdown")
           print("--------------------------------------------------")
 
-          content = report_file.read_text(encoding="utf-8")
+          content = report_file.read_text(
+              encoding="utf-8"
+          )
 
           if not content.strip():
               print("❌ 周报 Markdown 为空")
               sys.exit(1)
 
-          print(f"原始字符数：{len(content)}")
-
-          # ==========================================================
-          # GitHub Raw 基础地址
-          # ==========================================================
+          print(
+              f"原始字符数：{len(content)}"
+          )
 
           raw_base = (
               f"https://raw.githubusercontent.com/"
@@ -555,20 +608,17 @@ jobs:
               f"{branch}/"
           )
 
-          print(f"Raw Base：{raw_base}")
-
-          # ==========================================================
-          # Markdown 图片转换
-          # ==========================================================
+          print(
+              f"Raw Base：{raw_base}"
+          )
 
           image_pattern = re.compile(
               r'(!\[[^\]]*\]\()([^)]+)(\))'
           )
 
-          image_count = 0
+          image_count = [0]
 
           def replace_image(match):
-              nonlocal image_count
 
               prefix = match.group(1)
               image_path = match.group(2)
@@ -576,26 +626,40 @@ jobs:
 
               image_path = image_path.strip()
 
-              # 已经是 URL，不修改
-              if image_path.startswith("http://") or image_path.startswith("https://"):
-                  print(f"ℹ️ 已是 URL，不修改：{image_path}")
+              if (
+                  image_path.startswith("http://")
+                  or image_path.startswith("https://")
+              ):
+                  print(
+                      f"ℹ️ 已是 URL，不修改：{image_path}"
+                  )
                   return match.group(0)
 
               path_only = image_path
               title_part = ""
 
               if " " in image_path:
-                  possible_path, possible_title = image_path.split(" ", 1)
 
-                  if possible_title.strip().startswith('"') or possible_title.strip().startswith("'"):
+                  possible_path, possible_title = (
+                      image_path.split(" ", 1)
+                  )
+
+                  if (
+                      possible_title.strip().startswith('"')
+                      or
+                      possible_title.strip().startswith("'")
+                  ):
                       path_only = possible_path
                       title_part = " " + possible_title
 
-              decoded_path = urllib.parse.unquote(path_only)
+              decoded_path = urllib.parse.unquote(
+                  path_only
+              )
 
               marker = "04_图片/"
 
               if marker in decoded_path:
+
                   suffix_path = decoded_path.split(
                       marker,
                       1
@@ -608,6 +672,7 @@ jobs:
                   )
 
               else:
+
                   clean_path = decoded_path
 
                   while clean_path.startswith("../"):
@@ -625,15 +690,28 @@ jobs:
 
               raw_url = raw_base + encoded_path
 
-              image_count += 1
+              image_count[0] += 1
 
               print()
-              print(f"🖼️ 图片 #{image_count}")
-              print(f"   Markdown：{image_path}")
-              print(f"   Repo：    {repo_image_path}")
-              print(f"   Raw：     {raw_url}")
+              print(
+                  f"🖼️ 图片 #{image_count[0]}"
+              )
+              print(
+                  f"   Markdown：{image_path}"
+              )
+              print(
+                  f"   Repo：    {repo_image_path}"
+              )
+              print(
+                  f"   Raw：     {raw_url}"
+              )
 
-              return prefix + raw_url + title_part + suffix
+              return (
+                  prefix
+                  + raw_url
+                  + title_part
+                  + suffix
+              )
 
           transformed = image_pattern.sub(
               replace_image,
@@ -645,16 +723,17 @@ jobs:
           print("Markdown 图片转换完成")
           print("--------------------------------------------------")
 
-          print(f"发现图片数量：{image_count}")
+          print(
+              f"发现图片数量：{image_count[0]}"
+          )
 
-          if image_count == 0:
+          if image_count[0] == 0:
               print("⚠️ 没有发现 Markdown 图片")
           else:
-              print(f"✅ 已转换 {image_count} 个图片引用")
-
-          # ==========================================================
-          # Markdown 分块
-          # ==========================================================
+              print(
+                  f"✅ 已转换 "
+                  f"{image_count[0]} 个图片引用"
+              )
 
           MAX_CHARS = 28000
 
@@ -672,22 +751,33 @@ jobs:
               )
 
               if len(candidate) <= MAX_CHARS:
+
                   current = candidate
+
               else:
+
                   if current:
                       chunks.append(current)
 
                   if len(line) > MAX_CHARS:
+
                       start = 0
 
                       while start < len(line):
+
                           chunks.append(
-                              line[start:start + MAX_CHARS]
+                              line[
+                                  start:
+                                  start + MAX_CHARS
+                              ]
                           )
+
                           start += MAX_CHARS
 
                       current = ""
+
                   else:
+
                       current = line
 
           if current:
@@ -698,13 +788,15 @@ jobs:
           print("准备发送飞书")
           print("--------------------------------------------------")
 
-          print(f"消息块数量：{len(chunks)}")
+          print(
+              f"消息块数量：{len(chunks)}"
+          )
 
-          # ==========================================================
-          # 发送飞书
-          # ==========================================================
-
-          def send_feishu(content_chunk, index, total):
+          def send_feishu(
+              content_chunk,
+              index,
+              total
+          ):
 
               title = (
                   "748686｜自生长知识系统｜周报｜带图版"
@@ -751,32 +843,53 @@ jobs:
               )
 
               try:
+
                   with urllib.request.urlopen(
                       request,
                       timeout=60
                   ) as response:
 
                       status = response.status
+
                       response_body = (
-                          response.read()
-                          .decode("utf-8", errors="replace")
+                          response
+                          .read()
+                          .decode(
+                              "utf-8",
+                              errors="replace"
+                          )
                       )
 
               except Exception as exc:
-                  print(f"❌ 飞书请求失败：{exc}")
+
+                  print(
+                      f"❌ 飞书请求失败：{exc}"
+                  )
+
                   raise
 
-              print(f"HTTP Status：{status}")
-              print(f"Response：{response_body}")
+              print(
+                  f"HTTP Status：{status}"
+              )
+
+              print(
+                  f"Response：{response_body}"
+              )
 
               if status != 200:
+
                   raise RuntimeError(
                       f"飞书 HTTP 状态异常：{status}"
                   )
 
               try:
-                  result = json.loads(response_body)
+
+                  result = json.loads(
+                      response_body
+                  )
+
               except json.JSONDecodeError:
+
                   raise RuntimeError(
                       "飞书返回内容不是合法 JSON"
                   )
@@ -784,11 +897,14 @@ jobs:
               code = result.get("code")
 
               if code != 0:
+
                   raise RuntimeError(
                       f"飞书发送失败：{result}"
                   )
 
-              print("✅ 飞书发送成功")
+              print(
+                  "✅ 飞书发送成功"
+              )
 
           total = len(chunks)
 
@@ -796,6 +912,7 @@ jobs:
               chunks,
               start=1
           ):
+
               send_feishu(
                   chunk,
                   index,
@@ -821,8 +938,7 @@ jobs:
           echo "日报：必发"
           echo "周报：有则发送，无则 SKIP"
           echo
-          echo "本次没有检查 Runner 本地 04_图片。"
-          echo "图片地址直接按照 GitHub Repository + Branch"
-          echo "转换为 raw.githubusercontent.com 地址。"
+          echo "本次不检查 Runner 本地 04_图片。"
+          echo "图片地址直接使用 GitHub Raw。"
           echo
           echo "=================================================="
