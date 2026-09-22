@@ -1,4 +1,4 @@
-name: 748686 飞书日报周报卡片测试
+name: 748686 飞书日报周报带图卡片测试
 
 on:
   workflow_dispatch:
@@ -17,17 +17,24 @@ jobs:
       # ==========================================================
       # 1. Checkout 748686obsidian
       # ==========================================================
+
       - name: Checkout 748686obsidian
         uses: actions/checkout@v4
 
       # ==========================================================
       # 2. 检查 FEISHU_WEBHOOK
       # ==========================================================
+
       - name: 检查 FEISHU_WEBHOOK
         env:
           FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
         run: |
           set -e
+
+          echo
+          echo "=========================================="
+          echo "检查 FEISHU_WEBHOOK"
+          echo "=========================================="
 
           if [ -z "$FEISHU_WEBHOOK" ]; then
             echo "❌ FEISHU_WEBHOOK 未配置"
@@ -37,17 +44,19 @@ jobs:
           echo "✅ FEISHU_WEBHOOK 已配置"
 
       # ==========================================================
-      # 3. 查找最新日报
+      # 3. 查找最新带图日报
       # ==========================================================
-      - name: 查找最新日报
+
+      - name: 查找最新带图日报
         id: find_daily
         run: |
           set -e
 
           DAILY_DIR="01_自生长知识系统/05_日报"
 
+          echo
           echo "=========================================="
-          echo "查找最新日报"
+          echo "查找最新带图日报"
           echo "=========================================="
 
           if [ ! -d "$DAILY_DIR" ]; then
@@ -55,30 +64,36 @@ jobs:
             exit 1
           fi
 
-          DAILY_REPORT=$(find "$DAILY_DIR" -type f -name "*.md" | sort | tail -n 1)
+          DAILY_REPORT=$(find "$DAILY_DIR" \
+            -type f \
+            -name "*_带图.md" \
+            | sort \
+            | tail -n 1)
 
           if [ -z "$DAILY_REPORT" ]; then
-            echo "❌ 没有找到日报 MD 文件"
+            echo "❌ 没有找到 *_带图.md 日报"
             exit 1
           fi
 
-          echo "✅ 找到最新日报："
+          echo "✅ 找到最新带图日报："
           echo "$DAILY_REPORT"
 
           echo "daily_report=$DAILY_REPORT" >> "$GITHUB_OUTPUT"
 
       # ==========================================================
-      # 4. 查找最新周报
+      # 4. 查找最新带图周报
       # ==========================================================
-      - name: 查找最新周报
+
+      - name: 查找最新带图周报
         id: find_weekly
         run: |
           set -e
 
           WEEKLY_DIR="01_自生长知识系统/06_周报"
 
+          echo
           echo "=========================================="
-          echo "查找最新周报"
+          echo "查找最新带图周报"
           echo "=========================================="
 
           if [ ! -d "$WEEKLY_DIR" ]; then
@@ -86,86 +101,106 @@ jobs:
             exit 1
           fi
 
-          WEEKLY_REPORT=$(find "$WEEKLY_DIR" -type f -name "*.md" | sort | tail -n 1)
+          WEEKLY_REPORT=$(find "$WEEKLY_DIR" \
+            -type f \
+            -name "*_带图.md" \
+            | sort \
+            | tail -n 1)
 
           if [ -z "$WEEKLY_REPORT" ]; then
-            echo "❌ 没有找到周报 MD 文件"
+            echo "❌ 没有找到 *_带图.md 周报"
             exit 1
           fi
 
-          echo "✅ 找到最新周报："
+          echo "✅ 找到最新带图周报："
           echo "$WEEKLY_REPORT"
 
           echo "weekly_report=$WEEKLY_REPORT" >> "$GITHUB_OUTPUT"
 
       # ==========================================================
-      # 5. 显示即将发送的文件
+      # 5. 确认测试文件
       # ==========================================================
-      - name: 确认报告文件
+
+      - name: 确认带图日报周报
+        env:
+          DAILY_REPORT: ${{ steps.find_daily.outputs.daily_report }}
+          WEEKLY_REPORT: ${{ steps.find_weekly.outputs.weekly_report }}
         run: |
           set -e
 
-          echo "=========================================="
-          echo "748686 飞书日报周报卡片测试"
-          echo "=========================================="
-
-          echo "日报："
-          echo "${{ steps.find_daily.outputs.daily_report }}"
+          echo
+          echo "=================================================="
+          echo "748686 飞书日报周报带图卡片测试"
+          echo "=================================================="
 
           echo
+          echo "日报："
+          echo "$DAILY_REPORT"
 
+          echo
           echo "周报："
-          echo "${{ steps.find_weekly.outputs.weekly_report }}"
+          echo "$WEEKLY_REPORT"
 
-          echo "=========================================="
+          echo
+          echo "日报大小："
+          wc -c "$DAILY_REPORT"
+
+          echo
+          echo "周报大小："
+          wc -c "$WEEKLY_REPORT"
+
+          echo
+          echo "=================================================="
 
       # ==========================================================
-      # 6. 发送日报到飞书卡片
+      # 6. 发送带图日报
+      #
+      # 直接读取 *_带图.md
+      # 不再读取普通日报
+      # 不再重新生成日报内容
       # ==========================================================
-      - name: 发送日报到飞书卡片
+
+      - name: 发送带图日报到飞书
         env:
           FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
           DAILY_REPORT: ${{ steps.find_daily.outputs.daily_report }}
         run: |
           set -e
 
+          echo
           echo "=========================================="
-          echo "FEISHU DAILY REPORT CARD"
+          echo "FEISHU DAILY REPORT — 带图版"
           echo "=========================================="
 
           if [ ! -f "$DAILY_REPORT" ]; then
-            echo "❌ 日报文件不存在：$DAILY_REPORT"
+            echo "❌ 带图日报文件不存在：$DAILY_REPORT"
             exit 1
           fi
 
-          # ------------------------------------------------------
-          # 将 Markdown 日报转换为飞书 interactive 卡片
-          # 同时按长度自动拆分，避免单张卡片过长
-          # ------------------------------------------------------
           python - "$DAILY_REPORT" > /tmp/feishu_daily_cards.jsonl <<'PY'
           import json
           import sys
 
           path = sys.argv[1]
 
-          with open(path, "r", encoding="utf-8") as f:
+          with open(
+              path,
+              "r",
+              encoding="utf-8"
+          ) as f:
               content = f.read().strip()
 
-          title = "748686｜自生长知识系统｜日报"
+          title = "748686｜自生长知识系统｜日报｜带图版"
 
-          # 单张卡片正文的保守长度
           MAX_CHARS = 7000
 
-          # ------------------------------------------------------
-          # 按 Markdown 段落拆分
-          # 尽量避免在标题、列表或段落中间切断
-          # ------------------------------------------------------
           paragraphs = content.split("\n\n")
 
           chunks = []
           current = ""
 
           for paragraph in paragraphs:
+
               paragraph = paragraph.strip()
 
               if not paragraph:
@@ -178,29 +213,46 @@ jobs:
               )
 
               if len(candidate) <= MAX_CHARS:
+
                   current = candidate
+
               else:
+
                   if current:
                       chunks.append(current)
 
-                  # 如果单个段落本身超过限制，再强制切分
                   while len(paragraph) > MAX_CHARS:
-                      chunks.append(paragraph[:MAX_CHARS])
-                      paragraph = paragraph[MAX_CHARS:]
+
+                      chunks.append(
+                          paragraph[:MAX_CHARS]
+                      )
+
+                      paragraph = paragraph[
+                          MAX_CHARS:
+                      ]
 
                   current = paragraph
 
           if current:
               chunks.append(current)
 
+          if not chunks:
+              chunks = ["带图日报内容为空。"]
+
           total = len(chunks)
 
-          for index, chunk in enumerate(chunks, 1):
+          for index, chunk in enumerate(
+              chunks,
+              1
+          ):
 
               if total == 1:
                   header_title = title
               else:
-                  header_title = f"{title}｜第 {index}/{total} 部分"
+                  header_title = (
+                      f"{title}｜"
+                      f"第 {index}/{total} 部分"
+                  )
 
               payload = {
                   "msg_type": "interactive",
@@ -236,9 +288,11 @@ jobs:
           INDEX=0
 
           while IFS= read -r PAYLOAD; do
+
               INDEX=$((INDEX + 1))
 
-              echo "正在发送日报卡片：$INDEX / $TOTAL"
+              echo
+              echo "发送日报带图版：$INDEX / $TOTAL"
 
               RESPONSE=$(curl -sS \
                 -X POST \
@@ -246,60 +300,64 @@ jobs:
                 --data-binary "$PAYLOAD" \
                 "$FEISHU_WEBHOOK")
 
+              echo
               echo "飞书返回："
               echo "$RESPONSE"
 
               echo "$RESPONSE" | grep -q '"code":0' || {
-                echo "❌ 飞书日报卡片发送失败"
+                echo "❌ 飞书日报发送失败"
                 exit 1
               }
 
-              echo "✅ 日报卡片 $INDEX / $TOTAL 发送成功"
+              echo "✅ 日报带图版 $INDEX / $TOTAL 发送成功"
 
-              # 避免连续请求过快
               sleep 1
 
           done < /tmp/feishu_daily_cards.jsonl
 
+          echo
           echo "=========================================="
-          echo "✅ 日报飞书卡片发送完成"
+          echo "✅ 带图日报发送完成"
           echo "=========================================="
 
       # ==========================================================
-      # 7. 发送周报到飞书卡片
+      # 7. 发送带图周报
+      #
+      # 直接读取 *_带图.md
       # ==========================================================
-      - name: 发送周报到飞书卡片
+
+      - name: 发送带图周报到飞书
         env:
           FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
           WEEKLY_REPORT: ${{ steps.find_weekly.outputs.weekly_report }}
         run: |
           set -e
 
+          echo
           echo "=========================================="
-          echo "FEISHU WEEKLY REPORT CARD"
+          echo "FEISHU WEEKLY REPORT — 带图版"
           echo "=========================================="
 
           if [ ! -f "$WEEKLY_REPORT" ]; then
-            echo "❌ 周报文件不存在：$WEEKLY_REPORT"
+            echo "❌ 带图周报文件不存在：$WEEKLY_REPORT"
             exit 1
           fi
 
-          # ------------------------------------------------------
-          # 将 Markdown 周报转换为飞书 interactive 卡片
-          # 同时按长度自动拆分
-          # ------------------------------------------------------
           python - "$WEEKLY_REPORT" > /tmp/feishu_weekly_cards.jsonl <<'PY'
           import json
           import sys
 
           path = sys.argv[1]
 
-          with open(path, "r", encoding="utf-8") as f:
+          with open(
+              path,
+              "r",
+              encoding="utf-8"
+          ) as f:
               content = f.read().strip()
 
-          title = "748686｜自生长知识系统｜周报"
+          title = "748686｜自生长知识系统｜周报｜带图版"
 
-          # 单张卡片正文的保守长度
           MAX_CHARS = 7000
 
           paragraphs = content.split("\n\n")
@@ -308,6 +366,7 @@ jobs:
           current = ""
 
           for paragraph in paragraphs:
+
               paragraph = paragraph.strip()
 
               if not paragraph:
@@ -320,29 +379,46 @@ jobs:
               )
 
               if len(candidate) <= MAX_CHARS:
+
                   current = candidate
+
               else:
+
                   if current:
                       chunks.append(current)
 
-                  # 如果单个段落本身超过限制，再强制切分
                   while len(paragraph) > MAX_CHARS:
-                      chunks.append(paragraph[:MAX_CHARS])
-                      paragraph = paragraph[MAX_CHARS:]
+
+                      chunks.append(
+                          paragraph[:MAX_CHARS]
+                      )
+
+                      paragraph = paragraph[
+                          MAX_CHARS:
+                      ]
 
                   current = paragraph
 
           if current:
               chunks.append(current)
 
+          if not chunks:
+              chunks = ["带图周报内容为空。"]
+
           total = len(chunks)
 
-          for index, chunk in enumerate(chunks, 1):
+          for index, chunk in enumerate(
+              chunks,
+              1
+          ):
 
               if total == 1:
                   header_title = title
               else:
-                  header_title = f"{title}｜第 {index}/{total} 部分"
+                  header_title = (
+                      f"{title}｜"
+                      f"第 {index}/{total} 部分"
+                  )
 
               payload = {
                   "msg_type": "interactive",
@@ -378,9 +454,11 @@ jobs:
           INDEX=0
 
           while IFS= read -r PAYLOAD; do
+
               INDEX=$((INDEX + 1))
 
-              echo "正在发送周报卡片：$INDEX / $TOTAL"
+              echo
+              echo "发送周报带图版：$INDEX / $TOTAL"
 
               RESPONSE=$(curl -sS \
                 -X POST \
@@ -388,46 +466,65 @@ jobs:
                 --data-binary "$PAYLOAD" \
                 "$FEISHU_WEBHOOK")
 
+              echo
               echo "飞书返回："
               echo "$RESPONSE"
 
               echo "$RESPONSE" | grep -q '"code":0' || {
-                echo "❌ 飞书周报卡片发送失败"
+                echo "❌ 飞书周报发送失败"
                 exit 1
               }
 
-              echo "✅ 周报卡片 $INDEX / $TOTAL 发送成功"
+              echo "✅ 周报带图版 $INDEX / $TOTAL 发送成功"
 
-              # 避免连续请求过快
               sleep 1
 
           done < /tmp/feishu_weekly_cards.jsonl
 
+          echo
           echo "=========================================="
-          echo "✅ 周报飞书卡片发送完成"
+          echo "✅ 带图周报发送完成"
           echo "=========================================="
 
       # ==========================================================
       # 8. 测试完成
       # ==========================================================
-      - name: 飞书日报周报卡片测试完成
+
+      - name: 飞书日报周报带图卡片测试完成
         run: |
           echo
           echo "=================================================="
-          echo "748686 飞书日报周报卡片测试完成"
+          echo "748686 飞书日报周报带图卡片测试完成"
           echo "=================================================="
           echo
-          echo "✅ 最新日报已发送到飞书卡片"
-          echo "✅ 最新周报已发送到飞书卡片"
+          echo "✅ 使用的是 *_带图.md"
+          echo "✅ 没有使用普通日报"
+          echo "✅ 没有使用普通周报"
+          echo "✅ 没有重新生成报告"
+          echo "✅ 直接读取完整带图 Markdown 文件"
+          echo "✅ 日报已发送到飞书"
+          echo "✅ 周报已发送到飞书"
           echo
           echo "本次测试没有运行："
           echo "  - Horizon"
           echo "  - 新闻抓取"
           echo "  - AI 分析"
-          echo "  - EventUnit 聚合"
+          echo "  - EventUnit"
           echo "  - Skills"
           echo "  - Knowledge Asset"
           echo
-          echo "只测试："
-          echo "GitHub → MD 日报/周报 → 飞书 Interactive Card"
+          echo "测试链路："
+          echo
+          echo "05_日报/*_带图.md"
+          echo "        ↓"
+          echo "完整 Markdown"
+          echo "        ↓"
+          echo "飞书 Interactive Card"
+          echo
+          echo "06_周报/*_带图.md"
+          echo "        ↓"
+          echo "完整 Markdown"
+          echo "        ↓"
+          echo "飞书 Interactive Card"
+          echo
           echo "=================================================="
