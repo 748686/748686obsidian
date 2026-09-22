@@ -1,4 +1,4 @@
-name: 748686 自生长知识系统｜飞书带图版测试
+name: 飞书日报周报带图版测试
 
 on:
   workflow_dispatch:
@@ -7,8 +7,7 @@ permissions:
   contents: read
 
 jobs:
-  feishu-image-test:
-
+  send-feishu-image-reports:
     runs-on: ubuntu-latest
 
     steps:
@@ -16,19 +15,13 @@ jobs:
       # ============================================================
       # 1. Checkout
       # ============================================================
-
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-
 
       # ============================================================
-      # 2. 检查飞书 Webhook
+      # 2. 检查 FEISHU_WEBHOOK
       # ============================================================
-
-      - name: 检查飞书 Webhook
-        shell: bash
+      - name: Check Feishu Webhook
         env:
           FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
         run: |
@@ -46,273 +39,95 @@ jobs:
 
           echo "✅ FEISHU_WEBHOOK 已配置"
 
-
       # ============================================================
-      # 3. 检查日报目录
+      # 3. 查找最新日报 / 周报带图版
       # ============================================================
-
-      - name: 检查日报目录
-        shell: bash
+      - name: Find latest image reports
+        id: find_reports
         run: |
           set -e
 
           echo
           echo "=================================================="
-          echo "检查日报目录"
+          echo "查找带图版日报 / 周报"
           echo "=================================================="
 
           DAILY_ROOT="01_自生长知识系统/05_日报"
+          WEEKLY_ROOT="01_自生长知识系统/06_周报"
+
+          echo
+          echo "日报目录：$DAILY_ROOT"
 
           if [ ! -d "$DAILY_ROOT" ]; then
             echo "❌ 日报目录不存在：$DAILY_ROOT"
             exit 1
           fi
 
-          echo "✅ 日报目录存在：$DAILY_ROOT"
-
-          echo
-          echo "最近日报带图版："
-
-          find "$DAILY_ROOT" -type f -name "*_带图.md" -print \
-            | sort \
-            | tail -n 20
-
-
-      # ============================================================
-      # 4. 检查周报目录
-      # ============================================================
-
-      - name: 检查周报目录
-        shell: bash
-        run: |
-          set -e
-
-          echo
-          echo "=================================================="
-          echo "检查周报目录"
-          echo "=================================================="
-
-          WEEKLY_ROOT="01_自生长知识系统/06_周报"
-
-          if [ ! -d "$WEEKLY_ROOT" ]; then
-            echo "⚠️ 周报目录不存在"
-            echo "周报发送：SKIP"
-            exit 0
-          fi
-
-          echo "✅ 周报目录存在：$WEEKLY_ROOT"
-
-          echo
-          echo "最近周报带图版："
-
-          find "$WEEKLY_ROOT" -type f -name "*_带图.md" -print \
-            | sort \
-            | tail -n 20
-
-
-      # ============================================================
-      # 5. 检查图片资源目录
-      # ============================================================
-
-      - name: 检查图片资源目录
-        shell: bash
-        run: |
-          set -e
-
-          echo
-          echo "=================================================="
-          echo "检查图片资源目录"
-          echo "=================================================="
-
-          IMAGE_ROOT="01_自生长知识系统/04_图片"
-
-          if [ ! -d "$IMAGE_ROOT" ]; then
-            echo "❌ 图片目录不存在：$IMAGE_ROOT"
-            exit 1
-          fi
-
-          echo
-          echo "图片目录："
-          echo "$IMAGE_ROOT"
-
-          echo
-          echo "最近图片："
-
-          find "$IMAGE_ROOT" -type f -print \
-            | grep -Ei '\.(png|jpg|jpeg|webp)$' \
-            | sort \
-            | tail -n 50 || true
-
-
-      # ============================================================
-      # 6. 找到最新日报带图版
-      # ============================================================
-
-      - name: 定位最新日报带图版
-        shell: bash
-        run: |
-          set -e
-
-          DAILY_ROOT="01_自生长知识系统/05_日报"
-
-          DAILY_REPORT="$(
+          DAILY_REPORT=$(
             find "$DAILY_ROOT" \
               -type f \
-              -name "*_带图.md" \
+              -name '*_带图.md' \
               -print \
-              | sort \
-              | tail -n 1
-          )"
+            | sort \
+            | tail -n 1
+          )
 
           if [ -z "$DAILY_REPORT" ]; then
             echo "❌ 没有找到日报 *_带图.md"
             exit 1
           fi
 
+          echo "✅ 最新日报：$DAILY_REPORT"
+
           echo
-          echo "=================================================="
-          echo "日报带图版"
-          echo "=================================================="
+          echo "周报目录：$WEEKLY_ROOT"
 
-          echo "$DAILY_REPORT"
+          WEEKLY_REPORT=""
 
-          echo "DAILY_REPORT=$DAILY_REPORT" >> "$GITHUB_ENV"
+          if [ -d "$WEEKLY_ROOT" ]; then
+            WEEKLY_REPORT=$(
+              find "$WEEKLY_ROOT" \
+                -type f \
+                -name '*_带图.md' \
+                -print \
+            | sort \
+            | tail -n 1
+            )
+          fi
 
+          if [ -n "$WEEKLY_REPORT" ]; then
+            echo "✅ 最新周报：$WEEKLY_REPORT"
+          else
+            echo "ℹ️ 没有找到周报 *_带图.md"
+            echo "ℹ️ 周报带图版为可选，不阻塞 Workflow"
+          fi
+
+          {
+            echo "daily_report=$DAILY_REPORT"
+            echo "weekly_report=$WEEKLY_REPORT"
+          } >> "$GITHUB_OUTPUT"
 
       # ============================================================
-      # 7. 找到最新周报带图版
+      # 4. 发送日报带图版
       #
-      # 周报是可选项：
-      # 没有就 SKIP，不失败
-      # ============================================================
-
-      - name: 定位最新周报带图版
-        shell: bash
-        run: |
-          set -e
-
-          WEEKLY_ROOT="01_自生长知识系统/06_周报"
-
-          if [ ! -d "$WEEKLY_ROOT" ]; then
-            echo "WEEKLY_REPORT="
-            echo "WEEKLY_REPORT=" >> "$GITHUB_ENV"
-            exit 0
-          fi
-
-          WEEKLY_REPORT="$(
-            find "$WEEKLY_ROOT" \
-              -type f \
-              -name "*_带图.md" \
-              -print \
-              | sort \
-              | tail -n 1
-          )"
-
-          if [ -z "$WEEKLY_REPORT" ]; then
-            echo "⚠️ 没有找到周报 *_带图.md"
-            echo "周报发送：SKIP"
-
-            echo "WEEKLY_REPORT=" >> "$GITHUB_ENV"
-            exit 0
-          fi
-
-          echo
-          echo "=================================================="
-          echo "周报带图版"
-          echo "=================================================="
-
-          echo "$WEEKLY_REPORT"
-
-          echo "WEEKLY_REPORT=$WEEKLY_REPORT" >> "$GITHUB_ENV"
-
-
-      # ============================================================
-      # 8. 检查日报文件
-      # ============================================================
-
-      - name: 检查日报文件
-        shell: bash
-        run: |
-          set -e
-
-          echo
-          echo "=================================================="
-          echo "检查日报文件"
-          echo "=================================================="
-
-          if [ ! -f "$DAILY_REPORT" ]; then
-            echo "❌ 日报文件不存在：$DAILY_REPORT"
-            exit 1
-          fi
-
-          if [ ! -s "$DAILY_REPORT" ]; then
-            echo "❌ 日报文件为空：$DAILY_REPORT"
-            exit 1
-          fi
-
-          echo "✅ 日报文件有效"
-
-          echo
-          echo "文件大小："
-          wc -c "$DAILY_REPORT"
-
-
-      # ============================================================
-      # 9. 检查周报文件
-      # ============================================================
-
-      - name: 检查周报文件
-        shell: bash
-        run: |
-          set -e
-
-          if [ -z "$WEEKLY_REPORT" ]; then
-            echo "周报：SKIP"
-            exit 0
-          fi
-
-          echo
-          echo "=================================================="
-          echo "检查周报文件"
-          echo "=================================================="
-
-          if [ ! -f "$WEEKLY_REPORT" ]; then
-            echo "⚠️ 周报文件不存在"
-            echo "周报：SKIP"
-            exit 0
-          fi
-
-          if [ ! -s "$WEEKLY_REPORT" ]; then
-            echo "⚠️ 周报文件为空"
-            echo "周报：SKIP"
-            exit 0
-          fi
-
-          echo "✅ 周报文件有效"
-
-          echo
-          echo "文件大小："
-          wc -c "$WEEKLY_REPORT"
-
-
-      # ============================================================
-      # 10. 发送日报带图版
+      # 核心逻辑：
       #
-      # 当前阶段：
-      # 本地图片 → GitHub Raw URL
+      # Markdown 原文：
       #
-      # 暂不使用 Feishu image_key。
-      # 先确认：
-      # 1. Webhook 正常
-      # 2. Markdown 正常
-      # 3. 图片路径正确
-      # 4. Feishu 卡片能否显示远程图片
+      # ![首图](../04_图片/2026-09-21/首图.png)
+      #
+      # 转换为：
+      #
+      # ![首图](https://raw.githubusercontent.com/748686/748686obsidian/main/01_自生长知识系统/04_图片/2026-09-21/首图.png)
+      #
+      # 其他 Markdown 内容完全不动。
+      #
+      # 不检查 Runner 本地图片是否存在。
       # ============================================================
-
-      - name: 发送日报带图版
-        shell: bash
+      - name: Send Daily Image Report
         env:
           FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+          DAILY_REPORT: ${{ steps.find_reports.outputs.daily_report }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
         run: |
@@ -320,269 +135,253 @@ jobs:
 
           echo
           echo "=================================================="
-          echo "FEISHU DAILY REPORT"
+          echo "发送日报带图版"
           echo "=================================================="
 
-          echo
-          echo "日报："
-          echo "$DAILY_REPORT"
+          echo "日报文件：$DAILY_REPORT"
+          echo "GitHub Repository：$GITHUB_REPOSITORY"
+          echo "GitHub Branch：$GITHUB_REF_NAME"
 
-          python - "$DAILY_REPORT" <<'PY'
+          python - "$DAILY_REPORT" "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME" "$FEISHU_WEBHOOK" <<'PY'
           import sys
-          import os
-          import re
           import json
+          import re
           import urllib.parse
           import urllib.request
+          from pathlib import Path
 
-          report_path = sys.argv[1]
+          report_file = Path(sys.argv[1])
+          repository = sys.argv[2]
+          branch = sys.argv[3]
+          webhook = sys.argv[4]
 
-          webhook = os.environ.get("FEISHU_WEBHOOK", "").strip()
-          repository = os.environ.get("GITHUB_REPOSITORY", "").strip()
-          branch = os.environ.get("GITHUB_REF_NAME", "").strip()
-
-          if not webhook:
-              print("❌ FEISHU_WEBHOOK 未配置")
-              sys.exit(1)
-
-          if not repository:
-              print("❌ GITHUB_REPOSITORY 不存在")
-              sys.exit(1)
-
-          if not branch:
-              print("❌ GITHUB_REF_NAME 不存在")
-              sys.exit(1)
-
-          if not os.path.isfile(report_path):
-              print(f"❌ 日报不存在：{report_path}")
+          if not report_file.exists():
+              print(f"❌ 报告文件不存在：{report_file}")
               sys.exit(1)
 
           print()
-          print("读取 Markdown：")
-          print(report_path)
+          print("--------------------------------------------------")
+          print("读取日报 Markdown")
+          print("--------------------------------------------------")
 
-          with open(report_path, "r", encoding="utf-8") as f:
-              content = f.read()
+          content = report_file.read_text(encoding="utf-8")
 
-          image_pattern = re.compile(
-              r'!\[([^\]]*)\]\(([^)]+)\)'
+          if not content.strip():
+              print("❌ 日报 Markdown 为空")
+              sys.exit(1)
+
+          print(f"原始字符数：{len(content)}")
+
+          # ==========================================================
+          # GitHub Raw 基础地址
+          # ==========================================================
+
+          raw_base = (
+              f"https://raw.githubusercontent.com/"
+              f"{repository}/"
+              f"{branch}/"
           )
 
-          matches = image_pattern.findall(content)
+          print(f"Raw Base：{raw_base}")
+
+          # ==========================================================
+          # Markdown 图片路径转换
+          #
+          # 只修改：
+          #
+          # ![xxx](图片路径)
+          #
+          # 其他内容完全保持不变。
+          # ==========================================================
+
+          image_pattern = re.compile(
+              r'(!\[[^\]]*\]\()([^)]+)(\))'
+          )
+
+          image_count = 0
+
+          def replace_image(match):
+              nonlocal image_count
+
+              prefix = match.group(1)
+              image_path = match.group(2)
+              suffix = match.group(3)
+
+              image_path = image_path.strip()
+
+              # ------------------------------------------------------
+              # 已经是网络图片，完全不动
+              # ------------------------------------------------------
+              if image_path.startswith("http://") or image_path.startswith("https://"):
+                  print(f"ℹ️ 已是 URL，不修改：{image_path}")
+                  return match.group(0)
+
+              # ------------------------------------------------------
+              # 去掉可能存在的标题：
+              #
+              # image.png "title"
+              #
+              # 当前只处理最常见的纯路径情况。
+              # ------------------------------------------------------
+              path_only = image_path
+
+              title_part = ""
+
+              if " " in image_path:
+                  possible_path, possible_title = image_path.split(" ", 1)
+
+                  if possible_title.strip().startswith('"') or possible_title.strip().startswith("'"):
+                      path_only = possible_path
+                      title_part = " " + possible_title
+
+              # ------------------------------------------------------
+              # URL 解码
+              # ------------------------------------------------------
+              decoded_path = urllib.parse.unquote(path_only)
+
+              # ------------------------------------------------------
+              # 找到 04_图片/
+              #
+              # 不管 Markdown 原来是：
+              #
+              # ../04_图片/2026-09-21/首图.png
+              #
+              # ../../04_图片/2026-09-21/首图.png
+              #
+              # 还是：
+              #
+              # 04_图片/2026-09-21/首图.png
+              #
+              # 最终统一映射到：
+              #
+              # 01_自生长知识系统/04_图片/...
+              # ------------------------------------------------------
+
+              marker = "04_图片/"
+
+              if marker in decoded_path:
+                  suffix_path = decoded_path.split(marker, 1)[1]
+
+                  repo_image_path = (
+                      "01_自生长知识系统/"
+                      "04_图片/"
+                      + suffix_path
+                  )
+
+              else:
+                  # --------------------------------------------------
+                  # 如果不是 04_图片，则尝试按照仓库相对路径处理。
+                  # --------------------------------------------------
+                  clean_path = decoded_path
+
+                  while clean_path.startswith("../"):
+                      clean_path = clean_path[3:]
+
+                  while clean_path.startswith("./"):
+                      clean_path = clean_path[2:]
+
+                  repo_image_path = clean_path
+
+              # ------------------------------------------------------
+              # GitHub Raw URL
+              # ------------------------------------------------------
+
+              encoded_path = urllib.parse.quote(
+                  repo_image_path,
+                  safe="/"
+              )
+
+              raw_url = raw_base + encoded_path
+
+              image_count += 1
+
+              print()
+              print(f"🖼️ 图片 #{image_count}")
+              print(f"   Markdown：{image_path}")
+              print(f"   Repo：    {repo_image_path}")
+              print(f"   Raw：     {raw_url}")
+
+              return prefix + raw_url + title_part + suffix
+
+          transformed = image_pattern.sub(
+              replace_image,
+              content
+          )
 
           print()
-          print(f"检测到 Markdown 图片：{len(matches)} 张")
+          print("--------------------------------------------------")
+          print("Markdown 图片转换完成")
+          print("--------------------------------------------------")
 
-          if not matches:
-              print("⚠️ 日报中没有检测到 Markdown 图片")
+          print(f"发现图片数量：{image_count}")
+
+          if image_count == 0:
+              print("⚠️ 没有发现 Markdown 图片引用")
           else:
-              for alt, raw_path in matches:
-
-                  raw_path = raw_path.strip()
-
-                  print()
-                  print("图片：")
-                  print(f"  ALT  : {alt}")
-                  print(f"  PATH : {raw_path}")
-
-                  # --------------------------------------------------
-                  # 1. 已经是远程 URL
-                  # --------------------------------------------------
-
-                  if raw_path.startswith("http://") or raw_path.startswith("https://"):
-                      print("  类型 : Remote URL")
-                      continue
-
-                  # --------------------------------------------------
-                  # 2. 去掉可能存在的 <...>
-                  # --------------------------------------------------
-
-                  if raw_path.startswith("<") and raw_path.endswith(">"):
-                      raw_path = raw_path[1:-1].strip()
-
-                  # --------------------------------------------------
-                  # 3. 图片根目录
-                  # --------------------------------------------------
-
-                  image_root = os.path.normpath(
-                      "01_自生长知识系统/04_图片"
-                  )
-
-                  report_dir = os.path.dirname(
-                      os.path.abspath(report_path)
-                  )
-
-                  candidate_paths = []
-
-                  # --------------------------------------------------
-                  # A. Markdown 文件所在目录相对路径
-                  # --------------------------------------------------
-
-                  candidate_paths.append(
-                      os.path.normpath(
-                          os.path.join(report_dir, raw_path)
-                      )
-                  )
-
-                  # --------------------------------------------------
-                  # B. 如果路径里明确出现 04_图片
-                  #    直接从系统图片根目录解析
-                  # --------------------------------------------------
-
-                  normalized_raw = raw_path.replace("\\", "/")
-
-                  marker = "04_图片/"
-
-                  if marker in normalized_raw:
-                      suffix = normalized_raw.split(marker, 1)[1]
-
-                      candidate_paths.append(
-                          os.path.normpath(
-                              os.path.join(
-                                  image_root,
-                                  suffix
-                              )
-                          )
-                      )
-
-                  # --------------------------------------------------
-                  # C. 路径组件中出现 04_图片
-                  # --------------------------------------------------
-
-                  parts = normalized_raw.split("/")
-
-                  if "04_图片" in parts:
-                      index = parts.index("04_图片")
-                      suffix = "/".join(parts[index + 1:])
-
-                      candidate_paths.append(
-                          os.path.normpath(
-                              os.path.join(
-                                  image_root,
-                                  suffix
-                              )
-                          )
-                      )
-
-                  # --------------------------------------------------
-                  # D. 直接把路径最后部分尝试到图片根目录
-                  # --------------------------------------------------
-
-                  basename = os.path.basename(normalized_raw)
-
-                  if basename:
-                      candidate_paths.append(
-                          os.path.normpath(
-                              os.path.join(
-                                  image_root,
-                                  basename
-                              )
-                          )
-                      )
-
-                  # --------------------------------------------------
-                  # 找到真实文件
-                  # --------------------------------------------------
-
-                  real_path = None
-
-                  for candidate in candidate_paths:
-                      if os.path.isfile(candidate):
-                          real_path = candidate
-                          break
-
-                  if real_path is None:
-                      print("  ❌ 图片不存在")
-
-                      print()
-                      print("  尝试过的路径：")
-
-                      for candidate in candidate_paths:
-                          print(f"    {candidate}")
-
-                      sys.exit(1)
-
-                  print(f"  ✅ 本地图片：{real_path}")
-
-                  # --------------------------------------------------
-                  # 转换为仓库相对路径
-                  # --------------------------------------------------
-
-                  repo_root = os.path.abspath(".")
-
-                  relative_path = os.path.relpath(
-                      os.path.abspath(real_path),
-                      repo_root
-                  )
-
-                  relative_path = relative_path.replace("\\", "/")
-
-                  # --------------------------------------------------
-                  # URL encode
-                  # --------------------------------------------------
-
-                  encoded_path = "/".join(
-                      urllib.parse.quote(
-                          part,
-                          safe=""
-                      )
-                      for part in relative_path.split("/")
-                  )
-
-                  raw_url = (
-                      "https://raw.githubusercontent.com/"
-                      f"{repository}/"
-                      f"{urllib.parse.quote(branch, safe='')}/"
-                      f"{encoded_path}"
-                  )
-
-                  print(f"  🌐 Raw URL：{raw_url}")
-
-                  # --------------------------------------------------
-                  # 替换 Markdown 图片地址
-                  # --------------------------------------------------
-
-                  old_markdown = f"![{alt}]({raw_path})"
-                  new_markdown = f"![{alt}]({raw_url})"
-
-                  content = content.replace(
-                      old_markdown,
-                      new_markdown
-                  )
+              print(f"✅ 已转换 {image_count} 个图片引用")
 
           # ==========================================================
-          # 限制单卡片长度
+          # 为避免一次 Webhook 内容过长：
+          #
+          # 按 Markdown 行进行切分。
+          #
+          # 不改变行内容。
           # ==========================================================
 
-          MAX_CHARS = 6000
+          MAX_CHARS = 28000
+
+          lines = transformed.splitlines()
 
           chunks = []
+          current = ""
 
-          while len(content) > MAX_CHARS:
-              cut = content.rfind("\n", 0, MAX_CHARS)
+          for line in lines:
 
-              if cut <= 0:
-                  cut = MAX_CHARS
+              candidate = (
+                  current + "\n" + line
+                  if current
+                  else line
+              )
 
-              chunks.append(content[:cut])
-              content = content[cut:]
+              if len(candidate) <= MAX_CHARS:
+                  current = candidate
+              else:
+                  if current:
+                      chunks.append(current)
 
-          if content:
-              chunks.append(content)
+                  # 单独一行超过限制时，强制切开
+                  if len(line) > MAX_CHARS:
+                      start = 0
+
+                      while start < len(line):
+                          chunks.append(
+                              line[start:start + MAX_CHARS]
+                          )
+                          start += MAX_CHARS
+
+                      current = ""
+                  else:
+                      current = line
+
+          if current:
+              chunks.append(current)
 
           print()
-          print(f"最终发送卡片数量：{len(chunks)}")
+          print("--------------------------------------------------")
+          print("准备发送飞书")
+          print("--------------------------------------------------")
+
+          print(f"消息块数量：{len(chunks)}")
 
           # ==========================================================
-          # 发送 Feishu Interactive Card
+          # 发送函数
           # ==========================================================
 
-          for index, chunk in enumerate(chunks, start=1):
+          def send_feishu(content_chunk, index, total):
 
-              title = "748686｜自生长知识系统｜日报｜带图版"
-
-              if len(chunks) > 1:
-                  title += f"｜{index}/{len(chunks)}"
+              title = (
+                  "748686｜自生长知识系统｜日报｜带图版"
+              )
 
               payload = {
                   "msg_type": "interactive",
@@ -597,7 +396,7 @@ jobs:
                       "elements": [
                           {
                               "tag": "markdown",
-                              "content": chunk
+                              "content": content_chunk
                           }
                       ]
                   }
@@ -620,318 +419,296 @@ jobs:
 
               print()
               print(
-                  f"正在发送日报卡片 "
-                  f"{index}/{len(chunks)} ..."
+                  f"▶️ 发送日报消息 "
+                  f"{index}/{total}"
               )
 
               try:
                   with urllib.request.urlopen(
                       request,
-                      timeout=30
+                      timeout=60
                   ) as response:
 
                       status = response.status
-                      body = response.read().decode(
-                          "utf-8",
-                          errors="replace"
+                      response_body = (
+                          response.read()
+                          .decode("utf-8", errors="replace")
                       )
 
-              except Exception as e:
-                  print(f"❌ 飞书请求失败：{e}")
-                  sys.exit(1)
+              except Exception as exc:
+                  print(f"❌ 飞书请求失败：{exc}")
+                  raise
 
-              print(f"HTTP Status: {status}")
-              print(f"Response: {body}")
+              print(f"HTTP Status：{status}")
+              print(f"Response：{response_body}")
 
               if status != 200:
-                  print("❌ 飞书 HTTP 请求失败")
-                  sys.exit(1)
+                  raise RuntimeError(
+                      f"飞书 HTTP 状态异常：{status}"
+                  )
 
               try:
-                  result = json.loads(body)
-              except Exception:
-                  print("❌ 飞书返回内容不是 JSON")
-                  sys.exit(1)
+                  result = json.loads(response_body)
+              except json.JSONDecodeError:
+                  raise RuntimeError(
+                      "飞书返回内容不是合法 JSON"
+                  )
 
               code = result.get("code")
 
               if code != 0:
-                  print("❌ 飞书接口返回错误")
-                  print(json.dumps(
-                      result,
-                      ensure_ascii=False,
-                      indent=2
-                  ))
-                  sys.exit(1)
-
-              print("✅ 日报卡片发送成功")
-
-          print()
-          print("==================================================")
-          print("日报发送完成")
-          print("==================================================")
-          PY
-
-
-      # ============================================================
-      # 11. 发送周报带图版
-      #
-      # 周报没有则 SKIP
-      # ============================================================
-
-      - name: 发送周报带图版
-        shell: bash
-        env:
-          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          GITHUB_REF_NAME: ${{ github.ref_name }}
-        run: |
-          set -e
-
-          if [ -z "$WEEKLY_REPORT" ]; then
-            echo
-            echo "=================================================="
-            echo "FEISHU WEEKLY REPORT"
-            echo "=================================================="
-            echo "⚠️ 没有周报带图版"
-            echo "周报发送：SKIP"
-            exit 0
-          fi
-
-          echo
-          echo "=================================================="
-          echo "FEISHU WEEKLY REPORT"
-          echo "=================================================="
-
-          echo
-          echo "周报："
-          echo "$WEEKLY_REPORT"
-
-          python - "$WEEKLY_REPORT" <<'PY'
-          import sys
-          import os
-          import re
-          import json
-          import urllib.parse
-          import urllib.request
-
-          report_path = sys.argv[1]
-
-          webhook = os.environ.get("FEISHU_WEBHOOK", "").strip()
-          repository = os.environ.get("GITHUB_REPOSITORY", "").strip()
-          branch = os.environ.get("GITHUB_REF_NAME", "").strip()
-
-          if not webhook:
-              print("❌ FEISHU_WEBHOOK 未配置")
-              sys.exit(1)
-
-          if not os.path.isfile(report_path):
-              print(f"⚠️ 周报不存在：{report_path}")
-              sys.exit(0)
-
-          with open(report_path, "r", encoding="utf-8") as f:
-              content = f.read()
-
-          image_pattern = re.compile(
-              r'!\[([^\]]*)\]\(([^)]+)\)'
-          )
-
-          matches = image_pattern.findall(content)
-
-          print()
-          print(f"检测到 Markdown 图片：{len(matches)} 张")
-
-          image_root = os.path.normpath(
-              "01_自生长知识系统/04_图片"
-          )
-
-          report_dir = os.path.dirname(
-              os.path.abspath(report_path)
-          )
-
-          for alt, raw_path in matches:
-
-              raw_path = raw_path.strip()
-
-              if raw_path.startswith("http://") or raw_path.startswith("https://"):
-                  continue
-
-              if raw_path.startswith("<") and raw_path.endswith(">"):
-                  raw_path = raw_path[1:-1].strip()
-
-              normalized_raw = raw_path.replace("\\", "/")
-
-              candidate_paths = []
-
-              # ----------------------------------------------
-              # A. Markdown 相对路径
-              # ----------------------------------------------
-
-              candidate_paths.append(
-                  os.path.normpath(
-                      os.path.join(
-                          report_dir,
-                          raw_path
-                      )
-                  )
-              )
-
-              # ----------------------------------------------
-              # B. 04_图片 路径
-              # ----------------------------------------------
-
-              marker = "04_图片/"
-
-              if marker in normalized_raw:
-                  suffix = normalized_raw.split(
-                      marker,
-                      1
-                  )[1]
-
-                  candidate_paths.append(
-                      os.path.normpath(
-                          os.path.join(
-                              image_root,
-                              suffix
-                          )
-                      )
+                  raise RuntimeError(
+                      f"飞书发送失败：{result}"
                   )
 
-              # ----------------------------------------------
-              # C. 路径组件
-              # ----------------------------------------------
-
-              parts = normalized_raw.split("/")
-
-              if "04_图片" in parts:
-                  index = parts.index("04_图片")
-
-                  suffix = "/".join(
-                      parts[index + 1:]
-                  )
-
-                  candidate_paths.append(
-                      os.path.normpath(
-                          os.path.join(
-                              image_root,
-                              suffix
-                          )
-                      )
-                  )
-
-              # ----------------------------------------------
-              # D. 文件名兜底
-              # ----------------------------------------------
-
-              basename = os.path.basename(
-                  normalized_raw
-              )
-
-              if basename:
-                  candidate_paths.append(
-                      os.path.normpath(
-                          os.path.join(
-                              image_root,
-                              basename
-                          )
-                      )
-                  )
-
-              real_path = None
-
-              for candidate in candidate_paths:
-                  if os.path.isfile(candidate):
-                      real_path = candidate
-                      break
-
-              if real_path is None:
-                  print(
-                      f"⚠️ 图片不存在，保留原 Markdown："
-                      f"{raw_path}"
-                  )
-                  continue
-
-              relative_path = os.path.relpath(
-                  os.path.abspath(real_path),
-                  os.path.abspath(".")
-              ).replace("\\", "/")
-
-              encoded_path = "/".join(
-                  urllib.parse.quote(
-                      part,
-                      safe=""
-                  )
-                  for part in relative_path.split("/")
-              )
-
-              raw_url = (
-                  "https://raw.githubusercontent.com/"
-                  f"{repository}/"
-                  f"{urllib.parse.quote(branch, safe='')}/"
-                  f"{encoded_path}"
-              )
-
-              old_markdown = f"![{alt}]({raw_path})"
-              new_markdown = f"![{alt}]({raw_url})"
-
-              content = content.replace(
-                  old_markdown,
-                  new_markdown
-              )
-
-              print()
-              print(f"✅ 图片：{real_path}")
-              print(f"🌐 URL：{raw_url}")
+              print("✅ 飞书发送成功")
 
           # ==========================================================
-          # 卡片拆分
+          # 正式发送
           # ==========================================================
 
-          MAX_CHARS = 6000
-
-          chunks = []
-
-          while len(content) > MAX_CHARS:
-
-              cut = content.rfind(
-                  "\n",
-                  0,
-                  MAX_CHARS
-              )
-
-              if cut <= 0:
-                  cut = MAX_CHARS
-
-              chunks.append(
-                  content[:cut]
-              )
-
-              content = content[cut:]
-
-          if content:
-              chunks.append(content)
-
-          print()
-          print(f"最终发送卡片数量：{len(chunks)}")
-
-          # ==========================================================
-          # Feishu
-          # ==========================================================
+          total = len(chunks)
 
           for index, chunk in enumerate(
               chunks,
               start=1
           ):
-
-              title = (
-                  "748686｜自生长知识系统｜"
-                  "周报｜带图版"
+              send_feishu(
+                  chunk,
+                  index,
+                  total
               )
 
-              if len(chunks) > 1:
-                  title += (
-                      f"｜{index}/{len(chunks)}"
+          print()
+          print("==================================================")
+          print("✅ 日报带图版发送完成")
+          print("==================================================")
+          PY
+
+      # ============================================================
+      # 5. 发送周报带图版
+      #
+      # 周报是可选项：
+      #
+      # 没有周报
+      #      ↓
+      # SKIP
+      #      ↓
+      # Workflow 仍然成功
+      # ============================================================
+      - name: Send Weekly Image Report
+        if: ${{ steps.find_reports.outputs.weekly_report != '' }}
+        env:
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+          WEEKLY_REPORT: ${{ steps.find_reports.outputs.weekly_report }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -e
+
+          echo
+          echo "=================================================="
+          echo "发送周报带图版"
+          echo "=================================================="
+
+          echo "周报文件：$WEEKLY_REPORT"
+          echo "GitHub Repository：$GITHUB_REPOSITORY"
+          echo "GitHub Branch：$GITHUB_REF_NAME"
+
+          python - "$WEEKLY_REPORT" "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME" "$FEISHU_WEBHOOK" <<'PY'
+          import sys
+          import json
+          import re
+          import urllib.parse
+          import urllib.request
+          from pathlib import Path
+
+          report_file = Path(sys.argv[1])
+          repository = sys.argv[2]
+          branch = sys.argv[3]
+          webhook = sys.argv[4]
+
+          if not report_file.exists():
+              print(f"❌ 报告文件不存在：{report_file}")
+              sys.exit(1)
+
+          print()
+          print("--------------------------------------------------")
+          print("读取周报 Markdown")
+          print("--------------------------------------------------")
+
+          content = report_file.read_text(encoding="utf-8")
+
+          if not content.strip():
+              print("❌ 周报 Markdown 为空")
+              sys.exit(1)
+
+          print(f"原始字符数：{len(content)}")
+
+          # ==========================================================
+          # GitHub Raw 基础地址
+          # ==========================================================
+
+          raw_base = (
+              f"https://raw.githubusercontent.com/"
+              f"{repository}/"
+              f"{branch}/"
+          )
+
+          print(f"Raw Base：{raw_base}")
+
+          # ==========================================================
+          # Markdown 图片转换
+          # ==========================================================
+
+          image_pattern = re.compile(
+              r'(!\[[^\]]*\]\()([^)]+)(\))'
+          )
+
+          image_count = 0
+
+          def replace_image(match):
+              nonlocal image_count
+
+              prefix = match.group(1)
+              image_path = match.group(2)
+              suffix = match.group(3)
+
+              image_path = image_path.strip()
+
+              # 已经是 URL，不修改
+              if image_path.startswith("http://") or image_path.startswith("https://"):
+                  print(f"ℹ️ 已是 URL，不修改：{image_path}")
+                  return match.group(0)
+
+              path_only = image_path
+              title_part = ""
+
+              if " " in image_path:
+                  possible_path, possible_title = image_path.split(" ", 1)
+
+                  if possible_title.strip().startswith('"') or possible_title.strip().startswith("'"):
+                      path_only = possible_path
+                      title_part = " " + possible_title
+
+              decoded_path = urllib.parse.unquote(path_only)
+
+              marker = "04_图片/"
+
+              if marker in decoded_path:
+                  suffix_path = decoded_path.split(
+                      marker,
+                      1
+                  )[1]
+
+                  repo_image_path = (
+                      "01_自生长知识系统/"
+                      "04_图片/"
+                      + suffix_path
                   )
+
+              else:
+                  clean_path = decoded_path
+
+                  while clean_path.startswith("../"):
+                      clean_path = clean_path[3:]
+
+                  while clean_path.startswith("./"):
+                      clean_path = clean_path[2:]
+
+                  repo_image_path = clean_path
+
+              encoded_path = urllib.parse.quote(
+                  repo_image_path,
+                  safe="/"
+              )
+
+              raw_url = raw_base + encoded_path
+
+              image_count += 1
+
+              print()
+              print(f"🖼️ 图片 #{image_count}")
+              print(f"   Markdown：{image_path}")
+              print(f"   Repo：    {repo_image_path}")
+              print(f"   Raw：     {raw_url}")
+
+              return prefix + raw_url + title_part + suffix
+
+          transformed = image_pattern.sub(
+              replace_image,
+              content
+          )
+
+          print()
+          print("--------------------------------------------------")
+          print("Markdown 图片转换完成")
+          print("--------------------------------------------------")
+
+          print(f"发现图片数量：{image_count}")
+
+          if image_count == 0:
+              print("⚠️ 没有发现 Markdown 图片")
+          else:
+              print(f"✅ 已转换 {image_count} 个图片引用")
+
+          # ==========================================================
+          # Markdown 分块
+          # ==========================================================
+
+          MAX_CHARS = 28000
+
+          lines = transformed.splitlines()
+
+          chunks = []
+          current = ""
+
+          for line in lines:
+
+              candidate = (
+                  current + "\n" + line
+                  if current
+                  else line
+              )
+
+              if len(candidate) <= MAX_CHARS:
+                  current = candidate
+              else:
+                  if current:
+                      chunks.append(current)
+
+                  if len(line) > MAX_CHARS:
+                      start = 0
+
+                      while start < len(line):
+                          chunks.append(
+                              line[start:start + MAX_CHARS]
+                          )
+                          start += MAX_CHARS
+
+                      current = ""
+                  else:
+                      current = line
+
+          if current:
+              chunks.append(current)
+
+          print()
+          print("--------------------------------------------------")
+          print("准备发送飞书")
+          print("--------------------------------------------------")
+
+          print(f"消息块数量：{len(chunks)}")
+
+          # ==========================================================
+          # 发送飞书
+          # ==========================================================
+
+          def send_feishu(content_chunk, index, total):
+
+              title = (
+                  "748686｜自生长知识系统｜周报｜带图版"
+              )
 
               payload = {
                   "msg_type": "interactive",
@@ -946,7 +723,7 @@ jobs:
                       "elements": [
                           {
                               "tag": "markdown",
-                              "content": chunk
+                              "content": content_chunk
                           }
                       ]
                   }
@@ -969,106 +746,83 @@ jobs:
 
               print()
               print(
-                  f"正在发送周报卡片 "
-                  f"{index}/{len(chunks)} ..."
+                  f"▶️ 发送周报消息 "
+                  f"{index}/{total}"
               )
 
               try:
                   with urllib.request.urlopen(
                       request,
-                      timeout=30
+                      timeout=60
                   ) as response:
 
                       status = response.status
-
-                      body = response.read().decode(
-                          "utf-8",
-                          errors="replace"
+                      response_body = (
+                          response.read()
+                          .decode("utf-8", errors="replace")
                       )
 
-              except Exception as e:
-                  print(
-                      f"⚠️ 飞书请求失败：{e}"
-                  )
-                  sys.exit(1)
+              except Exception as exc:
+                  print(f"❌ 飞书请求失败：{exc}")
+                  raise
 
-              print(f"HTTP Status: {status}")
-              print(f"Response: {body}")
+              print(f"HTTP Status：{status}")
+              print(f"Response：{response_body}")
 
               if status != 200:
-                  print(
-                      "❌ 飞书 HTTP 请求失败"
+                  raise RuntimeError(
+                      f"飞书 HTTP 状态异常：{status}"
                   )
-                  sys.exit(1)
 
               try:
-                  result = json.loads(body)
-              except Exception:
-                  print(
-                      "❌ 飞书返回内容不是 JSON"
+                  result = json.loads(response_body)
+              except json.JSONDecodeError:
+                  raise RuntimeError(
+                      "飞书返回内容不是合法 JSON"
                   )
-                  sys.exit(1)
 
               code = result.get("code")
 
               if code != 0:
-                  print(
-                      "❌ 飞书接口返回错误"
+                  raise RuntimeError(
+                      f"飞书发送失败：{result}"
                   )
 
-                  print(
-                      json.dumps(
-                          result,
-                          ensure_ascii=False,
-                          indent=2
-                      )
-                  )
+              print("✅ 飞书发送成功")
 
-                  sys.exit(1)
+          total = len(chunks)
 
-              print(
-                  "✅ 周报卡片发送成功"
+          for index, chunk in enumerate(
+              chunks,
+              start=1
+          ):
+              send_feishu(
+                  chunk,
+                  index,
+                  total
               )
 
           print()
-          print(
-              "=================================================="
-          )
-          print(
-              "周报发送完成"
-          )
-          print(
-              "=================================================="
-          )
+          print("==================================================")
+          print("✅ 周报带图版发送完成")
+          print("==================================================")
           PY
 
-
       # ============================================================
-      # 12. 最终结果
+      # 6. 最终结果
       # ============================================================
-
-      - name: 最终结果
-        shell: bash
+      - name: Final result
         run: |
-          set -e
-
           echo
           echo "=================================================="
-          echo "748686 飞书带图版测试完成"
+          echo "飞书日报 / 周报带图版测试完成"
           echo "=================================================="
-
           echo
-          echo "日报："
-          echo "  $DAILY_REPORT"
-
-          if [ -n "$WEEKLY_REPORT" ]; then
-            echo
-            echo "周报："
-            echo "  $WEEKLY_REPORT"
-          else
-            echo
-            echo "周报：SKIP"
-          fi
-
+          echo "日报：必发"
+          echo "周报：有则发送，无则 SKIP"
           echo
-          echo "✅ Workflow 完成"
+          echo "本次没有检查 Runner 本地 04_图片。"
+          echo "图片地址直接按照 GitHub Repository + Branch"
+          echo "转换为 raw.githubusercontent.com 地址。"
+          echo
+          echo "=================================================="
