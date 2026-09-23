@@ -5,7 +5,7 @@ status: active
 importance: 4
 confidence: 0.7
 created_at: 2026-09-04
-last_updated: 2026-09-04
+last_updated: 2026-09-23
 ---
 
 # OpenAI
@@ -506,3 +506,18 @@ OpenAI在发布新模型的同时面临法律挑战，加拿大不列颠哥伦�
 
 - [[Sam Altman]]
 - [[Anthropic]]
+
+## 知识更新｜2026-09-23
+
+OpenAI于2026年9月发布GPT-6系列模型（Sol, Luna），优化提示词缓存技术；同日面临加拿大不列颠哥伦比亚省诉讼，指控其在Tumbler Ridge校园枪击案中未履行预警义务。
+
+### 新增事实
+
+- 发布GPT-6系列模型
+- 优化提示词缓存技术，研发时间与成本减半
+- 被加拿大不列颠哥伦比亚省起诉，涉及Tumbler Ridge校园枪击案
+
+### 来源 EventUnit
+
+- `EVT-20260923-000250`
+
