@@ -9,107 +9,64 @@ Weekly Report V3.3
 核心架构
 ======================================================================
 
-V3.3：
-
-    Skill
-      +
-    Task 4 Analysis
-      ↓
-    按事件分批
-      ↓
-    Batch Summary
-      ↓
-    持久化 Batch Cache
-      ↓
-    最终 Weekly Synthesis
-      ↓
-    Wxx.md
+Skill
+  +
+Task 4 Analysis
+  ↓
+按事件分批
+  ↓
+Batch Summary（单个 ≤1200 字符）
+  ↓
+持久化 Batch Cache
+  ↓
+最终 Weekly Synthesis
+  ↓
+Wxx.md
 
 ======================================================================
-V3.3 核心变化
+V3.3 核心规则
 ======================================================================
 
-1. 周报改为“滚动周报”
+1. 周报每天滚动更新：
 
-   每天运行：
+   周一 → 周一
+   周二 → 周一 + 周二
+   周三 → 周一 + 周二 + 周三
+   ...
+   周日 → 周一 ~ 周日
 
-       周一 → 周一
-       周二 → 周一 + 周二
-       周三 → 周一 + 周二 + 周三
-       ...
-       周日 → 周一 ~ 周日
+2. 已存在 Wxx.md 不再 SKIP。
 
-   不再因为 Wxx.md 已经存在而 SKIP。
+3. 只处理：
 
-2. 严格禁止读取未来日期。
+       Monday → Business Date
 
-3. ISO Week 自动滚动。
+   不读取未来日期。
 
-   例如：
+4. ISO Week 自动切换。
 
-       2026-09-21 → W39
-       2026-09-22 → W39
-       ...
-       2026-09-27 → W39
-       2026-09-28 → W40
+5. 同一个 EVT-ID 的 en / zh 只计一次。
 
-4. Batch Summary：
+6. Batch Summary：
 
-   单个 Batch Summary 最大 1200 字符。
+       单个最大 1200 字符。
 
-   注意：
+   多个 Batch Summary 可以共同超过 1200 字符。
 
-       1200 字符限制只针对“单个 Batch Summary”。
+7. 最终 Weekly Report：
 
-   多个 Batch Summary 可以共同构成很长的上下文。
+       不受 1200 字符限制。
 
-5. 最终 Weekly Report：
+8. Batch Cache 使用 SHA256 input_hash。
 
-   不受 1200 字符限制。
+   Task 4 输入发生变化：
+       Cache 自动失效。
 
-   最终 AI 会读取：
+9. Task 1–4 不在本脚本中修改。
 
-       Skill
-       +
-       所有 Batch Summary
-       +
-       Knowledge
-       +
-       Graph
-       +
-       Topic
+10. 不写入 10_用户资料。
 
-   最终生成完整周报。
-
-6. Batch Cache 内容感知。
-
-   如果当天 Task 4 Analysis 内容发生变化：
-
-       input_hash 改变
-       ↓
-       Cache 自动失效
-       ↓
-       重新调用 AI
-
-   如果输入完全没有变化：
-
-       直接复用已有 Batch Summary。
-
-7. 同一个 EVT-ID：
-
-       en
-       zh
-
-   只计一次。
-
-8. Task 1–4 不在本脚本中修改。
-
-9. 不写入：
-
-       10_用户资料
-       00_System
-
-10. 每天覆盖当前 ISO Week 的 Wxx.md。
+11. 不修改 00_System。
 """
 
 from __future__ import annotations
@@ -147,13 +104,24 @@ TOPIC_DIR = ROOT / "07_专题报告"
 
 WEEKLY_CACHE_DIR = WEEKLY_DIR / ".cache"
 
-# 注意：
-# 如果你的仓库实际 Skill 路径是：
+
+# ======================================================================
+# 周报 Skill
 #
-# Skills/05_汇报写作/周报编写助手.md
+# 重要：
+# 仓库真实目录为：
 #
-# 则使用下面这个路径。
-SKILL_FILE = ROOT / "Skills" / "05_汇报写作" / "周报编写助手.md"
+# Skills/
+# └── 05.汇报写作/
+#     └── 周报编写助手.md
+# ======================================================================
+
+SKILL_FILE = (
+    ROOT
+    / "Skills"
+    / "05.汇报写作"
+    / "周报编写助手.md"
+)
 
 
 # ======================================================================
@@ -164,7 +132,7 @@ TIMEZONE = ZoneInfo("Asia/Shanghai")
 
 
 # ======================================================================
-# AI
+# AGNES
 # ======================================================================
 
 AGNES_BASE_URL = os.getenv(
@@ -177,7 +145,9 @@ AGNES_MODEL = os.getenv(
     "agnes-2.5-flash",
 )
 
-AGNES_API_KEY = os.getenv("AGNES_API_KEY")
+AGNES_API_KEY = os.getenv(
+    "AGNES_API_KEY"
+)
 
 AI_TIMEOUT = int(
     os.getenv(
@@ -219,11 +189,12 @@ TASK4_BATCH_MAX_CHARS = int(
     )
 )
 
+
 # ======================================================================
-# 最终上下文限制
+# 最终 AI 输入上下文
 #
 # 注意：
-# 这些是“输入上下文”限制，不是最终周报输出限制。
+# 这些不是最终周报输出长度限制。
 # ======================================================================
 
 KNOWLEDGE_FINAL_MAX_CHARS = int(
@@ -249,17 +220,7 @@ TOPIC_FINAL_MAX_CHARS = int(
 
 
 # ======================================================================
-# 单个 Batch Summary 最大字符数
-#
-# 极其重要：
-#
-# 这是“单次 AI Batch Summary 输出”的硬上限。
-#
-# 不能写成：
-#
-#   summary[:1200] + "\n..."
-#
-# 因为这样可能超过 1200。
+# Batch Summary 硬限制
 # ======================================================================
 
 BATCH_SUMMARY_MAX_CHARS = int(
@@ -279,7 +240,9 @@ logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(message)s",
 )
 
-logger = logging.getLogger("weekly_report")
+logger = logging.getLogger(
+    "weekly_report"
+)
 
 
 def log(message: str) -> None:
@@ -291,11 +254,6 @@ def log(message: str) -> None:
 # ======================================================================
 
 def load_weekly_skill() -> str:
-    """
-    读取周报编写 Skill。
-
-    Skill 不存在时直接失败。
-    """
 
     if not SKILL_FILE.exists():
         raise FileNotFoundError(
@@ -319,10 +277,9 @@ def load_weekly_skill() -> str:
 # 日期
 # ======================================================================
 
-def parse_business_date(value: str) -> date:
-    """
-    YYYY-MM-DD → date
-    """
+def parse_business_date(
+    value: str,
+) -> date:
 
     try:
         return datetime.strptime(
@@ -336,26 +293,26 @@ def parse_business_date(value: str) -> date:
         ) from exc
 
 
-def current_week(target_date: date) -> tuple[int, int, date, date]:
-    """
-    返回：
-
-        year
-        iso_week
-        monday
-        sunday
-    """
+def current_week(
+    target_date: date,
+) -> tuple[int, int, date, date]:
 
     iso = target_date.isocalendar()
 
     year = iso.year
     week = iso.week
 
-    monday = target_date - timedelta(
-        days=target_date.weekday()
+    monday = (
+        target_date
+        - timedelta(
+            days=target_date.weekday()
+        )
     )
 
-    sunday = monday + timedelta(days=6)
+    sunday = (
+        monday
+        + timedelta(days=6)
+    )
 
     return (
         year,
@@ -370,8 +327,12 @@ def current_week(target_date: date) -> tuple[int, int, date, date]:
 # ======================================================================
 
 def parse_args() -> argparse.Namespace:
+
     parser = argparse.ArgumentParser(
-        description="748686 自生长知识系统 Weekly Report V3.3"
+        description=(
+            "748686 自生长知识系统 "
+            "Weekly Report V3.3"
+        )
     )
 
     parser.add_argument(
@@ -399,17 +360,24 @@ def parse_args() -> argparse.Namespace:
 # 文件读取
 # ======================================================================
 
-def safe_read_text(path: Path) -> str:
+def safe_read_text(
+    path: Path,
+) -> str:
+
     try:
+
         return path.read_text(
             encoding="utf-8",
             errors="ignore",
         ).strip()
 
     except Exception as exc:
+
         log(
-            f"⚠️ 无法读取文件：{path} | {exc}"
+            f"⚠️ 无法读取文件："
+            f"{path} | {exc}"
         )
+
         return ""
 
 
@@ -422,24 +390,14 @@ def load_week_daily_reports(
     business_date: date,
 ) -> list[dict[str, Any]]:
     """
-    只读取：
-
-        monday → business_date
+    只读取 Monday → Business Date。
 
     不读取未来日期。
-
-    返回：
-
-        [
-            {
-                "date": "2026-09-21",
-                "path": "...",
-                "content": "..."
-            }
-        ]
     """
 
-    reports: list[dict[str, Any]] = []
+    reports: list[
+        dict[str, Any]
+    ] = []
 
     current = monday
 
@@ -455,14 +413,15 @@ def load_week_daily_reports(
 
         for path in candidates:
 
-            # 排除带图版，避免重复进入 AI。
             if "_带图" in path.name:
                 continue
 
             if not path.is_file():
                 continue
 
-            content = safe_read_text(path)
+            content = safe_read_text(
+                path
+            )
 
             if not content:
                 continue
@@ -475,7 +434,9 @@ def load_week_daily_reports(
                 }
             )
 
-        current += timedelta(days=1)
+        current += timedelta(
+            days=1
+        )
 
     return reports
 
@@ -490,23 +451,25 @@ EVT_PATTERN = re.compile(
 )
 
 
-def event_id(path: Path, content: str) -> str:
-    """
-    优先从文件内容提取 EVT-ID。
-    """
+def event_id(
+    path: Path,
+    content: str,
+) -> str:
 
-    match = EVT_PATTERN.search(content)
-
-    if match:
-        return match.group(0).upper()
-
-    match = EVT_PATTERN.search(path.name)
+    match = EVT_PATTERN.search(
+        content
+    )
 
     if match:
         return match.group(0).upper()
 
-    # 极少数情况下没有 EVT-ID。
-    # 使用路径生成稳定 ID。
+    match = EVT_PATTERN.search(
+        path.name
+    )
+
+    if match:
+        return match.group(0).upper()
+
     digest = hashlib.sha256(
         str(path).encode("utf-8")
     ).hexdigest()[:16]
@@ -515,29 +478,18 @@ def event_id(path: Path, content: str) -> str:
 
 
 # ======================================================================
-# Task 4 Analysis
+# Task 4 Analysis 文件
 # ======================================================================
 
 def analysis_files_for_date(
     target_date: date,
 ) -> list[tuple[str, Path]]:
-    """
-    返回指定日期：
-
-        en analysis
-        zh analysis
-
-    的文件。
-
-    顺序固定：
-
-        en
-        zh
-    """
 
     date_text = target_date.isoformat()
 
-    result: list[tuple[str, Path]] = []
+    result: list[
+        tuple[str, Path]
+    ] = []
 
     language_dirs = [
         (
@@ -556,18 +508,23 @@ def analysis_files_for_date(
         ),
     ]
 
-    for language, directory in language_dirs:
+    for language, directory in (
+        language_dirs
+    ):
 
         if not directory.exists():
             continue
 
         files = sorted(
-            directory.glob("*_analysis.md")
+            directory.glob(
+                "*_analysis.md"
+            )
         )
 
         for path in files:
 
             if path.is_file():
+
                 result.append(
                     (
                         language,
@@ -583,23 +540,17 @@ def load_week_analysis_records(
     business_date: date,
 ) -> list[dict[str, Any]]:
     """
-    读取：
+    读取 Monday → Business Date。
 
-        monday → business_date
+    en / zh 相同 EVT-ID：
+    只保留一条。
 
-    的 Task 4 Analysis。
-
-    同 EVT-ID 的 en / zh：
-
-        只保留一条。
-
-    优先顺序：
-
-        en
-        zh
+    en 优先。
     """
 
-    records: list[dict[str, Any]] = []
+    records: list[
+        dict[str, Any]
+    ] = []
 
     seen_event_ids: set[str] = set()
 
@@ -607,13 +558,17 @@ def load_week_analysis_records(
 
     while current <= business_date:
 
-        files = analysis_files_for_date(
-            current
+        files = (
+            analysis_files_for_date(
+                current
+            )
         )
 
         for language, path in files:
 
-            content = safe_read_text(path)
+            content = safe_read_text(
+                path
+            )
 
             if not content:
                 continue
@@ -630,15 +585,26 @@ def load_week_analysis_records(
 
             records.append(
                 {
-                    "date": current.isoformat(),
-                    "language": language,
-                    "event_id": eid,
-                    "path": str(path),
-                    "content": content,
+                    "date":
+                        current.isoformat(),
+
+                    "language":
+                        language,
+
+                    "event_id":
+                        eid,
+
+                    "path":
+                        str(path),
+
+                    "content":
+                        content,
                 }
             )
 
-        current += timedelta(days=1)
+        current += timedelta(
+            days=1
+        )
 
     return records
 
@@ -650,45 +616,41 @@ def load_week_analysis_records(
 def make_task4_block(
     record: dict[str, Any],
 ) -> str:
-    """
-    把单个 Task 4 Analysis 转换成 Batch 输入块。
-    """
 
     return (
-        f"===== EVENT =====\n"
+        "===== EVENT =====\n"
         f"Date: {record['date']}\n"
         f"Language: {record['language']}\n"
         f"Event ID: {record['event_id']}\n"
         f"Path: {record['path']}\n"
-        f"\n"
+        "\n"
         f"{record['content']}\n"
-        f"\n"
+        "\n"
     )
 
 
 def split_task4_batches(
     records: list[dict[str, Any]],
-) -> list[list[dict[str, Any]]]:
-    """
-    按：
+) -> list[
+    list[dict[str, Any]]
+]:
 
-        最大事件数
-        最大输入字符数
+    batches: list[
+        list[dict[str, Any]]
+    ] = []
 
-    切 Batch。
+    current_batch: list[
+        dict[str, Any]
+    ] = []
 
-    单个事件即使超过 MAX_CHARS，
-    也不在这里硬截断，避免丢失完整 Task 4 Analysis。
-    """
-
-    batches: list[list[dict[str, Any]]] = []
-
-    current_batch: list[dict[str, Any]] = []
     current_chars = 0
 
     for record in records:
 
-        block = make_task4_block(record)
+        block = make_task4_block(
+            record
+        )
+
         block_chars = len(block)
 
         if current_batch:
@@ -699,7 +661,8 @@ def split_task4_batches(
             )
 
             exceeds_char_limit = (
-                current_chars + block_chars
+                current_chars
+                + block_chars
                 > TASK4_BATCH_MAX_CHARS
             )
 
@@ -707,6 +670,7 @@ def split_task4_batches(
                 exceeds_event_limit
                 or exceeds_char_limit
             ):
+
                 batches.append(
                     current_batch
                 )
@@ -714,10 +678,14 @@ def split_task4_batches(
                 current_batch = []
                 current_chars = 0
 
-        current_batch.append(record)
+        current_batch.append(
+            record
+        )
+
         current_chars += block_chars
 
     if current_batch:
+
         batches.append(
             current_batch
         )
@@ -733,6 +701,7 @@ def batch_cache_dir(
     year: int,
     week: int,
 ) -> Path:
+
     directory = (
         WEEKLY_CACHE_DIR
         / str(year)
@@ -755,7 +724,10 @@ def batch_summary_path(
 ) -> Path:
 
     return (
-        batch_cache_dir(year, week)
+        batch_cache_dir(
+            year,
+            week,
+        )
         / f"batch_{batch_index:04d}.md"
     )
 
@@ -767,7 +739,10 @@ def batch_metadata_path(
 ) -> Path:
 
     return (
-        batch_cache_dir(year, week)
+        batch_cache_dir(
+            year,
+            week,
+        )
         / f"batch_{batch_index:04d}.json"
     )
 
@@ -776,18 +751,7 @@ def batch_input_hash(
     records: list[dict[str, Any]],
 ) -> str:
     """
-    对当前 Batch 的实际输入内容计算 SHA256。
-
-    参与 hash 的字段：
-
-        date
-        event_id
-        language
-        path
-        content
-
-    因此只要 Task 4 内容发生变化，
-    hash 就会变化。
+    对 Batch 当前实际输入计算 SHA256。
     """
 
     hasher = hashlib.sha256()
@@ -799,8 +763,9 @@ def batch_input_hash(
             f"EVENT_ID={record['event_id']}\n"
             f"LANGUAGE={record['language']}\n"
             f"PATH={record['path']}\n"
-            f"CONTENT=\n{record['content']}\n"
-            f"---\n"
+            f"CONTENT=\n"
+            f"{record['content']}\n"
+            "---\n"
         )
 
         hasher.update(
@@ -816,29 +781,21 @@ def valid_batch_cache(
     batch_index: int,
     records: list[dict[str, Any]],
 ) -> bool:
-    """
-    判断缓存是否仍然对应当前 Batch。
 
-    必须同时满足：
-
-        1. summary 存在
-        2. metadata 存在
-        3. summary 非空
-        4. event_count 相同
-        5. event_ids 顺序相同
-        6. input_hash 相同
-    """
-
-    summary_path = batch_summary_path(
-        year,
-        week,
-        batch_index,
+    summary_path = (
+        batch_summary_path(
+            year,
+            week,
+            batch_index,
+        )
     )
 
-    metadata_path = batch_metadata_path(
-        year,
-        week,
-        batch_index,
+    metadata_path = (
+        batch_metadata_path(
+            year,
+            week,
+            batch_index,
+        )
     )
 
     if not summary_path.exists():
@@ -855,6 +812,7 @@ def valid_batch_cache(
         return False
 
     try:
+
         metadata = json.loads(
             metadata_path.read_text(
                 encoding="utf-8"
@@ -862,10 +820,12 @@ def valid_batch_cache(
         )
 
     except Exception as exc:
+
         log(
             f"⚠️ Batch metadata 损坏："
             f"{metadata_path} | {exc}"
         )
+
         return False
 
     current_event_ids = [
@@ -873,35 +833,38 @@ def valid_batch_cache(
         for record in records
     ]
 
-    cached_event_ids = metadata.get(
-        "event_ids",
-        [],
-    )
-
     if (
-        metadata.get("event_count")
+        metadata.get(
+            "event_count"
+        )
         != len(records)
     ):
         return False
 
     if (
-        cached_event_ids
+        metadata.get(
+            "event_ids"
+        )
         != current_event_ids
     ):
         return False
 
-    current_hash = batch_input_hash(
-        records
+    current_hash = (
+        batch_input_hash(records)
     )
 
     if (
-        metadata.get("input_hash")
+        metadata.get(
+            "input_hash"
+        )
         != current_hash
     ):
         return False
 
-    # 最后再次检查 Batch Summary 硬上限。
-    if len(summary) > BATCH_SUMMARY_MAX_CHARS:
+    if (
+        len(summary)
+        > BATCH_SUMMARY_MAX_CHARS
+    ):
         return False
 
     return True
@@ -916,17 +879,6 @@ def call_ai(
     *,
     temperature: float = 0.2,
 ) -> str:
-    """
-    调用 AGNES Chat Completions。
-
-    注意：
-    本函数只负责 AI 请求。
-
-    Batch Summary 的 1200 字符硬限制
-    在 build_batch_summary_text() 中执行。
-
-    最终 Weekly Report 不经过 1200 限制。
-    """
 
     if not AGNES_API_KEY:
         raise RuntimeError(
@@ -972,7 +924,9 @@ def call_ai(
                 timeout=AI_TIMEOUT,
             )
 
-            status = response.status_code
+            status = (
+                response.status_code
+            )
 
             # ----------------------------------------------------------
             # 成功
@@ -1006,7 +960,9 @@ def call_ai(
                     content,
                     str,
                 ):
-                    content = str(content)
+                    content = str(
+                        content
+                    )
 
                 content = content.strip()
 
@@ -1027,6 +983,7 @@ def call_ai(
             # ----------------------------------------------------------
 
             if status == 400:
+
                 raise RuntimeError(
                     "AGNES 400 Bad Request："
                     + response.text[:2000]
@@ -1036,7 +993,11 @@ def call_ai(
             # 401 / 403
             # ----------------------------------------------------------
 
-            if status in (401, 403):
+            if status in (
+                401,
+                403,
+            ):
+
                 raise RuntimeError(
                     f"AGNES {status}："
                     + response.text[:2000]
@@ -1046,7 +1007,10 @@ def call_ai(
             # 429 / 5xx
             # ----------------------------------------------------------
 
-            if status == 429 or status >= 500:
+            if (
+                status == 429
+                or status >= 500
+            ):
 
                 last_error = RuntimeError(
                     f"AGNES HTTP {status}："
@@ -1056,10 +1020,14 @@ def call_ai(
                 log(
                     f"⚠️ AI 请求失败 "
                     f"{status}，"
-                    f"attempt={attempt}/{AI_RETRIES}"
+                    f"attempt="
+                    f"{attempt}/{AI_RETRIES}"
                 )
 
-                if attempt < AI_RETRIES:
+                if (
+                    attempt
+                    < AI_RETRIES
+                ):
 
                     sleep_seconds = min(
                         30,
@@ -1074,10 +1042,6 @@ def call_ai(
 
                 raise last_error
 
-            # ----------------------------------------------------------
-            # 其他错误
-            # ----------------------------------------------------------
-
             raise RuntimeError(
                 f"AGNES HTTP {status}："
                 + response.text[:2000]
@@ -1090,13 +1054,17 @@ def call_ai(
 
             last_error = exc
 
-            if attempt >= AI_RETRIES:
+            if (
+                attempt
+                >= AI_RETRIES
+            ):
                 raise
 
             log(
                 f"⚠️ AI 请求异常："
                 f"{exc} | "
-                f"attempt={attempt}/{AI_RETRIES}"
+                f"attempt="
+                f"{attempt}/{AI_RETRIES}"
             )
 
             sleep_seconds = min(
@@ -1117,7 +1085,7 @@ def call_ai(
 
 
 # ======================================================================
-# Batch Summary
+# Batch Summary Prompt
 # ======================================================================
 
 def build_batch_summary_prompt(
@@ -1135,30 +1103,38 @@ def build_batch_summary_prompt(
     )
 
     return f"""
-你是 748686 自生长知识系统的“周报 Batch Summary 编译器”。
+你是 748686 自生长知识系统的
+“周报 Batch Summary 编译器”。
 
-请严格依据下面的周报 Skill 和 Task 4 Analysis，
+请严格依据下面的周报 Skill 和
+Task 4 Analysis，
 提炼这一批事件中对本周周报真正有价值的信息。
 
-==============================
+============================================================
 周报 Skill
-==============================
+============================================================
 
 {skill}
 
-==============================
+============================================================
 本次周报周期
-==============================
+============================================================
 
 ISO 周：
-{monday.isoformat()} → {monday + timedelta(days=6)}
+
+{monday.isoformat()}
+→
+{monday + timedelta(days=6)}
 
 本次实际数据范围：
-{monday.isoformat()} → {business_date.isoformat()}
 
-==============================
+{monday.isoformat()}
+→
+{business_date.isoformat()}
+
+============================================================
 当前 Batch
-==============================
+============================================================
 
 Batch：
 {batch_index} / {batch_total}
@@ -1166,30 +1142,26 @@ Batch：
 事件数量：
 {len(batch)}
 
-==============================
+============================================================
 Task 4 Analysis
-==============================
+============================================================
 
 {blocks}
 
-==============================
+============================================================
 输出要求
-==============================
+============================================================
 
 1. 只输出 Batch Summary。
-2. 不要输出解释。
-3. 不要输出“以下是总结”等套话。
-4. 保留：
-   - 关键事实
-   - 重要变化
-   - 技术/产业/科研趋势
-   - 事件之间的关联
-   - 对后续发展的重要信息
-5. 删除重复新闻和低价值细节。
-6. 不要虚构任何事实。
-7. 不要因为输入是英文就输出英文；按照周报 Skill 的语言要求执行。
-8. 最重要：
-   单个 Batch Summary 必须严格控制在 {BATCH_SUMMARY_MAX_CHARS} 个字符以内。
+2. 不输出解释。
+3. 不输出“以下是总结”等套话。
+4. 保留关键事实、重要变化、趋势、
+   事件关联和重要意义。
+5. 删除重复信息和低价值细节。
+6. 不得虚构事实。
+7. 按周报 Skill 的语言要求输出。
+8. 单个 Batch Summary 必须严格控制在
+   {BATCH_SUMMARY_MAX_CHARS} 个字符以内。
 9. 不要为了凑长度添加无意义内容。
 """.strip()
 
@@ -1197,14 +1169,6 @@ Task 4 Analysis
 def build_batch_summary_text(
     raw_summary: str,
 ) -> str:
-    """
-    对 AI 输出进行最终硬限制。
-
-    这是“绝对上限”。
-
-    不添加任何尾部说明，
-    因为尾部说明也可能导致超过 1200。
-    """
 
     summary = (
         raw_summary
@@ -1212,18 +1176,25 @@ def build_batch_summary_text(
         .strip()
     )
 
-    if len(summary) > BATCH_SUMMARY_MAX_CHARS:
+    if (
+        len(summary)
+        > BATCH_SUMMARY_MAX_CHARS
+    ):
+
         log(
             f"⚠️ Batch Summary 超过 "
-            f"{BATCH_SUMMARY_MAX_CHARS} 字符，"
-            f"执行硬截断："
+            f"{BATCH_SUMMARY_MAX_CHARS} "
+            f"字符，执行硬截断："
             f"{len(summary)} → "
             f"{BATCH_SUMMARY_MAX_CHARS}"
         )
 
-        summary = summary[
-            :BATCH_SUMMARY_MAX_CHARS
-        ].rstrip()
+        summary = (
+            summary[
+                :BATCH_SUMMARY_MAX_CHARS
+            ]
+            .rstrip()
+        )
 
     return summary
 
@@ -1236,26 +1207,36 @@ def save_batch_cache(
     summary: str,
 ) -> None:
 
-    summary_path = batch_summary_path(
-        year,
-        week,
-        batch_index,
+    summary_path = (
+        batch_summary_path(
+            year,
+            week,
+            batch_index,
+        )
     )
 
-    metadata_path = batch_metadata_path(
-        year,
-        week,
-        batch_index,
+    metadata_path = (
+        batch_metadata_path(
+            year,
+            week,
+            batch_index,
+        )
     )
 
-    summary = build_batch_summary_text(
-        summary
+    summary = (
+        build_batch_summary_text(
+            summary
+        )
     )
 
-    if len(summary) > BATCH_SUMMARY_MAX_CHARS:
+    if (
+        len(summary)
+        > BATCH_SUMMARY_MAX_CHARS
+    ):
+
         raise RuntimeError(
-            "内部错误：Batch Summary "
-            "超过硬限制"
+            "内部错误："
+            "Batch Summary 超过硬限制"
         )
 
     summary_path.write_text(
@@ -1267,8 +1248,10 @@ def save_batch_cache(
         "version": "3.3",
         "year": year,
         "week": week,
-        "batch_index": batch_index,
-        "event_count": len(records),
+        "batch_index":
+            batch_index,
+        "event_count":
+            len(records),
         "event_ids": [
             record["event_id"]
             for record in records
@@ -1279,12 +1262,12 @@ def save_batch_cache(
                 for record in records
             }
         ),
-        "input_hash": batch_input_hash(
-            records
-        ),
-        "created_at": datetime.now(
-            TIMEZONE
-        ).isoformat(),
+        "input_hash":
+            batch_input_hash(records),
+        "created_at":
+            datetime.now(
+                TIMEZONE
+            ).isoformat(),
     }
 
     metadata_path.write_text(
@@ -1306,25 +1289,25 @@ def process_task4_batches(
     business_date: date,
 ) -> list[str]:
     """
-    处理全部 Task 4 Batch。
+    返回全部 Batch Summary。
 
-    返回：
+    每一个 ≤1200 字符。
 
-        所有 Batch Summary
-
-    注意：
-    每个 Summary ≤1200 字符，
-    但所有 Summary 加起来不设 1200 上限。
+    所有 Batch Summary 总长度不限。
     """
 
     if not records:
+
         log(
             "ℹ️ 本周暂无 Task 4 Analysis"
         )
+
         return []
 
-    batches = split_task4_batches(
-        records
+    batches = (
+        split_task4_batches(
+            records
+        )
     )
 
     log(
@@ -1355,7 +1338,8 @@ def process_task4_batches(
             )
 
             log(
-                f"♻️ Batch {index}/{len(batches)} "
+                f"♻️ Batch "
+                f"{index}/{len(batches)} "
                 f"复用 Cache | "
                 f"events={len(batch)} | "
                 f"chars={len(summary)}"
@@ -1364,7 +1348,8 @@ def process_task4_batches(
         else:
 
             log(
-                f"🤖 Batch {index}/{len(batches)} "
+                f"🤖 Batch "
+                f"{index}/{len(batches)} "
                 f"调用 AI | "
                 f"events={len(batch)}"
             )
@@ -1385,11 +1370,14 @@ def process_task4_batches(
                 temperature=0.2,
             )
 
-            summary = build_batch_summary_text(
-                raw_summary
+            summary = (
+                build_batch_summary_text(
+                    raw_summary
+                )
             )
 
             if not summary:
+
                 raise RuntimeError(
                     f"Batch {index} "
                     f"AI 返回空 Summary"
@@ -1404,18 +1392,21 @@ def process_task4_batches(
             )
 
             log(
-                f"💾 Batch {index}/{len(batches)} "
+                f"💾 Batch "
+                f"{index}/{len(batches)} "
                 f"已缓存 | "
                 f"chars={len(summary)}"
             )
 
-        summaries.append(summary)
+        summaries.append(
+            summary
+        )
 
     return summaries
 
 
 # ======================================================================
-# Knowledge
+# Knowledge / Graph / Topic
 # ======================================================================
 
 def load_directory_markdown(
@@ -1427,6 +1418,7 @@ def load_directory_markdown(
         return ""
 
     chunks: list[str] = []
+
     total = 0
 
     files = sorted(
@@ -1460,6 +1452,7 @@ def load_directory_markdown(
             )
 
             if remaining > 0:
+
                 chunks.append(
                     block[:remaining]
                 )
@@ -1467,12 +1460,16 @@ def load_directory_markdown(
             break
 
         chunks.append(block)
+
         total += len(block)
 
-    return "".join(chunks).strip()
+    return "".join(
+        chunks
+    ).strip()
 
 
 def load_knowledge_context() -> str:
+
     return load_directory_markdown(
         KNOWLEDGE_DIR,
         KNOWLEDGE_FINAL_MAX_CHARS,
@@ -1480,6 +1477,7 @@ def load_knowledge_context() -> str:
 
 
 def load_graph_context() -> str:
+
     return load_directory_markdown(
         GRAPH_DIR,
         GRAPH_FINAL_MAX_CHARS,
@@ -1487,6 +1485,7 @@ def load_graph_context() -> str:
 
 
 def load_topic_context() -> str:
+
     return load_directory_markdown(
         TOPIC_DIR,
         TOPIC_FINAL_MAX_CHARS,
@@ -1494,7 +1493,7 @@ def load_topic_context() -> str:
 
 
 # ======================================================================
-# 最终 Weekly Prompt
+# Final Prompt
 # ======================================================================
 
 def build_final_prompt(
@@ -1517,6 +1516,7 @@ def build_final_prompt(
         batch_summaries,
         start=1,
     ):
+
         summary_blocks.append(
             f"""
 ===== BATCH SUMMARY {index} =====
@@ -1525,8 +1525,10 @@ def build_final_prompt(
 """.strip()
         )
 
-    all_batch_summaries = "\n\n".join(
-        summary_blocks
+    all_batch_summaries = (
+        "\n\n".join(
+            summary_blocks
+        )
     )
 
     daily_blocks: list[str] = []
@@ -1541,8 +1543,10 @@ def build_final_prompt(
 """.strip()
         )
 
-    all_daily_reports = "\n\n".join(
-        daily_blocks
+    all_daily_reports = (
+        "\n\n".join(
+            daily_blocks
+        )
     )
 
     return f"""
@@ -1561,38 +1565,45 @@ def build_final_prompt(
 ISO Week
 ============================================================
 
-Year:
+Year：
 {year}
 
-Week:
+Week：
 W{week:02d}
 
 完整周周期：
-{monday.isoformat()} → {sunday.isoformat()}
+
+{monday.isoformat()}
+→
+{sunday.isoformat()}
 
 本次实际纳入数据：
-{monday.isoformat()} → {business_date.isoformat()}
+
+{monday.isoformat()}
+→
+{business_date.isoformat()}
 
 注意：
 
 今天是 {business_date.isoformat()}。
 
 因此：
+
 - 星期一至今天的数据可以使用。
 - 今天之后的数据绝对不能写入。
 - 不要为了“完整周报”而虚构未来日期的信息。
-- 周报标题、周期可以使用完整 ISO Week。
-- 内容只能基于当前已经发生并进入系统的数据。
+- 周报标题和周期可以使用完整 ISO Week。
+- 周报内容只能基于当前已经发生并进入系统的数据。
 
 ============================================================
-重要输出限制说明
+关于 1200 字符限制
 ============================================================
 
 特别注意：
 
-“1200 字符限制”只针对单个 Batch Summary。
+1200 字符限制只针对“单个 Batch Summary”。
 
-现在提供给你的可能有：
+当前可能存在：
 
 Batch Summary 1
 Batch Summary 2
@@ -1600,7 +1611,7 @@ Batch Summary 3
 ...
 Batch Summary N
 
-这些 Batch Summary 可以合计远超过 1200 字符。
+这些 Batch Summary 的总长度可以远远超过 1200 字符。
 
 你必须综合全部 Batch Summary。
 
@@ -1653,20 +1664,21 @@ Topic Reports
    - 事件之间有什么联系
    - 对技术、产业、科研、社会或知识体系有什么意义
    - 哪些趋势正在形成
-5. 可以使用 Knowledge / Graph / Topic 作为辅助上下文。
+5. Knowledge / Graph / Topic 只能作为辅助上下文。
 6. 不得凭空增加事实。
 7. 不得把未来日期写成已经发生。
 8. 不要机械重复 Daily Report。
 9. 不要机械重复 Batch Summary。
-10. 需要进行真正的综合、归纳和结构化。
+10. 必须进行真正的综合、归纳和结构化。
 11. 最终报告可以明显长于 1200 字符。
-12. 不要输出任何“AI生成”“Batch Summary”“内部处理”等技术说明。
+12. 不要输出“AI生成”“Batch Summary”
+    等内部处理说明。
 13. 直接输出最终周报正文。
 """.strip()
 
 
 # ======================================================================
-# 周报保存
+# 输出
 # ======================================================================
 
 def weekly_output_path(
@@ -1722,34 +1734,43 @@ generated_at: {datetime.now(TIMEZONE).isoformat()}
 """
 
     output.write_text(
-        header + content + "\n",
+        header
+        + content
+        + "\n",
         encoding="utf-8",
     )
 
 
 # ======================================================================
-# 主流程
+# Main
 # ======================================================================
 
 def main() -> int:
 
     args = parse_args()
 
-    business_date = parse_business_date(
-        args.today
-    )
-
-    year, week, monday, sunday = (
-        current_week(
-            business_date
+    business_date = (
+        parse_business_date(
+            args.today
         )
     )
 
+    (
+        year,
+        week,
+        monday,
+        sunday,
+    ) = current_week(
+        business_date
+    )
+
     log("=" * 72)
+
     log(
         "748686 自生长知识系统 "
         "Weekly Report V3.3"
     )
+
     log("=" * 72)
 
     log(
@@ -1780,12 +1801,15 @@ def main() -> int:
     )
 
     if output.exists():
+
         log(
             f"🔄 ROLLING UPDATE | "
             f"当前周报已存在，将重新生成："
             f"{output}"
         )
+
     else:
+
         log(
             f"🆕 NEW WEEKLY REPORT | "
             f"创建：{output}"
@@ -1796,6 +1820,7 @@ def main() -> int:
     # ------------------------------------------------------------------
 
     if not AGNES_API_KEY:
+
         raise RuntimeError(
             "缺少环境变量 AGNES_API_KEY"
         )
@@ -1812,7 +1837,7 @@ def main() -> int:
     )
 
     # ------------------------------------------------------------------
-    # Daily Reports
+    # Daily
     # ------------------------------------------------------------------
 
     daily_reports = (
@@ -1910,18 +1935,26 @@ def main() -> int:
     # 这里没有 1200 字符限制。
     # ------------------------------------------------------------------
 
-    final_prompt = build_final_prompt(
-        skill=skill,
-        batch_summaries=batch_summaries,
-        daily_reports=daily_reports,
-        knowledge_context=knowledge_context,
-        graph_context=graph_context,
-        topic_context=topic_context,
-        year=year,
-        week=week,
-        monday=monday,
-        sunday=sunday,
-        business_date=business_date,
+    final_prompt = (
+        build_final_prompt(
+            skill=skill,
+            batch_summaries=
+                batch_summaries,
+            daily_reports=
+                daily_reports,
+            knowledge_context=
+                knowledge_context,
+            graph_context=
+                graph_context,
+            topic_context=
+                topic_context,
+            year=year,
+            week=week,
+            monday=monday,
+            sunday=sunday,
+            business_date=
+                business_date,
+        )
     )
 
     log(
@@ -1940,6 +1973,7 @@ def main() -> int:
     )
 
     if not final_report:
+
         raise RuntimeError(
             "最终 Weekly Report 为空"
         )
@@ -1963,7 +1997,8 @@ def main() -> int:
         week=week,
         monday=monday,
         sunday=sunday,
-        business_date=business_date,
+        business_date=
+            business_date,
     )
 
     log(
@@ -1972,7 +2007,11 @@ def main() -> int:
     )
 
     log("=" * 72)
-    log("🎉 Weekly Report V3.3 完成")
+
+    log(
+        "🎉 Weekly Report V3.3 完成"
+    )
+
     log("=" * 72)
 
     return 0
@@ -1985,6 +2024,7 @@ def main() -> int:
 if __name__ == "__main__":
 
     try:
+
         sys.exit(
             main()
         )
