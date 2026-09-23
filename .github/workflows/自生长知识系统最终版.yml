@@ -397,7 +397,7 @@ jobs:
           AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
           AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
           AI_BASE_URL: https://api.agnes-ai.cn/v1
-          AI_MODEL: agnes-3.0-flash
+          AI_MODEL: agnes-2.5-flash
         run: |
           set -e
 
@@ -605,8 +605,8 @@ jobs:
           # Horizon 本次运行必须生成至少两个当天文件。
           #
           # 正常情况下：
-          #   1 个 EN
-          #   1 个 ZH
+          #   1 个 en
+          #   1 个 zh
           # ------------------------------------------------------
           if [ "$HCOUNT" -lt 2 ]; then
 
@@ -736,7 +736,7 @@ jobs:
           AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
           AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
           AI_BASE_URL: https://api.agnes-ai.cn/v1
-          AI_MODEL: agnes-3.0-flash
+          AI_MODEL: agnes-2.5-flash
         run: |
           set -u
 
@@ -1403,7 +1403,7 @@ jobs:
           AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
           AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
           AI_BASE_URL: https://api.agnes-ai.cn/v1
-          AI_MODEL: agnes-3.0-flash
+          AI_MODEL: agnes-2.5-flash
         run: |
           set -e
 
@@ -1462,7 +1462,7 @@ jobs:
           AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
           AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
           AI_BASE_URL: https://api.agnes-ai.cn/v1
-          AI_MODEL: agnes-3.0-flash
+          AI_MODEL: agnes-2.5-flash
         run: |
           set -e
 
@@ -1521,7 +1521,7 @@ jobs:
           AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
           AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
           AI_BASE_URL: https://api.agnes-ai.cn/v1
-          AI_MODEL: agnes-3.0-flash
+          AI_MODEL: agnes-2.5-flash
         run: |
           set -e
 
@@ -1580,7 +1580,7 @@ jobs:
           AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
           AI_API_KEY: ${{ secrets.AGNES_API_KEY }}
           AI_BASE_URL: https://api.agnes-ai.cn/v1
-          AI_MODEL: agnes-3.0-flash
+          AI_MODEL: agnes-2.5-flash
         run: |
           set -e
 
