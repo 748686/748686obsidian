@@ -32,23 +32,24 @@ jobs:
         with:
           python-version: "3.11"
 
-           # ==========================================================
-      # 3. 安装图片质量检查 + OCR
+      # ==========================================================
+      # 3. 安装图片质量检查 + OCR + HTTP
       # ==========================================================
 
-      - name: 安装 Pillow 和 Tesseract OCR
+      - name: 安装 Pillow、Requests 和 Tesseract OCR
         run: |
           set -e
 
           echo "============================================================"
-          echo "INSTALL IMAGE QA + OCR"
+          echo "INSTALL IMAGE QA + OCR + HTTP"
           echo "============================================================"
 
           python -m pip install --upgrade pip
 
           python -m pip install \
             Pillow \
-            pytesseract
+            pytesseract \
+            requests
 
           sudo apt-get update
 
@@ -60,15 +61,20 @@ jobs:
 
           echo
           echo "============================================================"
-          echo "VERIFY IMAGE QA + OCR"
+          echo "VERIFY IMAGE QA + OCR + HTTP"
           echo "============================================================"
 
           python - <<'PY'
           from PIL import Image
           import pytesseract
+          import requests
 
           print("Pillow installed successfully")
           print("Pillow version:", Image.__version__)
+
+          print()
+          print("Requests installed successfully")
+          print("Requests version:", requests.__version__)
 
           print()
           print("Tesseract version:")
@@ -78,6 +84,7 @@ jobs:
           print("OCR languages:")
           print(pytesseract.get_languages(config=""))
           PY
+
       # ==========================================================
       # 4. 检查测试文件
       # ==========================================================
@@ -113,6 +120,10 @@ jobs:
           echo
           echo "Pillow:"
           python -c "from PIL import Image; print(Image.__version__)"
+
+          echo
+          echo "Requests:"
+          python -c "import requests; print(requests.__version__)"
 
           echo
           echo "FORCE_REGENERATE:"
