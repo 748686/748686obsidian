@@ -5,7 +5,7 @@ status: active
 importance: 4
 confidence: 0.95
 created_at: 2026-09-23
-last_updated: 2026-09-23
+last_updated: 2026-09-24
 ---
 
 # OpenAI GPT-6
@@ -90,3 +90,18 @@ OpenAI发布的新一代模型系列，包含Sol和Luna两个版本，引入了�
 - [[OpenAI]]
 - [[Sam Altman]]
 - [[Anthropic]]
+
+## 知识更新｜2026-09-24
+
+OpenAI CEO Sam Altman于2026年9月23日在联合国安理会发表讲话，警示AI可能带来“文艺复兴”或“工业革命”级别的后果。OpenAI发布GPT-6系列模型（Sol、Luna），并承诺单方面放缓发展速度以支持AI安全治理。
+
+### 新增事实
+
+- Sam Altman于2026年9月23日在联合国安理会发言，提出AI安全愿景
+- OpenAI承诺单方面放缓发展速度以支持AI安全治理
+- 美国参议员Bernie Sanders提出《禁止人工智能超级智能法案》，拟设立联邦“AI部”
+
+### 来源 EventUnit
+
+- `EVT-20260924-000667`
+

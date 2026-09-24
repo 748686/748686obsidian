@@ -5,7 +5,7 @@ status: active
 importance: 4
 confidence: 0.85
 created_at: 2026-09-23
-last_updated: 2026-09-23
+last_updated: 2026-09-24
 ---
 
 # GPT-6
@@ -139,3 +139,13 @@ OpenAI于2026年9月发布GPT-6系列模型（包括Sol和Luna），并优化提
 
 - [[OpenAI]]
 - [[Anthropic]]
+
+## 知识更新｜2026-09-24
+
+OpenAI于2026年9月23日发布GPT-6系列模型，包括Sol和Luna两个版本。该技术发布与同期Anthropic发布更便宜模型共同标志着AI行业价格战升级。
+
+### 新增事实
+
+- 2026年9月23日发布GPT-6系列模型（Sol, Luna版本）
+- 优化了提示词缓存技术，声称可使客户研发时间与成本减半
+
