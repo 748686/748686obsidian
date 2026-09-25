@@ -2226,7 +2226,7 @@ def process_daily_report(
         image_dir=image_dir,
         report_type="日报",
         output_markdown=output_markdown,
-        force_regenerate=FORCE_REGENERATE,
+        force_regenerate=False,
     )
 
 
