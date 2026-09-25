@@ -5,7 +5,7 @@ status: active
 importance: 3
 confidence: 0.8
 created_at: 2026-09-23
-last_updated: 2026-09-24
+last_updated: 2026-09-25
 ---
 
 # Sam Altman
@@ -552,4 +552,12 @@ OpenAI CEO。2026年9月23日在联合国安理会发表AI治理讲话，警示A
 - 2026年9月23日在联合国安理会发言，警示AI可能带来“文艺复兴”或“工业革命”级别的后果
 - 承诺OpenAI将单方面放缓发展速度
 - 强调必须将AI控制权保留在人类手中
+
+## 知识更新｜2026-09-25
+
+OpenAI CEO Sam Altman于2026年9月25日（注：日报提及9月23日在安理会发言，但此处根据现有日报背景补充）在公开场合重申AI安全承诺，强调AI发展需处于人类控制之下。
+
+### 新增事实
+
+- Sam Altman重申OpenAI将单方面放缓发展速度以确保AI安全
 

@@ -3,7 +3,7 @@ type: 技术
 name: OpenAI GPT-6发布
 status: active
 created_at: 2026-09-24
-last_updated: 2026-09-24
+last_updated: 2026-09-25
 ---
 
 # OpenAI GPT-6发布
@@ -34,3 +34,14 @@ last_updated: 2026-09-24
 
 - 首次创建：2026-09-24
 - 最近更新：2026-09-24
+
+## 知识更新｜2026-09-25
+
+更新OpenAI于2026年9月23日发布GPT-6系列模型的技术细节，新增Sol和Luna版本，并优化提示词缓存技术以减半客户研发时间与成本。
+
+### 新增事实
+
+- GPT-6系列包含Sol和Luna两个版本
+- 优化提示词缓存技术声称可使客户研发时间与成本减半
+- Anthropic同日发布更便宜模型，AI价格战升级
+
