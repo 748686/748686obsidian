@@ -582,43 +582,44 @@ def _highlight_target_words(
     """
     将英文正文中的目标词自动高亮。
 
-    PDF 目标效果：
+    最终效果：
 
-        深蓝色 + 加粗 + 浅蓝色背景
+        深蓝色
+        加粗
+        浅蓝色背景
 
     例如：
 
-        <span style="color:#1D4ED8; background-color:#DBEAFE;">
-            <strong>beautiful</strong>
-        </span>
+        I think it is <span ...>important</span> to stay healthy.
 
-    注意：
+    规则：
 
     1. 只改变目标词本身。
     2. 前后空格完全保留。
     3. 原始大小写完全保留。
-    4. 不会把 sleep 匹配到 sleeping。
-    5. 不会把 strong 匹配到 stronger。
-    6. 多词目标短语也支持。
+    4. sleep 不匹配 sleeping。
+    5. strong 不匹配 stronger。
+    6. 支持多词目标短语。
     7. 普通正文保持默认颜色。
+    8. 不使用嵌套 <strong>，避免 Obsidian 主题覆盖颜色。
+    9. 使用 !important 强制颜色和背景。
     """
 
     if not article_en:
         return ""
 
-    text = str(
-        article_en
-    )
+    text = str(article_en)
+
+    # ------------------------------------------------------------------
+    # 清理并去重目标词
+    # ------------------------------------------------------------------
 
     valid_words = []
-
     seen = set()
 
-    for word in target_words:
+    for word in target_words or []:
 
-        word = str(
-            word
-        ).strip()
+        word = str(word).strip()
 
         if not word:
             continue
@@ -627,20 +628,25 @@ def _highlight_target_words(
 
         if key not in seen:
 
-            valid_words.append(
-                word
-            )
-
+            valid_words.append(word)
             seen.add(key)
+
+    # ------------------------------------------------------------------
+    # 没有目标词
+    # ------------------------------------------------------------------
 
     if not valid_words:
 
-        return _escape_text(
-            text
-        )
+        return _escape_text(text)
 
     # ------------------------------------------------------------------
-    # 长词优先
+    # 长短语优先
+    #
+    # 例如：
+    #   take care of
+    #   take
+    #
+    # 优先匹配较长的目标。
     # ------------------------------------------------------------------
 
     valid_words.sort(
@@ -665,10 +671,20 @@ def _highlight_target_words(
     )
 
     parts = []
-
     last_end = 0
 
+    # ------------------------------------------------------------------
+    # 开始匹配
+    # ------------------------------------------------------------------
+
     for match in regex.finditer(text):
+
+        # --------------------------------------------------------------
+        # 匹配前面的所有内容
+        #
+        # 包括空格、换行、标点。
+        # 原样保留。
+        # --------------------------------------------------------------
 
         before = text[
             last_end:
@@ -678,60 +694,64 @@ def _highlight_target_words(
         if before:
 
             parts.append(
-                _escape_text(
-                    before
-                )
+                _escape_text(before)
             )
 
-        matched_word = match.group(
-            0
-        )
-
         # --------------------------------------------------------------
-        # PDF 风格：
-        #
-        # 深蓝色文字
-        # + 加粗
-        # + 浅蓝色背景
-        #
-        # 背景只覆盖单词本身。
+        # 保留原始大小写
         # --------------------------------------------------------------
 
-        parts.append(
+        matched_word = match.group(0)
+
+        # --------------------------------------------------------------
+        # 单层 span
+        #
+        # 不再使用：
+        #
+        # <span>
+        #     <strong>
+        #         word
+        #     </strong>
+        # </span>
+        #
+        # 避免 Obsidian / CSS 对 strong 的颜色覆盖。
+        # --------------------------------------------------------------
+
+        highlighted = (
             '<span style="'
-            'color:'
-            + TARGET_WORD_COLOR
-            + ';'
-            'background-color:'
-            + TARGET_WORD_BACKGROUND
-            + ';">'
-            '<strong>'
+            'color:#1D4ED8 !important;'
+            'background-color:#DBEAFE !important;'
+            'font-weight:700 !important;'
+            'padding:1px 3px;'
+            'border-radius:3px;'
+            '">'
             + _escape_text(
                 matched_word
             )
-            + '</strong>'
-            '</span>'
+            + '</span>'
+        )
+
+        parts.append(
+            highlighted
         )
 
         last_end = match.end()
 
-    tail = text[
-        last_end:
-    ]
+    # ------------------------------------------------------------------
+    # 最后的普通文本
+    #
+    # 包括句末标点、空格、换行。
+    # ------------------------------------------------------------------
+
+    tail = text[last_end:]
 
     if tail:
 
         parts.append(
-            _escape_text(
-                tail
-            )
+            _escape_text(tail)
         )
 
-    return "".join(
-        parts
-    )
-
-
+    return "".join(parts)
 # ======================================================================
 # 渲染目标词汇
 # ======================================================================
