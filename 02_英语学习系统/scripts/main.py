@@ -1,0 +1,2593 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+748686 英语学习系统
+Main Pipeline V2.8
+
+======================================================================
+职责
+======================================================================
+
+Stage 1：文章
+    1. 读取输入
+    2. 解析学习词汇
+    3. 如果文章已存在，则直接恢复
+    4. 如果不存在，则调用 Agnes 生成文章
+    5. 渲染为 Obsidian Markdown
+    6. 保存文章及结构化缓存
+
+Stage 2：配套试卷
+    1. 如果试卷已存在，则恢复试卷结构
+    2. 如果不存在，则调用 exam_generate
+    3. 渲染并保存试卷
+
+Stage 3：答案与详细解析
+    1. 如果答案解析已存在，则恢复
+    2. 如果不存在，则调用 exam_answers
+    3. 生成答案、详细解析、听力原文、总体学习分析
+    4. 保存结果
+
+======================================================================
+V2.8 修复
+======================================================================
+
+1. 修复已有文章 Markdown 无结构化缓存时：
+       article_en 为空
+       导致 Stage 2 exam_generate 失败的问题。
+
+2. 从现有文章 Markdown 正确恢复：
+       title
+       title_zh
+       article_en
+       article_zh
+       content
+       article
+       raw_markdown
+
+3. 针对 render_markdown.py 生成的 HTML <span> 高亮标签，
+   恢复英文正文时保留正确单词间空格。
+
+4. 已恢复的结构化缓存保存到：
+       文章名_结构化缓存.json
+
+5. Git 同时保存：
+       文章.md
+       文章_结构化缓存.json
+
+6. 保留原 V2.7 的：
+       Stage 1
+       Stage 2
+       Stage 3
+       试卷恢复
+       图片生成
+       audio yes/no
+       audio-format mp3/m4a/wav
+       speed
+
+7. 不修改 exam_generate.py。
+8. 不修改 exam_answers.py。
+9. 不修改 knowledge_image.py。
+10. 不修改已经存在的文章 Markdown。
+11. 已存在试卷无法可靠恢复时，不重新调用 AI 覆盖原试卷。
+"""
+
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import subprocess
+import sys
+from pathlib import Path
+from typing import Any
+
+
+# ======================================================================
+# 路径
+# ======================================================================
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+SYSTEM_DIR = SCRIPT_DIR.parent
+REPO_ROOT = SYSTEM_DIR.parent
+
+sys.path.insert(0, str(SCRIPT_DIR))
+
+
+# ======================================================================
+# 项目模块
+# ======================================================================
+
+from common import CONFIG
+from input_parser import parse
+
+from agnes_generate import ARTICLE_TYPES
+from agnes_generate import generate as gen_article
+
+from render_markdown import render as render_article
+
+from exam_generate import generate as gen_exam
+from exam_generate import render as render_exam
+
+from exam_answers import generate as gen_answers
+from exam_answers import render as render_answers
+
+from knowledge_image import generate_image
+
+
+# ======================================================================
+# 通用工具
+# ======================================================================
+
+def log(message: str = "") -> None:
+    print(message, flush=True)
+
+
+def read_text(path: Path) -> str:
+    return path.read_text(
+        encoding="utf-8"
+    )
+
+
+def write_text(
+    path: Path,
+    content: str,
+) -> None:
+
+    path.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    path.write_text(
+        content,
+        encoding="utf-8",
+    )
+
+
+def load_json(path: Path) -> Any:
+
+    return json.loads(
+        path.read_text(
+            encoding="utf-8"
+        )
+    )
+
+
+def save_json(
+    path: Path,
+    data: Any,
+) -> None:
+
+    path.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    path.write_text(
+        json.dumps(
+            data,
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+
+# ======================================================================
+# 输入
+# ======================================================================
+
+def find_input_file(
+    date: str,
+) -> Path | None:
+    """
+    查找指定日期的英语学习输入文件。
+    """
+
+    candidates = [
+        SYSTEM_DIR / "input" / f"{date}.md",
+        SYSTEM_DIR / "input" / f"{date}.txt",
+        SYSTEM_DIR / "输入" / f"{date}.md",
+        SYSTEM_DIR / "输入" / f"{date}.txt",
+    ]
+
+    for path in candidates:
+
+        if path.exists():
+            return path
+
+    return None
+
+
+# ======================================================================
+# Stage 1：文章
+# ======================================================================
+
+def _strip_html_preserve_spacing(
+    html: str,
+) -> str:
+    """
+    将 render_markdown.py 生成的 HTML 内容转换为纯文本。
+
+    特别处理：
+
+        It is<span>important</span>to have<span>healthy</span>habits.
+
+    如果直接删除 HTML 标签，会变成：
+
+        It isimportantto havehealthyhabits.
+
+    因此这里在 span 标签两侧保留空格。
+    """
+
+    if not isinstance(html, str):
+        return ""
+
+    text = html
+
+    # --------------------------------------------------------------
+    # span 标签：
+    #
+    # 开始标签和结束标签都替换为空格。
+    #
+    # 这样：
+    #
+    #   is<span>important</span>to
+    #
+    # 变成：
+    #
+    #   is important to
+    # --------------------------------------------------------------
+
+    text = re.sub(
+        r"<span\b[^>]*>",
+        " ",
+        text,
+        flags=re.I,
+    )
+
+    text = re.sub(
+        r"</span\s*>",
+        " ",
+        text,
+        flags=re.I,
+    )
+
+    # --------------------------------------------------------------
+    # br
+    # --------------------------------------------------------------
+
+    text = re.sub(
+        r"<br\s*/?>",
+        "\n",
+        text,
+        flags=re.I,
+    )
+
+    # --------------------------------------------------------------
+    # 其余 HTML 标签
+    # --------------------------------------------------------------
+
+    text = re.sub(
+        r"<[^>]+>",
+        " ",
+        text,
+    )
+
+    # --------------------------------------------------------------
+    # HTML 实体
+    # --------------------------------------------------------------
+
+    replacements = {
+        "&nbsp;": " ",
+        "&amp;": "&",
+        "&lt;": "<",
+        "&gt;": ">",
+        "&quot;": '"',
+        "&#39;": "'",
+        "&apos;": "'",
+    }
+
+    for source, target in replacements.items():
+
+        text = text.replace(
+            source,
+            target,
+        )
+
+    # --------------------------------------------------------------
+    # 清理空白
+    # --------------------------------------------------------------
+
+    text = re.sub(
+        r"[ \t]+",
+        " ",
+        text,
+    )
+
+    text = re.sub(
+        r"\n[ \t]+",
+        "\n",
+        text,
+    )
+
+    text = re.sub(
+        r"[ \t]+\n",
+        "\n",
+        text,
+    )
+
+    text = re.sub(
+        r"\n{3,}",
+        "\n\n",
+        text,
+    )
+
+    return text.strip()
+
+
+def _extract_article_title(
+    text: str,
+) -> str:
+    """
+    从当前 render_markdown.py 输出的文章 Markdown 中恢复英文标题。
+
+    当前实际结构：
+
+        <div style="font-size:1.25em; ...">
+        Why Healthy Habits Matter
+        </div>
+    """
+
+    if not isinstance(text, str):
+        return ""
+
+    # --------------------------------------------------------------
+    # 优先寻找 1.25em 的标题 div
+    # --------------------------------------------------------------
+
+    title_match = re.search(
+        r'<div\b[^>]*font-size\s*:\s*1\.25em[^>]*>'
+        r'\s*(.*?)\s*'
+        r'</div>',
+        text,
+        flags=re.I | re.S,
+    )
+
+    if title_match:
+
+        title = _strip_html_preserve_spacing(
+            title_match.group(1)
+        )
+
+        if title:
+
+            return title
+
+    # --------------------------------------------------------------
+    # Markdown 标题兜底
+    # --------------------------------------------------------------
+
+    markdown_title = re.search(
+        r"^#\s+(.+?)\s*$",
+        text,
+        flags=re.M,
+    )
+
+    if markdown_title:
+
+        return markdown_title.group(1).strip()
+
+    return ""
+
+
+def _extract_article_english(
+    text: str,
+) -> str:
+    """
+    从现有文章 Markdown 中恢复 article_en。
+
+    当前 render_markdown.py 实际结构：
+
+        <div style="... margin-bottom:28px; ... white-space:pre-wrap;">
+            英文正文
+        </div>
+
+        <div ...>
+            中文翻译
+        </div>
+
+    优先使用这个明确的文章正文 div。
+    """
+
+    if not isinstance(text, str):
+        return ""
+
+    # --------------------------------------------------------------
+    # 方式 1：
+    # 精确寻找当前文章正文 div
+    # --------------------------------------------------------------
+
+    body_match = re.search(
+        r'<div\b'
+        r'[^>]*'
+        r'margin-bottom\s*:\s*28px'
+        r'[^>]*'
+        r'white-space\s*:\s*pre-wrap'
+        r'[^>]*>'
+        r'(.*?)'
+        r'</div>',
+        text,
+        flags=re.I | re.S,
+    )
+
+    if body_match:
+
+        article_en = _strip_html_preserve_spacing(
+            body_match.group(1)
+        )
+
+        if re.search(
+            r"[A-Za-z]",
+            article_en,
+        ):
+
+            return article_en
+
+    # --------------------------------------------------------------
+    # 方式 2：
+    # 找到“中文翻译”标题之前的 div，
+    # 从中寻找英文正文。
+    # --------------------------------------------------------------
+
+    translation_match = re.search(
+        r'中文翻译',
+        text,
+        flags=re.I,
+    )
+
+    if translation_match:
+
+        before_translation = text[
+            :translation_match.start()
+        ]
+
+        div_blocks = re.findall(
+            r"<div\b[^>]*>(.*?)</div>",
+            before_translation,
+            flags=re.I | re.S,
+        )
+
+        candidates: list[str] = []
+
+        for block in div_blocks:
+
+            cleaned = _strip_html_preserve_spacing(
+                block
+            )
+
+            if not cleaned:
+                continue
+
+            if re.search(
+                r"[A-Za-z]",
+                cleaned,
+            ):
+                candidates.append(
+                    cleaned
+                )
+
+        # 第一个英文内容通常是文章标题，
+        # 第二个英文内容才是文章正文。
+        title = _extract_article_title(
+            text
+        )
+
+        for candidate in candidates:
+
+            if candidate.strip() == title.strip():
+                continue
+
+            # 排除明显的学习解析区域
+            if "学习解析" in candidate:
+                continue
+
+            return candidate.strip()
+
+    # --------------------------------------------------------------
+    # 方式 3：
+    # 最后的纯文本兜底。
+    # --------------------------------------------------------------
+
+    lines = text.splitlines()
+
+    candidates = []
+
+    for line in lines:
+
+        cleaned = _strip_html_preserve_spacing(
+            line
+        )
+
+        if not cleaned:
+            continue
+
+        if not re.search(
+            r"[A-Za-z]",
+            cleaned,
+        ):
+            continue
+
+        # 排除 YAML
+        if cleaned in {
+            "date:",
+            "difficulty:",
+            "article_type:",
+        }:
+            continue
+
+        candidates.append(
+            cleaned
+        )
+
+    title = _extract_article_title(
+        text
+    )
+
+    for candidate in candidates:
+
+        if candidate.strip() == title.strip():
+            continue
+
+        if len(candidate.split()) >= 5:
+
+            return candidate.strip()
+
+    return ""
+
+
+def _extract_article_chinese(
+    text: str,
+) -> str:
+    """
+    从“中文翻译”标题后的第一个中文内容块恢复 article_zh。
+    """
+
+    if not isinstance(text, str):
+        return ""
+
+    translation_match = re.search(
+        r'中文翻译',
+        text,
+        flags=re.I,
+    )
+
+    if not translation_match:
+        return ""
+
+    remaining = text[
+        translation_match.end():
+    ]
+
+    div_blocks = re.findall(
+        r"<div\b[^>]*>(.*?)</div>",
+        remaining,
+        flags=re.I | re.S,
+    )
+
+    for block in div_blocks:
+
+        cleaned = _strip_html_preserve_spacing(
+            block
+        )
+
+        if not cleaned:
+            continue
+
+        if re.search(
+            r"[\u4e00-\u9fff]",
+            cleaned,
+        ):
+
+            return cleaned.strip()
+
+    # --------------------------------------------------------------
+    # 如果没有 div，则从后续行中寻找中文内容。
+    # --------------------------------------------------------------
+
+    for line in remaining.splitlines():
+
+        cleaned = _strip_html_preserve_spacing(
+            line
+        )
+
+        if not cleaned:
+            continue
+
+        if re.search(
+            r"[\u4e00-\u9fff]",
+            cleaned,
+        ):
+
+            return cleaned.strip()
+
+    return ""
+
+
+def recover_article_structure(
+    article_path: Path,
+) -> dict[str, Any] | None:
+    """
+    从已经存在的文章 Markdown 中恢复文章结构。
+
+    重要：
+
+    如果结构化缓存存在并且包含有效 article_en，
+    则直接使用缓存。
+
+    如果缓存不存在，或者缓存损坏，
+    则从现有 Markdown 恢复。
+
+    本函数不会调用 AI。
+    """
+
+    if not article_path.exists():
+        return None
+
+    text = read_text(
+        article_path
+    )
+
+    if not text.strip():
+        return None
+
+    # --------------------------------------------------------------
+    # 优先读取结构化缓存
+    # --------------------------------------------------------------
+
+    cache_candidates = [
+        article_path.with_suffix(".json"),
+
+        article_path.parent
+        / f"{article_path.stem}_structure.json",
+
+        article_path.parent
+        / f"{article_path.stem}_cache.json",
+
+        article_path.parent
+        / f"{article_path.stem}_结构化缓存.json",
+    ]
+
+    for cache_path in cache_candidates:
+
+        if not cache_path.exists():
+            continue
+
+        try:
+
+            data = load_json(
+                cache_path
+            )
+
+            if not isinstance(data, dict):
+                continue
+
+            article_en = data.get(
+                "article_en",
+                "",
+            )
+
+            if isinstance(
+                article_en,
+                str,
+            ) and article_en.strip():
+
+                log(
+                    f"✓ 从结构化缓存恢复文章："
+                    f"{cache_path}"
+                )
+
+                return data
+
+            log(
+                f"⚠️ 结构化缓存缺少 article_en："
+                f"{cache_path}"
+            )
+
+        except Exception as exc:
+
+            log(
+                f"⚠️ 结构化缓存读取失败："
+                f"{cache_path} / {exc}"
+            )
+
+    # --------------------------------------------------------------
+    # 没有有效缓存：
+    # 从 Markdown 恢复
+    # --------------------------------------------------------------
+
+    log(
+        "→ 未找到包含 article_en 的有效结构化缓存"
+    )
+
+    log(
+        "→ 正在从现有文章 Markdown 恢复 article_en"
+    )
+
+    title = _extract_article_title(
+        text
+    )
+
+    article_en = _extract_article_english(
+        text
+    )
+
+    article_zh = _extract_article_chinese(
+        text
+    )
+
+    # --------------------------------------------------------------
+    # article_en 是 Stage 2 必需字段
+    # --------------------------------------------------------------
+
+    if not article_en.strip():
+
+        raise RuntimeError(
+            "无法从现有文章 Markdown 恢复 article_en。\n"
+            f"文章文件：{article_path}"
+        )
+
+    if not title.strip():
+
+        title = article_path.stem
+
+    if not article_zh.strip():
+
+        log(
+            "⚠️ 未能恢复 article_zh，"
+            "但 article_en 已成功恢复"
+        )
+
+    # --------------------------------------------------------------
+    # 构造与 Agnes generate 输出兼容的基础结构
+    # --------------------------------------------------------------
+
+    article_data: dict[str, Any] = {
+        "title": title,
+        "title_zh": title,
+        "article_en": article_en,
+        "article_zh": article_zh,
+        "content": article_en,
+        "article": article_en,
+        "raw_markdown": text,
+    }
+
+    log(
+        f"✓ 已恢复文章标题：{title}"
+    )
+
+    log(
+        f"✓ 已恢复 article_en："
+        f"{len(article_en)} 字符"
+    )
+
+    if article_zh:
+
+        log(
+            f"✓ 已恢复 article_zh："
+            f"{len(article_zh)} 字符"
+        )
+
+    return article_data
+
+
+def get_article_path(
+    date: str,
+    difficulty: int,
+    article_type: str,
+) -> Path:
+
+    difficulty_name = f"{difficulty}星"
+
+    article_type_name = ARTICLE_TYPES.get(
+        article_type,
+        article_type,
+    )
+
+    article_dir = (
+        SYSTEM_DIR
+        / "output"
+        / date
+        / "文章"
+    )
+
+    return (
+        article_dir
+        / f"{difficulty_name}_{article_type_name}_文章.md"
+    )
+
+
+def get_article_cache_path(
+    article_path: Path,
+) -> Path:
+
+    return article_path.with_name(
+        f"{article_path.stem}_结构化缓存.json"
+    )
+
+
+def stage1_article(
+    date: str,
+    words: list,
+    difficulty: int,
+    article_type: str,
+    length: int,
+) -> tuple[dict[str, Any], Path]:
+
+    log("=" * 60)
+    log("STAGE 1 / 3：英语文章")
+    log("=" * 60)
+
+    log(
+        f"→ 学习词汇数量：{len(words)}"
+    )
+
+    log(
+        f"→ 难度：{difficulty}星"
+    )
+
+    log(
+        f"→ 文章类型："
+        f"{ARTICLE_TYPES.get(article_type, article_type)}"
+        f" / {article_type}"
+    )
+
+    log(
+        f"→ 目标长度：{length}"
+    )
+
+    article_path = get_article_path(
+        date,
+        difficulty,
+        article_type,
+    )
+
+    cache_path = get_article_cache_path(
+        article_path
+    )
+
+    # --------------------------------------------------------------
+    # 已存在结构化缓存
+    # --------------------------------------------------------------
+
+    if cache_path.exists():
+
+        log(
+            "✓ 已找到文章结构化缓存"
+        )
+
+        log(
+            f"→ {cache_path}"
+        )
+
+        try:
+
+            article_data = load_json(
+                cache_path
+            )
+
+            if isinstance(
+                article_data,
+                dict,
+            ):
+
+                article_en = article_data.get(
+                    "article_en",
+                    "",
+                )
+
+                if isinstance(
+                    article_en,
+                    str,
+                ) and article_en.strip():
+
+                    log(
+                        "✓ 直接使用现有文章结构"
+                    )
+
+                    return (
+                        article_data,
+                        article_path,
+                    )
+
+                log(
+                    "⚠️ 现有缓存缺少有效 article_en"
+                )
+
+        except Exception as exc:
+
+            log(
+                f"⚠️ 结构化缓存读取失败：{exc}"
+            )
+
+    # --------------------------------------------------------------
+    # 已存在文章
+    # --------------------------------------------------------------
+
+    if article_path.exists():
+
+        log(
+            f"✓ 已存在文章：{article_path}"
+        )
+
+        log(
+            "→ 不调用文章 AI"
+        )
+
+        log(
+            "→ 正在从现有 Markdown 恢复结构"
+        )
+
+        article_data = recover_article_structure(
+            article_path
+        )
+
+        if article_data is None:
+
+            raise RuntimeError(
+                f"无法恢复现有文章：{article_path}"
+            )
+
+        # ----------------------------------------------------------
+        # 保存结构化缓存
+        # ----------------------------------------------------------
+
+        save_json(
+            cache_path,
+            article_data,
+        )
+
+        log(
+            f"✓ 文章结构化缓存已保存："
+            f"{cache_path}"
+        )
+
+        return (
+            article_data,
+            article_path,
+        )
+
+    # --------------------------------------------------------------
+    # 不存在文章 → 调用 Agnes
+    # --------------------------------------------------------------
+
+    log(
+        "→ 未找到文章"
+    )
+
+    log(
+        "→ 正在调用文章 AI"
+    )
+
+    article_data = gen_article(
+        words,
+        difficulty,
+        article_type,
+        length,
+    )
+
+    if not isinstance(
+        article_data,
+        dict,
+    ):
+
+        raise RuntimeError(
+            "文章 AI 返回结果不是 dict"
+        )
+
+    # --------------------------------------------------------------
+    # 渲染 Markdown
+    # --------------------------------------------------------------
+
+    markdown = render_article(
+        article_data,
+        words,
+        difficulty,
+        article_type,
+        date,
+        length,
+    )
+
+    write_text(
+        article_path,
+        markdown,
+    )
+
+    log(
+        f"✓ 文章已保存：{article_path}"
+    )
+
+    # --------------------------------------------------------------
+    # 保存结构化缓存
+    # --------------------------------------------------------------
+
+    save_json(
+        cache_path,
+        article_data,
+    )
+
+    log(
+        f"✓ 文章结构化缓存已保存："
+        f"{cache_path}"
+    )
+
+    return (
+        article_data,
+        article_path,
+    )
+
+
+# ======================================================================
+# Stage 2：试卷
+# ======================================================================
+
+def get_exam_path(
+    date: str,
+    difficulty: int,
+    article_type: str,
+) -> Path:
+
+    difficulty_name = f"{difficulty}星"
+
+    article_type_name = ARTICLE_TYPES.get(
+        article_type,
+        article_type,
+    )
+
+    return (
+        SYSTEM_DIR
+        / "output"
+        / date
+        / "配套试卷"
+        / f"{difficulty_name}_{article_type_name}_试卷.md"
+    )
+
+
+# ======================================================================
+# Stage 2 Markdown 恢复工具
+# ======================================================================
+
+def _clean_markdown_question_line(
+    line: str,
+) -> tuple[int | None, str]:
+
+    if not isinstance(line, str):
+        return None, ""
+
+    text = line.strip()
+
+    if not text:
+        return None, ""
+
+    text = re.sub(
+        r"^#{1,6}\s+",
+        "",
+        text,
+    )
+
+    text = re.sub(
+        r"^[-*+]\s+",
+        "",
+        text,
+    )
+
+    match = re.match(
+        r"^\*\*\s*(\d+)\s*[\.\、\)]\s*\*\*\s*(.*)$",
+        text,
+    )
+
+    if match:
+
+        return (
+            int(match.group(1)),
+            match.group(2).strip(),
+        )
+
+    match = re.match(
+        r"^\*\*\s*(\d+)\s*[\.\、\)]\s*(.*?)\s*\*\*$",
+        text,
+    )
+
+    if match:
+
+        return (
+            int(match.group(1)),
+            match.group(2).strip(),
+        )
+
+    match = re.match(
+        r"^(\d+)\s*[\.\、\)]\s*(.*)$",
+        text,
+    )
+
+    if match:
+
+        return (
+            int(match.group(1)),
+            match.group(2).strip(),
+        )
+
+    return None, ""
+
+
+def _parse_question_blocks(
+    content: str,
+) -> list[dict[str, Any]]:
+
+    if not isinstance(content, str):
+        return []
+
+    lines = content.splitlines()
+
+    blocks: list[dict[str, Any]] = []
+
+    current_number: int | None = None
+    current_lines: list[str] = []
+
+    def flush_current() -> None:
+
+        nonlocal current_number
+        nonlocal current_lines
+
+        if current_number is None:
+
+            current_lines = []
+
+            return
+
+        cleaned_lines: list[str] = []
+
+        for item in current_lines:
+
+            item = item.rstrip()
+
+            if item.strip():
+
+                cleaned_lines.append(
+                    item.strip()
+                )
+
+        question_text = "\n".join(
+            cleaned_lines
+        ).strip()
+
+        blocks.append(
+            {
+                "number": current_number,
+                "question": question_text,
+            }
+        )
+
+        current_number = None
+        current_lines = []
+
+    for line in lines:
+
+        number, remaining = (
+            _clean_markdown_question_line(
+                line
+            )
+        )
+
+        if number is not None:
+
+            flush_current()
+
+            current_number = number
+
+            if remaining:
+
+                current_lines.append(
+                    remaining
+                )
+
+            continue
+
+        if current_number is not None:
+
+            stripped = line.strip()
+
+            if re.fullmatch(
+                r"[-*_]{3,}",
+                stripped,
+            ):
+                continue
+
+            current_lines.append(
+                line
+            )
+
+    flush_current()
+
+    return blocks
+
+
+def _exact_heading_pattern(
+    name: str,
+    level: int,
+) -> str:
+
+    return (
+        rf"^#{{{level}}}\s*"
+        rf"{re.escape(name)}"
+        rf"\s*$"
+    )
+
+
+def _find_heading(
+    text: str,
+    names: list[str],
+    level: int,
+) -> re.Match[str] | None:
+
+    for name in names:
+
+        pattern = _exact_heading_pattern(
+            name,
+            level,
+        )
+
+        match = re.search(
+            pattern,
+            text,
+            flags=re.I | re.M,
+        )
+
+        if match:
+
+            return match
+
+    return None
+
+
+def _extract_exact_heading_section(
+    text: str,
+    names: list[str],
+    level: int,
+    stop_patterns: list[str],
+) -> str:
+
+    if not isinstance(text, str):
+        return ""
+
+    match = _find_heading(
+        text,
+        names,
+        level,
+    )
+
+    if not match:
+
+        return ""
+
+    start = match.end()
+
+    remaining = text[start:]
+
+    if stop_patterns:
+
+        stop_regex = (
+            "(?:"
+            + "|".join(stop_patterns)
+            + ")"
+        )
+
+        stop_match = re.search(
+            stop_regex,
+            remaining,
+            flags=re.I | re.M,
+        )
+
+        if stop_match:
+
+            return (
+                remaining[
+                    :stop_match.start()
+                ]
+                .strip()
+            )
+
+    return remaining.strip()
+
+
+def _extract_major_section(
+    text: str,
+    names: list[str],
+    stop_names: list[str],
+) -> str:
+
+    stop_patterns = [
+        _exact_heading_pattern(
+            name,
+            1,
+        )
+        for name in stop_names
+    ]
+
+    return _extract_exact_heading_section(
+        text,
+        names,
+        1,
+        stop_patterns,
+    )
+
+
+def _parse_major_question_section(
+    text: str,
+    names: list[str],
+    stop_names: list[str],
+    expected_count: int,
+    section_name: str,
+) -> list[dict[str, Any]]:
+
+    content = _extract_major_section(
+        text,
+        names,
+        stop_names,
+    )
+
+    if not content:
+
+        raise RuntimeError(
+            f"无法从现有试卷 Markdown 恢复："
+            f"{section_name}"
+        )
+
+    questions = _parse_question_blocks(
+        content
+    )
+
+    if len(questions) != expected_count:
+
+        raise RuntimeError(
+            f"现有试卷 {section_name} "
+            f"恢复题目数量错误："
+            f"期望 {expected_count}，"
+            f"实际 {len(questions)}"
+        )
+
+    return questions
+
+
+def _recover_listening_part(
+    text: str,
+    part: str,
+) -> dict[str, Any]:
+
+    heading_name = f"Part {part}"
+
+    stop_patterns = [
+        _exact_heading_pattern(
+            "Part A",
+            2,
+        ),
+        _exact_heading_pattern(
+            "Part B",
+            2,
+        ),
+        _exact_heading_pattern(
+            "Part C",
+            2,
+        ),
+        _exact_heading_pattern(
+            "二、单项选择",
+            1,
+        ),
+        _exact_heading_pattern(
+            "三、多选题",
+            1,
+        ),
+        _exact_heading_pattern(
+            "四、完形填空",
+            1,
+        ),
+        _exact_heading_pattern(
+            "五、阅读理解",
+            1,
+        ),
+        _exact_heading_pattern(
+            "六、翻译",
+            1,
+        ),
+        _exact_heading_pattern(
+            "七、写作",
+            1,
+        ),
+    ]
+
+    match = _find_heading(
+        text,
+        [heading_name],
+        2,
+    )
+
+    if not match:
+
+        raise RuntimeError(
+            f"现有试卷 Markdown 缺少 "
+            f"Listening Part {part}"
+        )
+
+    start = match.end()
+
+    remaining = text[start:]
+
+    stop_regex = (
+        "(?:"
+        + "|".join(stop_patterns)
+        + ")"
+    )
+
+    stop_match = re.search(
+        stop_regex,
+        remaining,
+        flags=re.I | re.M,
+    )
+
+    if stop_match:
+
+        content = (
+            remaining[
+                :stop_match.start()
+            ]
+            .strip()
+        )
+
+    else:
+
+        content = remaining.strip()
+
+    questions = _parse_question_blocks(
+        content
+    )
+
+    if len(questions) != 5:
+
+        raise RuntimeError(
+            f"现有试卷 Listening Part {part} "
+            f"恢复题目数量错误："
+            f"期望 5，"
+            f"实际 {len(questions)}"
+        )
+
+    return {
+        "content": content,
+        "questions": questions,
+    }
+
+
+def _recover_cloze(
+    text: str,
+) -> list[dict[str, Any]]:
+
+    content = _extract_major_section(
+        text,
+        [
+            "四、完形填空",
+            "四、完形填空（10题）",
+            "四、完形填空（共10题）",
+            "完形填空",
+            "Cloze",
+        ],
+        [
+            "五、阅读理解",
+            "六、翻译",
+            "七、写作",
+        ],
+    )
+
+    if not content:
+
+        raise RuntimeError(
+            "无法从现有试卷 Markdown 恢复：Cloze"
+        )
+
+    questions = _parse_question_blocks(
+        content
+    )
+
+    if len(questions) != 10:
+
+        raise RuntimeError(
+            "现有试卷 Cloze "
+            "恢复题目数量错误："
+            f"期望 10，"
+            f"实际 {len(questions)}"
+        )
+
+    return [
+        {
+            "questions": questions,
+        }
+    ]
+
+
+def _recover_translation(
+    text: str,
+) -> dict[str, Any]:
+
+    part_a_content = _extract_exact_heading_section(
+        text,
+        [
+            "Part A 汉译英",
+            "Part A  汉译英",
+            "翻译 A：中译英",
+            "翻译 A",
+            "Translation A：中译英",
+            "Translation A",
+        ],
+        2,
+        [
+            _exact_heading_pattern(
+                "Part B 英译汉",
+                2,
+            ),
+            _exact_heading_pattern(
+                "Part B  英译汉",
+                2,
+            ),
+            _exact_heading_pattern(
+                "翻译 B：英译汉",
+                2,
+            ),
+            _exact_heading_pattern(
+                "翻译 B",
+                2,
+            ),
+            _exact_heading_pattern(
+                "Translation B：英译中",
+                2,
+            ),
+            _exact_heading_pattern(
+                "Translation B",
+                2,
+            ),
+            _exact_heading_pattern(
+                "七、写作",
+                1,
+            ),
+        ],
+    )
+
+    part_b_content = _extract_exact_heading_section(
+        text,
+        [
+            "Part B 英译汉",
+            "Part B  英译汉",
+            "翻译 B：英译汉",
+            "翻译 B",
+            "Translation B：英译中",
+            "Translation B",
+        ],
+        2,
+        [
+            _exact_heading_pattern(
+                "七、写作",
+                1,
+            ),
+        ],
+    )
+
+    if not part_a_content:
+
+        raise RuntimeError(
+            "无法从现有试卷 Markdown 恢复："
+            "Translation A"
+        )
+
+    if not part_b_content:
+
+        raise RuntimeError(
+            "无法从现有试卷 Markdown 恢复："
+            "Translation B"
+        )
+
+    part_a = _parse_question_blocks(
+        part_a_content
+    )
+
+    part_b = _parse_question_blocks(
+        part_b_content
+    )
+
+    if len(part_a) != 5:
+
+        raise RuntimeError(
+            "现有试卷 Translation A "
+            "恢复题目数量错误："
+            f"期望 5，"
+            f"实际 {len(part_a)}"
+        )
+
+    if len(part_b) != 5:
+
+        raise RuntimeError(
+            "现有试卷 Translation B "
+            "恢复题目数量错误："
+            f"期望 5，"
+            f"实际 {len(part_b)}"
+        )
+
+    return {
+        "part_a": part_a,
+        "part_b": part_b,
+    }
+
+
+def _recover_writing(
+    text: str,
+) -> list[dict[str, Any]]:
+
+    content = _extract_major_section(
+        text,
+        [
+            "七、写作",
+            "六、写作",
+            "写作",
+            "Writing",
+        ],
+        [],
+    )
+
+    if not content:
+
+        raise RuntimeError(
+            "无法从现有试卷 Markdown 恢复：Writing"
+        )
+
+    questions = _parse_question_blocks(
+        content
+    )
+
+    if len(questions) != 1:
+
+        raise RuntimeError(
+            "现有试卷 Writing "
+            "恢复题目数量错误："
+            f"期望 1，"
+            f"实际 {len(questions)}"
+        )
+
+    return questions
+
+
+def recover_exam(
+    exam_path: Path,
+) -> dict[str, Any] | None:
+
+    if not exam_path.exists():
+        return None
+
+    text = read_text(
+        exam_path
+    )
+
+    if not text.strip():
+        return None
+
+    log("")
+    log(
+        "  → 开始从 Markdown 恢复完整试卷结构"
+    )
+
+    exam: dict[str, Any] = {
+        "raw_markdown": text,
+        "title": "",
+        "listening": {},
+        "single_choice": [],
+        "multiple_choice": [],
+        "cloze": [],
+        "reading": [],
+        "translation": {},
+        "writing": [],
+    }
+
+    title_match = re.search(
+        r"^#\s+(.+)$",
+        text,
+        flags=re.M,
+    )
+
+    if title_match:
+
+        exam["title"] = (
+            title_match.group(1).strip()
+        )
+
+    listening_a = _recover_listening_part(
+        text,
+        "A",
+    )
+
+    listening_b = _recover_listening_part(
+        text,
+        "B",
+    )
+
+    listening_c = _recover_listening_part(
+        text,
+        "C",
+    )
+
+    exam["listening"] = {
+        "A": listening_a,
+        "B": listening_b,
+        "C": listening_c,
+    }
+
+    log(
+        "  ✓ Listening 恢复："
+        f"A={len(listening_a['questions'])} "
+        f"B={len(listening_b['questions'])} "
+        f"C={len(listening_c['questions'])}"
+    )
+
+    single = _parse_major_question_section(
+        text,
+        [
+            "二、单项选择",
+            "二、单项选择题",
+            "单项选择",
+            "单项选择题",
+        ],
+        [
+            "三、多选题",
+            "三、多项选择",
+            "三、多项选择题",
+            "四、完形填空",
+            "五、阅读理解",
+            "六、翻译",
+            "七、写作",
+        ],
+        10,
+        "Single Choice",
+    )
+
+    exam["single_choice"] = single
+
+    log(
+        f"  ✓ Single Choice = {len(single)}"
+    )
+
+    multiple = _parse_major_question_section(
+        text,
+        [
+            "三、多选题",
+            "三、多项选择",
+            "三、多项选择题",
+            "多选题",
+            "多项选择",
+            "多项选择题",
+        ],
+        [
+            "四、完形填空",
+            "五、阅读理解",
+            "六、翻译",
+            "七、写作",
+        ],
+        10,
+        "Multiple Choice",
+    )
+
+    exam["multiple_choice"] = multiple
+
+    log(
+        f"  ✓ Multiple Choice = {len(multiple)}"
+    )
+
+    cloze = _recover_cloze(
+        text
+    )
+
+    exam["cloze"] = cloze
+
+    log(
+        f"  ✓ Cloze = "
+        f"{sum(len(x.get('questions', [])) for x in cloze)}"
+    )
+
+    reading = _parse_major_question_section(
+        text,
+        [
+            "五、阅读理解",
+            "五、阅读",
+            "阅读理解",
+            "阅读",
+        ],
+        [
+            "六、翻译",
+            "七、写作",
+        ],
+        5,
+        "Reading",
+    )
+
+    exam["reading"] = reading
+
+    log(
+        f"  ✓ Reading = {len(reading)}"
+    )
+
+    translation = _recover_translation(
+        text
+    )
+
+    exam["translation"] = translation
+
+    log(
+        "  ✓ Translation = "
+        f"A={len(translation['part_a'])} "
+        f"B={len(translation['part_b'])}"
+    )
+
+    writing = _recover_writing(
+        text
+    )
+
+    exam["writing"] = writing
+
+    log(
+        f"  ✓ Writing = {len(writing)}"
+    )
+
+    expected = {
+        "listening_a": 5,
+        "listening_b": 5,
+        "listening_c": 5,
+        "single_choice": 10,
+        "multiple_choice": 10,
+        "cloze": 10,
+        "reading": 5,
+        "translation_a": 5,
+        "translation_b": 5,
+        "writing": 1,
+    }
+
+    actual = {
+        "listening_a": len(
+            exam["listening"]["A"]["questions"]
+        ),
+        "listening_b": len(
+            exam["listening"]["B"]["questions"]
+        ),
+        "listening_c": len(
+            exam["listening"]["C"]["questions"]
+        ),
+        "single_choice": len(
+            exam["single_choice"]
+        ),
+        "multiple_choice": len(
+            exam["multiple_choice"]
+        ),
+        "cloze": sum(
+            len(x.get("questions", []))
+            for x in exam["cloze"]
+        ),
+        "reading": len(
+            exam["reading"]
+        ),
+        "translation_a": len(
+            exam["translation"]["part_a"]
+        ),
+        "translation_b": len(
+            exam["translation"]["part_b"]
+        ),
+        "writing": len(
+            exam["writing"]
+        ),
+    }
+
+    for key, expected_value in expected.items():
+
+        actual_value = actual[key]
+
+        if actual_value != expected_value:
+
+            raise RuntimeError(
+                "现有试卷恢复完整性检查失败："
+                f"{key} "
+                f"期望 {expected_value}，"
+                f"实际 {actual_value}"
+            )
+
+    log("")
+    log(
+        "  ✓ 现有试卷 Markdown 已完整恢复"
+    )
+
+    log(
+        "  ✓ Listening A/B/C = 5/5/5"
+    )
+
+    log(
+        "  ✓ Single Choice = 10"
+    )
+
+    log(
+        "  ✓ Multiple Choice = 10"
+    )
+
+    log(
+        "  ✓ Cloze = 10"
+    )
+
+    log(
+        "  ✓ Reading = 5"
+    )
+
+    log(
+        "  ✓ Translation A/B = 5/5"
+    )
+
+    log(
+        "  ✓ Writing = 1"
+    )
+
+    return exam
+
+
+def stage2_exam(
+    article_data: dict[str, Any],
+    article_path: Path,
+    words: list,
+    difficulty: int,
+    article_type: str,
+    date: str,
+) -> tuple[dict[str, Any], Path]:
+
+    log("")
+    log("=" * 60)
+    log("STAGE 2 / 3：配套试卷")
+    log("=" * 60)
+
+    exam_path = get_exam_path(
+        date,
+        difficulty,
+        article_type,
+    )
+
+    if exam_path.exists():
+
+        log(
+            f"✓ 已存在试卷：{exam_path}"
+        )
+
+        log(
+            "→ 不调用试卷 AI"
+        )
+
+        log(
+            "→ 正在恢复试卷结构"
+        )
+
+        try:
+
+            exam_data = recover_exam(
+                exam_path
+            )
+
+            if exam_data is not None:
+
+                return (
+                    exam_data,
+                    exam_path,
+                )
+
+        except Exception as exc:
+
+            raise RuntimeError(
+                "现有试卷存在，但无法可靠恢复。"
+                "为保护原试卷，本次不会重新生成试卷。\n"
+                f"恢复错误：{exc}"
+            ) from exc
+
+    log(
+        "→ 未找到可用试卷"
+    )
+
+    log(
+        "→ 正在调用试卷 AI"
+    )
+
+    generated = gen_exam(
+        article_data,
+        difficulty,
+        article_type,
+        words,
+    )
+
+    if not isinstance(
+        generated,
+        dict,
+    ):
+
+        raise RuntimeError(
+            "试卷 AI 返回结果不是 dict"
+        )
+
+    markdown = render_exam(
+        generated,
+        article_data.get(
+            "title",
+            "",
+        ),
+        difficulty,
+        ARTICLE_TYPES.get(
+            article_type,
+            article_type,
+        ),
+    )
+
+    write_text(
+        exam_path,
+        markdown,
+    )
+
+    log(
+        f"✓ 已保存：{exam_path}"
+    )
+
+    return (
+        generated,
+        exam_path,
+    )
+
+
+# ======================================================================
+# Stage 3：答案与详细解析
+# ======================================================================
+
+def get_answers_path(
+    exam_path: Path,
+) -> Path:
+
+    return exam_path.with_name(
+        exam_path.stem.replace(
+            "_试卷",
+            "_答案与解析",
+        )
+        + ".md"
+    )
+
+
+def recover_answers(
+    answers_path: Path,
+) -> dict[str, Any] | None:
+
+    if not answers_path.exists():
+        return None
+
+    text = read_text(
+        answers_path
+    )
+
+    if not text.strip():
+        return None
+
+    return {
+        "raw_markdown": text,
+    }
+
+
+def stage3_answers(
+    exam_data: dict[str, Any],
+    article_data: dict[str, Any],
+    article_path: Path,
+    exam_path: Path,
+    words: list,
+    difficulty: int,
+    article_type: str,
+) -> Path:
+
+    log("")
+    log("=" * 60)
+    log("STAGE 3 / 3：答案与详细解析")
+    log("=" * 60)
+
+    answers_path = get_answers_path(
+        exam_path
+    )
+
+    if answers_path.exists():
+
+        log(
+            f"✓ 已存在答案解析："
+            f"{answers_path}"
+        )
+
+        log(
+            "→ 不调用答案解析 AI"
+        )
+
+        return answers_path
+
+    log(
+        "→ 未找到答案解析"
+    )
+
+    log(
+        "→ 正在调用答案解析 AI"
+    )
+
+    generated = gen_answers(
+        exam_data,
+        article_data,
+        difficulty,
+        article_type,
+        words,
+    )
+
+    if not isinstance(
+        generated,
+        dict,
+    ):
+
+        raise RuntimeError(
+            "答案解析 AI 返回结果不是 dict"
+        )
+
+    article_title = article_data.get(
+        "title",
+        "",
+    )
+
+    article_type_name = ARTICLE_TYPES.get(
+        article_type,
+        article_type,
+    )
+
+    markdown = render_answers(
+        generated,
+        article_title,
+        difficulty,
+        article_type_name,
+    )
+
+    write_text(
+        answers_path,
+        markdown,
+    )
+
+    log(
+        f"✓ 答案与详细解析已保存："
+        f"{answers_path}"
+    )
+
+    return answers_path
+
+
+# ======================================================================
+# Git
+# ======================================================================
+
+def git_save(
+    paths: list[Path],
+    message: str,
+) -> None:
+
+    existing = [
+        p
+        for p in paths
+        if p.exists()
+    ]
+
+    if not existing:
+
+        log(
+            "→ 没有需要 Git 保存的文件"
+        )
+
+        return
+
+    log("")
+    log("=" * 60)
+    log(
+        f"Git 保存：{message}"
+    )
+    log("=" * 60)
+
+    subprocess.run(
+        [
+            "git",
+            "config",
+            "user.name",
+            "github-actions[bot]",
+        ],
+        cwd=REPO_ROOT,
+        check=True,
+    )
+
+    subprocess.run(
+        [
+            "git",
+            "config",
+            "user.email",
+            "41898282+github-actions[bot]@users.noreply.github.com",
+        ],
+        cwd=REPO_ROOT,
+        check=True,
+    )
+
+    relative_paths = [
+        str(
+            p.relative_to(REPO_ROOT)
+        )
+        for p in existing
+    ]
+
+    subprocess.run(
+        [
+            "git",
+            "add",
+            *relative_paths,
+        ],
+        cwd=REPO_ROOT,
+        check=True,
+    )
+
+    status = subprocess.run(
+        [
+            "git",
+            "diff",
+            "--cached",
+            "--quiet",
+        ],
+        cwd=REPO_ROOT,
+    )
+
+    if status.returncode == 0:
+
+        log(
+            "→ 没有新的 Git 变更"
+        )
+
+        return
+
+    subprocess.run(
+        [
+            "git",
+            "commit",
+            "-m",
+            message,
+        ],
+        cwd=REPO_ROOT,
+        check=True,
+    )
+
+    log(
+        "✓ Git commit 完成"
+    )
+
+    subprocess.run(
+        [
+            "git",
+            "push",
+        ],
+        cwd=REPO_ROOT,
+        check=True,
+    )
+
+    log(
+        "✓ Git push 完成"
+    )
+
+
+# ======================================================================
+# CLI
+# ======================================================================
+
+def build_parser() -> argparse.ArgumentParser:
+
+    parser = argparse.ArgumentParser(
+        description="748686 英语学习系统"
+    )
+
+    parser.add_argument(
+        "--date",
+        required=True,
+    )
+
+    parser.add_argument(
+        "--difficulty",
+        required=True,
+        type=int,
+    )
+
+    parser.add_argument(
+        "--article-type",
+        required=True,
+    )
+
+    parser.add_argument(
+        "--length",
+        required=True,
+        type=int,
+    )
+
+    parser.add_argument(
+        "--exam",
+        choices=["yes", "no"],
+        default="yes",
+    )
+
+    parser.add_argument(
+        "--image",
+        choices=["yes", "no"],
+        default="yes",
+    )
+
+    parser.add_argument(
+        "--audio",
+        choices=["yes", "no"],
+        default="yes",
+    )
+
+    parser.add_argument(
+        "--audio-format",
+        choices=["mp3", "m4a", "wav"],
+        default="mp3",
+    )
+
+    parser.add_argument(
+        "--speed",
+        type=float,
+        default=1.0,
+    )
+
+    return parser
+
+
+# ======================================================================
+# Main
+# ======================================================================
+
+def main() -> None:
+
+    parser = build_parser()
+
+    args = parser.parse_args()
+
+    date = args.date
+    difficulty = args.difficulty
+    article_type = args.article_type
+    length = args.length
+
+    log("")
+    log("=" * 60)
+    log("748686 英语学习系统")
+    log("=" * 60)
+
+    log(
+        f"日期：{date}"
+    )
+
+    log(
+        f"难度：{difficulty}星"
+    )
+
+    log(
+        f"文章类型："
+        f"{ARTICLE_TYPES.get(article_type, article_type)}"
+        f" / {article_type}"
+    )
+
+    log(
+        f"目标长度：{length}"
+    )
+
+    log(
+        f"试卷：{args.exam}"
+    )
+
+    log(
+        f"图片：{args.image}"
+    )
+
+    log(
+        f"音频：{args.audio}"
+    )
+
+    log(
+        f"音频格式：{args.audio_format}"
+    )
+
+    log(
+        f"语速：{args.speed}"
+    )
+
+    # --------------------------------------------------------------
+    # 输入文件
+    # --------------------------------------------------------------
+
+    input_file = find_input_file(
+        date
+    )
+
+    if input_file is None:
+
+        raise FileNotFoundError(
+            f"未找到 {date} 的输入文件"
+        )
+
+    log("")
+
+    log(
+        f"输入文件：{input_file}"
+    )
+
+    # --------------------------------------------------------------
+    # 解析输入
+    # --------------------------------------------------------------
+
+    words, images = parse(
+        input_file
+    )
+
+    words = list(words)
+
+    log(
+        f"✓ 学习词汇数量：{len(words)}"
+    )
+
+    # --------------------------------------------------------------
+    # Stage 1
+    # --------------------------------------------------------------
+
+    article_data, article_path = stage1_article(
+        date=date,
+        words=words,
+        difficulty=difficulty,
+        article_type=article_type,
+        length=length,
+    )
+
+    # --------------------------------------------------------------
+    # 重要：
+    # 同时保存文章 + 结构化缓存
+    #
+    # 之前这里只保存 article_path，
+    # 导致恢复出来的结构化缓存没有被 push。
+    # --------------------------------------------------------------
+
+    article_cache_path = get_article_cache_path(
+        article_path
+    )
+
+    git_save(
+        [
+            article_path,
+            article_cache_path,
+        ],
+        "文章及结构化缓存",
+    )
+
+    # --------------------------------------------------------------
+    # 独立图片生成
+    # --------------------------------------------------------------
+
+    if args.image == "yes":
+
+        log("")
+        log("=" * 60)
+        log("IMAGE：文章配图")
+        log("=" * 60)
+
+        log(
+            "→ --image=yes，调用 knowledge_image.py"
+        )
+
+        image_path = generate_image(
+            date=date,
+        )
+
+        if image_path is None:
+
+            raise RuntimeError(
+                f"图片生成失败："
+                f"{date}"
+            )
+
+        image_path = Path(
+            image_path
+        )
+
+        if (
+            not image_path.exists()
+            or image_path.stat().st_size == 0
+        ):
+
+            raise RuntimeError(
+                f"图片生成后文件不存在或为空："
+                f"{image_path}"
+            )
+
+        log(
+            f"✓ 文章配图已生成："
+            f"{image_path}"
+        )
+
+        git_save(
+            [image_path],
+            "文章配图",
+        )
+
+    else:
+
+        log("")
+        log(
+            "→ --image=no，跳过文章配图"
+        )
+
+    # --------------------------------------------------------------
+    # Stage 2
+    # --------------------------------------------------------------
+
+    if args.exam == "yes":
+
+        exam_data, exam_path = stage2_exam(
+            article_data=article_data,
+            article_path=article_path,
+            words=words,
+            difficulty=difficulty,
+            article_type=article_type,
+            date=date,
+        )
+
+        git_save(
+            [exam_path],
+            "配套试卷",
+        )
+
+        # ----------------------------------------------------------
+        # Stage 3
+        # ----------------------------------------------------------
+
+        answers_path = stage3_answers(
+            exam_data=exam_data,
+            article_data=article_data,
+            article_path=article_path,
+            exam_path=exam_path,
+            words=words,
+            difficulty=difficulty,
+            article_type=article_type,
+        )
+
+        git_save(
+            [answers_path],
+            "答案与详细解析",
+        )
+
+    else:
+
+        log("")
+
+        log(
+            "→ --exam=no，"
+            "跳过 Stage 2 / Stage 3"
+        )
+
+    # --------------------------------------------------------------
+    # 完成
+    # --------------------------------------------------------------
+
+    log("")
+
+    log("=" * 60)
+    log("748686 英语学习系统 COMPLETE")
+    log("=" * 60)
+
+
+if __name__ == "__main__":
+    main()
