@@ -54,7 +54,7 @@ fromurllib.requestimportRequest,urlopen
 SCRIPT_DIR=Path(__file__).resolve().parent
 SYSTEM_DIR=SCRIPT_DIR.parent
 
-CONFIG_PATH=SYSTEM_DIR/"config"/"config.json"
+CONFIG_PATH=SYSTEM_DIR/"config"/"settings.json"
 OUTPUT_DIR=SYSTEM_DIR/"output"
 
 
