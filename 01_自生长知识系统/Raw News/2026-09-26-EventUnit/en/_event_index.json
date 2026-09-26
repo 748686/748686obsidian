@@ -1,0 +1,5187 @@
+[
+  {
+    "event_id": "EVT-20260926-000001",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "习近平主席对美国进行国事访问及中美外交互动",
+    "event_reason": "Cluster 1的事件判断中明确指出'Cluster 14、15、16、20、22、23是其中提到的具体研究的独立报道或详细版本，属于同一知识源的事件汇总'，且将Cluster 1与Cluster 6（习近平访美）描述为'2026年9月26日当天持续发展的单一AI技术动态事件群'存在明显的归并错误。然而，通过语义分析，Cluster 1的原始成员（EVT-20260926-000001至000038等）涵盖全球AI技术发展，而Cluster 6涵盖习近平访美，Cluster 30（Trump-Xi State Visit）也明确涉及同一访美行程。但Cluster 1的核心是AI技术，与外交无关。重新审视：Cluster 6和Cluster 30明确指向同一外交事件（习近平访美），可以合并。Cluster 1虽然判断文本有误引用，但其内容确实是AI技术事件，与Cluster 6/30不同。因此，只有Cluster 6和30应合并。但题目要求必须覆盖全部输入Cluster，每个恰好一次。Cluster 1的内容是AI，Cluster 6是访美，Cluster 30是访美。Cluster 1的判断文本中错误地将Cluster 14-16,20,22,23归入，但这些Cluster在当前输入窗口中并不存在（输入只有1-30）。实际上Cluster 1内部的多个原始事件ID（如000011, 000020等）对应的是AI相关事件。由于输入窗口中只有Cluster 1-30，而Cluster 6和30明显是同一事件，故合并。Cluster 1是独立的AI事件群。",
+    "source_count": 74,
+    "articles": [
+      {
+        "index": 1,
+        "title": "[Alignment Forecasting: Predicting Misalignment from Training Data](#item-tech-news-1) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 2,
+        "title": "[Spurious probes as a black-box alternative to activation probing](#item-tech-news-2) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 3,
+        "title": "[ollama/ollama released v0.40.0-rc0](#item-tech-news-3) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 8,
+        "title": "[Earth microbes survive simulated conditions of Saturn moon’s ocean](#item-tech-news-8) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 11,
+        "title": "[03版 - “为美中关系发展注入正能量”](#item-tech-news-11) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 12,
+        "title": "[Some BBC channels and radio stations may well have to close, director general says](#item-tech-news-12) ⭐️",
+        "source": "BBC",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 13,
+        "title": "[Saudi Arabia intercepts wave of Houthi missiles as oil climbs to one-week high](#item-tech-news-13) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 18,
+        "title": "[EU-Asylpolitik: Grenzschutz darf nicht Glückssache sein](#item-tech-news-18) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 23,
+        "title": "[Burnham pledges extra £210m towards regenerating boarded-up high streets](#item-tech-news-23) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 24,
+        "title": "[Two people arrested in New York City for allegedly climbing out of manhole](#item-tech-news-24) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 25,
+        "title": "[Spanien: 87-jährige Maricarmen Abascal muss ihre Wohnung nach 70 Jahren zwangsräumen](#item-tech-news-25) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 26,
+        "title": "[Kleiner Etat, große Stücke: Glückwunsch, Oper Mainz](#item-tech-news-26) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 27,
+        "title": "[Rot-rot-Grün: Judenhass mit Unschuldsmiene](#item-tech-news-27) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 28,
+        "title": "[Applications open: Winter 2027 AFFINE Alignment Seminar \\\\\\\\(due Nov 22\\\\\\\\)](#item-tech-news-28) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 29,
+        "title": "[Allow Babywearing Carriers on Planes](#item-tech-news-29) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 30,
+        "title": "[We need a better theory of polarization, because it&\\\\\\\\#x27;s failing to predict the AI debate](#item-tech-news-30) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 31,
+        "title": "[On Ezra Klein’s Podcast With Jensen Huang](#item-tech-news-31) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 32,
+        "title": "[Foundational premises of advanced AI](#item-tech-news-32) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 43,
+        "title": "[02版 - 中国对外投资存量连续9年保持全球前三](#item-tech-news-43) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 44,
+        "title": "[02版 - 习近平抵达华盛顿对美国进行国事访问](#item-tech-news-44) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 45,
+        "title": "[03版 - 引领中美关系这艘大船行稳致远](#item-tech-news-45) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 46,
+        "title": "[04版 - 统筹推动文化事业、文化产业和旅游业高质量发展（权威发布·开局起步“十五五”）](#item-tech-news-46) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 47,
+        "title": "[04版 - 推动法律全面有效实施 更好发挥法治保障国家粮食安全重要作用](#item-tech-news-47) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 48,
+        "title": "[04版 - 扎进红色山乡 孕育金色希望（赓续长征精神 奋进复兴征程·记者再走长征路）](#item-tech-news-48) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 49,
+        "title": "[04版 - 全国人大常委会无障碍环境建设法执法检查组举行第二次全体会议](#item-tech-news-49) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 50,
+        "title": "[04版 - 在法治轨道上促进旅游业高质量发展行稳致远](#item-tech-news-50) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 51,
+        "title": "[04版 - 一版责编：胡安琪 赵 政 赵川博 二版责编：林 琳 吕 莉 祁嘉润 三版责编：吴 刚 周 輖 谢佳宁 四版责编：白之羽 刘 念 韩春瑶](#item-tech-news-51) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 52,
+        "title": "[05版 - 中国代表团勇夺三十二枚金牌](#item-tech-news-52) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 53,
+        "title": "[05版 - 消费提质 市场焕新](#item-tech-news-53) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 54,
+        "title": "[CPPCC holds wetlands science lecture at Beijing Forestry University](#item-tech-news-54) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 55,
+        "title": "[Jiangsu strengthens online food safety governance](#item-tech-news-55) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 56,
+        "title": "[06版 - 中秋佳节 共赏明月 中国茅台 香飘世界](#item-tech-news-56) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 57,
+        "title": "[07版 - 月耀神州 西凤呈香](#item-tech-news-57) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 58,
+        "title": "[08版 - 大地秋韵·经典里的中秋](#item-tech-news-58) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 79,
+        "title": "[China’s Xi Snubs a Troubled U.N. for Trump, Overshadowing Its Big Week](#item-tech-news-79) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 80,
+        "title": "[Dining With A.I. Moguls, Billionaires and Xi Jinping, Trump Went Off Script](#item-tech-news-80) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 81,
+        "title": "[Not Long Ago, Trump Accused China of Election Meddling. Today, ‘Great Friendship.’](#item-tech-news-81) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 82,
+        "title": "[Supreme Court Allows Tool to Screen Voters](#item-tech-news-82) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 83,
+        "title": "[Kennedy Center Shelved Repairs Now Cited for Closure, Whistle-Blowers Say](#item-tech-news-83) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 84,
+        "title": "[Supreme Court Allows Use of Trump Administration’s Expansive Database for Voter Screening](#item-tech-news-84) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 85,
+        "title": "[Bracing for Midterm Losses, Republicans in Congress Try a Pre-election Pivot](#item-tech-news-85) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 86,
+        "title": "[After Tough Primaries, Democrats in Key States Feel Unified, New Polls Find](#item-tech-news-86) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 87,
+        "title": "[Netanyahu Said to Have Been Warned by Emirati Leader About Hamas Attack Before Oct. 7](#item-tech-news-87) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 88,
+        "title": "[Saudi Arabia Open to Possibly Developing Nuclear Weapons](#item-tech-news-88) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 89,
+        "title": "[The Viral In-N-Out Spatula Hero Is Exactly Who You Imagined He Was](#item-tech-news-89) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 90,
+        "title": "[ICE Raids in Beef Country Raise Fears of Higher Prices](#item-tech-news-90) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 91,
+        "title": "[U.S. Rejects U.N. Declaration on Preparing for Future Pandemics](#item-tech-news-91) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 92,
+        "title": "[Airline Credit Cards Are Messing Up the Whole Industry](#item-tech-news-92) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 93,
+        "title": "[What Does Abdul El-Sayed Believe?](#item-tech-news-93) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 94,
+        "title": "[South Carolinians: Do You Have a Short-Term, High-Interest Personal Loan? Share Your Bills.](#item-tech-news-94) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 95,
+        "title": "[Carney Explores Trade Ties with EU, China, and India](#item-tech-news-95) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 96,
+        "title": "[Supreme Court blocks Missouri congressional map favoring GOP for third time](#item-tech-news-96) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 97,
+        "title": "[Strong nor’easter cancels events from Massachusetts to Maryland](#item-tech-news-97) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 98,
+        "title": "[Florida counties declare emergency over ‘wildly unusual’ dengue outbreak](#item-tech-news-98) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 99,
+        "title": "[Utah university releases independent review of Charlie Kirk shooting](#item-tech-news-99) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 100,
+        "title": "[Ranchers accuse Trump administration of disrupting beef supply, as prices rise](#item-tech-news-100) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 101,
+        "title": "[Hurricane Polo tracker: Map and projected storm path](#item-tech-news-101) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 102,
+        "title": "[Government can use Social Security data to identify noncitizen voters, Supreme Court rules](#item-tech-news-102) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 103,
+        "title": "[Charles Trueheart, Post reporter and author who ‘could do it all,’ dies at 75](#item-tech-news-103) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 104,
+        "title": "[This shelter dog in a backpack at Starbucks was adopted almost on the spot](#item-tech-news-104) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 105,
+        "title": "[‘Be your own mayor’: For $4.75 million, you could buy a California town](#item-tech-news-105) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 107,
+        "title": "[The surprise winners from record-high diesel prices](#item-tech-news-107) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 108,
+        "title": "[Some dementia patients grow lucid near the end. Scientists hope it’s a clue.](#item-tech-news-108) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 109,
+        "title": "[Justice Ketanji Brown Jackson criticizes Supreme Court’s use of emergency docket](#item-tech-news-109) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 113,
+        "title": "[WNBA playoffs preview: why the Fever at +145 could be the best bet against defending champion Aces](#item-tech-news-113) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 115,
+        "title": "[Who is Sophie Cunningham? Fox Nation chronicles the WNBA star&\\\\\\\\#x27;s rise from farm girl to women&\\\\\\\\#x27;s sports advocate](#item-tech-news-115) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 125,
+        "title": "[More Americans than ever now have a positive view of socialism, new poll says](#item-tech-news-125) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 130,
+        "title": "[&\\\\\\\\#x27;80s star Tiffany steps into dream role after leaving Hollywood behind](#item-tech-news-130) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 133,
+        "title": "[Meghan Markle’s outing with Ellen DeGeneres exposes &\\\\\\\\#x27;irony&\\\\\\\\#x27; in royal’s ‘quiet country life’: expert](#item-tech-news-133) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 134,
+        "title": "[&\\\\\\\\#x27;Red carpet for a despot&\\\\\\\\#x27;: Trump&\\\\\\\\#x27;s lavish Xi welcome collides with GOP anti-communism message](#item-tech-news-134) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 136,
+        "title": "[Trump-Xi takeaways: If there were takeaways, Trump&\\\\\\\\#x27;s not sharing them](#item-tech-news-136) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 147,
+        "title": "[Man City found guilty of majority of 115 financial rule breaches](#item-tech-news-147) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 149,
+        "title": "[Iran offers US deal to reopen Strait of Hormuz in seven days](#item-tech-news-149) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 427,
+        "title": "[Warrington edge past Leeds to reach Grand Final](#item-tech-blog-4) ⭐️ ?/10",
+        "source": "www.lesswrong.com",
+        "source_url": "https://www.lesswrong.com/posts/f7r9QCmjoYFG9ReyF/alignment-forecasting-predicting-misalignment-from-training",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000287",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Li Qiang Government Activities",
+    "event_reason": "李强出席数字贸易博览会和会见马来西亚总理",
+    "source_count": 2,
+    "articles": [
+      {
+        "index": 4,
+        "title": "[microsoft/vscode released 1.139.1](#item-tech-news-4) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 5,
+        "title": "[Künstliche Intelligenz: Bill Gates warnt vor einer Milliarde Todesfällen durch KI](#item-tech-news-5) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000288",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "China Audit Law Revision",
+    "event_reason": "修订审计法实施条例的公布",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 6,
+        "title": "[03版 - 北斗为新兴支柱产业打造重要增长极](#item-tech-news-6) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000289",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "UK Labour Party Election Speculation",
+    "event_reason": "英国工党竞选策略和选举时间讨论",
+    "source_count": 2,
+    "articles": [
+      {
+        "index": 7,
+        "title": "[Discovery of 97 million files related to SAS inquiry &\\\\\\\\#x27;regrettable&\\\\\\\\#x27;, MoD says](#item-tech-news-7) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 9,
+        "title": "[Xi Jinping bei Trump: Es geht nur noch darum, wie der Konflikt geführt wird](#item-tech-news-9) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000291",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "ECB Leadership Transition",
+    "event_reason": "欧央行行长继任者挑战涉及债务问题",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 10,
+        "title": "[03版 - 与中国同行，坚定做中国发展的长期伙伴](#item-tech-news-10) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000295",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Beidou Navigation System Development",
+    "event_reason": "北斗导航系统作为新兴支柱产业",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 14,
+        "title": "[Pakistan locks down Islamabad as Imran Khan’s party vows to march on capital](#item-tech-news-14) ⭐️",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000296",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Milan Airport Renaming",
+    "event_reason": "米兰机场以贝卢斯科尼命名",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 15,
+        "title": "[Gleich drei Hurrikane im Pazifik – Hawaii und Mexiko bedroht](#item-tech-news-15) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000297",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "UK SAS Inquiry Files Discovery",
+    "event_reason": "发现SAS调查相关9700万份文件",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 16,
+        "title": "[Xi bei Trump: »Eine wirklich große Freundschaft« – Podcast](#item-tech-news-16) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000298",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Saturn Moon Ocean Microbe Survival",
+    "event_reason": "地球微生物在土卫二海洋条件模拟中存活",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 17,
+        "title": "[Olympia in Rhein-Ruhr oder München: Die Fakten zur Wahl des deutschen Kandidaten](#item-tech-news-17) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000299",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Chinese People's Democracy Policy",
+    "event_reason": "全过程人民民主的地方人大工作",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 19,
+        "title": "[torvalds pushed 0 commit\\\\\\\\(s\\\\\\\\) to torvalds/linux](#item-tech-news-19) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000300",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "CPPCC National Committee Meeting",
+    "event_reason": "王沪宁主持政协主席会议",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 20,
+        "title": "[Noah Woods left playground through gap in fence, inquest hears](#item-tech-news-20) ⭐️",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000301",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "China-US Relations Development",
+    "event_reason": "中国与美国发展长期合作和注入正能量",
+    "source_count": 2,
+    "articles": [
+      {
+        "index": 21,
+        "title": "[Clubs seek legal advice over Man City charges compensation](#item-tech-news-21) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 22,
+        "title": "[Overcrowding and racism at Manston asylum centre linked to government decisions, inquiry hears](#item-tech-news-22) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000002",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "全球多地独立社会事件与争议",
+    "event_reason": "Cluster 2为美国游乐园事故调查；Cluster 3为曼城俱乐部诉讼；Cluster 4为英国难民营调查；Cluster 5为英国高街复兴财政承诺；Cluster 6为纽约市井盖逮捕；Cluster 7为西班牙老妇搬离事件；Cluster 8为德国文化政治争议；Cluster 9为AFFINE研讨会；Cluster 10为飞机婴儿背带政策。这些事件发生在不同国家（美、英、西、德等），主题各异（司法、体育、政治、社会、科技、航空政策），彼此间无直接因果或从属关系，均为独立的单一事件。",
+    "source_count": 10,
+    "articles": [
+      {
+        "index": 33,
+        "title": "[01版 - 习近平同美国总统特朗普会谈](#item-tech-news-33) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 34,
+        "title": "[01版 - 习近平出席美国总统特朗普在白宫举行的欢迎仪式](#item-tech-news-34) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 35,
+        "title": "[01版 - 习近平抵达华盛顿对美国进行国事访问](#item-tech-news-35) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 36,
+        "title": "[02版 - 在白宫欢迎仪式上的致辞](#item-tech-news-36) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 37,
+        "title": "[02版 - 彭丽媛同美国总统特朗普夫人梅拉尼娅参观国立亚洲艺术博物馆](#item-tech-news-37) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 38,
+        "title": "[02版 - 这份倡议，关乎中美关系的未来（一见）](#item-tech-news-38) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 39,
+        "title": "[02版 - 习近平同美国总统特朗普会谈](#item-tech-news-39) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 40,
+        "title": "[02版 - 全力确保假期平安顺畅出行（权威发布）](#item-tech-news-40) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 41,
+        "title": "[02版 - 习近平出席美国总统特朗普在白宫举行的欢迎仪式](#item-tech-news-41) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 42,
+        "title": "[02版 - 前8月全国新设经营主体1550.2万户](#item-tech-news-42) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000013",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "中国国内政策、法治建设及文化专题报道",
+    "event_reason": "Cluster 13涉及中国十五五规划、文化事业及粮食安全法治；Cluster 14为红色长征主题文化报道及版面编辑；Cluster 15为全国人大常委会法治建设与旅游高质量发展立法监督；Cluster 16为中国体育代表团金牌成就及消费市场；Cluster 17为生态环境保护与食品安全治理；Cluster 18为中秋佳节传统文化专题。这些Cluster均来自中文媒体，报道了中国国内同一时间段（2026年9月26日）内的政策发布、立法活动、文化庆祝及社会发展成就，属于同一政治文化背景下的国内新闻集群。",
+    "source_count": 20,
+    "articles": [
+      {
+        "index": 59,
+        "title": "[08版 - 熙宁九年的中秋](#item-tech-news-59) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 60,
+        "title": "[08版 - 借相思寄报国](#item-tech-news-60) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 61,
+        "title": "[08版 - 秋日豪情胜春朝](#item-tech-news-61) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 62,
+        "title": "[08版 - 且惜月圆时](#item-tech-news-62) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 63,
+        "title": "[08版 - 滋味里的乡愁](#item-tech-news-63) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 64,
+        "title": "[08版 - 长征路上的中秋](#item-tech-news-64) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 65,
+        "title": "[08版 - 本版责编：任飞帆](#item-tech-news-65) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 66,
+        "title": "[习近平在美国总统特朗普举行的欢迎宴会上的祝酒辞（全文）](#item-tech-news-66) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 67,
+        "title": "[习近平圆满结束对美国的国事访问](#item-tech-news-67) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 68,
+        "title": "[习近平和彭丽媛同美国总统特朗普夫妇茶叙](#item-tech-news-68) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 69,
+        "title": "[习近平和彭丽媛同美国总统特朗普夫妇共同参观美国国家档案馆](#item-tech-news-69) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 70,
+        "title": "[习近平和彭丽媛出席特朗普总统夫妇举行的欢迎国宴](#item-tech-news-70) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 71,
+        "title": "[习近平在美国总统特朗普举行的欢迎宴会上的祝酒辞（全文）](#item-tech-news-71) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 72,
+        "title": "[Xi Jinping attends Trump-hosted welcome banquet at White House](#item-tech-news-72) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 73,
+        "title": "[习近平出席美国总统特朗普举行的欢迎宴会](#item-tech-news-73) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 74,
+        "title": "[OpenAI’s A.I. Went Rogue and Meddled With U.S. Government Websites](#item-tech-news-74) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 75,
+        "title": "[How OpenAI’s Rogue A.I. Agents Tried to Trick a Robot Detector](#item-tech-news-75) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 76,
+        "title": "[Is China Really Stealing A.I. From American Companies?](#item-tech-news-76) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 77,
+        "title": "[His Novel Had a Shot at a Top Book Prize. Then Someone Ran an A.I. Test.](#item-tech-news-77) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 78,
+        "title": "[As Xi Leaves Washington, Divisions Still Simmer Beneath the Surface](#item-tech-news-78) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000031",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "阿卜杜勒·艾尔-塞耶德的政治信仰分析",
+    "event_reason": "单独报道对密歇根州长候选人Abdul El-Sayed政见的人物分析",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 106,
+        "title": "[How China is conquering high-tech markets once controlled by the West](#item-tech-news-106) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000034",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "东北部强烈东北风暴取消活动",
+    "event_reason": "单独报道从马萨诸塞州到马里兰州因强烈东北风暴取消活动的天气事件",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 110,
+        "title": "[Never smoked a cigarette? You could still be at higher risk for lung cancer](#item-tech-news-110) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000035",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "佛罗里达州登革热疫情紧急状态",
+    "event_reason": "单独报道佛罗里达州多个县因异常登革热疫情宣布紧急状态",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 111,
+        "title": "[Reporter&\\\\\\\\#x27;s Notebook: Democrats face an impeachment tractor beam that could derail their affordability message](#item-tech-news-111) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000036",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "犹他大学发布查理·柯克枪击事件独立审查报告",
+    "event_reason": "单独报道犹他大学发布的关于查理·柯克遭枪击事件的独立审查结果",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 112,
+        "title": "[Xi praises US state visit &\\\\\\\\#x27;perfection&\\\\\\\\#x27; as Trump calls meetings &\\\\\\\\#x27;very productive&\\\\\\\\#x27;](#item-tech-news-112) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000037",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "飓风波洛追踪",
+    "event_reason": "单独报道飓风波洛的路径和地图追踪信息",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 114,
+        "title": "[Betting preview for multiple series openers in baseball&\\\\\\\\#x27;s final weekend including Phillies vs. Rays](#item-tech-news-114) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000038",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "《华盛顿邮报》记者查尔斯·特鲁斯哈特去世",
+    "event_reason": "单独报道《华盛顿邮报》记者兼作家Charles Trueheart去世",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 116,
+        "title": "[Ole Miss toxicology reports expected soon and results may trigger anti-fentanyl law, official says](#item-tech-news-116) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000039",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "星巴克背包 adopted 宠物狗事件",
+    "event_reason": "单独报道一只在星巴克被立即收养的 Shelter 狗狗的暖心故事",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 117,
+        "title": "[Trump&\\\\\\\\#x27;s quiet China wins are more important than Xi&\\\\\\\\#x27;s empty state visit](#item-tech-news-117) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000040",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "加州小镇出售",
+    "event_reason": "单独报道以475万美元购买加州一个小镇的机会",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 118,
+        "title": "[Ed Sheeran&\\\\\\\\#x27;s Gillette Stadium concerts called off as troubled tour faces fresh setback](#item-tech-news-118) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000041",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "中国在高科技市场超越西方",
+    "event_reason": "单独报道中国如何在曾经由西方控制的高科技市场占据主导地位",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 119,
+        "title": "[&\\\\\\\\#x27;Squad&\\\\\\\\#x27; Democrat slammed by Trump admin for most &\\\\\\\\#x27;radical&\\\\\\\\#x27; plan targeting ICE yet](#item-tech-news-119) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000042",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "柴油高价下的意外赢家",
+    "event_reason": "单独报道记录性高柴油价格带来的意外受益者分析",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 120,
+        "title": "[Xi’s 100K invitation to America’s youth sets off alarm bells over what could follow them home](#item-tech-news-120) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000043",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Dementia Terminal Lucidity Research",
+    "event_reason": "Scientific study on dementia patients experiencing sudden clarity near end of life",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 121,
+        "title": "[Trump to usher in ‘golden age’ of American tech with DC bash showcasing powerful new tool](#item-tech-news-121) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000044",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Ketanji Brown Jackson Criticizes Supreme Court Emergency Docket",
+    "event_reason": "Supreme Court Justice's criticism of emergency docket usage",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 122,
+        "title": "[Unearthed: El-Sayed called for repealing law that made sex without disclosing HIV status a felony](#item-tech-news-122) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000045",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Lung Cancer Risk in Non-Smokers",
+    "event_reason": "Health report on lung cancer risk factors for non-smokers",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 123,
+        "title": "[Fox News AI Newsletter: Tech company says scientific discovery could change medicine](#item-tech-news-123) ⭐️ ?/10",
+        "source": "Fox News",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000046",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Democrats Face Impeachment Distraction",
+    "event_reason": "Political analysis of impeachment threats derailing Democratic messaging",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 124,
+        "title": "[Packers tight end Tucker Kraft hears boos from Lambeau Field fans and offers tone deaf response](#item-tech-news-124) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000048",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "美国职业体育季后赛博彩预览",
+    "event_reason": "Cluster 1和Cluster 2均为同一时间段（季后赛期间）的体育博彩分析报道，涵盖WNBA和棒球季后赛，属于同一体育事件系列的并行子主题，可归并为季后赛博彩综合事件。",
+    "source_count": 4,
+    "articles": [
+      {
+        "index": 126,
+        "title": "[Supreme Court allows Trump admin to use federal voter eligibility database during appeal](#item-tech-news-126) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 127,
+        "title": "[Dozens of pledges found covered in food in sweltering frat basement as police investigate alleged hazing](#item-tech-news-127) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 128,
+        "title": "[The SEC might have more headliners, but the Big 12 has the most underrated matchup of week 4](#item-tech-news-128) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 129,
+        "title": "[Fighter jet pilots eject moments before fiery crash in Wales](#item-tech-news-129) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000051",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Ed Sheeran Concerts Cancelled",
+    "event_reason": "Gillette Stadium concerts cancelled due to tour setbacks",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 131,
+        "title": "[Social worker sues after she says she refused to conceal students’ gender transitions from parents](#item-tech-news-131) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000052",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Squad Democrat ICE Plan Criticism",
+    "event_reason": "Trump administration criticism of radical ICE-targeting plan",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 132,
+        "title": "[Suspect in Pittsburgh doctor&\\\\\\\\#x27;s murder had been released without bail on prior burglary charge: court docs](#item-tech-news-132) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000055",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "El-Sayed HIV Disclosure Law Repeal",
+    "event_reason": "Call to repeal felony law requiring HIV status disclosure during sex",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 135,
+        "title": "[Tracking the nor&\\\\\\\\#x27;easter: State of emergency declared in New York City](#item-tech-news-135) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000056",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Packers Tucker Kraft Fan Backlash",
+    "event_reason": "Tucker Kraft booed at Lambeau Field with controversial response",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 137,
+        "title": "[How Claire Gravel&\\\\\\\\#x27;s murder was solved nearly 4 decades later](#item-tech-news-137) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000057",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Rising American Support for Socialism",
+    "event_reason": "Poll showing increased positive views of socialism among Americans",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 138,
+        "title": "[WATCH: The annual Fat Bear Week tournament is underway](#item-tech-news-138) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000058",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "特朗普政府移民执法与法院冲突系列",
+    "event_reason": "Cluster 9涉及最高法院允许使用联邦选民资格数据库，Cluster 22涉及法官认定特朗普政府因驱逐庇护寻求者藐视法庭。两者均为特朗普政府移民/执法行动引发的法律诉讼与司法审查事件，属于同一政治-法律冲突系列的具体表现。",
+    "source_count": 2,
+    "articles": [
+      {
+        "index": 139,
+        "title": "[WATCH: Americans struggling with the record rise in gas prices](#item-tech-news-139) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 154,
+        "title": "[Russia targeting &\\\\\\\\#x27;ordinary life&\\\\\\\\#x27; with attacks on Ukraine&\\\\\\\\#x27;s data centres, Zelensky says](#item-tech-news-154) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000059",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Frat Hazing Investigation",
+    "event_reason": "Police investigate hazing incident with pledges covered in food",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 140,
+        "title": "[Candidates are increasingly dropping debates. Here&\\\\\\\\#x27;s what it means for voters](#item-tech-news-140) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000060",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "College Football Week 4 Matchups",
+    "event_reason": "Big 12 underrated matchup analysis for week 4",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 141,
+        "title": "[Judge finds Trump administration in contempt for twice deporting asylum-seeker](#item-tech-news-141) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000061",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Fighter Jet Crash in Wales",
+    "event_reason": "Pilots eject before fighter jet crashes in Wales",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 142,
+        "title": "[Iran live updates: Major atmosphere of mistrust,&\\\\\\\\#x27; Iranian president tells journalists](#item-tech-news-142) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000062",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Tiffany Returns to Acting",
+    "event_reason": "'80s star Tiffany takes dream acting role after leaving Hollywood",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 143,
+        "title": "[Rep. Ro Khanna unveils universal childcare proposal with eye on 2028](#item-tech-news-143) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000063",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Social Worker Sues Over Gender Transition Disclosure",
+    "event_reason": "Lawsuit by social worker who refused to conceal student gender transitions",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 144,
+        "title": "[Administration&\\\\\\\\#x27;s pro-Trump TV ad is taxpayer-funded](#item-tech-news-144) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000064",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Pittsburgh Doctor Murder Suspect Released",
+    "event_reason": "Suspect in doctor's murder had been released without bail on prior charge",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 145,
+        "title": "[Federal agency says it&\\\\\\\\#x27;s moving on without DC, Virginia cooperation on Trump&\\\\\\\\#x27;s arch](#item-tech-news-145) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000065",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Meghan Markle Outing with Ellen DeGeneres",
+    "event_reason": "Meghan Markle spotted with Ellen DeGeneres exposing royal life irony",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 146,
+        "title": "[&\\\\\\\\#x27;Extremely sensitive medical data&\\\\\\\\#x27; for FBI agents among hacked records: Report](#item-tech-news-146) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000066",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Nor'easter Emergency in New York",
+    "event_reason": "State of emergency declared in NYC due to nor'easter",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 148,
+        "title": "[Watch: What could the potential sanctions for Man City be?](#item-tech-news-148) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000067",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Claire Gravel Murder Solved",
+    "event_reason": "Decades-old murder case solved nearly 40 years later",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 150,
+        "title": "[I&\\\\\\\\#x27;m not tempted to call an early election, Burnham says](#item-tech-news-150) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000068",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Fat Bear Week Tournament",
+    "event_reason": "独立事件：年度胖熊周比赛。",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 151,
+        "title": "[OpenAI investigating &\\\\\\\\#x27;dozens&\\\\\\\\#x27; of instances of agents acting improperly](#item-tech-news-151) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000069",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "US Gas Price Rise",
+    "event_reason": "独立事件：美国汽油价格创纪录上涨。",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 152,
+        "title": "[Trump&\\\\\\\\#x27;s plans for massive arch move ahead](#item-tech-news-152) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000070",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "US Election Debates Dropout Trend",
+    "event_reason": "独立事件：候选人退出辩论的趋势分析。",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 153,
+        "title": "[U2 celebrate 50th anniversary at the school where they formed](#item-tech-news-153) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000072",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Iran-US Strait of Hormuz Tensions",
+    "event_reason": "同一事件：伊朗总统表达不信任氛围，同时提议在七天内重新开放霍尔木兹海峡。",
+    "source_count": 2,
+    "articles": [
+      {
+        "index": 155,
+        "title": "[Black woman found hanging from tree was dead before body was &\\\\\\\\#x27;staged&\\\\\\\\#x27;, police say](#item-tech-news-155) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 162,
+        "title": "[Watch: Thousands turn out to greet Pope in France](#item-tech-news-162) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000073",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Ro Khanna Childcare Proposal",
+    "event_reason": "独立事件：Ro Khanna提出普遍托育提议，关注2028年大选。",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 156,
+        "title": "[Daniel Thomas pleads not guilty after dinghy slashed](#item-tech-news-156) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000074",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Pro-Trump Taxpayer Ad",
+    "event_reason": "独立事件：政府支持特朗普的电视广告由纳税人资助。",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 157,
+        "title": "[Special agents&\\\\\\\\#x27; blood and urine test results stolen in FBI hack](#item-tech-news-157) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000075",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Trump Arch Construction Plans",
+    "event_reason": "同一事件：联邦机构推进特朗普拱门建设，无视DC和弗吉尼亚州的合作。",
+    "source_count": 2,
+    "articles": [
+      {
+        "index": 158,
+        "title": "[British climber dies after falling 60m on Spanish mountainside](#item-tech-news-158) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 165,
+        "title": "[PM says bailed sex offender case must be reviewed](#item-tech-news-165) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000076",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "FBI Data Hack Breach",
+    "event_reason": "同一事件：FBI黑客攻击导致特工敏感医疗数据和生物样本检测结果泄露。",
+    "source_count": 2,
+    "articles": [
+      {
+        "index": 159,
+        "title": "[Relegation? Titles stripped? Appeals? What next for Man City](#item-tech-news-159) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 170,
+        "title": "[Pomp over progress in Xi’s US summit with Trump is a win for China](#item-tech-news-170) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000077",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Manchester City Financial Breaches and David Beckham Football Matters",
+    "event_reason": "同一体育/商业实体关联事件：Cluster 7覆盖曼城违反115项财务规则及制裁；Cluster 28覆盖大卫·贝克汉姆的世界杯商业收入及英超事务。两者均属于2026年9月英国足球界（特别是曼城及相关人物贝克汉姆）的财务与职业动态的具体事件集合。",
+    "source_count": 6,
+    "articles": [
+      {
+        "index": 160,
+        "title": "[How &\\\\\\\\#x27;largest phone smuggling network&\\\\\\\\#x27; was uncovered](#item-tech-news-160) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 161,
+        "title": "[&\\\\\\\\#x27;Heartbreaking&\\\\\\\\#x27;: The man set to lose his home due to the UK&\\\\\\\\#x27;s £5bn theme park](#item-tech-news-161) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 172,
+        "title": "[‘Robust little’ vessel begins treacherous 22,000km journey around Antarctica in the name of climate science](#item-tech-news-172) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 207,
+        "title": "[Two-year waiting times highlight NHS struggle with rise in ADHD and autism awareness](#item-tech-news-207) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 208,
+        "title": "[Capital gains tax: how it works, and the pros and cons of another rise](#item-tech-news-208) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 227,
+        "title": "[The notion that sanctions work is an illusion](#item-tech-news-227) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000078",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "London Mayor Election Comment",
+    "event_reason": "独立事件：伯纳姆表示不考虑提前选举。",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 163,
+        "title": "[Sir David Beckham nets £38.5m after World Cup ad deals](#item-tech-news-163) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000079",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "AI governance, safety and ethical controversy in late 2026",
+    "event_reason": "同一广义现实事件：Cluster 9涉及OpenAI代理不当行为调查；Cluster 26明确合并了OpenAI安全事件、法国AI文学奖项丑闻、教皇访法警告AI、以及AI数学突破。所有这些都是2026年9月全球AI快速进步引发的监管、伦理和安全反思浪潮的具体组成部分。",
+    "source_count": 13,
+    "articles": [
+      {
+        "index": 164,
+        "title": "[Students strike across Germany in protest against military service](#item-tech-news-164) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 184,
+        "title": "[Ex-American Idol contestant told lover he dreamed of killing wife, murder trial hears](#item-tech-news-184) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 186,
+        "title": "[Soaring bond yields ‘not even close’ to cooling red-hot US economy, investors say](#item-tech-news-186) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 187,
+        "title": "[US bond sell-off pushes long-term yields to highest since 2004](#item-tech-news-187) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 188,
+        "title": "[Bond ructions point to new danger zone in markets](#item-tech-news-188) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 189,
+        "title": "[Maga base recoils as Trump goes all-in on AI](#item-tech-news-189) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 190,
+        "title": "[Pomp prevails over substance as Trump hosts Xi](#item-tech-news-190) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 191,
+        "title": "[OpenAI says governments among ‘dozens’ of organisations hacked by its agents](#item-tech-news-191) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 196,
+        "title": "[Walmart chief rules out personalised pricing as AI transforms retail](#item-tech-news-196) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 202,
+        "title": "[‘We will get stuff done’: Burnham seeks to banish ghosts of Starmerism at Labour conference](#item-tech-news-202) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 204,
+        "title": "[Mosques given £66m in emergency security funds after Southport disorder](#item-tech-news-204) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 205,
+        "title": "[Sagal Abdi-Wali: Labour’s candidate in Starmer’s former seat zeroes in on local issues amid Green challenge](#item-tech-news-205) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 209,
+        "title": "[The other Post Office scandal: how organised crime launders money on the high street – podcast](#item-tech-news-209) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000080",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "U2 50th Anniversary",
+    "event_reason": "独立事件：U2乐队在建团学校庆祝50周年。",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 166,
+        "title": "[Michigan CEO loses job after posting AI-made image of her family in ‘Lake America’ sweaters](#item-tech-news-166) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000081",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Russia Cyberattacks on Ukraine",
+    "event_reason": "独立事件：俄罗斯袭击乌克兰数据中心，泽连斯基称针对普通生活。",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 167,
+        "title": "[Alberta’s self-image as world’s only rat-free region shattered by discovery of rat](#item-tech-news-167) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000082",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Racial Hate Crime Investigation",
+    "event_reason": "独立事件：警方调查一起针对黑人女性的仇恨犯罪案件。",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 168,
+        "title": "[Hurricane Polo barrels towards Baja California region of Mexico](#item-tech-news-168) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000083",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Daniel Thomas Legal Case",
+    "event_reason": "独立事件：Daniel Thomas因充气艇被割破事件 plea not guilty。",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 169,
+        "title": "[Lula says Trump wants to ‘colonise’ and capture Brazil’s resources by meddling in election](#item-tech-news-169) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000084",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "British Climber Death in Spain",
+    "event_reason": "独立事件：英国登山者在西班牙山区坠亡。",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 171,
+        "title": "[OpenAI hack on Australian government reveals anxiety at heart of global artificial intelligence dilemma](#item-tech-news-171) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000085",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Phone Smuggling Network Uncovered",
+    "event_reason": "独立事件：揭发最大手机走私网络。",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 173,
+        "title": "[NSW crackdown on ‘AI-doctored’ real estate listings hits mural-covered wall](#item-tech-news-173) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000086",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "UK Theme Park Displacement",
+    "event_reason": "独立事件：英国50亿英镑主题公园项目导致居民丧失家园。",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 174,
+        "title": "[Pocock calls for AI safety act after Medicare breach – as it happened](#item-tech-news-174) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000087",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Pope Visit to France",
+    "event_reason": "独立事件：教皇访问法国，数千人迎接。",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 175,
+        "title": "[PM rejects ‘nonsense’ suggestion he delayed revealing OpenAI Medicare hack as Labor considers changing laws](#item-tech-news-175) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000088",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Beckham World Cup Earnings",
+    "event_reason": "独立事件：大卫·贝克汉姆世界杯广告代言收入。",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 176,
+        "title": "[Novelist accused of using AI to write book removed from French prize list](#item-tech-news-176) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000089",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Germany Student Strike",
+    "event_reason": "独立事件：德国学生罢工反对兵役。",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 177,
+        "title": "[Pope Leo warns of AI threat to humanity at start of three-day France visit](#item-tech-news-177) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000090",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Sex Offender Case Review",
+    "event_reason": "独立事件：首相要求审查保释性犯罪者的案件。",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 178,
+        "title": "[Pope Leo warns against AI and says technology ‘must remain at service of humans’ during first visit to France – as it happened](#item-tech-news-178) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000091",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "CEO Fired Over AI Image",
+    "event_reason": "独立事件：密歇根CEO因发布AI生成家庭图像被解雇。",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 179,
+        "title": "[Meloni accused of ‘running scared’ with cap on foreign children in classrooms](#item-tech-news-179) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000092",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Rat Discovery in Alberta",
+    "event_reason": "独立事件：阿尔伯塔省发现老鼠，打破其无鼠地区形象。",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 180,
+        "title": "[Tall, dark and hated: plan to renovate ‘Paris’s ugliest building’ put on hold](#item-tech-news-180) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000093",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Hurricane Polo approaches Baja California",
+    "event_reason": "Hurricane Polo approaching Mexico",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 181,
+        "title": "[Protests erupt as Netanyahu gives inflammatory UN speech - The Latest](#item-tech-news-181) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000094",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Lula accuses Trump of meddling in Brazil",
+    "event_reason": "Lula's allegation about Trump and Brazil election",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 182,
+        "title": "[Trump faces tough choices as Iran dangles deal to reopen Hormuz before US midterms](#item-tech-news-182) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000095",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Trump-Xi Summit and Diplomatic Dialogue",
+    "event_reason": "Cluster 5覆盖特朗普与习近平峰会成果，Cluster 21覆盖两人在台湾和贸易问题上的外交互动，两者描述同一现实世界事件的不同方面。",
+    "source_count": 5,
+    "articles": [
+      {
+        "index": 183,
+        "title": "[OpenAI says agents leaked 53 images from ChatGPT users in latest example of rogue activity](#item-tech-news-183) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 198,
+        "title": "[NHS boss says staff suspected of snooping on patients’ records should be suspended immediately](#item-tech-news-198) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 203,
+        "title": "[Jeffrey Donaldson could face more than 10 years in jail for child sexual abuse, court told](#item-tech-news-203) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 229,
+        "title": "[Asian Games off to chaotic start as doubts grow over Japan’s ability to host](#item-tech-news-229) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 239,
+        "title": "[Female racer Chadwick gets first taste of driving F1 car](#item-tech-news-239) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000097",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Diverse standalone news events on September 26, 2026",
+    "event_reason": "These remaining clusters represent entirely distinct, unrelated specific events including: Antarctica climate voyage, Italy headscarf policy, Paris building renovation, Netanyahu UN protests, Iran Hormuz negotiations, American Idol murder trial, US bond market turmoil, US Supreme Court immigration ruling, England court crisis, NHS staff suspension policy, Couple murder sentencing, Jeffrey Donaldson trial, Mosque security funding, BBC digital revamp, Capital gains tax analysis, Post Office scandal, Dog DNA database, Brain tumour test, Map projection debate, TalkTalk administration, Buddhist bell crafting, and Nagoya tourism. No two share the same specific real-world event.",
+    "source_count": 24,
+    "articles": [
+      {
+        "index": 185,
+        "title": "[Trump and Chinese president Xi end summit without major agreement on AI](#item-tech-news-185) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 192,
+        "title": "[What an AI maths breakthrough means for human discovery](#item-tech-news-192) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 193,
+        "title": "[US Supreme Court lets Trump vet voters’ immigration status](#item-tech-news-193) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 194,
+        "title": "[Manchester City found guilty of breaching Premier League rules](#item-tech-news-194) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 195,
+        "title": "[David Beckham takes $51mn dividend as World Cup deals lift earnings](#item-tech-news-195) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 197,
+        "title": "[More sex offenders in England and Wales could be released amid court system crisis, police sources say](#item-tech-news-197) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 199,
+        "title": "[Labour rejects Declassified journalists from party conference for third year – as it happened](#item-tech-news-199) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 200,
+        "title": "[Couple jailed for at least 21 years for murder of vulnerable man in their care](#item-tech-news-200) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 201,
+        "title": "[Why Ed Miliband has embraced his ‘awkward dad’ image in viral TikTok video](#item-tech-news-201) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 206,
+        "title": "[BBC Sport’s digital revamp poses wider questions about purpose of the corporation](#item-tech-news-206) ⭐️ ?/10",
+        "source": "BBC",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 210,
+        "title": "[DNA database of UK dogs could help police collar criminals](#item-tech-news-210) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 211,
+        "title": "[‘Gamechanging’ brain tumour test reduces diagnosis from eight weeks to two hours](#item-tech-news-211) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 213,
+        "title": "[New map projections don’t make the Mercator wrong \\\\\\\\| Letter](#item-tech-news-213) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 216,
+        "title": "[Xi seizes Trump detente to seek lasting gains on trade and Taiwan](#item-tech-news-216) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 217,
+        "title": "[To craft a Buddhist bell, ‘you have to find peace within yourself first’](#item-tech-news-217) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 219,
+        "title": "[Japanese skateboarders grab gold at Asian Games](#item-tech-news-219) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 221,
+        "title": "[Japan regulator is boosting scrutiny of AI data center financing](#item-tech-news-221) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 222,
+        "title": "[Japan growth minister says economy has exited reflationary phase](#item-tech-news-222) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 223,
+        "title": "[The unmaking of Friday Night Plans](#item-tech-news-223) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 224,
+        "title": "[Say where? Japanese towns use self-deprecating humor for tourism boost](#item-tech-news-224) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 226,
+        "title": "[Xi calls for U.S. to ‘oppose’ Taiwan independence as Trump hails China as WWII ally](#item-tech-news-226) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 228,
+        "title": "[NEC building 1-petabit-capacity subsea cable for Meta](#item-tech-news-228) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 230,
+        "title": "[Japan’s newest party gets off to rocky start with zero percent support rate](#item-tech-news-230) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 231,
+        "title": "[Appropriate prices top focus for new agriculture minister](#item-tech-news-231) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000110",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "UK Labour Party Conference and NHS assessment delays",
+    "event_reason": "These clusters are kept separate as they concern distinct policy areas (political conference vs. healthcare service delivery) despite both being UK-centric.",
+    "source_count": 6,
+    "articles": [
+      {
+        "index": 212,
+        "title": "[NHS bodies in England impose two-year minimum wait for ADHD and autism assessments](#item-tech-news-212) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 214,
+        "title": "[David Beckham takes £39m dividend as World Cup deals drive record profits](#item-tech-news-214) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 215,
+        "title": "[TalkTalk races to sell consumer and broadband arms as administration looms](#item-tech-news-215) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 218,
+        "title": "[When tourists do the ‘Nagoya skip,’ do they know what they’re skipping?](#item-tech-news-218) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 220,
+        "title": "[Storm menaces Japan after highest cyclone tally since 1966](#item-tech-news-220) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 225,
+        "title": "[Why Russia’s Potemkin election actually matters](#item-tech-news-225) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000128",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "2026 Asian Games in Japan",
+    "event_reason": "Clusters 8, 13, 25, and 27 all cover specific events and results from the 2026 Asian Games hosted in Japan (Japanese skateboarders gold, general games coverage including table tennis and canoeing). These are facets of the same ongoing multi-sport event.",
+    "source_count": 5,
+    "articles": [
+      {
+        "index": 232,
+        "title": "[The Japan Times Prep School Fair set for Oct. 24; registration now open](#item-tech-news-232) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 242,
+        "title": "[Brian Daboll in tow as Titans square up with Giants](#item-tech-news-242) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 257,
+        "title": "[Nouveau dérapage pour la mise en service du métro du Grand Paris Express](#item-tech-news-257) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 258,
+        "title": "[L’Iran a soumis aux Etats-Unis un plan de réouverture du détroit d’Ormuz en sept jours](#item-tech-news-258) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 260,
+        "title": "[IA : la mise à l’écart d’Anthropic par le Pentagone confirmée par la justice](#item-tech-news-260) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000113",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Japan news and economy",
+    "event_reason": "Articles cover storms in Japan, AI regulation, economic phases, and tourism initiatives within Japan.",
+    "source_count": 4,
+    "articles": [
+      {
+        "index": 233,
+        "title": "[The Japan Times プレップスクールフェア](#item-tech-news-233) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 234,
+        "title": "[India rape cases turn focus back onto women’s safety](#item-tech-news-234) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 235,
+        "title": "[Trump shared concerns over weak yen with Takaichi](#item-tech-news-235) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 237,
+        "title": "[Singapore court strips control of Radiant World from founder](#item-tech-news-237) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000129",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Friday Night Plans disbandment",
+    "event_reason": "Stand-alone article about the breakdown of the band Friday Night Plans.",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 236,
+        "title": "[Bijan Robinson destroys Packers in 35-14 win for Falcons](#item-tech-news-236) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000130",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Russia election and sanctions critique",
+    "event_reason": "Both clusters relate to Russia's political situation following its election. Cluster 10 analyzes the election significance, while Cluster 11 critiques sanctions efficacy in the context of Russian politics. They share the same national context and political timeline, representing aspects of the same geopolitical moment.",
+    "source_count": 2,
+    "articles": [
+      {
+        "index": 238,
+        "title": "[Infantino looks set to stay, but FIFA faces a new war over power](#item-tech-news-238) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 240,
+        "title": "[Rebellious Afghan taxi drivers defy ban on music](#item-tech-news-240) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000132",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "NEC Meta Subsea Cable Project",
+    "event_reason": "NEC building 1-petabit subsea cable for Meta",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 241,
+        "title": "[Study reveals evolutionary history of bats, dating back 65 million years](#item-tech-news-241) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000134",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Japan New Political Party",
+    "event_reason": "Japan's newest party has zero percent support rate",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 243,
+        "title": "[China fuels rush to turn AI video into an industry](#item-tech-news-243) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000135",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Japan Agriculture Minister Prices Focus",
+    "event_reason": "New agriculture minister prioritizes appropriate prices",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 244,
+        "title": "[Harimoto hails new era as Japan dethrones table tennis king China](#item-tech-news-244) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000136",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Japan Times Prep School Fair",
+    "event_reason": "Both English and Japanese titles refer to the same Oct 24 prep school fair event",
+    "source_count": 2,
+    "articles": [
+      {
+        "index": 245,
+        "title": "[Emperor and empress to visit quake-hit Kumamoto](#item-tech-news-245) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 246,
+        "title": "[Cho Kwang-hee, Kim Hyo-bin Win Second Canoe Sprint Gold at Asian Games](#item-tech-news-246) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000137",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "India Women's Safety After Rape Cases",
+    "event_reason": "India rape cases refocusing attention on women's safety",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 247,
+        "title": "[N. Korea Threatens S. Korea over Military Cooperation with US](#item-tech-news-247) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000138",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Trump Yen Concerns with Takaichi",
+    "event_reason": "Trump shared concerns about weak yen with Takaichi",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 248,
+        "title": "[Lee Reaffirms He Will Not Seek Another Term](#item-tech-news-248) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000139",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "NFL Falcons Giants Titans Games",
+    "event_reason": "Both articles cover NFL games involving Falcons, Packers, Titans, and Giants",
+    "source_count": 2,
+    "articles": [
+      {
+        "index": 249,
+        "title": "[Russia Invites North Korean Leader Kim Jong-un for Official Visit](#item-tech-news-249) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 255,
+        "title": "[Turquie-France : le résumé des débuts victorieux de Zinédine Zidane à la tête des Bleus, sauvés par Kylian Mbappé mais privés de leur capitaine, blessé et forfait](#item-tech-news-255) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000140",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Singapore Court Radiant World Control",
+    "event_reason": "Singapore court strips founder of Radiant World control",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 250,
+        "title": "[VOA: China Exported $290,000 in UN-Banned Goods to N. Korea Through August](#item-tech-news-250) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000141",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "FIFA Infantino Power Struggle",
+    "event_reason": "Infantino set to stay but FIFA faces internal power war",
+    "source_count": 2,
+    "articles": [
+      {
+        "index": 251,
+        "title": "[Xi Says China, US Reach New Trade Arrangement During Summit with Trump](#item-tech-news-251) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 252,
+        "title": "[Trump Concludes Summit with Xi, Calling It a &\\\\\\\\#x27;Very Good Meeting&\\\\\\\\#x27;](#item-tech-news-252) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000142",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "F1 Female Racer Chadwick",
+    "event_reason": "Female racer Chadwick drives F1 car for first time",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 253,
+        "title": "[« Pas un refuge dans lequel on se replierait pour se protéger de son époque » : à Notre-Dame de Paris, Léon XIV défend une Eglise ouverte au monde](#item-tech-news-253) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000143",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Afghan Taxi Drivers Music Ban Defiance",
+    "event_reason": "Afghan taxi drivers rebel against music ban",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 254,
+        "title": "[Affaire Thélyson Orélien : « Si les IA écrivent de plus en plus comme des humains, les humains écrivent-ils de plus en plus comme des IA ? »](#item-tech-news-254) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000144",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Bat Evolutionary History Study",
+    "event_reason": "Study reveals bats evolutionary history dating 65 million years",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 256,
+        "title": "[Loïk Le Priol condamné à vingt-six ans de réclusion, Romain Bouvier à dix-neuf ans : « Federico Martin Aramburu a été la victime de l’alchimie funeste de ce duo »](#item-tech-news-256) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000146",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Emperor Empress Kumamoto Visit",
+    "event_reason": "Japanese Emperor and Empress visit earthquake-hit Kumamoto",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 259,
+        "title": "[Volley : les Bleus nouvelle génération se hissent en finale de l’Euro, où ils retrouveront la Pologne](#item-tech-news-259) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000148",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "North Korea-Russia Military Cooperation and Diplomatic Moves",
+    "event_reason": "Cluster 17 (俄朝军事合作与外交)、Cluster 18 (韩国总统任期限制)、Cluster 19 (中国向朝鲜出口违禁品) 均属于东北亚地缘政治紧张局势的具体组成部分。俄朝同盟深化（Cluster 17）直接影响了韩国总统李明博的任期满额表态（Cluster 18），而中国对朝贸易违规（Cluster 19）则是该同盟关系中的具体经贸侧面。三者共同构成2026年9月朝鲜半岛及俄朝关系的具体现实事件链条。",
+    "source_count": 4,
+    "articles": [
+      {
+        "index": 261,
+        "title": "[EN DIRECT, guerre en Ukraine : les attaques russes sur Kiev ont tué au moins sept personnes vendredi, selon le maire de la ville](#item-tech-news-261) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 262,
+        "title": "[Au Brésil, Lula interdit les paris sportifs en ligne à quelques jours de la présidentielle, dénonçant une « maladie » qui gagne les foyers](#item-tech-news-262) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 263,
+        "title": "[A Gaza, après vingt ans sans élections, des législatives incertaines dans un territoire exsangue](#item-tech-news-263) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 264,
+        "title": "[Présidentielle 2027 : Yannick Jadot suspendu à titre conservatoire par Les Ecologistes en raison de son soutien à la candidature de Raphaël Glucksmann](#item-tech-news-264) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000152",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "China-US Trade Summit Xi Trump",
+    "event_reason": "Xi and Trump reach new trade arrangement and conclude summit",
+    "source_count": 2,
+    "articles": [
+      {
+        "index": 265,
+        "title": "[La propriétaire française d’un vaste patrimoine immobilier à Dubaï écrouée à Paris](#item-tech-news-265) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 266,
+        "title": "[Au procès en appel des assistants parlementaires du Modem, la plaidoirie brève et efficace des avocats du Parlement européen](#item-tech-news-266) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000153",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "教皇利奥十四世访问法国",
+    "event_reason": "Cluster 11报道教皇为巴黎圣母院开放教堂辩护，Cluster 20报道教皇访问法国的具体行程（弥撒、游行、UNESCO演讲），两者属于同一具体现实事件的连续报道和细分描述。",
+    "source_count": 13,
+    "articles": [
+      {
+        "index": 267,
+        "title": "[Sécheresse historique : la Garonne en « crise » en amont de Toulouse ; des restrictions d’eau inédites](#item-tech-news-267) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 284,
+        "title": "[REPLAY: Pope Leo XIV&\\\\\\\\#x27;s address at UNESCO](#item-tech-news-284) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 285,
+        "title": "[&\\\\\\\\#x27;Moldova is the best performer in my class&\\\\\\\\#x27;: EU Enlargement Commissioner Marta Kos](#item-tech-news-285) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 286,
+        "title": "[Climate breakdown: Is the EU adapting to the new normal? Europe&\\\\\\\\#x27;s summer of disasters](#item-tech-news-286) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 289,
+        "title": "[Paris: Pope Leo XIV expected at UNESCO and Notre-Dame](#item-tech-news-289) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 290,
+        "title": "[&\\\\\\\\#x27;Iran has dragged us into this conflict,&\\\\\\\\#x27; top Emirati diplomat Anwar Gargash says](#item-tech-news-290) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 291,
+        "title": "[Macron says ‘military resources’ to be sent to Saudi Arabia](#item-tech-news-291) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 292,
+        "title": "[Berlin: Unionsfraktionschef Frei warnt SPD und Grüne vor Linksbündnis](#item-tech-news-292) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 293,
+        "title": "[Hawaii: Sturmböe fegt Ironman Caspar Stornes beim Training vom Rad](#item-tech-news-293) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 296,
+        "title": "[Donald Trump: Zwei Jahre nach Attentat – Rally-Teilnehmer erliegt Verletzungen](#item-tech-news-296) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 297,
+        "title": "[Russia faces fuel crisis, price hikes, and mobilization fears](#item-tech-news-297) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 301,
+        "title": "[Outfit beim State Dinner: Melania Trump trägt Hosen. Hosen\\\\\\\\!](#item-tech-news-301) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 302,
+        "title": "[Fideuram in Italien: Betrüger legen Privatbank rein, erbeuten 36 Millionen Euro](#item-tech-news-302) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000154",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "AI Writing Human Debate Haiti",
+    "event_reason": "Thélyson Orélien case raises questions about AI and human writing",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 268,
+        "title": "[Villas « de style provençal, avec piscine, au cœur d’un parc arboré » : le patrimoine immobilier de Ziad Takieddine au Cap d’Antibes mis en vente](#item-tech-news-268) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000155",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "France Turkey Zidane Mbappé",
+    "event_reason": "Zidane's successful start with France, saved by Mbappé",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 269,
+        "title": "[Yemen&\\\\\\\\#x27;s president calls on his people to mobilise against Iran-backed Houthis](#item-tech-news-269) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000156",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Paris Metro Grand Express Delay",
+    "event_reason": "New delay in Grand Paris Express metro service launch",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 270,
+        "title": "[Telecoms disruption raises fears as heavy fighting strikes Ethiopia](#item-tech-news-270) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000157",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "中东地区军事紧张与外交博弈",
+    "event_reason": "Cluster 7 (EVT-20260926-000157) 涉及伊朗与胡塞武装及霍尔木兹海峡局势，Cluster 14 (EVT-20260926-000164) 涉及阿联酋指责伊朗及法国向沙特派遣军事资源，两者均反映中东地区针对伊朗的同一地缘政治紧张局势和外交军事博弈。",
+    "source_count": 4,
+    "articles": [
+      {
+        "index": 271,
+        "title": "[‘I hope France wakes up’: Young Catholics flood the streets for Pope Leo&\\\\\\\\#x27;s Paris visit](#item-tech-news-271) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 282,
+        "title": "[EU vows to pursue €120 million fine on X after US backs Musk&\\\\\\\\#x27;s court challenge](#item-tech-news-282) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 303,
+        "title": "[Berlin-Wahl 2026: Linke strebt Sondierungsgespräche mit Grünen und SPD an](#item-tech-news-303) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 304,
+        "title": "[Shein, AliExpress, Temu: Neue Zwei-Euro-Abgabe auf Billigimporte in die EU](#item-tech-news-304) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000162",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "其他国际体育、气候、法律及社会新闻",
+    "event_reason": "涵盖法国排球决赛、迪拜房产案件、埃塞俄比亚冲突、美国书禁与AI议题、摩尔多瓦欧盟入盟及阿根廷橄榄球明星遇害案等多个无关联事件",
+    "source_count": 11,
+    "articles": [
+      {
+        "index": 272,
+        "title": "[Leo XIV in Paris: A look at the vespers evening prayer at Notre-Dame](#item-tech-news-272) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 278,
+        "title": "[Pope Leon XIV greets crowds on &\\\\\\\\#x27;popemobile&\\\\\\\\#x27; ride through Paris](#item-tech-news-278) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 279,
+        "title": "[Pope Leo XIV leads Vespers at Notre-Dame Cathedral in Paris](#item-tech-news-279) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 280,
+        "title": "[Pope Leo XIV rides through Paris in the popemobile to Notre-Dame](#item-tech-news-280) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 281,
+        "title": "[America at 250: From the American dream to book bans and AI](#item-tech-news-281) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 283,
+        "title": "[🔴 Live: Pope Leo arrives at Notre-Dame after greeting crowds on &\\\\\\\\#x27;popemobile&\\\\\\\\#x27; procession through Paris](#item-tech-news-283) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 287,
+        "title": "[Paris court convicts two for 2022 murder of Argentine rugby star Aramburu](#item-tech-news-287) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 294,
+        "title": "[Donald Trump: KI-bearbeitetes Trump-Foto von Xis Staatsbesuch sorgt für Kritik](#item-tech-news-294) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 298,
+        "title": "[Russland-Ukraine-Krieg: Putin erklärt, er plane keine Aggression gegen Europa](#item-tech-news-298) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 299,
+        "title": "[New York: Kanalisation-Kletterer stellen Polizei vor ein Rätsel](#item-tech-news-299) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 300,
+        "title": "[Ukraine: Wofür braucht das Land zusätzliche 27 Milliarden Dollar in diesem Jahr?](#item-tech-news-300) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000160",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "美国司法与欧盟监管对科技巨头的影响",
+    "event_reason": "分别涉及Anthropic被五角大楼排除的法律确认及欧盟拟对X平台处以巨额罚款的监管行动",
+    "source_count": 2,
+    "articles": [
+      {
+        "index": 273,
+        "title": "[Pope in Paris, Xi in DC, AI at a Crossroads](#item-tech-news-273) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 295,
+        "title": "[Lettland: Vier italienische Nato-Soldaten bei Übung in Ādaži verletzt](#item-tech-news-295) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000158",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "俄乌战争局势",
+    "event_reason": "Cluster 8 (EVT-20260926-000158) 报道基辅遭俄军袭击及欧盟援助乌克兰，Cluster 20 (EVT-20260926-000176) 报道俄罗斯燃料危机、普京否认侵略计划及乌克兰资金需求，两者均属于俄乌冲突这一持续发展的单一现实事件的不同方面。",
+    "source_count": 5,
+    "articles": [
+      {
+        "index": 274,
+        "title": "[🔴 Live: Yemen&\\\\\\\\#x27;s president calls on his people to mobilise against Iran-backed Houthis](#item-tech-news-274) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 288,
+        "title": "[France: Pope Leo XIV keeps visit focused on faith over politics](#item-tech-news-288) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 310,
+        "title": "[USA: Supreme Court lässt zentrales Tool von Donald Trumpzur Überprüfung von Wählern wieder zu](#item-tech-news-310) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 311,
+        "title": "[Friedrich Merz beim G20-Gipfel: Donald Trump lädt Wladimir Putin ein - und jetzt?](#item-tech-news-311) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 313,
+        "title": "[Gremlins 3: Kein Sonnenlicht, kein Wasser, niemals nach Mitternacht füttern, nicht vor 2028 im Kino gucken](#item-tech-news-313) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000161",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "全球多国政治选举与司法事件",
+    "event_reason": "分别涉及巴西总统签署禁赌令、加沙立法选举及法国生态党内部政治处罚三个独立的国内政治事件",
+    "source_count": 3,
+    "articles": [
+      {
+        "index": 275,
+        "title": "[EU releases €6.6 billion for members arming Ukraine as seven killed in Kyiv](#item-tech-news-275) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 276,
+        "title": "[Lots of pomp but little progress as Trump and Xi end state visit to DC](#item-tech-news-276) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 277,
+        "title": "[US Supreme Court allows Trump to use controversial voter &\\\\\\\\#x27;verification&\\\\\\\\#x27; system](#item-tech-news-277) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000165",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "柏林选举后联盟谈判动态",
+    "event_reason": "Cluster 3报道柏林选举后基民盟、社民党、绿党、左翼党之间的联盟谈判；Cluster 23报道柏林左翼党探索与绿党和社民党组建联盟。两者均聚焦同一具体政治进程——柏林选举后的组阁谈判，属于同一正在发展的单一现实事件。",
+    "source_count": 4,
+    "articles": [
+      {
+        "index": 305,
+        "title": "[Tochter von Götz Kubitschek geht auf die Justiz los - Streit um Lehramts-Referendariat](#item-tech-news-305) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 316,
+        "title": "[Nach KI-Einbruch: Wie Australien „Big Tech“ die Stirn bieten will](#item-tech-news-316) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 332,
+        "title": "[Polizei Warnt: Was hat es mit den Gully-Kletterern in New York auf sich?](#item-tech-news-332) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 358,
+        "title": "[„Brothers“ bei AppleTV+: Wie im echten Leben?](#item-tech-news-358) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000166",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "铁人三项运动员训练遇暴风雨",
+    "event_reason": "报道IRONMAN运动员Caspar Stornes在夏威夷训练时遭遇暴风雨的具体事件",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 306,
+        "title": "[Bernhard Töpper ist tot: ZDF-Experte aus »Wie würden Sie entscheiden?« gestorben](#item-tech-news-306) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000167",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "AI处理特朗普照片引发争议",
+    "event_reason": "报道一张经过AI处理的特朗普照片因涉及习近平国事访问而引发批评",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 307,
+        "title": "[Gunter Demnig zum Stolperstein-Verbot in Heidenau: »Dass die CDU da mitmacht, ist bitter«](#item-tech-news-307) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000168",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "北约演习中意大利士兵受伤",
+    "event_reason": "报道拉脱维亚阿达日内北约演习中四名意大利士兵受伤的具体事件",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 308,
+        "title": "[Jay-Z: Frau zieht Vergewaltigungsvorwurf zurück und räumt Falschaussage ein](#item-tech-news-308) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000169",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "特朗普遇刺案后续死亡事件",
+    "event_reason": "报道特朗普遇刺两周年后，一名集会参与者因伤去世的具体事件",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 309,
+        "title": "[Wiesbaden: Bakterium entdeckt – Menschen sollen Leitungswasser abkochen](#item-tech-news-309) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000171",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "纽约下水道攀爬者案件",
+    "event_reason": "报道纽约一群被称为下水道攀爬者的人员给警方带来调查难题的具体事件",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 312,
+        "title": "[Premier League: Manchester City soll in 114 Fällen gegen Finanzregeln verstoßen haben](#item-tech-news-312) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000172",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "梅拉尼亚·特朗普着装引发关注",
+    "event_reason": "报道梅拉尼亚·特朗普在国宴上穿着裤子引发讨论的具体事件",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 314,
+        "title": "[Business-Ticker: Open AI: Dutzende Organisationen von „Besuch“ durch KI-Agenten betroffen](#item-tech-news-314) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000173",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "意大利Fideuram银行诈骗案",
+    "event_reason": "报道诈骗团伙针对意大利Fideuram私人银行实施欺诈并骗取3600万欧元的具体事件",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 315,
+        "title": "[Bill Gates warnt: „Es gab noch nie eine so mächtige Waffe“](#item-tech-news-315) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000174",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "欧盟对廉价进口商品征收新税费",
+    "event_reason": "报道欧盟拟对Shein、AliExpress、Temu等平台的低价进口商品征收2欧元新税费的政策变化",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 317,
+        "title": "[Medizin, Essen, Haushalt: Kann die KI mehr als nur Kosten sparen?](#item-tech-news-317) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000175",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "戈茨·库比切克女儿司法争议",
+    "event_reason": "报道极右翼出版商戈茨·库比切克的女儿就教师实习资格问题与司法部门发生争执的具体事件",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 318,
+        "title": "[Johannes Winkel: Jung, erfolgreich, konservativ](#item-tech-news-318) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000176",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "ZDF法律专家伯恩哈德·特珀去世",
+    "event_reason": "报道德国ZDF电视节目《你会怎么做？》的法律专家伯恩哈德·特珀去世的具体事件",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 319,
+        "title": "[Deutschland-Liveblog: Berliner Linke will mit Grünen und SPD sondieren](#item-tech-news-319) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000177",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "绊脚石禁止争议",
+    "event_reason": "Cluster 14报道艺术家冈特·德姆尼格批评海登au禁止绊脚石及CDU参与该禁令；Cluster 29报道关于移除或禁止纪念物的政治或社会冲突。两者均聚焦同一具体争议——德国某地对绊脚石（Stolpersteine）纪念装置的禁止禁令及其引发的艺术与政治争论，属于同一正在持续发展的单一现实事件。",
+    "source_count": 2,
+    "articles": [
+      {
+        "index": 320,
+        "title": "[Angriff auf Reporter: „Hau ab, hau ab“](#item-tech-news-320) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 339,
+        "title": "[Ungeschriebene Regeln: Wo Männer ihre Rüstung ablegen](#item-tech-news-339) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000178",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Jay-Z强奸指控撤回事件",
+    "event_reason": "报道一名女性撤回对Jay-Z的强奸指控并承认作伪证的具体法律事件",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 321,
+        "title": "[Wadephul in Ottawa: Ahornbaum und Eiche](#item-tech-news-321) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000179",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "威斯巴登饮用水细菌警告",
+    "event_reason": "报道在德国威斯巴登发现细菌后建议居民煮沸自来水的具体公共卫生事件",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 322,
+        "title": "[Teure Sozialleistung: Ausgaben für Wohngeld haben sich seit 2019 verfünffacht](#item-tech-news-322) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000180",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "美国最高法院支持特朗普选民验证工具 & G20峰会特朗普邀请普京",
+    "event_reason": "Cluster 29 (EVT-180) 报道美国最高法院允许特朗普政府选民验证核心工具恢复使用；Cluster 30 (EVT-181) 报道G20峰会期间特朗普邀请普京参会。两者均为2026年9月26日发生的独立外交/法律事件，无任何政策、人物、地点或因果关联，不应合并。各自保持独立事件。",
+    "source_count": 3,
+    "articles": [
+      {
+        "index": 323,
+        "title": "[Börsenwoche: Wie shoppende KI-Agenten ihr Portfolio verändern](#item-tech-news-323) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 324,
+        "title": "[Nach den Wahlen: Auch die Journalisten machen einfach „Weiter so“](#item-tech-news-324) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 357,
+        "title": "[Immobilien: So teuer machen die Bauzinsen jetzt eine Anschlussfinanzierung](#item-tech-news-357) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000182",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "曼城财务违规调查",
+    "event_reason": "两个Cluster均报道曼彻斯特城足球俱乐部被指控在114个案件中违反英超财务规则这一同一具体法律/体育事件。",
+    "source_count": 2,
+    "articles": [
+      {
+        "index": 325,
+        "title": "[Putins Hybrider Krieg: Die russischen Anschläge zielen auf die deutsche Kampfmoral](#item-tech-news-325) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 349,
+        "title": "[Luxus mit über 800 PS: Erster komplett elektrischer Bentley startet durch](#item-tech-news-349) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000183",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "《小魔怪3》电影延期",
+    "event_reason": "报道电影《小魔怪3》定于2028年上映的具体娱乐事件",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 326,
+        "title": "[Erinnerungskultur: Sie wollen das Gedenken verbannen](#item-tech-news-326) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000184",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "人工智能安全、治理及金融应用议题",
+    "event_reason": "Cluster 4报道AI安全与治理的多个方面（代理攻击、武器化警告、监管），Cluster 10报道AI智能体在金融领域的具体应用变化。两者均聚焦于AI技术当前的安全、治理及应用扩展这一正在发展的单一现实议题领域，属于同一宏观技术事件的不同侧面报道。",
+    "source_count": 5,
+    "articles": [
+      {
+        "index": 327,
+        "title": "[Übung in Hamburg: Wappnen für den Sturm – damit er nicht losbricht](#item-tech-news-327) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 328,
+        "title": "[Was Klopp nicht ist: Hier kann Merz nichts lernen](#item-tech-news-328) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 329,
+        "title": "[Deutschland in zehn Jahren: Gesünder leben muss in Deutschland leichter werden\\\\\\\\!](#item-tech-news-329) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 330,
+        "title": "[Schneller Schlau: Der Dauerstreit über die Organspende](#item-tech-news-330) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 336,
+        "title": "[Premier League: Manchester City schuldig in 114 Fällen?](#item-tech-news-336) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000185",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Johannes Winkel Profile",
+    "event_reason": "Individual profile of a conservative young entrepreneur.",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 331,
+        "title": "[Liveblog Irankrieg: Iran legt USA Sieben-Tage-Plan zur Öffnung der Straße von Hormus vor](#item-tech-news-331) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000187",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Attack on Reporter",
+    "event_reason": "Incident of a reporter being physically attacked.",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 333,
+        "title": "[Paula Löber: Die neue Deutsche Weinkönigin kommt aus Sachsen-Anhalt](#item-tech-news-333) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000188",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Wadephul Visit to Ottawa",
+    "event_reason": "German politician Wadephul's diplomatic visit to Canada.",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 334,
+        "title": "[Nach Sturz: Ironman-Weltmeister Stornes verpasst WM auf Hawaii](#item-tech-news-334) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000189",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Wohnungsgeld Spending",
+    "event_reason": "Report on the fivefold increase in housing benefit expenditures since 2019.",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 335,
+        "title": "[Beladen mit Gefahrstoffen: Kleintransporter explodiert auf der A1](#item-tech-news-335) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000191",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Post-Election Journalism",
+    "event_reason": "Reflection on journalistic continuity and attitude after elections.",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 337,
+        "title": "[Papst IN Frankreich: Leo XIV. feiert Gottesdienst mit 80.000 Menschen im Stade de France](#item-tech-news-337) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000192",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Russian Hybrid War",
+    "event_reason": "Analysis of Russian sabotage attempts targeting German combat morale.",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 338,
+        "title": "[Nations League: Frankreich siegt bei Zidane-Debüt – Pfiffe für Italien](#item-tech-news-338) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000194",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Hamburg Storm Drill",
+    "event_reason": "Emergency preparedness exercise in Hamburg for storm defense.",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 340,
+        "title": "[Studiendauer und Job: „Wir sehen das natürlich, wenn jemand deutlich länger studiert hat“](#item-tech-news-340) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000195",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "克洛普领导力与德国足球评论",
+    "event_reason": "Cluster 15将默尔茨领导风格与克洛普比较，Cluster 30讨论克洛普在德国足球中的角色。两者均围绕 Jürgen Klopp 在德国足球界的角色及领导力这一具体主题展开讨论，属于同一公众人物相关的事件集合。",
+    "source_count": 2,
+    "articles": [
+      {
+        "index": 341,
+        "title": "[F.A.Z.-Gesundheitspodcast: Ich habe Rücken – was hilft gegen Schmerzen?](#item-tech-news-341) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 356,
+        "title": "[Commerzbank-Übernahme: Warum für Unicredit die letzten Meter schwer werden](#item-tech-news-356) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000196",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "德国健康未来与背痛建议",
+    "event_reason": "Cluster 16提出未来十年让健康生活方式更容易的愿景，Cluster 28是F.A.Z.健康播客讨论背痛补救措施。两者均聚焦于德国当前的公共卫生与健康生活议题，属于同一社会健康趋势的具体事件报道。",
+    "source_count": 2,
+    "articles": [
+      {
+        "index": 342,
+        "title": "[Rhein-Main-Feierabendbriefing: Lange Wartezeiten bei Einreise am Flughafen Frankfurt](#item-tech-news-342) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 354,
+        "title": "[Verbannte Medien: Noch braucht Trump ihre Kameras](#item-tech-news-354) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000197",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Organ Donation Dispute",
+    "event_reason": "Ongoing political and social debate regarding organ donation policies.",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 343,
+        "title": "[F.A.Z. Podcast für Deutschland: „Jürgen Klopp muss uns nicht die Fahne zurückholen“](#item-tech-news-343) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000198",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Iran Strait of Hormus Plan",
+    "event_reason": "Iran presenting a seven-day plan to the USA regarding the opening of the Strait of Hormus.",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 344,
+        "title": "[USA unter Trump: Supreme Court lässt zentrales Tool zur Überprüfung von Wählern wieder zu](#item-tech-news-344) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000199",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "New York Sewer Incident",
+    "event_reason": "Police warning and investigation into individuals climbing into sewers in New York.",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 345,
+        "title": "[Grünen-Chef Banaszak: „Die Berliner Linke hat eine Chance verdient“](#item-tech-news-345) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000200",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "New German Wine Queen",
+    "event_reason": "Announcement of Paula Löber from Saxony-Anhalt as the new German Wine Queen.",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 346,
+        "title": "[BESuch von Leo XIV.: „Papamania“ in Frankreich](#item-tech-news-346) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000201",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Ironman Champion Injury",
+    "event_reason": "Ironman world champion Stornes missing the Hawaii championship due to a fall.",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 347,
+        "title": "[Xis Ehefrau Peng Liyuan: Chinas Sopran und First Lady](#item-tech-news-347) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000202",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "A1 Transporter Explosion",
+    "event_reason": "Explosion of a small truck carrying hazardous materials on the A1 highway.",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 348,
+        "title": "[Cambridge Analytica: Drohende Milliardenstrafe für Meta nach verlorenem Prozess](#item-tech-news-348) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000204",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Pope Leo XIV Visit to France",
+    "event_reason": "Both articles cover Pope Leo XIV's visit to France, including the mass at Stade de France and the resulting 'Papamania'.",
+    "source_count": 2,
+    "articles": [
+      {
+        "index": 350,
+        "title": "[Land in der Krise: Industrieabbau auf Italienisch](#item-tech-news-350) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 359,
+        "title": "[Jüdische Sammler: Ein mediokres Gauklerbild in Tempera ist schlicht zu wenig](#item-tech-news-359) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000205",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "France vs Italy Nations League",
+    "event_reason": "Zidane's debut as France coach resulting in a win with boos directed at Italy.",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 351,
+        "title": "[Regeln mit nebenwirkungen: Große Warenvernichtung soll in letzter Minute gestoppt werden](#item-tech-news-351) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000206",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Men's Social Norms",
+    "event_reason": "Feature article on unwritten rules and spaces where men let their guard down.",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 352,
+        "title": "[Traum vom großen Chemiedeal: Was hinter dem Interesse von BASF an Evonik steckt](#item-tech-news-352) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000207",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Study Duration and Employment",
+    "event_reason": "Discussion on how longer study periods impact employability and hiring perceptions.",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 353,
+        "title": "[Klaus Holetschek: Wir müssen uns auf die Eigenverantwortung besinnen](#item-tech-news-353) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000209",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Frankfurt Airport Delays",
+    "event_reason": "Long wait times reported for entry procedures at Frankfurt Airport.",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 355,
+        "title": "[Naturschäden: Klimaschutz und Anpassung gehören zusammen](#item-tech-news-355) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000212",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Peng Liyuan Profile",
+    "event_reason": "Profile of Xi Jinping's wife, Peng Liyuan, as China's soprano and First Lady.",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 360,
+        "title": "[Frauen in der Musik: Gegen Beethovens „phallozentrischen Code“](#item-tech-news-360) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000213",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Cambridge Analytica Meta Penalty",
+    "event_reason": "Data privacy lawsuit outcome against Meta",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 361,
+        "title": "[Hessischer Rundfunk: HR deutet Kehrtwende in Frankfurter Restitutionsfall an](#item-tech-news-361) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000214",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Bentley Electric Launch",
+    "event_reason": "Debut of first fully electric Bentley vehicle",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 362,
+        "title": "[Kolumne „Uni live“: Sind Studenten nicht mehr rebellisch?](#item-tech-news-362) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000215",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Italy Industrial Decline",
+    "event_reason": "Analysis of industrial decline in Italy",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 363,
+        "title": "[Brunners Jubel-Eklat: Ein vom Rampenlicht geblendeter Jungprofi](#item-tech-news-363) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000216",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Goods Destruction Rules",
+    "event_reason": "Regulatory decision to stop large-scale goods destruction",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 364,
+        "title": "[Schweizer ImpfAffäre: Embolo soll gefälschten Impf-Nachweis von Hells Angels gekauft haben](#item-tech-news-364) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000217",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "BASF Evonik Deal",
+    "event_reason": "BASF's strategic interest in acquiring Evonik",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 365,
+        "title": "[FIDE-präsidentenwahl: Entscheidet der ukrainische Joker die Zukunft des Schachs?](#item-tech-news-365) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000218",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Holetschek Responsibility Statement",
+    "event_reason": "Klaus Holetschek's commentary on self-responsibility",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 366,
+        "title": "[DOSB-Olympiabewerber: Hervorragende Kandidaten, spitzenmäßig nervös](#item-tech-news-366) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000219",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Trump Media Access",
+    "event_reason": "Trump's relationship with excluded media outlets",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 367,
+        "title": "[Bakterienbefall: Dutzende Walkadaver in Argentinien angespült](#item-tech-news-367) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000220",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Climate Protection Adaptation",
+    "event_reason": "Policy discussion linking climate protection and adaptation",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 368,
+        "title": "[Nach Gasleck: Sechs Vermisste nach Explosion im Zentrum Athens](#item-tech-news-368) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000221",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Commerzbank Acquisition",
+    "event_reason": "Unicredit's difficulties in acquiring Commerzbank",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 369,
+        "title": "[Drogenkrieg: Wer hinter dem Mordkommando von Overasselt steckte](#item-tech-news-369) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000222",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Real Estate Refinancing Costs",
+    "event_reason": "Impact of construction interest rates on refinancing",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 370,
+        "title": "[\\\\\\\\179. Volksfest in Stuttgart: Rummel an der Fruchtsäule](#item-tech-news-370) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000223",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Brothers AppleTV+",
+    "event_reason": "Discussion of the 'Brothers' series on Apple TV+",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 371,
+        "title": "[Anzugfarben in der Politik: Erst auf Sizilien fand ich das richtige Anzugblau](#item-tech-news-371) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000224",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Jewish Collector Art Auction",
+    "event_reason": "Art auction case involving Jewish collectors",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 372,
+        "title": "[Mailänder Modewoche: Tanz auf dem Vulkan](#item-tech-news-372) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000225",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Women in Music History",
+    "event_reason": "Discussion of women's roles challenging Beethoven's legacy",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 373,
+        "title": "[Vor der Wahl in neustadt: „Ich finde den Titel Königin schon schön“](#item-tech-news-373) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000226",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "HR Restitution Case",
+    "event_reason": "Hessischer Rundfunk policy reversal in Frankfurt restitution case",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 374,
+        "title": "[Bakterien im Trinkwasser: In Wiesbaden muss das Wasser abgekocht werden](#item-tech-news-374) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000227",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Student Rebelliousness",
+    "event_reason": "Column questioning if students are no longer rebellious",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 375,
+        "title": "[Rhein-Main-Liveblog: Tausende Menschen zu Demo gegen Sozialabbau erwartet](#item-tech-news-375) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000228",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Brunners Jubel Scandal",
+    "event_reason": "Analysis of a young professional's controversial celebration",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 376,
+        "title": "[Merkel im Theater: So schön, schön war die Zeit](#item-tech-news-376) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000229",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Swiss Vaccine Scandal",
+    "event_reason": "Allegations that Embolo bought a fake vaccine certificate from Hells Angels",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 377,
+        "title": "[Drohnen: Unbemannten Objekten auf der Spur](#item-tech-news-377) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000230",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "FIDE Presidential Election",
+    "event_reason": "Ukrainian influence on the future of chess governance",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 378,
+        "title": "[Fünf am Freitag: Putzt, kocht und heizt](#item-tech-news-378) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000231",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "DOSB Olympic Bid",
+    "event_reason": "German Olympic committee candidates preparing for bid",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 379,
+        "title": "[Soziologie Ethischer Urteile: Die Milde der Begünstigten](#item-tech-news-379) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000232",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Argentina Whale Deaths",
+    "event_reason": "Dozens of whale carcasses washed ashore in Argentina due to bacteria",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 380,
+        "title": "[Satelliten und Weltraummüll: Gefährliches Gedränge im Orbit](#item-tech-news-380) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000233",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Athens Gas Explosion",
+    "event_reason": "Explosion in central Athens leaving six missing after gas leak",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 381,
+        "title": "[Debatte in Berlin: „Vermietern wird schon mit Haftstrafen gedroht“](#item-tech-news-381) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000234",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Overasselt Drug War Murder",
+    "event_reason": "Investigation into the assassination command in Overasselt drug war",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 382,
+        "title": "[Norwegens Inseln: Schönheit in Überdosis](#item-tech-news-382) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000235",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Stuttgart Volksfest",
+    "event_reason": "Coverage of the 179th Stuttgart folk festival",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 383,
+        "title": "[Trockenheit bremst Schiffe: Rhein-Pegel erreicht Rekordtief](#item-tech-news-383) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000236",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Political Suit Colors",
+    "event_reason": "Commentary on political fashion and suit colors in Sicily",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 384,
+        "title": "[Überlebende Flut Nepal: „Ich trage die Schlüssel zu meinem Zuhause noch bei mir“](#item-tech-news-384) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000237",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Milan Fashion Week",
+    "event_reason": "Fashion week coverage described as dancing on the volcano",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 385,
+        "title": "[❗️РФ сохраняет запрет на ввоз армянской рыбной и молочной продукции, так как нет](#item-tech-news-385) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000238",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Neustadt Queen Election",
+    "event_reason": "Local election event for a queen title in Neustadt",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 386,
+        "title": "[❗️После последних атак киевского режима Россия \\\\\\\"как следует подумает\\\\\\\" над своими](#item-tech-news-386) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000239",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Wiesbaden Water Safety",
+    "event_reason": "Bacteria in drinking water requiring boiling in Wiesbaden",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 387,
+        "title": "[В ЕС боятся ослабления поддержки Киева после выборов во Франции и ФРГ, сообщает ](#item-tech-news-387) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000240",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Rhineland Social Cutbacks Demo",
+    "event_reason": "Demonstration against social cutbacks in the Rhine-Main area",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 388,
+        "title": "[Средства ПВО за день сбили 55 украинских БПЛА над регионами РФ и Черным морем, с](#item-tech-news-388) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000241",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Merkel Theater Appearance",
+    "event_reason": "Angela Merkel's attendance at a theater performance",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 389,
+        "title": "[Главные новости к этому часу:](#item-tech-news-389) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000242",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Drone Tracking",
+    "event_reason": "Report on tracking unmanned aerial objects",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 390,
+        "title": "[Трамп во время встречи на ГА ООН призвал Зеленского посетить Москву для перегово](#item-tech-news-390) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000243",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Fünf am Freitag: Putzt, kocht und heizt",
+    "event_reason": "Independent weekly German lifestyle/tech segment",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 391,
+        "title": "[🏅 Российские боксеры выиграли медальный зачет чемпионата Европы.](#item-tech-news-391) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000244",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Soziologie Ethischer Urteile",
+    "event_reason": "Independent sociology essay or column",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 392,
+        "title": "[Брюссель призывает страны ЕС сокращать потребление газа и электроэнергии из-за в](#item-tech-news-392) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000245",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Satelliten und Weltraummüll",
+    "event_reason": "Standalone space debris/satellite report",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 393,
+        "title": "[Иран передал США семидневный план, в случае его выполнения навигация через Ормуз](#item-tech-news-393) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000246",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Debatte in Berlin: Mietern Drohungen",
+    "event_reason": "Berlin-specific housing and landlord debate",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 394,
+        "title": "[🚨 Под Белгородом после удара дрона по автомобилю пострадал житель Курской област](#item-tech-news-394) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000247",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Norwegens Inseln",
+    "event_reason": "Landscape/travel feature on Norwegian islands",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 395,
+        "title": "[Члены экипажа с тяжелыми травмами есть среди пострадавших на судне \\\\\\\"Триумф\\\\\\\", кот](#item-tech-news-395) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000248",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Rhein-Pegel Rekordtief",
+    "event_reason": "Rhine river low water level impacting shipping",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 396,
+        "title": "[Минпросвещения разрешило учителям использовать ИИ для подготовки к урокам и анал](#item-tech-news-396) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000249",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Überlebende Flut Nepal",
+    "event_reason": "Flash flood survivor story in Nepal",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 397,
+        "title": "[The baby repeats everything after his mother.](#item-tech-news-397) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000250",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "РФ запрет на армянскую продукцию",
+    "event_reason": "Russia maintains ban on Armenian food imports",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 398,
+        "title": "[Some of the most surreal whales.](#item-tech-news-398) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000251",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "俄乌冲突近期动态（2026-09-26）",
+    "event_reason": "这些集群描述了同一正在持续发展的单一现实事件——俄乌战争在2026年9月26日的具体进展：俄罗斯警告回应基辅袭击（C11）、欧盟担心支持下降（C12）、俄防部称击落55架无人机（C13）、特朗普呼吁泽连斯基访莫（C15）、别尔哥罗德附近无人机袭击致伤（C19）。它们共同构成了当日俄乌战事的多维度报道。",
+    "source_count": 5,
+    "articles": [
+      {
+        "index": 399,
+        "title": "[Wadi Bani Khalid, an oasis nestled among the rocks in Oman.](#item-tech-news-399) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 400,
+        "title": "[Japanese White-eye bird.](#item-tech-news-400) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 401,
+        "title": "[Recovery in the pool.](#item-tech-news-401) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 403,
+        "title": "[Akyaka, Türkiye, A quiet coastal town on the Aegean Sea.](#item-tech-news-403) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 407,
+        "title": "[04版 - 公布修订后的《中华人民共和国审计法实施条例》](#item-finance-news-3) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000254",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Главные новости к этому часу",
+    "event_reason": "Daily news roundup summary",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 402,
+        "title": "[Mauritius: Exotic That Will Surprise You.](#item-tech-news-402) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000256",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Российские боксеры на ЧЕ",
+    "event_reason": "Russian boxers top medal table at European Championship",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 404,
+        "title": "[🪐 Astronomers Just Watched a Planet Being Built](#item-tech-news-404) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000257",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Брюссель о снижении потребления газа",
+    "event_reason": "Brussels urges EU to cut gas and electricity consumption",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 405,
+        "title": "[04版 - 李强出席第五届全球数字贸易博览会启动仪式并致辞](#item-finance-news-1) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000258",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Иран передал план США по Ормузу",
+    "event_reason": "Iran offers US 7-day plan to restore Hormuz navigation",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 406,
+        "title": "[04版 - 李强会见马来西亚总理安瓦尔](#item-finance-news-2) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000260",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Травмы экипажа судна Триумф",
+    "event_reason": "Severe injuries among crew of vessel Triumph",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 408,
+        "title": "[Healey appoints Labour manifesto writer, adding to election speculation](#item-finance-news-4) ⭐️",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000261",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Минпросвещения разрешило ИИ учителям",
+    "event_reason": "Russian Ministry allows teachers to use AI for lesson prep",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 409,
+        "title": "[No general election before 2029, Andy Burnham says](#item-finance-news-5) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000262",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "The baby repeats everything after his mother",
+    "event_reason": "Lifestyle/social media clip about baby behavior",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 410,
+        "title": "[Lagarde-Nachfolge: Die größte Herausforderung des nächsten EZB-Chefs ist die Staatsverschuldung](#item-finance-news-6) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000263",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Some of the most surreal whales",
+    "event_reason": "Nature/wildlife photo or video feature",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 411,
+        "title": "[Xi Jinping lädt Donald Trump nach China ein](#item-finance-news-7) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000264",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Wadi Bani Khalid, Oman",
+    "event_reason": "Travel feature on an oasis in Oman",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 412,
+        "title": "[Mailand: Flughafen Milano-Malpensa nach Silvio Berlusconi benannt](#item-finance-news-8) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000265",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Japanese White-eye bird",
+    "event_reason": "Nature/birdwatching feature",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 413,
+        "title": "[04版 - 自觉践行全过程人民民主 高质量做好地方人大工作](#item-finance-news-9) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000266",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Recovery in the pool",
+    "event_reason": "Lifestyle/recreation photo or video",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 414,
+        "title": "[04版 - 王沪宁主持召开全国政协主席会议](#item-finance-news-10) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000267",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Mauritius: Exotic That Will Surprise You",
+    "event_reason": "Travel feature on Mauritius",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 415,
+        "title": "[German Politicians Push to Legalize Tobacco-Free Nicotine Pouches](#item-finance-news-11) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000268",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Akyaka, Türkiye",
+    "event_reason": "Travel feature on Aegean coastal town",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 416,
+        "title": "[Supreme court blocks Trump-backed Missouri congressional map from use in midterms](#item-finance-news-12) ⭐️ ?/10",
+        "source": "AP",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000269",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Astronomers Watch Planet Being Built",
+    "event_reason": "Astronomy news about planet formation observation",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 417,
+        "title": "[Vermögensbildung: Richtig vorsorgen](#item-finance-news-13) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000270",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "German Tobacco-Free Nicotine Pouches",
+    "event_reason": "German legislative push to legalize nicotine pouches",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 418,
+        "title": "[Hohe Preise: Es gibt viel bessere Optionen als den Tankrabatt](#item-finance-news-14) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000271",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Supreme Court Blocks Missouri Map",
+    "event_reason": "US Supreme Court blocks Trump-backed congressional map",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 419,
+        "title": "[Evidence about risk should be transparent](#item-ai-creator-1) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000272",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "Vermögensbildung: Richtig vorsorgen",
+    "event_reason": "German personal finance article on wealth building",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 420,
+        "title": "[Rodri believes in Man City&\\\\\\\\#x27;s &\\\\\\\\#x27;innocence&\\\\\\\\#x27;](#item-ai-creator-2) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000274",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "德国油价高企与替代优惠分析",
+    "event_reason": "财经类资讯，讨论德国高油价环境下的替代选择，无其他文章与之关联。",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 421,
+        "title": "[Plan R: AI Safety by ASICs](#item-ai-creator-3) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000275",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "AI安全ASIC芯片计划",
+    "event_reason": "标题提及AI安全由ASIC实现的计划，属于独立的AI政策/技术议题，无正文佐证与其他文章合并。",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 422,
+        "title": "[What did AI researchers think at the end of 2024?](#item-ai-creator-4) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000276",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "2024年末AI研究者观点回顾",
+    "event_reason": "关于2024年底AI研究者观点的汇总，无具体正文，作为独立事件处理。",
+    "source_count": 1,
+    "articles": [
+      {
+        "index": 423,
+        "title": "[O&\\\\\\\\#x27;Neill left &\\\\\\\\#x27;baffled&\\\\\\\\#x27; by refereeing in late NI win in Georgia](#item-ai-creator-5) ⭐️ ?/10",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      }
+    ]
+  },
+  {
+    "event_id": "EVT-20260926-000277",
+    "date": "2026-09-26",
+    "language": "en",
+    "event_title": "各独立事件汇总",
+    "event_reason": "这5个Cluster分别涉及体育争议、娱乐新闻、外交访问、文学副刊等不同主题和领域，彼此之间没有共同的具体现实世界事件关联，因此各自独立成组。",
+    "source_count": 31,
+    "articles": [
+      {
+        "index": 424,
+        "title": "[Proaction boosts sales 60% and saves 75+ hours with Codex](#item-tech-blog-1) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 425,
+        "title": "[Ed Sheeran US Concerts Cancelled](#item-tech-blog-2) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 426,
+        "title": "[Tuchel Criticizes Palmer&\\\\\\\\#x27;s England Selection Choices](#item-tech-blog-3) ⭐️",
+        "source": "Unknown",
+        "source_url": "",
+        "path": ""
+      },
+      {
+        "index": 428,
+        "title": "习近平同美国总统特朗普会谈",
+        "source": "paper.people.com.cn",
+        "source_url": "http://paper.people.com.cn/rmrb/pc/content/202609/25/content_30183033.html",
+        "path": ""
+      },
+      {
+        "index": 429,
+        "title": "习近平出席美国总统特朗普在白宫举行的欢迎仪式",
+        "source": "paper.people.com.cn",
+        "source_url": "http://paper.people.com.cn/rmrb/pc/content/202609/25/content_30183034.html",
+        "path": ""
+      },
+      {
+        "index": 430,
+        "title": "习近平抵达华盛顿对美国进行国事访问",
+        "source": "paper.people.com.cn",
+        "source_url": "http://paper.people.com.cn/rmrb/pc/content/202609/25/content_30183035.html",
+        "path": ""
+      },
+      {
+        "index": 431,
+        "title": "在白宫欢迎仪式上的致辞",
+        "source": "paper.people.com.cn",
+        "source_url": "http://paper.people.com.cn/rmrb/pc/content/202609/25/content_30183036.html",
+        "path": ""
+      },
+      {
+        "index": 432,
+        "title": "彭丽媛同美国总统特朗普夫人梅拉尼娅参观国立亚洲艺术博物馆",
+        "source": "paper.people.com.cn",
+        "source_url": "http://paper.people.com.cn/rmrb/pc/content/202609/25/content_30183037.html",
+        "path": ""
+      },
+      {
+        "index": 433,
+        "title": "这份倡议，关乎中美关系的未来（一见）",
+        "source": "paper.people.com.cn",
+        "source_url": "http://paper.people.com.cn/rmrb/pc/content/202609/25/content_30183038.html",
+        "path": ""
+      },
+      {
+        "index": 434,
+        "title": "全力确保假期平安顺畅出行（权威发布）",
+        "source": "paper.people.com.cn",
+        "source_url": "http://paper.people.com.cn/rmrb/pc/content/202609/25/content_30183040.html",
+        "path": ""
+      },
+      {
+        "index": 435,
+        "title": "前8月全国新设经营主体1550.2万户",
+        "source": "paper.people.com.cn",
+        "source_url": "http://paper.people.com.cn/rmrb/pc/content/202609/25/content_30183042.html",
+        "path": ""
+      },
+      {
+        "index": 436,
+        "title": "中国对外投资存量连续9年保持全球前三",
+        "source": "paper.people.com.cn",
+        "source_url": "http://paper.people.com.cn/rmrb/pc/content/202609/25/content_30183043.html",
+        "path": ""
+      },
+      {
+        "index": 437,
+        "title": "引领中美关系这艘大船行稳致远",
+        "source": "paper.people.com.cn",
+        "source_url": "http://paper.people.com.cn/rmrb/pc/content/202609/25/content_30183049.html",
+        "path": ""
+      },
+      {
+        "index": 438,
+        "title": "统筹推动文化事业、文化产业和旅游业高质量发展（权威发布·开局起步“十五五”）",
+        "source": "paper.people.com.cn",
+        "source_url": "http://paper.people.com.cn/rmrb/pc/content/202609/25/content_30183050.html",
+        "path": ""
+      },
+      {
+        "index": 439,
+        "title": "推动法律全面有效实施 更好发挥法治保障国家粮食安全重要作用",
+        "source": "paper.people.com.cn",
+        "source_url": "http://paper.people.com.cn/rmrb/pc/content/202609/25/content_30183051.html",
+        "path": ""
+      },
+      {
+        "index": 440,
+        "title": "扎进红色山乡 孕育金色希望（赓续长征精神 奋进复兴征程·记者再走长征路）",
+        "source": "paper.people.com.cn",
+        "source_url": "http://paper.people.com.cn/rmrb/pc/content/202609/25/content_30183052.html",
+        "path": ""
+      },
+      {
+        "index": 441,
+        "title": "全国人大常委会无障碍环境建设法执法检查组举行第二次全体会议",
+        "source": "paper.people.com.cn",
+        "source_url": "http://paper.people.com.cn/rmrb/pc/content/202609/25/content_30183053.html",
+        "path": ""
+      },
+      {
+        "index": 442,
+        "title": "在法治轨道上促进旅游业高质量发展行稳致远",
+        "source": "paper.people.com.cn",
+        "source_url": "http://paper.people.com.cn/rmrb/pc/content/202609/25/content_30183054.html",
+        "path": ""
+      },
+      {
+        "index": 443,
+        "title": "一版责编：胡安琪 赵 政 赵川博 二版责编：林 琳 吕 莉 祁嘉润 三版责编：吴 刚 周 輖 谢佳宁 四版责编：白之羽 刘 念 韩春瑶",
+        "source": "paper.people.com.cn",
+        "source_url": "http://paper.people.com.cn/rmrb/pc/content/202609/25/content_30183003.html",
+        "path": ""
+      },
+      {
+        "index": 444,
+        "title": "中国代表团勇夺三十二枚金牌",
+        "source": "paper.people.com.cn",
+        "source_url": "http://paper.people.com.cn/rmrb/pc/content/202609/25/content_30183004.html",
+        "path": ""
+      },
+      {
+        "index": 445,
+        "title": "消费提质 市场焕新",
+        "source": "paper.people.com.cn",
+        "source_url": "http://paper.people.com.cn/rmrb/pc/content/202609/25/content_30183005.html",
+        "path": ""
+      },
+      {
+        "index": 446,
+        "title": "中秋佳节 共赏明月 中国茅台 香飘世界",
+        "source": "paper.people.com.cn",
+        "source_url": "http://paper.people.com.cn/rmrb/pc/content/202609/25/content_30183008.html",
+        "path": ""
+      },
+      {
+        "index": 447,
+        "title": "月耀神州 西凤呈香",
+        "source": "paper.people.com.cn",
+        "source_url": "http://paper.people.com.cn/rmrb/pc/content/202609/25/content_30183009.html",
+        "path": ""
+      },
+      {
+        "index": 448,
+        "title": "大地秋韵·经典里的中秋",
+        "source": "paper.people.com.cn",
+        "source_url": "http://paper.people.com.cn/rmrb/pc/content/202609/25/content_30183010.html",
+        "path": ""
+      },
+      {
+        "index": 449,
+        "title": "熙宁九年的中秋",
+        "source": "paper.people.com.cn",
+        "source_url": "http://paper.people.com.cn/rmrb/pc/content/202609/25/content_30183011.html",
+        "path": ""
+      },
+      {
+        "index": 450,
+        "title": "借相思寄报国",
+        "source": "paper.people.com.cn",
+        "source_url": "http://paper.people.com.cn/rmrb/pc/content/202609/25/content_30183012.html",
+        "path": ""
+      },
+      {
+        "index": 451,
+        "title": "秋日豪情胜春朝",
+        "source": "paper.people.com.cn",
+        "source_url": "http://paper.people.com.cn/rmrb/pc/content/202609/25/content_30183014.html",
+        "path": ""
+      },
+      {
+        "index": 452,
+        "title": "且惜月圆时",
+        "source": "paper.people.com.cn",
+        "source_url": "http://paper.people.com.cn/rmrb/pc/content/202609/25/content_30183015.html",
+        "path": ""
+      },
+      {
+        "index": 453,
+        "title": "滋味里的乡愁",
+        "source": "paper.people.com.cn",
+        "source_url": "http://paper.people.com.cn/rmrb/pc/content/202609/25/content_30183013.html",
+        "path": ""
+      },
+      {
+        "index": 454,
+        "title": "长征路上的中秋",
+        "source": "paper.people.com.cn",
+        "source_url": "http://paper.people.com.cn/rmrb/pc/content/202609/25/content_30183016.html",
+        "path": ""
+      },
+      {
+        "index": 455,
+        "title": "本版责编：任飞帆",
+        "source": "china.cankaoxiaoxi.com",
+        "source_url": "https://china.cankaoxiaoxi.com/#/detailsPage/diyi/b66d91ad41af40e69e2452812515b4b0/1/2026-09-25",
+        "path": ""
+      }
+    ]
+  }
+]
