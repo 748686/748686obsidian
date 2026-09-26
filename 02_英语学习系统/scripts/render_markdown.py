@@ -575,40 +575,26 @@ def _extract_target_words(
 # 英文正文目标词高亮
 # ======================================================================
 
-def _highlight_target_words(
-    article_en,
-    target_words,
-):
+def _highlight_target_words(text: str, target_words: list) -> str:
     """
-    将英文正文中的目标词自动高亮。
+    暂时关闭目标词高亮。
 
-    最终效果：
+    目的：
+    1. 不再插入 <span>
+    2. 不再使用蓝色字体
+    3. 不再使用浅蓝色背景
+    4. 不再加粗
+    5. 完整保留原文章中的空格
+    6. 先保证 article_en 是正常、连续、可用于后续试卷生成的纯文本
 
-        深蓝色
-        加粗
-        浅蓝色背景
-
-    例如：
-
-        I think it is <span ...>important</span> to stay healthy.
-
-    规则：
-
-    1. 只改变目标词本身。
-    2. 前后空格完全保留。
-    3. 原始大小写完全保留。
-    4. sleep 不匹配 sleeping。
-    5. strong 不匹配 stronger。
-    6. 支持多词目标短语。
-    7. 普通正文保持默认颜色。
-    8. 不使用嵌套 <strong>，避免 Obsidian 主题覆盖颜色。
-    9. 使用 !important 强制颜色和背景。
+    注意：
+    此阶段不做任何视觉高亮，只返回原始文本。
     """
 
-    if not article_en:
+    if not text:
         return ""
 
-    text = str(article_en)
+    return text
 
     # ------------------------------------------------------------------
     # 清理并去重目标词
