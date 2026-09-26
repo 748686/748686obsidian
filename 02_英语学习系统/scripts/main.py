@@ -87,7 +87,7 @@ from exam_generate import render as render_exam
 
 from exam_answers import generate as gen_answers
 from exam_answers import render as render_answers
-
+from knowledge_image import generate_image
 
 # ======================================================================
 # 通用工具
@@ -2135,7 +2135,59 @@ def main() -> None:
         [article_path],
         "文章恢复缓存",
     )
+   # --------------------------------------------------------------
+   # 独立图片生成
+   # --------------------------------------------------------------
 
+   if args.image == "yes":
+
+    log("")
+    log("=" * 60)
+    log("IMAGE：文章配图")
+    log("=" * 60)
+
+    log(
+        "→ --image=yes，调用 knowledge_image.py"
+    )
+
+    image_path = generate_image(
+        date=date,
+    )
+
+    if image_path is None:
+
+        raise RuntimeError(
+            f"图片生成失败："
+            f"{date}"
+        )
+
+    image_path = Path(
+        image_path
+    )
+
+    if not image_path.exists() or image_path.stat().st_size == 0:
+
+        raise RuntimeError(
+            f"图片生成后文件不存在或为空："
+            f"{image_path}"
+        )
+
+    log(
+        f"✓ 文章配图已生成："
+        f"{image_path}"
+    )
+
+    git_save(
+        [image_path],
+        "文章配图",
+    )
+
+    else:
+
+    log("")
+    log(
+        "→ --image=no，跳过文章配图"
+    )
     # --------------------------------------------------------------
     # Stage 2
     # --------------------------------------------------------------
