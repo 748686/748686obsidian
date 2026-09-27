@@ -3,13 +3,13 @@
 
 """
 748686 English Learning System
-English Exam Parser V1.0
+English Exam Parser V1.1
 
 职责：
 1. 解析实际试卷 Markdown
 2. 解析答案与解析 Markdown
-3. 建立稳定的 question_id
-4. 保留题目、选项、题型、正确答案、解析
+3. 建立稳定 question_id
+4. 保留题目、选项、题型、正确答案、参考答案、解析
 5. 不修改任何英语学习生成文件
 
 支持：
@@ -21,6 +21,15 @@ English Exam Parser V1.0
 - 汉译英
 - 英译汉
 - 写作
+
+V1.1 重点修复：
+- 支持 **1. / **1. / 1、 等题号格式
+- 听力 A/B/C 独立映射
+- 选择题答案精确映射
+- 翻译参考答案提取
+- 写作参考范文提取
+- question_id 稳定化
+- 答案不再依赖“向后扫描若干行”
 """
 
 from __future__ import annotations
@@ -42,34 +51,51 @@ SECTION_MAP = {
 }
 
 
+ANSWER_SECTION_ALIASES = {
+    "听力": "listening",
+    "单项选择": "single_choice",
+    "多选题": "multiple_choice",
+    "完形填空": "cloze",
+    "阅读理解": "reading",
+    "翻译": "translation",
+    "写作": "writing",
+}
+
+
 def normalize_text(text: str) -> str:
-    text = text.replace("\r\n", "\n").replace("\r", "\n")
-    return text.strip()
+    return (
+        text.replace("\r\n", "\n")
+        .replace("\r", "\n")
+        .strip()
+    )
 
 
-def normalize_answer(value: str) -> str:
+def normalize_answer(value: str | None) -> str:
     """
-    标准化答案。
+    统一选择题答案。
 
     A,C
     A，C
+    A、C
     AC
     C,A
 
-    最终统一为：
-    A,C
+    -> A,C
     """
+
     if value is None:
         return ""
 
     value = value.strip().upper()
+
     value = value.replace("，", ",")
     value = value.replace("、", ",")
     value = value.replace("；", ",")
     value = value.replace(";", ",")
+
     value = re.sub(r"\s+", "", value)
 
-    # 处理类似 AC / CA
+    # AC / CA
     if re.fullmatch(r"[A-Z]+", value):
         letters = sorted(set(value))
         return ",".join(letters)
@@ -82,35 +108,71 @@ def normalize_answer(value: str) -> str:
     return ",".join(sorted(set(letters)))
 
 
-def extract_answer_from_line(line: str) -> str:
+def clean_markdown_number_prefix(line: str) -> str:
     """
-    从答案行提取答案。
+    去除：
+    1.
+    1、
+    1)
+    **1.**
+    ### 1.
+    **第5题**
+    """
 
-    支持：
-    1. A
-    1. B
-    1 B
-    1. A,C
-    1. A、C
-    """
     line = line.strip()
 
-    match = re.match(
-        r"^\s*\d+\s*[.、．)]?\s*([A-Za-z](?:\s*[,，、]\s*[A-Za-z])*)\s*$",
+    line = re.sub(r"^#+\s*", "", line)
+    line = re.sub(r"^\*\*\s*", "", line)
+    line = re.sub(r"\s*\*\*$", "", line)
+
+    line = re.sub(
+        r"^\s*(?:第\s*)?\d+\s*[.、．)]\s*",
+        "",
         line,
     )
 
-    if not match:
-        return ""
+    return line.strip()
 
-    return normalize_answer(match.group(1))
+
+def parse_question_number(line: str) -> int | None:
+    """
+    支持：
+
+    ### 1.
+    ### 1、
+    ### 1)
+    1.
+    **1.**
+    **第5题**
+    """
+
+    cleaned = line.strip()
+
+    cleaned = re.sub(r"^#+\s*", "", cleaned)
+    cleaned = re.sub(r"^\*\*\s*", "", cleaned)
+    cleaned = re.sub(r"\s*\*\*$", "", cleaned)
+
+    match = re.match(
+        r"^\s*(?:第\s*)?(\d+)\s*[.、．)]",
+        cleaned,
+    )
+
+    if match:
+        return int(match.group(1))
+
+    match = re.match(
+        r"^\s*第\s*(\d+)\s*题",
+        cleaned,
+    )
+
+    if match:
+        return int(match.group(1))
+
+    return None
 
 
 def parse_question_header(line: str) -> int | None:
-    match = re.match(r"^\s*###\s*(\d+)[.、．)]", line)
-    if match:
-        return int(match.group(1))
-    return None
+    return parse_question_number(line)
 
 
 def parse_options(lines: list[str]) -> list[dict[str, str]]:
@@ -135,20 +197,24 @@ def parse_options(lines: list[str]) -> list[dict[str, str]]:
 
 def split_sections(markdown: str) -> dict[str, str]:
     """
-    根据一级标题切分试卷。
+    根据试卷一级标题切分。
     """
+
     lines = markdown.splitlines()
 
     sections: dict[str, list[str]] = {}
-    current = None
+    current: str | None = None
 
     for line in lines:
         stripped = line.strip()
 
-        if stripped.startswith("# ") and stripped[2:].strip() in SECTION_MAP:
-            current = SECTION_MAP[stripped[2:].strip()]
-            sections[current] = []
-            continue
+        if stripped.startswith("# "):
+            heading = stripped[2:].strip()
+
+            if heading in SECTION_MAP:
+                current = SECTION_MAP[heading]
+                sections[current] = []
+                continue
 
         if current:
             sections[current].append(line)
@@ -163,6 +229,7 @@ def parse_choice_section(
     text: str,
     section: str,
 ) -> list[dict[str, Any]]:
+
     lines = text.splitlines()
 
     questions: list[dict[str, Any]] = []
@@ -170,6 +237,7 @@ def parse_choice_section(
     i = 0
 
     while i < len(lines):
+
         number = parse_question_header(lines[i])
 
         if number is None:
@@ -182,25 +250,33 @@ def parse_choice_section(
         i += 1
 
         while i < len(lines):
+
             if parse_question_header(lines[i]) is not None:
                 break
 
             line = lines[i]
 
-            if re.match(r"^\s*-\s*[A-Z][.、．)]\s*", line):
+            if re.match(
+                r"^\s*-\s*[A-Z][.、．)]\s*",
+                line,
+            ):
                 option_lines.append(line)
+
             elif line.strip():
                 question_lines.append(line.strip())
 
             i += 1
 
-        question_text = "\n".join(question_lines).strip()
+        question_text = "\n".join(
+            question_lines
+        ).strip()
 
-        # 去掉答题提示
+        # 删除作答提示
         question_text = re.sub(
             r"\*\*作答：.*?\*\*",
             "",
             question_text,
+            flags=re.DOTALL,
         ).strip()
 
         question_text = question_text.replace(
@@ -208,22 +284,27 @@ def parse_choice_section(
             "",
         ).strip()
 
-        options = parse_options(option_lines)
-
         if section == "multiple_choice":
             question_type = "multiple_choice"
+
+        elif section == "cloze":
+            question_type = "cloze"
+
         else:
             question_type = "single_choice"
 
         questions.append(
             {
-                "question_id": f"{section.upper()}_{number}",
+                "question_id": (
+                    f"{section.upper()}_{number:02d}"
+                ),
                 "section": section,
                 "number": number,
                 "type": question_type,
                 "question": question_text,
-                "options": options,
+                "options": parse_options(option_lines),
                 "correct_answer": "",
+                "reference_answer": "",
                 "explanation": "",
             }
         )
@@ -233,16 +314,26 @@ def parse_choice_section(
 
 def parse_listening(text: str) -> list[dict[str, Any]]:
     """
-    听力特殊处理。
+    听力：
 
-    Part A/B/C 都从 1 开始，因此 question_id 必须包含 Part。
+    Part A -> 1~5
+    Part B -> 1~5
+    Part C -> 1~5
+
+    question_id：
+
+    LISTENING_A_01
+    LISTENING_A_02
+    ...
+    LISTENING_C_05
     """
 
     lines = text.splitlines()
 
     questions: list[dict[str, Any]] = []
 
-    current_part = None
+    current_part: str | None = None
+
     i = 0
 
     while i < len(lines):
@@ -254,7 +345,9 @@ def parse_listening(text: str) -> list[dict[str, Any]]:
         )
 
         if part_match:
-            current_part = part_match.group(1).upper()
+            current_part = (
+                part_match.group(1).upper()
+            )
             i += 1
             continue
 
@@ -292,21 +385,33 @@ def parse_listening(text: str) -> list[dict[str, Any]]:
                 line,
             ):
                 option_lines.append(line)
+
             elif line.strip():
-                question_lines.append(line.strip())
+                question_lines.append(
+                    line.strip()
+                )
 
             i += 1
 
         questions.append(
             {
-                "question_id": f"LISTENING_{current_part}_{number}",
+                "question_id": (
+                    f"LISTENING_"
+                    f"{current_part}_"
+                    f"{number:02d}"
+                ),
                 "section": "listening",
                 "part": current_part,
                 "number": number,
                 "type": "single_choice",
-                "question": "\n".join(question_lines).strip(),
-                "options": parse_options(option_lines),
+                "question": "\n".join(
+                    question_lines
+                ).strip(),
+                "options": parse_options(
+                    option_lines
+                ),
                 "correct_answer": "",
+                "reference_answer": "",
                 "explanation": "",
             }
         )
@@ -314,12 +419,16 @@ def parse_listening(text: str) -> list[dict[str, Any]]:
     return questions
 
 
-def parse_translation(text: str) -> list[dict[str, Any]]:
+def parse_translation(
+    text: str,
+) -> list[dict[str, Any]]:
+
     lines = text.splitlines()
 
     questions: list[dict[str, Any]] = []
 
-    current_part = None
+    current_part: str | None = None
+
     i = 0
 
     while i < len(lines):
@@ -331,7 +440,9 @@ def parse_translation(text: str) -> list[dict[str, Any]]:
         )
 
         if part_match:
-            current_part = part_match.group(1).upper()
+            current_part = (
+                part_match.group(1).upper()
+            )
             i += 1
             continue
 
@@ -346,6 +457,7 @@ def parse_translation(text: str) -> list[dict[str, Any]]:
         i += 1
 
         while i < len(lines):
+
             if re.match(
                 r"^\s*##\s*Part\s+[AB]\s+",
                 lines[i],
@@ -358,7 +470,10 @@ def parse_translation(text: str) -> list[dict[str, Any]]:
 
             line = lines[i].strip()
 
-            if line and not line.startswith("翻译："):
+            if (
+                line
+                and not line.startswith("翻译：")
+            ):
                 question_lines.append(line)
 
             i += 1
@@ -371,15 +486,22 @@ def parse_translation(text: str) -> list[dict[str, Any]]:
 
         questions.append(
             {
-                "question_id": f"TRANSLATION_{current_part}_{number}",
+                "question_id": (
+                    f"TRANSLATION_"
+                    f"{current_part}_"
+                    f"{number:02d}"
+                ),
                 "section": "translation",
                 "part": current_part,
                 "number": number,
                 "type": "translation",
                 "direction": direction,
-                "question": "\n".join(question_lines).strip(),
+                "question": "\n".join(
+                    question_lines
+                ).strip(),
                 "options": [],
                 "correct_answer": "",
+                "reference_answer": "",
                 "explanation": "",
             }
         )
@@ -387,7 +509,10 @@ def parse_translation(text: str) -> list[dict[str, Any]]:
     return questions
 
 
-def parse_writing(text: str) -> list[dict[str, Any]]:
+def parse_writing(
+    text: str,
+) -> list[dict[str, Any]]:
+
     lines = text.splitlines()
 
     questions: list[dict[str, Any]] = []
@@ -395,6 +520,7 @@ def parse_writing(text: str) -> list[dict[str, Any]]:
     i = 0
 
     while i < len(lines):
+
         number = parse_question_header(lines[i])
 
         if number is None:
@@ -406,25 +532,34 @@ def parse_writing(text: str) -> list[dict[str, Any]]:
         i += 1
 
         while i < len(lines):
+
             if parse_question_header(lines[i]) is not None:
                 break
 
             line = lines[i].strip()
 
-            if line and not line.startswith("作文："):
+            if (
+                line
+                and not line.startswith("作文：")
+            ):
                 prompt.append(line)
 
             i += 1
 
         questions.append(
             {
-                "question_id": f"WRITING_{number}",
+                "question_id": (
+                    f"WRITING_{number:02d}"
+                ),
                 "section": "writing",
                 "number": number,
                 "type": "writing",
-                "question": "\n".join(prompt).strip(),
+                "question": "\n".join(
+                    prompt
+                ).strip(),
                 "options": [],
                 "correct_answer": "",
+                "reference_answer": "",
                 "explanation": "",
             }
         )
@@ -432,7 +567,10 @@ def parse_writing(text: str) -> list[dict[str, Any]]:
     return questions
 
 
-def parse_exam(markdown: str) -> list[dict[str, Any]]:
+def parse_exam(
+    markdown: str,
+) -> list[dict[str, Any]]:
+
     markdown = normalize_text(markdown)
 
     sections = split_sections(markdown)
@@ -441,7 +579,9 @@ def parse_exam(markdown: str) -> list[dict[str, Any]]:
 
     if "listening" in sections:
         questions.extend(
-            parse_listening(sections["listening"])
+            parse_listening(
+                sections["listening"]
+            )
         )
 
     if "single_choice" in sections:
@@ -478,90 +618,88 @@ def parse_exam(markdown: str) -> list[dict[str, Any]]:
 
     if "translation" in sections:
         questions.extend(
-            parse_translation(sections["translation"])
+            parse_translation(
+                sections["translation"]
+            )
         )
 
     if "writing" in sections:
         questions.extend(
-            parse_writing(sections["writing"])
+            parse_writing(
+                sections["writing"]
+            )
         )
 
     return questions
 
 
-def answer_key_candidates(section: str, number: int, part: str | None):
-    if section == "listening":
-        return [
-            f"{part}_{number}",
-            f"Part {part}_{number}",
-            f"{part}{number}",
-        ]
-
-    if section == "translation":
-        return [
-            f"{part}_{number}",
-            f"Part {part}_{number}",
-        ]
-
-    return [
-        str(number),
-        f"{number}",
-    ]
+# ============================================================
+# 答案文件解析
+# ============================================================
 
 
-def parse_answer_blocks(markdown: str) -> dict[tuple[str, str | None, int], str]:
+def clean_answer_line(line: str) -> str:
     """
-    解析答案解析文件中的：
+    清理答案行：
 
-    Part A:
+    **1. A**
     1. A
-    2. C
-
-    单项选择:
-    1 B
-    ...
-
-    多项选择:
-    1 A,C
-
-    等内容。
+    **1.**
+    **第5题**
     """
 
-    lines = markdown.splitlines()
+    line = line.strip()
 
-    current_section = None
-    current_part = None
+    line = re.sub(
+        r"^\*\*\s*",
+        "",
+        line,
+    )
 
-    result: dict[tuple[str, str | None, int], str] = {}
+    line = re.sub(
+        r"\s*\*\*$",
+        "",
+        line,
+    )
 
-    section_aliases = {
-        "听力": "listening",
-        "单项选择": "single_choice",
-        "多选题": "multiple_choice",
-        "完形填空": "cloze",
-        "阅读理解": "reading",
-        "翻译": "translation",
-        "写作": "writing",
-    }
+    return line.strip()
 
-    i = 0
 
-    while i < len(lines):
-        line = lines[i].strip()
+def extract_choice_answer(
+    line: str,
+) -> str:
 
-        if line.startswith("#"):
-            heading = re.sub(r"^#+\s*", "", line).strip()
+    line = clean_answer_line(line)
 
-            matched = None
+    match = re.match(
+        r"^\s*\d+\s*[.、．)]?\s*"
+        r"([A-Za-z]"
+        r"(?:\s*[,，、;；]\s*[A-Za-z])*"
+        r")\s*$",
+        line,
+    )
 
-            for alias, section in section_aliases.items():
-                if alias in heading:
-                    matched = section
-                    break
+    if not match:
+        return ""
 
-            if matched:
-                current_section = matched
-                current_part = None
+    return normalize_answer(
+        match.group(1)
+    )
+
+
+def is_section_heading(
+    line: str,
+) -> tuple[str | None, str | None]:
+
+    heading = re.sub(
+        r"^#+\s*",
+        "",
+        line.strip(),
+    )
+
+    for alias, section in ANSWER_SECTION_ALIASES.items():
+
+        if heading.startswith(alias):
 
             part_match = re.search(
                 r"Part\s+([ABC])",
@@ -569,141 +707,600 @@ def parse_answer_blocks(markdown: str) -> dict[tuple[str, str | None, int], str]
                 re.IGNORECASE,
             )
 
-            if part_match:
-                current_part = part_match.group(1).upper()
-
-        if current_section and current_part is None:
-            part_match = re.search(
-                r"Part\s+([ABC])",
-                line,
-                re.IGNORECASE,
+            part = (
+                part_match.group(1).upper()
+                if part_match
+                else None
             )
 
-            if part_match:
-                current_part = part_match.group(1).upper()
+            return section, part
 
-        answer = extract_answer_from_line(line)
+    return None, None
 
-        if answer:
+
+def parse_answer_choice_blocks(
+    markdown: str,
+) -> dict[tuple[str, str | None, int], str]:
+    """
+    专门解析标准答案中的选择题。
+
+    不采用旧版“向后扫描”的方法。
+
+    对普通选择题：
+
+    单项选择
+    1. B
+    2. C
+
+    多选题
+    1. A,C
+
+    对听力：
+
+    Part A
+    1. A
+    ...
+    5. B
+
+    Part B
+    ...
+
+    Part C
+    ...
+    """
+
+    lines = markdown.splitlines()
+
+    result: dict[
+        tuple[str, str | None, int],
+        str,
+    ] = {}
+
+    current_section: str | None = None
+    current_part: str | None = None
+
+    in_standard_answer = False
+    listening_part_index = 0
+
+    listening_parts = ["A", "B", "C"]
+
+    i = 0
+
+    while i < len(lines):
+
+        raw = lines[i]
+        line = raw.strip()
+
+        # 标准答案区域
+        if (
+            line.startswith("#")
+            and "标准答案" in line
+        ):
+            in_standard_answer = True
+            i += 1
+            continue
+
+        if not in_standard_answer:
+            i += 1
+            continue
+
+        section, part = is_section_heading(line)
+
+        if section:
+            current_section = section
+
+            if section == "listening":
+                current_part = None
+                listening_part_index = 0
+            else:
+                current_part = part
+
+            i += 1
+            continue
+
+        # 听力可能没有明确 Part 标题，
+        # 但连续出现三个 1~5 答案块。
+        if (
+            current_section == "listening"
+            and current_part is None
+        ):
+            # 尝试从当前连续答案块开始。
+            if (
+                extract_choice_answer(line)
+                and re.match(
+                    r"^\**1[.、．)]?",
+                    line,
+                )
+            ):
+                if (
+                    listening_part_index
+                    < len(listening_parts)
+                ):
+                    current_part = (
+                        listening_parts[
+                            listening_part_index
+                        ]
+                    )
+
+        answer = extract_choice_answer(line)
+
+        if answer and current_section:
+
             number_match = re.match(
-                r"^\s*(\d+)\s*[.、．)]?\s*",
+                r"^\**\s*(\d+)"
+                r"\s*[.、．)]?",
                 line,
             )
 
             if number_match:
-                number = int(number_match.group(1))
+
+                number = int(
+                    number_match.group(1)
+                )
 
                 result[
                     (
-                        current_section or "",
+                        current_section,
                         current_part,
                         number,
                     )
                 ] = answer
+
+                # 听力一个 1~5 块完成后，
+                # 下一次 1 自动进入下一 Part。
+                if (
+                    current_section
+                    == "listening"
+                    and number == 5
+                ):
+                    listening_part_index += 1
+                    current_part = None
 
         i += 1
 
     return result
 
 
-def parse_reference_answers(markdown: str) -> dict[str, dict[str, Any]]:
-    """
-    从答案解析文件中提取：
-    - 正确答案
-    - 参考答案
-    - 解析
+def extract_reference_after_number(
+    lines: list[str],
+    start_index: int,
+) -> str:
 
-    对选择题使用正确答案。
-    对翻译/写作使用参考答案。
+    """
+    从编号后提取参考答案。
+
+    支持：
+
+    **1.** xxx
+
+    1. xxx
+
+    也允许答案跨多行。
+    """
+
+    collected: list[str] = []
+
+    i = start_index + 1
+
+    while i < len(lines):
+
+        line = lines[i].strip()
+
+        if not line:
+            if collected:
+                break
+
+            i += 1
+            continue
+
+        if (
+            line.startswith("#")
+            or parse_question_number(line)
+            is not None
+        ):
+            break
+
+        if line.startswith("解析："):
+            break
+
+        if line.startswith("答案："):
+            value = line.split(
+                "：",
+                1,
+            )[1].strip()
+
+            if value:
+                collected.append(value)
+
+            break
+
+        if line.startswith("参考答案："):
+            value = line.split(
+                "：",
+                1,
+            )[1].strip()
+
+            if value:
+                collected.append(value)
+
+            break
+
+        collected.append(
+            re.sub(
+                r"^\*\*|\*\*$",
+                "",
+                line,
+            ).strip()
+        )
+
+        i += 1
+
+    return "\n".join(
+        x for x in collected if x
+    ).strip()
+
+
+def parse_translation_references(
+    markdown: str,
+) -> dict[str, dict[str, str]]:
+
+    """
+    专门解析翻译参考答案。
+
+    支持：
+
+    ### 翻译 A：中译英
+
+    **1.** It is very important...
+
+    **2.** First, we need...
+
+    ### 翻译 B：英译汉
+
+    **1.** 睡眠有助于...
     """
 
     lines = markdown.splitlines()
 
-    result: dict[str, dict[str, Any]] = {}
+    result: dict[str, dict[str, str]] = {}
 
-    current_section = None
-    current_part = None
-    current_number = None
+    current_part: str | None = None
 
-    section_aliases = {
-        "听力": "listening",
-        "单项选择": "single_choice",
-        "多选题": "multiple_choice",
-        "完形填空": "cloze",
-        "阅读理解": "reading",
-        "翻译": "translation",
-        "写作": "writing",
-    }
+    in_translation = False
 
-    for i, raw_line in enumerate(lines):
-        line = raw_line.strip()
+    for i, raw in enumerate(lines):
 
-        if line.startswith("#"):
-            heading = re.sub(r"^#+\s*", "", line).strip()
+        line = raw.strip()
 
-            for alias, section in section_aliases.items():
-                if alias in heading:
-                    current_section = section
-                    current_number = None
-
-            part_match = re.search(
-                r"Part\s+([ABC])",
-                heading,
-                re.IGNORECASE,
-            )
-
-            if part_match:
-                current_part = part_match.group(1).upper()
-
-        number_match = re.match(
-            r"^\s*(?:###\s*)?(\d+)[.、．)]\s*(.*)$",
+        heading = re.sub(
+            r"^#+\s*",
+            "",
             line,
         )
 
-        if number_match and current_section:
-            current_number = int(number_match.group(1))
+        translation_match = re.match(
+            r"翻译\s*([AB])",
+            heading,
+            re.IGNORECASE,
+        )
 
-            question_text = number_match.group(2).strip()
+        if translation_match:
+            in_translation = True
+            current_part = (
+                translation_match.group(1)
+                .upper()
+            )
+            continue
 
+        if not in_translation:
+            continue
+
+        # 进入其他大章节后停止
+        if (
+            line.startswith("#")
+            and "翻译" not in heading
+            and "标准答案" not in heading
+        ):
+            current_part = None
+            in_translation = False
+            continue
+
+        if current_part is None:
+            continue
+
+        number = parse_question_number(line)
+
+        if number is None:
+            continue
+
+        answer = extract_reference_after_number(
+            lines,
+            i,
+        )
+
+        if not answer:
+            continue
+
+        key = (
+            f"TRANSLATION_"
+            f"{current_part}_"
+            f"{number:02d}"
+        )
+
+        result[key] = {
+            "reference_answer": answer,
+        }
+
+    return result
+
+
+def parse_writing_reference(
+    markdown: str,
+) -> dict[str, dict[str, str]]:
+
+    """
+    专门提取写作参考范文。
+
+    真实答案文件存在：
+
+    ### 写作参考范文
+
+    **5.**
+
+    Dear friend, ...
+
+    因此不依赖试卷题号必须为 5。
+    """
+
+    lines = markdown.splitlines()
+
+    result: dict[str, dict[str, str]] = {}
+
+    in_reference = False
+
+    collected: list[str] = []
+
+    for raw in lines:
+
+        line = raw.strip()
+
+        heading = re.sub(
+            r"^#+\s*",
+            "",
+            line,
+        )
+
+        if "写作参考范文" in heading:
+            in_reference = True
+            collected = []
+            continue
+
+        if not in_reference:
+            continue
+
+        if (
+            line.startswith("#")
+            and "写作参考范文" not in heading
+        ):
+            break
+
+        # 跳过参考范文的题号
+        if re.match(
+            r"^\*\*\s*\d+\s*[.、．)]\s*\*\*$",
+            line,
+        ):
+            continue
+
+        if not line:
+            if collected:
+                collected.append("")
+            continue
+
+        cleaned = re.sub(
+            r"^\*\*|\*\*$",
+            "",
+            line,
+        ).strip()
+
+        collected.append(cleaned)
+
+    reference = "\n".join(
+        collected
+    ).strip()
+
+    reference = re.sub(
+        r"\n{3,}",
+        "\n\n",
+        reference,
+    )
+
+    if reference:
+        result["WRITING_01"] = {
+            "reference_answer": reference,
+        }
+
+    return result
+
+
+def parse_explanations(
+    markdown: str,
+) -> dict[str, str]:
+
+    """
+    尝试提取：
+
+    解析：xxx
+
+    绑定到当前题目。
+    """
+
+    lines = markdown.splitlines()
+
+    result: dict[str, str] = {}
+
+    current_section: str | None = None
+    current_part: str | None = None
+    current_number: int | None = None
+
+    for raw in lines:
+
+        line = raw.strip()
+
+        section, part = is_section_heading(line)
+
+        if section:
+            current_section = section
+            current_part = part
+            current_number = None
+            continue
+
+        number = parse_question_number(line)
+
+        if (
+            number is not None
+            and current_section
+        ):
+            current_number = number
+            continue
+
+        if (
+            line.startswith("解析：")
+            and current_section
+            and current_number is not None
+        ):
+
+            explanation = line.split(
+                "：",
+                1,
+            )[1].strip()
+
+            if current_section == "listening":
+                key = (
+                    f"LISTENING_"
+                    f"{current_part}_"
+                    f"{current_number:02d}"
+                )
+
+            elif current_section == "translation":
+                key = (
+                    f"TRANSLATION_"
+                    f"{current_part}_"
+                    f"{current_number:02d}"
+                )
+
+            elif current_section == "writing":
+                key = (
+                    f"WRITING_"
+                    f"{current_number:02d}"
+                )
+
+            else:
+                key = (
+                    f"{current_section.upper()}_"
+                    f"{current_number:02d}"
+                )
+
+            result[key] = explanation
+
+    return result
+
+
+def parse_reference_answers(
+    markdown: str,
+) -> dict[str, dict[str, Any]]:
+
+    result: dict[str, dict[str, Any]] = {}
+
+    choice_answers = parse_answer_choice_blocks(
+        markdown
+    )
+
+    translation_answers = (
+        parse_translation_references(
+            markdown
+        )
+    )
+
+    writing_answers = (
+        parse_writing_reference(
+            markdown
+        )
+    )
+
+    explanations = parse_explanations(
+        markdown
+    )
+
+    # 选择题
+    for (
+        section,
+        part,
+        number,
+    ), answer in choice_answers.items():
+
+        if section == "listening":
             key = (
-                f"{current_section.upper()}_"
-                f"{current_part + '_' if current_part else ''}"
-                f"{current_number}"
+                f"LISTENING_"
+                f"{part}_"
+                f"{number:02d}"
+            )
+        else:
+            key = (
+                f"{section.upper()}_"
+                f"{number:02d}"
             )
 
-            result[key] = {
+        result[key] = {
+            "correct_answer": answer,
+            "reference_answer": "",
+            "explanation": "",
+        }
+
+    # 翻译
+    for key, info in translation_answers.items():
+
+        result.setdefault(
+            key,
+            {
                 "correct_answer": "",
                 "reference_answer": "",
                 "explanation": "",
-                "question_text": question_text,
-            }
+            },
+        )
 
-            # 查找紧随其后的内容
-            for future in lines[i + 1:i + 8]:
-                future = future.strip()
+        result[key][
+            "reference_answer"
+        ] = info["reference_answer"]
 
-                if not future:
-                    continue
+    # 写作
+    for key, info in writing_answers.items():
 
-                answer = extract_answer_from_line(future)
+        result.setdefault(
+            key,
+            {
+                "correct_answer": "",
+                "reference_answer": "",
+                "explanation": "",
+            },
+        )
 
-                if answer and not result[key]["correct_answer"]:
-                    result[key]["correct_answer"] = answer
-                    continue
+        result[key][
+            "reference_answer"
+        ] = info["reference_answer"]
 
-                if future.startswith("答案："):
-                    value = future.split("：", 1)[1].strip()
-                    result[key]["correct_answer"] = normalize_answer(value)
+    # 解析
+    for key, explanation in explanations.items():
 
-                if future.startswith("参考答案："):
-                    result[key]["reference_answer"] = (
-                        future.split("：", 1)[1].strip()
-                    )
+        result.setdefault(
+            key,
+            {
+                "correct_answer": "",
+                "reference_answer": "",
+                "explanation": "",
+            },
+        )
 
-                if future.startswith("解析："):
-                    result[key]["explanation"] = (
-                        future.split("：", 1)[1].strip()
-                    )
+        result[key]["explanation"] = explanation
 
     return result
 
@@ -713,37 +1310,38 @@ def attach_answers(
     answer_markdown: str,
 ) -> list[dict[str, Any]]:
 
-    answer_data = parse_reference_answers(answer_markdown)
+    answer_data = parse_reference_answers(
+        answer_markdown
+    )
 
     for question in questions:
-        section = question["section"]
-        number = question["number"]
-        part = question.get("part")
 
-        key = (
-            f"{section.upper()}_"
-            f"{part + '_' if part else ''}"
-            f"{number}"
-        )
+        qid = question["question_id"]
 
-        info = answer_data.get(key)
+        info = answer_data.get(qid)
 
         if not info:
             continue
 
-        question["correct_answer"] = info.get(
-            "correct_answer",
-            "",
+        question["correct_answer"] = (
+            info.get(
+                "correct_answer",
+                "",
+            )
         )
 
-        question["reference_answer"] = info.get(
-            "reference_answer",
-            "",
+        question["reference_answer"] = (
+            info.get(
+                "reference_answer",
+                "",
+            )
         )
 
-        question["explanation"] = info.get(
-            "explanation",
-            "",
+        question["explanation"] = (
+            info.get(
+                "explanation",
+                "",
+            )
         )
 
     return questions
@@ -765,9 +1363,12 @@ def build_exam(
         encoding="utf-8"
     )
 
-    questions = parse_exam(exam_text)
+    questions = parse_exam(
+        exam_text
+    )
 
     if answer_file:
+
         answer_path = Path(answer_file)
 
         if not answer_path.exists():
@@ -785,34 +1386,47 @@ def build_exam(
         )
 
     return {
-        "version": "1.0",
+        "version": "1.1",
         "exam_file": str(exam_path),
         "answer_file": (
             str(answer_file)
             if answer_file
             else None
         ),
-        "question_count": len(questions),
+        "question_count": len(
+            questions
+        ),
         "questions": questions,
     }
 
 
-def validate_exam(exam: dict[str, Any]) -> list[str]:
+def validate_exam(
+    exam: dict[str, Any],
+) -> list[str]:
+
     errors: list[str] = []
 
-    questions = exam.get("questions", [])
+    questions = exam.get(
+        "questions",
+        [],
+    )
 
     if not questions:
-        errors.append("没有解析到任何题目")
+        errors.append(
+            "没有解析到任何题目"
+        )
         return errors
 
-    ids = set()
+    ids: set[str] = set()
 
     for q in questions:
+
         qid = q.get("question_id")
 
         if not qid:
-            errors.append("存在题目缺少 question_id")
+            errors.append(
+                "存在题目缺少 question_id"
+            )
             continue
 
         if qid in ids:
@@ -831,12 +1445,15 @@ def validate_exam(exam: dict[str, Any]) -> list[str]:
             "single_choice",
             "multiple_choice",
         }:
+
             if not q.get("options"):
                 errors.append(
                     f"{qid} 没有选项"
                 )
 
-            if not q.get("correct_answer"):
+            if not q.get(
+                "correct_answer"
+            ):
                 errors.append(
                     f"{qid} 缺少正确答案"
                 )
@@ -845,6 +1462,7 @@ def validate_exam(exam: dict[str, Any]) -> list[str]:
 
 
 def main():
+
     import argparse
 
     parser = argparse.ArgumentParser()
@@ -871,39 +1489,61 @@ def main():
         args.answers,
     )
 
-    errors = validate_exam(exam)
+    errors = validate_exam(
+        exam
+    )
 
     print("=" * 70)
-    print("748686 ENGLISH EXAM PARSER V1.0")
+    print(
+        "748686 ENGLISH EXAM PARSER V1.1"
+    )
     print("=" * 70)
 
     print(
-        f"题目总数: {exam['question_count']}"
+        f"题目总数: "
+        f"{exam['question_count']}"
     )
 
     if errors:
+
         print()
-        print("❌ VALIDATION FAILED")
+        print(
+            "❌ VALIDATION FAILED"
+        )
 
         for error in errors:
-            print(f"   - {error}")
+            print(
+                f"   - {error}"
+            )
 
         raise SystemExit(1)
 
-    print("✅ VALIDATION PASSED")
+    print(
+        "✅ VALIDATION PASSED"
+    )
 
     counts: dict[str, int] = {}
 
     for q in exam["questions"]:
+
         key = q["type"]
-        counts[key] = counts.get(key, 0) + 1
+
+        counts[key] = (
+            counts.get(key, 0) + 1
+        )
 
     print()
+
     for key, value in counts.items():
-        print(f"   {key}: {value}")
+        print(
+            f"   {key}: {value}"
+        )
 
     if args.output:
-        output_path = Path(args.output)
+
+        output_path = Path(
+            args.output
+        )
 
         output_path.parent.mkdir(
             parents=True,
@@ -921,7 +1561,8 @@ def main():
 
         print()
         print(
-            f"✅ 已写入: {output_path}"
+            f"✅ 已写入: "
+            f"{output_path}"
         )
 
 
