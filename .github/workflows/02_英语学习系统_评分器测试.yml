@@ -1,0 +1,244 @@
+name: 02_英语学习系统 - Grader V1.0 测试
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  grader-test:
+    name: English Exam Grader V1.0 FULL TEST
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # =========================================================
+      # 1. Checkout
+      # =========================================================
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # =========================================================
+      # 2. Python
+      # =========================================================
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # =========================================================
+      # 3. 显示测试目录
+      # =========================================================
+
+      - name: Inspect English Learning System
+        shell: bash
+        run: |
+          set -e
+
+          echo "============================================================"
+          echo "748686 ENGLISH LEARNING SYSTEM"
+          echo "GRADER V1.0 TEST"
+          echo "============================================================"
+
+          echo
+          echo "项目目录："
+          find "02_英语学习系统" \
+            -maxdepth 3 \
+            -type f \
+            | sort \
+            | head -300
+
+      # =========================================================
+      # 4. 查找 Parser V1.3 JSON
+      # =========================================================
+
+      - name: Locate Parser V1.3 JSON
+        id: locate_json
+        shell: bash
+        run: |
+          set -e
+
+          echo
+          echo "============================================================"
+          echo "SEARCH PARSER V1.3 JSON"
+          echo "============================================================"
+
+          mapfile -t JSON_FILES < <(
+            find "02_英语学习系统" \
+              -type f \
+              -name "*.json" \
+              ! -path "*/.git/*" \
+              | sort
+          )
+
+          if [ "${#JSON_FILES[@]}" -eq 0 ]; then
+            echo
+            echo "❌ 未找到任何 JSON 文件"
+            exit 1
+          fi
+
+          echo
+          echo "找到以下 JSON："
+
+          for file in "${JSON_FILES[@]}"; do
+            echo "  - $file"
+          done
+
+          echo
+          echo "尝试识别 Parser V1.3 JSON..."
+
+          FOUND=""
+
+          for file in "${JSON_FILES[@]}"; do
+
+            VERSION="$(
+              python - "$file" <<'PY'
+          import json
+          import sys
+
+          path = sys.argv[1]
+
+          try:
+              with open(path, "r", encoding="utf-8") as f:
+                  data = json.load(f)
+
+              print(data.get("version", ""))
+          except Exception:
+              print("")
+          PY
+            )"
+
+            if [ "$VERSION" = "1.3" ]; then
+              FOUND="$file"
+              break
+            fi
+
+          done
+
+          if [ -z "$FOUND" ]; then
+            echo
+            echo "❌ 未找到 version = 1.3 的 Parser JSON"
+            echo
+            echo "现有 JSON 文件内容版本检查："
+
+            for file in "${JSON_FILES[@]}"; do
+              VERSION="$(
+                python - "$file" <<'PY'
+          import json
+          import sys
+
+          path = sys.argv[1]
+
+          try:
+              with open(path, "r", encoding="utf-8") as f:
+                  data = json.load(f)
+
+              print(data.get("version", "<无 version>"))
+          except Exception as exc:
+              print(f"<读取失败: {exc}>")
+          PY
+              )"
+
+              echo "  $file -> $VERSION"
+            done
+
+            exit 1
+          fi
+
+          echo
+          echo "✅ 找到 Parser V1.3 JSON："
+          echo "   $FOUND"
+
+          echo "exam_json=$FOUND" >> "$GITHUB_OUTPUT"
+
+      # =========================================================
+      # 5. 验证 JSON 基础结构
+      # =========================================================
+
+      - name: Validate Parser JSON
+        env:
+          EXAM_JSON: ${{ steps.locate_json.outputs.exam_json }}
+        shell: bash
+        run: |
+          set -e
+
+          echo
+          echo "============================================================"
+          echo "VALIDATE PARSER JSON"
+          echo "============================================================"
+
+          python - "$EXAM_JSON" <<'PY'
+          import json
+          import sys
+
+          path = sys.argv[1]
+
+          with open(path, "r", encoding="utf-8") as f:
+              exam = json.load(f)
+
+          print(f"JSON: {path}")
+          print(f"version: {exam.get('version')}")
+          print(f"questions: {len(exam.get('questions', []))}")
+
+          if exam.get("version") != "1.3":
+              raise SystemExit(
+                  "❌ Parser JSON version 不是 1.3"
+              )
+
+          if len(exam.get("questions", [])) != 61:
+              raise SystemExit(
+                  "❌ Parser JSON 不是 61 道题"
+              )
+
+          print("✅ Parser V1.3 JSON 基础结构正常")
+          PY
+
+      # =========================================================
+      # 6. 运行 Grader V1.0 FULL AUTOMATIC TEST
+      # =========================================================
+
+      - name: Run English Exam Grader V1.0 FULL TEST
+        env:
+          EXAM_JSON: ${{ steps.locate_json.outputs.exam_json }}
+        shell: bash
+        run: |
+          set -e
+
+          echo
+          echo "============================================================"
+          echo "RUN ENGLISH EXAM GRADER V1.0"
+          echo "============================================================"
+
+          python \
+            "02_英语学习系统/scripts/english_exam_grader_test.py" \
+            --exam-json "$EXAM_JSON"
+
+      # =========================================================
+      # 7. 最终确认
+      # =========================================================
+
+      - name: Grader Test Summary
+        run: |
+          echo
+          echo "============================================================"
+          echo "🎉 GRADER V1.0 TEST WORKFLOW PASSED"
+          echo "============================================================"
+          echo
+          echo "确认项目："
+          echo "  Parser V1.3 JSON"
+          echo "  61 道题"
+          echo "  50 道自动评分"
+          echo "  11 道人工/语义处理"
+          echo "  全部正确 50/50"
+          echo "  故意错误识别"
+          echo "  多选集合匹配"
+          echo "  完形评分"
+          echo "  听力评分"
+          echo "  阅读评分"
+          echo "  错题回顾"
+          echo "  提交结果卡"
+          echo
+          echo "============================================================"
