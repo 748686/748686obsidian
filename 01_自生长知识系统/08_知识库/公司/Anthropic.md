@@ -5,7 +5,7 @@ status: active
 importance: 4
 confidence: 0.8
 created_at: 2026-09-14
-last_updated: 2026-09-19
+last_updated: 2026-09-26
 ---
 
 # Anthropic
@@ -654,3 +654,17 @@ Anthropic CEO Dario Amodei呼吁采取‘狭窄’安全协议，与OpenAI共同
 - [[Dario Amodei]]
 - [[Sam Altman]]
 - [[联合国安理会]]
+
+## 知识更新｜2026-09-26
+
+美国国防部基于法律确认将AI公司Anthropic排除在特定合同之外。该信息来源于单一未解决摘要源，具体排除的法律依据和原因尚不明确。
+
+### 新增事实
+
+- 美国国防部正式将Anthropic排除在特定合同之外
+- 该排除行动具有法律基础
+
+### 来源 EventUnit
+
+- `EVT-20260926-000160`
+
