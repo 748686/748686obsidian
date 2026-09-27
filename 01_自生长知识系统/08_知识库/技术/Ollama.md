@@ -38,3 +38,30 @@ last_updated: 2026-09-06
 
 - 来源事件：EVT-20260906-000268
 - 本次动作：CREATE
+
+
+---
+
+## 知识更新 · 2026-09-26
+
+- 来源事件：EVT-20260926-000273
+- 置信度：0.9
+- 重要性：3
+
+### 本次变化
+
+Ollama发布v0.40.0-rc0候选版本，针对Apple Silicon设备引入MLX运行时支持，替换了默认的Metal后端。
+
+### 新增事实
+
+- Ollama v0.40.0-rc0为Release Candidate版本，最终状态尚不确定
+- Ollama v0.40.0-rc0引入自动MLX运行时支持以优化Apple Silicon性能
+
+### 变化
+
+- Ollama在Apple Silicon上的默认后端由Metal替换为MLX
+
+### 相关知识
+
+- [[Apple Silicon]]
+- [[MLX]]
