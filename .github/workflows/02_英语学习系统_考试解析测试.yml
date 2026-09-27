@@ -1,4 +1,4 @@
-name: 02_英语学习系统 - 考试解析 V1.1 测试
+name: 02_英语学习系统 - 考试解析 V1.2 测试
 
 on:
   workflow_dispatch:
@@ -15,7 +15,7 @@ permissions:
 jobs:
   parser-test:
 
-    name: English Exam Parser V1.1 Full Test
+    name: English Exam Parser V1.2 Full Test
 
     runs-on: ubuntu-latest
 
@@ -38,7 +38,7 @@ jobs:
           python-version: "3.12"
 
       # ============================================================
-      # 3. 检查测试文件
+      # 3. 检查 Parser 和测试脚本
       # ============================================================
 
       - name: 🔍 检查 Parser 和测试脚本
@@ -47,7 +47,7 @@ jobs:
           set -e
 
           echo "=========================================="
-          echo "检查 English Exam Parser V1.1"
+          echo "检查 English Exam Parser V1.2"
           echo "=========================================="
 
           PARSER="02_英语学习系统/scripts/english_exam_parser.py"
@@ -71,19 +71,42 @@ jobs:
           echo "✅ Test:"
           echo "   $TEST"
 
+          echo
+          echo "检查 Parser 版本:"
+
+          if grep -q 'English Exam Parser V1.2' "$PARSER"; then
+            echo "✅ 已检测到 Parser V1.2"
+          else
+            echo "❌ 当前 Parser 不是 V1.2"
+            echo
+            echo "Parser 文件开头:"
+            head -n 25 "$PARSER"
+            exit 1
+          fi
+
+          echo
+          echo "检查 build_exam() 版本:"
+
+          if grep -q '"version": "1.2"' "$PARSER"; then
+            echo "✅ build_exam() version = 1.2"
+          else
+            echo "❌ build_exam() version 不是 1.2"
+            exit 1
+          fi
+
       # ============================================================
-      # 4. 检查 output
+      # 4. 检查 output 并确定测试文件
       # ============================================================
 
       - name: 📂 检查英语学习系统输出
         shell: bash
         env:
-          TEST_DATE: ${{ inputs.test_date }}
+          INPUT_TEST_DATE: ${{ inputs.test_date }}
         run: |
           set -e
 
           echo "=========================================="
-          echo "检查测试日期"
+          echo "检查测试日期与考试文件"
           echo "=========================================="
 
           OUTPUT_ROOT="02_英语学习系统/output"
@@ -94,11 +117,18 @@ jobs:
             exit 1
           fi
 
-          if [ -n "$TEST_DATE" ]; then
-            OUTPUT_DIR="$OUTPUT_ROOT/$TEST_DATE"
+          # ----------------------------------------------------------
+          # 确定测试日期
+          # ----------------------------------------------------------
+
+          if [ -n "$INPUT_TEST_DATE" ]; then
+
+            TEST_DATE="$INPUT_TEST_DATE"
 
             echo "指定测试日期:"
             echo "   $TEST_DATE"
+
+            OUTPUT_DIR="$OUTPUT_ROOT/$TEST_DATE"
 
             if [ ! -d "$OUTPUT_DIR" ]; then
               echo "❌ 测试日期目录不存在:"
@@ -107,6 +137,7 @@ jobs:
             fi
 
           else
+
             OUTPUT_DIR="$(
               find "$OUTPUT_ROOT" \
                 -mindepth 1 \
@@ -125,11 +156,28 @@ jobs:
 
             echo "自动选择最新日期:"
             echo "   $TEST_DATE"
+
+          fi
+
+          # ----------------------------------------------------------
+          # 检查配套试卷目录
+          # ----------------------------------------------------------
+
+          EXAM_DIR="$OUTPUT_DIR/配套试卷"
+
+          if [ ! -d "$EXAM_DIR" ]; then
+            echo "❌ 配套试卷目录不存在:"
+            echo "   $EXAM_DIR"
+            exit 1
           fi
 
           echo
           echo "测试目录:"
           echo "   $OUTPUT_DIR"
+
+          echo
+          echo "配套试卷目录:"
+          echo "   $EXAM_DIR"
 
           echo
           echo "目录内容:"
@@ -138,34 +186,110 @@ jobs:
             -type f \
             | sort
 
+          # ----------------------------------------------------------
+          # 找试卷
+          # ----------------------------------------------------------
+
+          EXAM_FILE="$(
+            find "$EXAM_DIR" \
+              -maxdepth 1 \
+              -type f \
+              -name '*试卷.md' \
+              | sort \
+              | head -n 1
+          )"
+
+          if [ -z "$EXAM_FILE" ]; then
+            echo
+            echo "❌ 未找到试卷文件"
+            echo "   搜索目录: $EXAM_DIR"
+            exit 1
+          fi
+
+          # ----------------------------------------------------------
+          # 找答案与解析
+          # ----------------------------------------------------------
+
+          ANSWER_FILE="$(
+            find "$EXAM_DIR" \
+              -maxdepth 1 \
+              -type f \
+              -name '*答案与解析.md' \
+              | sort \
+              | head -n 1
+          )"
+
+          if [ -z "$ANSWER_FILE" ]; then
+            echo
+            echo "❌ 未找到答案与解析文件"
+            echo "   搜索目录: $EXAM_DIR"
+            exit 1
+          fi
+
+          # ----------------------------------------------------------
+          # 写入 GITHUB_ENV
+          # ----------------------------------------------------------
+
+          {
+            echo "ENGLISH_TEST_DATE=$TEST_DATE"
+            echo "ENGLISH_EXAM_FILE=$EXAM_FILE"
+            echo "ENGLISH_ANSWER_FILE=$ANSWER_FILE"
+          } >> "$GITHUB_ENV"
+
+          echo
+          echo "=========================================="
+          echo "✅ 测试文件确定"
+          echo "=========================================="
+
+          echo
+          echo "测试日期:"
+          echo "   $TEST_DATE"
+
+          echo
+          echo "试卷:"
+          echo "   $EXAM_FILE"
+
+          echo
+          echo "答案与解析:"
+          echo "   $ANSWER_FILE"
+
       # ============================================================
-      # 5. 执行 Parser V1.1 全量测试
+      # 5. 执行 Parser V1.2 全量测试
       # ============================================================
 
-      - name: 🧪 Parser V1.1 - 61题全量测试
+      - name: 🧪 Parser V1.2 - 61题全量测试
         shell: bash
-        env:
-          ENGLISH_TEST_DATE: ${{ inputs.test_date }}
         run: |
           set -e
 
           echo
           echo "======================================================================"
-          echo "748686 ENGLISH EXAM PARSER V1.1"
+          echo "748686 ENGLISH EXAM PARSER V1.2"
           echo "FULL AUTOMATIC TEST"
           echo "======================================================================"
           echo
 
-          if [ -n "$ENGLISH_TEST_DATE" ]; then
-            echo "测试日期: $ENGLISH_TEST_DATE"
-          else
-            echo "测试日期: 自动选择 output 最新日期"
-          fi
+          echo "测试日期:"
+          echo "  $ENGLISH_TEST_DATE"
 
+          echo
+          echo "试卷:"
+          echo "  $ENGLISH_EXAM_FILE"
+
+          echo
+          echo "答案与解析:"
+          echo "  $ENGLISH_ANSWER_FILE"
+
+          echo
+          echo "======================================================================"
+          echo "开始执行测试"
+          echo "======================================================================"
           echo
 
           python \
-            "02_英语学习系统/scripts/test_english_exam_parser_v1_1.py"
+            "02_英语学习系统/scripts/test_english_exam_parser_v1_1.py" \
+            --exam "$ENGLISH_EXAM_FILE" \
+            --answers "$ENGLISH_ANSWER_FILE"
 
       # ============================================================
       # 6. 最终结果
@@ -176,7 +300,7 @@ jobs:
         run: |
           echo
           echo "======================================================================"
-          echo "✅ ENGLISH EXAM PARSER V1.1 TEST PASSED"
+          echo "✅ ENGLISH EXAM PARSER V1.2 TEST PASSED"
           echo "======================================================================"
           echo
           echo "61 / 61 questions"
@@ -184,17 +308,22 @@ jobs:
           echo "10 / 10 translation references"
           echo "1 / 1 writing reference"
           echo
-          echo "Parser V1.1 可以进入 Grader 测试阶段。"
+          echo "Parser V1.2 可以进入 Grader 测试阶段。"
           echo "======================================================================"
+
+      # ============================================================
+      # 7. 失败结果
+      # ============================================================
 
       - name: ❌ 输出失败结果
         if: failure()
         run: |
           echo
           echo "======================================================================"
-          echo "❌ ENGLISH EXAM PARSER V1.1 TEST FAILED"
+          echo "❌ ENGLISH EXAM PARSER V1.2 TEST FAILED"
           echo "======================================================================"
           echo
           echo "请查看上方具体 FAIL 项目。"
-          echo "不要进入 Feishu 交互测试。"
+          echo
+          echo "当前阶段不要进入 Feishu 交互测试。"
           echo "======================================================================"
