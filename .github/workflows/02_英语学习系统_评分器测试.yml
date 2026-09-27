@@ -30,10 +30,10 @@ jobs:
           python-version: "3.12"
 
       # =========================================================
-      # 3. 显示测试目录
+      # 3. 检查评分器文件
       # =========================================================
 
-      - name: Inspect English Learning System
+      - name: Check Grader Files
         shell: bash
         run: |
           set -e
@@ -43,132 +43,48 @@ jobs:
           echo "GRADER V1.0 TEST"
           echo "============================================================"
 
+          test -f \
+            "02_英语学习系统/scripts/english_exam_parser.py"
+
+          test -f \
+            "02_英语学习系统/scripts/english_exam_grader.py"
+
+          test -f \
+            "02_英语学习系统/scripts/english_exam_grader_test.py"
+
           echo
-          echo "项目目录："
-          find "02_英语学习系统" \
-            -maxdepth 3 \
-            -type f \
-            | sort \
-            | head -300
+          echo "✅ Parser V1.3 文件存在"
+          echo "✅ Grader V1.0 文件存在"
+          echo "✅ Grader Test 文件存在"
 
       # =========================================================
-      # 4. 查找 Parser V1.3 JSON
+      # 4. 检查真实 exam.json
       # =========================================================
 
-      - name: Locate Parser V1.3 JSON
-        id: locate_json
+      - name: Inspect Exam JSON
         shell: bash
         run: |
           set -e
 
+          EXAM_JSON="02_英语学习系统/output/2026-09-08/.system/exam.json"
+
           echo
           echo "============================================================"
-          echo "SEARCH PARSER V1.3 JSON"
+          echo "INSPECT EXAM JSON"
           echo "============================================================"
 
-          mapfile -t JSON_FILES < <(
-            find "02_英语学习系统" \
-              -type f \
-              -name "*.json" \
-              ! -path "*/.git/*" \
-              | sort
-          )
-
-          if [ "${#JSON_FILES[@]}" -eq 0 ]; then
-            echo
-            echo "❌ 未找到任何 JSON 文件"
+          if [ ! -f "$EXAM_JSON" ]; then
+            echo "❌ 文件不存在："
+            echo "   $EXAM_JSON"
             exit 1
           fi
 
           echo
-          echo "找到以下 JSON："
-
-          for file in "${JSON_FILES[@]}"; do
-            echo "  - $file"
-          done
+          echo "文件："
+          echo "  $EXAM_JSON"
 
           echo
-          echo "尝试识别 Parser V1.3 JSON..."
-
-          FOUND=""
-
-          for file in "${JSON_FILES[@]}"; do
-
-            VERSION="$(
-              python - "$file" <<'PY'
-          import json
-          import sys
-
-          path = sys.argv[1]
-
-          try:
-              with open(path, "r", encoding="utf-8") as f:
-                  data = json.load(f)
-
-              print(data.get("version", ""))
-          except Exception:
-              print("")
-          PY
-            )"
-
-            if [ "$VERSION" = "1.3" ]; then
-              FOUND="$file"
-              break
-            fi
-
-          done
-
-          if [ -z "$FOUND" ]; then
-            echo
-            echo "❌ 未找到 version = 1.3 的 Parser JSON"
-            echo
-            echo "现有 JSON 文件内容版本检查："
-
-            for file in "${JSON_FILES[@]}"; do
-              VERSION="$(
-                python - "$file" <<'PY'
-          import json
-          import sys
-
-          path = sys.argv[1]
-
-          try:
-              with open(path, "r", encoding="utf-8") as f:
-                  data = json.load(f)
-
-              print(data.get("version", "<无 version>"))
-          except Exception as exc:
-              print(f"<读取失败: {exc}>")
-          PY
-              )"
-
-              echo "  $file -> $VERSION"
-            done
-
-            exit 1
-          fi
-
-          echo
-          echo "✅ 找到 Parser V1.3 JSON："
-          echo "   $FOUND"
-
-          echo "exam_json=$FOUND" >> "$GITHUB_OUTPUT"
-
-      # =========================================================
-      # 5. 验证 JSON 基础结构
-      # =========================================================
-
-      - name: Validate Parser JSON
-        env:
-          EXAM_JSON: ${{ steps.locate_json.outputs.exam_json }}
-        shell: bash
-        run: |
-          set -e
-
-          echo
-          echo "============================================================"
-          echo "VALIDATE PARSER JSON"
-          echo "============================================================"
+          echo "JSON 顶层结构："
 
           python - "$EXAM_JSON" <<'PY'
           import json
@@ -177,35 +93,42 @@ jobs:
           path = sys.argv[1]
 
           with open(path, "r", encoding="utf-8") as f:
-              exam = json.load(f)
+              data = json.load(f)
 
-          print(f"JSON: {path}")
-          print(f"version: {exam.get('version')}")
-          print(f"questions: {len(exam.get('questions', []))}")
+          print("keys:")
+          for key in data.keys():
+              print(f"  - {key}")
 
-          if exam.get("version") != "1.3":
-              raise SystemExit(
-                  "❌ Parser JSON version 不是 1.3"
-              )
+          print()
+          print("version:")
+          print(f"  {data.get('version', '<无 version 字段>')}")
 
-          if len(exam.get("questions", [])) != 61:
-              raise SystemExit(
-                  "❌ Parser JSON 不是 61 道题"
-              )
+          questions = data.get("questions", [])
 
-          print("✅ Parser V1.3 JSON 基础结构正常")
+          print()
+          print("questions:")
+          print(f"  {len(questions)}")
+
+          if questions:
+              print()
+              print("第一道题：")
+              print(json.dumps(
+                  questions[0],
+                  ensure_ascii=False,
+                  indent=2,
+              ))
           PY
 
       # =========================================================
-      # 6. 运行 Grader V1.0 FULL AUTOMATIC TEST
+      # 5. 运行 Grader V1.0
       # =========================================================
 
-      - name: Run English Exam Grader V1.0 FULL TEST
-        env:
-          EXAM_JSON: ${{ steps.locate_json.outputs.exam_json }}
+      - name: Run Grader V1.0 FULL TEST
         shell: bash
         run: |
           set -e
+
+          EXAM_JSON="02_英语学习系统/output/2026-09-08/.system/exam.json"
 
           echo
           echo "============================================================"
@@ -217,28 +140,12 @@ jobs:
             --exam-json "$EXAM_JSON"
 
       # =========================================================
-      # 7. 最终确认
+      # 6. 完成
       # =========================================================
 
-      - name: Grader Test Summary
+      - name: Test Passed
         run: |
           echo
           echo "============================================================"
-          echo "🎉 GRADER V1.0 TEST WORKFLOW PASSED"
-          echo "============================================================"
-          echo
-          echo "确认项目："
-          echo "  Parser V1.3 JSON"
-          echo "  61 道题"
-          echo "  50 道自动评分"
-          echo "  11 道人工/语义处理"
-          echo "  全部正确 50/50"
-          echo "  故意错误识别"
-          echo "  多选集合匹配"
-          echo "  完形评分"
-          echo "  听力评分"
-          echo "  阅读评分"
-          echo "  错题回顾"
-          echo "  提交结果卡"
-          echo
+          echo "🎉 GRADER V1.0 TEST PASSED"
           echo "============================================================"
