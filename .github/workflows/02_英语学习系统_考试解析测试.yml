@@ -1,0 +1,200 @@
+name: 02_英语学习系统 - 考试解析 V1.1 测试
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_date:
+        description: "测试日期（留空=自动使用 output 中最新日期）"
+        required: false
+        default: "2026-09-26"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  parser-test:
+
+    name: English Exam Parser V1.1 Full Test
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # ============================================================
+      # 1. Checkout
+      # ============================================================
+
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      # ============================================================
+      # 2. Python
+      # ============================================================
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # ============================================================
+      # 3. 检查测试文件
+      # ============================================================
+
+      - name: 🔍 检查 Parser 和测试脚本
+        shell: bash
+        run: |
+          set -e
+
+          echo "=========================================="
+          echo "检查 English Exam Parser V1.1"
+          echo "=========================================="
+
+          PARSER="02_英语学习系统/scripts/english_exam_parser.py"
+          TEST="02_英语学习系统/scripts/test_english_exam_parser_v1_1.py"
+
+          if [ ! -f "$PARSER" ]; then
+            echo "❌ Parser 不存在:"
+            echo "   $PARSER"
+            exit 1
+          fi
+
+          if [ ! -f "$TEST" ]; then
+            echo "❌ 测试脚本不存在:"
+            echo "   $TEST"
+            exit 1
+          fi
+
+          echo "✅ Parser:"
+          echo "   $PARSER"
+
+          echo "✅ Test:"
+          echo "   $TEST"
+
+      # ============================================================
+      # 4. 检查 output
+      # ============================================================
+
+      - name: 📂 检查英语学习系统输出
+        shell: bash
+        env:
+          TEST_DATE: ${{ inputs.test_date }}
+        run: |
+          set -e
+
+          echo "=========================================="
+          echo "检查测试日期"
+          echo "=========================================="
+
+          OUTPUT_ROOT="02_英语学习系统/output"
+
+          if [ ! -d "$OUTPUT_ROOT" ]; then
+            echo "❌ 不存在:"
+            echo "   $OUTPUT_ROOT"
+            exit 1
+          fi
+
+          if [ -n "$TEST_DATE" ]; then
+            OUTPUT_DIR="$OUTPUT_ROOT/$TEST_DATE"
+
+            echo "指定测试日期:"
+            echo "   $TEST_DATE"
+
+            if [ ! -d "$OUTPUT_DIR" ]; then
+              echo "❌ 测试日期目录不存在:"
+              echo "   $OUTPUT_DIR"
+              exit 1
+            fi
+
+          else
+            OUTPUT_DIR="$(
+              find "$OUTPUT_ROOT" \
+                -mindepth 1 \
+                -maxdepth 1 \
+                -type d \
+                | sort \
+                | tail -n 1
+            )"
+
+            if [ -z "$OUTPUT_DIR" ]; then
+              echo "❌ 没有找到任何 output 日期目录"
+              exit 1
+            fi
+
+            TEST_DATE="$(basename "$OUTPUT_DIR")"
+
+            echo "自动选择最新日期:"
+            echo "   $TEST_DATE"
+          fi
+
+          echo
+          echo "测试目录:"
+          echo "   $OUTPUT_DIR"
+
+          echo
+          echo "目录内容:"
+          find "$OUTPUT_DIR" \
+            -maxdepth 3 \
+            -type f \
+            | sort
+
+      # ============================================================
+      # 5. 执行 Parser V1.1 全量测试
+      # ============================================================
+
+      - name: 🧪 Parser V1.1 - 61题全量测试
+        shell: bash
+        env:
+          ENGLISH_TEST_DATE: ${{ inputs.test_date }}
+        run: |
+          set -e
+
+          echo
+          echo "======================================================================"
+          echo "748686 ENGLISH EXAM PARSER V1.1"
+          echo "FULL AUTOMATIC TEST"
+          echo "======================================================================"
+          echo
+
+          if [ -n "$ENGLISH_TEST_DATE" ]; then
+            echo "测试日期: $ENGLISH_TEST_DATE"
+          else
+            echo "测试日期: 自动选择 output 最新日期"
+          fi
+
+          echo
+
+          python \
+            "02_英语学习系统/scripts/test_english_exam_parser_v1_1.py"
+
+      # ============================================================
+      # 6. 最终结果
+      # ============================================================
+
+      - name: ✅ 输出测试结果
+        if: success()
+        run: |
+          echo
+          echo "======================================================================"
+          echo "✅ ENGLISH EXAM PARSER V1.1 TEST PASSED"
+          echo "======================================================================"
+          echo
+          echo "61 / 61 questions"
+          echo "50 / 50 auto-graded answers"
+          echo "10 / 10 translation references"
+          echo "1 / 1 writing reference"
+          echo
+          echo "Parser V1.1 可以进入 Grader 测试阶段。"
+          echo "======================================================================"
+
+      - name: ❌ 输出失败结果
+        if: failure()
+        run: |
+          echo
+          echo "======================================================================"
+          echo "❌ ENGLISH EXAM PARSER V1.1 TEST FAILED"
+          echo "======================================================================"
+          echo
+          echo "请查看上方具体 FAIL 项目。"
+          echo "不要进入 Feishu 交互测试。"
+          echo "======================================================================"
