@@ -2,30 +2,50 @@
 # -*- coding: utf-8 -*-
 
 """
-748686 ENGLISH EXAM PARSER V1.6
+748686 ENGLISH EXAM PARSER V1.6.1
 
 Purpose
 -------
 Parse the generated English exam and its answer/explanation file.
 
-V1.6
-----
-Based on the real generated exam format.
+V1.6.1
+------
+Listening answer binding repair.
 
-Supported structures:
-- Listening Part A / B / C
-- Single choice
-- Multiple choice
-- Cloze passage + separate numbered options
-- Reading comprehension
-- Translation Part A / B
-- Writing
+Real standard-answer format:
 
-IMPORTANT
----------
-PARSER_VERSION remains "1.6" intentionally.
+## 二、标准答案
 
-The JSON contract is unchanged.
+### 听力
+
+#### Part A
+
+1. B
+2. C
+3. D
+4. D
+5. A
+
+#### Part B
+
+1. B
+2. A
+3. B
+4. B
+5. C
+
+#### Part C
+
+1. A
+2. B
+3. C
+4. C
+5. D
+
+Important:
+- Exam question parsing remains compatible with V1.6.
+- JSON contract remains unchanged.
+- Listening answers are parsed independently and deterministically.
 """
 
 from __future__ import annotations
@@ -38,78 +58,36 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 
-PARSER_VERSION = "1.6"
+PARSER_VERSION = "1.6.1"
 
 
-# ----------------------------------------------------------------------
-# Section definitions
-# ----------------------------------------------------------------------
+# ======================================================================
+# EXPECTED STRUCTURE
+# ======================================================================
 
-SECTION_MAP = {
-    "一、听力": "listening",
-    "一、听力原文": "listening",
-    "一、听力理解": "listening",
-    "一、听力部分": "listening",
-    "一、听力测试": "listening",
-    "一、听力题目": "listening",
-    "一、听力试题": "listening",
-
-    "二、单项选择": "single_choice",
-
-    "三、多选题": "multiple_choice",
-    "三、多项选择": "multiple_choice",
-
-    "四、完形填空": "cloze",
-
-    "五、阅读理解": "reading",
-
-    "六、翻译": "translation",
-
-    "七、写作": "writing",
+EXPECTED_COUNTS = {
+    "listening": 15,
+    "single_choice": 10,
+    "multiple_choice": 10,
+    "cloze": 10,
+    "reading": 5,
+    "translation": 10,
+    "writing": 1,
 }
 
 
-ANSWER_SECTION_ALIASES = {
-    "一、听力": "listening",
-    "二、听力": "listening",
-    "听力": "listening",
+AUTO_GRADED_TYPES = {
+    "listening",
+    "single_choice",
+    "multiple_choice",
+    "cloze",
+    "reading",
+}
 
-    "一、听力答案": "listening",
-    "二、听力答案": "listening",
-    "听力答案": "listening",
 
-    "一、听力原文": "listening",
-    "听力原文": "listening",
-
-    "二、单项选择": "single_choice",
-    "单项选择": "single_choice",
-    "二、单项选择答案": "single_choice",
-    "单项选择答案": "single_choice",
-
-    "三、多选题": "multiple_choice",
-    "多选题": "multiple_choice",
-    "多项选择": "multiple_choice",
-    "三、多选题答案": "multiple_choice",
-    "多选题答案": "multiple_choice",
-
-    "四、完形填空": "cloze",
-    "完形填空": "cloze",
-    "四、完形填空答案": "cloze",
-    "完形填空答案": "cloze",
-
-    "五、阅读理解": "reading",
-    "阅读理解": "reading",
-    "五、阅读理解答案": "reading",
-    "阅读理解答案": "reading",
-
-    "六、翻译": "translation",
-    "翻译": "translation",
-    "六、翻译答案": "translation",
-    "翻译答案": "translation",
-
-    "七、写作": "writing",
-    "写作": "writing",
-    "七、写作答案": "writing",
+MANUAL_REVIEW_TYPES = {
+    "translation",
+    "writing",
 }
 
 
@@ -124,15 +102,16 @@ SECTION_ORDER = [
 ]
 
 
-# ----------------------------------------------------------------------
-# Generic helpers
-# ----------------------------------------------------------------------
+# ======================================================================
+# BASIC TEXT HELPERS
+# ======================================================================
 
 def normalize_text(text: Any) -> str:
     if text is None:
         return ""
 
     text = str(text)
+
     text = text.replace("\ufeff", "")
     text = text.replace("\r\n", "\n")
     text = text.replace("\r", "\n")
@@ -142,18 +121,14 @@ def normalize_text(text: Any) -> str:
 
 def normalize_answer(answer: Any) -> str:
     """
-    Normalize answer representation.
+    Normalize answer.
 
     Examples:
-        A
-        a
-        A,C
-        A、C
-        A, C
-        A,B,D
-        [A, C]
-
-    -> canonical representation.
+        B -> B
+        b -> B
+        A,C -> A,C
+        A、C -> A,C
+        [A, C] -> A,C
     """
 
     if answer is None:
@@ -173,19 +148,19 @@ def normalize_answer(answer: Any) -> str:
         if not values:
             return ""
 
-        flat = []
+        letters = []
 
         for value in values:
-            flat.extend(value.split(","))
+
+            for part in value.split(","):
+
+                part = part.strip()
+
+                if part:
+                    letters.append(part)
 
         return ",".join(
-            sorted(
-                set(
-                    x
-                    for x in flat
-                    if x
-                )
-            )
+            sorted(set(letters))
         )
 
     text = normalize_text(answer)
@@ -199,7 +174,6 @@ def normalize_answer(answer: Any) -> str:
     text = text.replace("、", ",")
     text = text.replace("；", ",")
     text = text.replace(";", ",")
-    text = text.replace("／", "/")
     text = text.replace(" ", "")
     text = text.replace("　", "")
 
@@ -237,14 +211,10 @@ def normalize_answer(answer: Any) -> str:
                     match.group(0)
                 )
             else:
-                letters.append(
-                    part
-                )
+                letters.append(part)
 
         return ",".join(
-            sorted(
-                set(letters)
-            )
+            sorted(set(letters))
         )
 
     if re.fullmatch(
@@ -253,38 +223,31 @@ def normalize_answer(answer: Any) -> str:
     ):
 
         return ",".join(
-            sorted(
-                set(text)
-            )
+            sorted(set(text))
         )
 
-    match = re.fullmatch(
+    if re.fullmatch(
         r"[A-D]",
         text,
-    )
+    ):
 
-    if match:
-        return match.group(0)
+        return text
 
     return text
 
 
-def normalize_heading(
+# ======================================================================
+# MARKDOWN / HEADING HELPERS
+# ======================================================================
+
+def remove_markdown_heading(
     text: str,
 ) -> str:
 
-    text = normalize_text(
-        text
-    )
+    text = normalize_text(text)
 
     text = re.sub(
-        r"^#+\s*",
-        "",
-        text,
-    )
-
-    text = re.sub(
-        r"^\d+[、.．]\s*",
+        r"^#{1,6}\s*",
         "",
         text,
     )
@@ -292,7 +255,30 @@ def normalize_heading(
     return text.strip()
 
 
-def normalize_section_text(
+def normalize_heading(
+    text: str,
+) -> str:
+
+    text = remove_markdown_heading(
+        text
+    )
+
+    text = re.sub(
+        r"^\d+\s*[、.．:：]\s*",
+        "",
+        text,
+    )
+
+    text = re.sub(
+        r"^[一二三四五六七八九十百千万]+\s*[、.．:：]\s*",
+        "",
+        text,
+    )
+
+    return text.strip()
+
+
+def canonical_text(
     text: str,
 ) -> str:
 
@@ -311,356 +297,78 @@ def normalize_section_text(
         ":",
     )
 
-    text = text.replace(
-        "（",
-        "(",
-    )
-
-    text = text.replace(
-        "）",
-        ")",
-    )
-
-    text = text.replace(
-        "－",
-        "-",
-    )
-
-    text = text.replace(
-        "—",
-        "-",
-    )
-
     return text.strip()
 
 
-def strip_section_number(
-    text: str,
-) -> str:
-
-    text = normalize_section_text(
-        text
-    )
-
-    text = re.sub(
-        r"^[一二三四五六七八九十百千万]+[、.．:：]\s*",
-        "",
-        text,
-    )
-
-    text = re.sub(
-        r"^\d+[、.．:：]\s*",
-        "",
-        text,
-    )
-
-    return text.strip()
-
-
-def parse_question_number(
-    text: str,
-) -> Optional[int]:
-
-    text = normalize_text(
-        text
-    )
-
-    if not re.match(
-        r"^#{1,6}\s*",
-        text,
-    ):
-        return None
-
-    match = re.match(
-        r"^#{1,6}\s*(\d+)\s*[.．、)]\s*(.*)$",
-        text,
-    )
-
-    if not match:
-        return None
-
-    try:
-        return int(
-            match.group(1)
-        )
-
-    except ValueError:
-        return None
-
-
-def parse_question_header(
-    text: str,
-) -> Optional[Tuple[int, str]]:
-
-    text = normalize_text(
-        text
-    )
-
-    if not re.match(
-        r"^#{1,6}\s*",
-        text,
-    ):
-        return None
-
-    match = re.match(
-        r"^#{1,6}\s*(\d+)\s*[.．、)]\s*(.*?)\s*$",
-        text,
-    )
-
-    if not match:
-        return None
-
-    number = int(
-        match.group(1)
-    )
-
-    question = normalize_text(
-        match.group(2)
-    )
-
-    return number, question
-
-
-def parse_options(
-    lines: List[str],
-) -> List[Dict[str, str]]:
-
-    options: List[
-        Dict[str, str]
-    ] = []
-
-    option_pattern = re.compile(
-        r"^\s*(?:-\s*)?([A-D])\s*[.．、:：]\s*(.*?)\s*$",
-        re.IGNORECASE,
-    )
-
-    for line in lines:
-
-        match = option_pattern.match(
-            normalize_text(line)
-        )
-
-        if not match:
-            continue
-
-        letter = match.group(1).upper()
-
-        text = normalize_text(
-            match.group(2)
-        )
-
-        options.append({
-            "key": letter,
-            "text": text,
-        })
-
-    return options
-
-
-def make_question_id(
-    section: str,
-    number: int,
-    listening_part: Optional[str] = None,
-) -> str:
-
-    if section == "listening":
-
-        part = (
-            listening_part
-            or "A"
-        )
-
-        return (
-            f"listening_{part}_{number}"
-        )
-
-    if section == "translation":
-
-        part = (
-            listening_part
-            or "A"
-        )
-
-        return (
-            f"translation_{part}_{number}"
-        )
-
-    return (
-        f"{section}_{number}"
-    )
-
-
-# ----------------------------------------------------------------------
-# Section detection
-# ----------------------------------------------------------------------
+# ======================================================================
+# EXAM SECTION DETECTION
+# ======================================================================
 
 def detect_exam_section(
     line: str,
 ) -> Optional[str]:
 
-    raw = normalize_text(
-        line
-    )
-
-    if not raw:
-        return None
-
-    text = normalize_section_text(
-        raw
-    )
+    text = canonical_text(line)
 
     if not text:
         return None
 
-    text = re.sub(
-        r"^>\s*",
-        "",
-        text,
-    ).strip()
-
-    for title, section in SECTION_MAP.items():
-
-        if text == normalize_section_text(
-            title
-        ):
-            return section
-
-    body = strip_section_number(
-        text
-    )
-
-    body = body.replace(
-        "：",
-        ":",
-    )
-
-    body_base = re.split(
-        r"[\(:\-]",
-        body,
-        maxsplit=1,
-    )[0].strip()
-
-    listening_prefixes = (
-        "听力",
-        "听力原文",
-        "听力理解",
-        "听力部分",
-        "听力测试",
-        "听力题目",
-        "听力试题",
-    )
-
+    # Listening
     if (
-        body_base == "听力"
-        or body_base == "听力原文"
-        or body_base.startswith("听力理解")
-        or body_base.startswith("听力部分")
-        or body_base.startswith("听力测试")
-        or body_base.startswith("听力题目")
-        or body_base.startswith("听力试题")
+        text == "听力"
+        or text.startswith("听力原文")
+        or text.startswith("听力理解")
+        or text.startswith("听力部分")
+        or text.startswith("听力测试")
+        or text.startswith("听力题目")
+        or text.startswith("听力试题")
     ):
         return "listening"
 
-    if any(
-        body.startswith(prefix)
-        for prefix in listening_prefixes
-    ):
-        return "listening"
-
+    # Single choice
     if (
-        body_base == "单项选择"
-        or body_base.startswith("单项选择题")
-        or body_base.startswith("单项选择")
+        text == "单项选择"
+        or text.startswith("单项选择题")
+        or text.startswith("单项选择")
     ):
         return "single_choice"
 
+    # Multiple choice
     if (
-        body_base == "多选题"
-        or body_base == "多项选择"
-        or body_base.startswith("多选题")
-        or body_base.startswith("多项选择")
+        text == "多选题"
+        or text == "多项选择"
+        or text.startswith("多选题")
+        or text.startswith("多项选择")
     ):
         return "multiple_choice"
 
+    # Cloze
     if (
-        body_base == "完形填空"
-        or body_base.startswith("完形填空")
+        text == "完形填空"
+        or text.startswith("完形填空")
     ):
         return "cloze"
 
+    # Reading
     if (
-        body_base == "阅读理解"
-        or body_base.startswith("阅读理解")
+        text == "阅读理解"
+        or text.startswith("阅读理解")
     ):
         return "reading"
 
+    # Translation
     if (
-        body_base == "翻译"
-        or body_base.startswith("翻译题")
-        or body_base.startswith("翻译")
+        text == "翻译"
+        or text.startswith("翻译题")
     ):
         return "translation"
 
+    # Writing
     if (
-        body_base == "写作"
-        or body_base.startswith("写作题")
-        or body_base.startswith("写作")
+        text == "写作"
+        or text.startswith("写作题")
     ):
         return "writing"
-
-    part_match = re.match(
-        r"^第\s*([一二三四五六七八九十百千万\d]+)"
-        r"\s*部分\s*[:：]?\s*(.*)$",
-        text,
-    )
-
-    if part_match:
-
-        part_body = normalize_text(
-            part_match.group(2)
-        )
-
-        part_body = re.sub(
-            r"\s+",
-            "",
-            part_body,
-        )
-
-        if part_body.startswith(
-            "听力"
-        ):
-            return "listening"
-
-        if part_body.startswith(
-            "单项选择"
-        ):
-            return "single_choice"
-
-        if (
-            part_body.startswith("多选题")
-            or part_body.startswith("多项选择")
-        ):
-            return "multiple_choice"
-
-        if part_body.startswith(
-            "完形填空"
-        ):
-            return "cloze"
-
-        if part_body.startswith(
-            "阅读理解"
-        ):
-            return "reading"
-
-        if part_body.startswith(
-            "翻译"
-        ):
-            return "translation"
-
-        if part_body.startswith(
-            "写作"
-        ):
-            return "writing"
 
     return None
 
@@ -709,152 +417,91 @@ def split_sections(
     }
 
 
-# ----------------------------------------------------------------------
-# Listening section fallback recovery
-# ----------------------------------------------------------------------
+# ======================================================================
+# QUESTION HELPERS
+# ======================================================================
 
-def contains_listening_markers(
+def parse_question_header(
     text: str,
-) -> bool:
+) -> Optional[Tuple[int, str]]:
 
-    lines = normalize_text(
+    text = normalize_text(
         text
-    ).splitlines()
+    )
 
-    parts = set()
+    match = re.match(
+        r"^#{1,6}\s*(\d+)\s*[.．、)]\s*(.*?)\s*$",
+        text,
+    )
+
+    if not match:
+        return None
+
+    number = int(
+        match.group(1)
+    )
+
+    question = normalize_text(
+        match.group(2)
+    )
+
+    return number, question
+
+
+def parse_options(
+    lines: List[str],
+) -> List[Dict[str, str]]:
+
+    options: List[
+        Dict[str, str]
+    ] = []
+
+    pattern = re.compile(
+        r"^\s*(?:-\s*)?([A-D])\s*[.．、:：]\s*(.*?)\s*$",
+        re.IGNORECASE,
+    )
 
     for line in lines:
 
-        part = detect_listening_part(
-            line
+        match = pattern.match(
+            normalize_text(line)
         )
 
-        if part:
-            parts.add(part)
+        if not match:
+            continue
 
-    return {
-        "A",
-        "B",
-        "C",
-    }.issubset(parts)
+        options.append({
+            "key": match.group(1).upper(),
+            "text": normalize_text(
+                match.group(2)
+            ),
+        })
+
+    return options
 
 
-def recover_listening_section(
-    text: str,
+def make_question_id(
+    section: str,
+    number: int,
+    part: Optional[str] = None,
 ) -> str:
 
-    lines = normalize_text(
-        text
-    ).splitlines()
+    if section == "listening":
 
-    if not contains_listening_markers(
-        text
-    ):
-        return ""
-
-    first_part_index: Optional[int] = None
-
-    for index, line in enumerate(lines):
-
-        if detect_listening_part(
-            line
-        ):
-
-            first_part_index = index
-
-            break
-
-    if first_part_index is None:
-        return ""
-
-    start_index = first_part_index
-
-    for index in range(
-        first_part_index - 1,
-        -1,
-        -1,
-    ):
-
-        detected = detect_exam_section(
-            lines[index]
+        return (
+            f"listening_{part or 'A'}_{number}"
         )
 
-        if detected == "listening":
+    if section == "translation":
 
-            start_index = index
-
-            break
-
-        if detected in {
-            "single_choice",
-            "multiple_choice",
-            "cloze",
-            "reading",
-            "translation",
-            "writing",
-        }:
-            break
-
-        candidate = normalize_text(
-            lines[index]
+        return (
+            f"translation_{part or 'A'}_{number}"
         )
 
-        candidate = re.sub(
-            r"^#+\s*",
-            "",
-            candidate,
-        )
+    return (
+        f"{section}_{number}"
+    )
 
-        candidate = re.sub(
-            r"^[一二三四五六七八九十百千万]+[、.．]\s*",
-            "",
-            candidate,
-        )
-
-        if (
-            candidate.startswith("听力")
-            or candidate.startswith("第一部分")
-            or candidate.startswith("第1部分")
-        ):
-
-            start_index = index
-
-            break
-
-    end_index = len(lines)
-
-    for index in range(
-        first_part_index,
-        len(lines),
-    ):
-
-        detected = detect_exam_section(
-            lines[index]
-        )
-
-        if detected in {
-            "single_choice",
-            "multiple_choice",
-            "cloze",
-            "reading",
-            "translation",
-            "writing",
-        }:
-
-            end_index = index
-
-            break
-
-    return "\n".join(
-        lines[
-            start_index:end_index
-        ]
-    ).strip()
-
-
-# ----------------------------------------------------------------------
-# Question construction
-# ----------------------------------------------------------------------
 
 def base_question(
     section: str,
@@ -863,14 +510,14 @@ def base_question(
     options: Optional[
         List[Dict[str, str]]
     ] = None,
-    listening_part: Optional[str] = None,
+    part: Optional[str] = None,
 ) -> Dict[str, Any]:
 
-    question_data: Dict[str, Any] = {
+    data: Dict[str, Any] = {
         "id": make_question_id(
             section,
             number,
-            listening_part,
+            part,
         ),
         "section": section,
         "number": number,
@@ -885,98 +532,15 @@ def base_question(
         "review_required": False,
     }
 
-    if listening_part:
+    if part is not None:
+        data["part"] = part
 
-        question_data["part"] = (
-            listening_part
-        )
-
-    return question_data
+    return data
 
 
-def parse_choice_section(
-    text: str,
-    section: str,
-) -> List[Dict[str, Any]]:
-
-    lines = normalize_text(
-        text
-    ).splitlines()
-
-    questions: List[
-        Dict[str, Any]
-    ] = []
-
-    current: Optional[
-        Dict[str, Any]
-    ] = None
-
-    option_buffer: List[str] = []
-
-    for line in lines:
-
-        clean = normalize_text(
-            line
-        )
-
-        if not clean:
-            continue
-
-        parsed = parse_question_header(
-            clean
-        )
-
-        if parsed:
-
-            if current is not None:
-
-                current["options"] = (
-                    parse_options(
-                        option_buffer
-                    )
-                )
-
-                questions.append(
-                    current
-                )
-
-            number, question_text = parsed
-
-            current = base_question(
-                section=section,
-                number=number,
-                question=question_text,
-            )
-
-            option_buffer = []
-
-            continue
-
-        if current is None:
-            continue
-
-        option_buffer.append(
-            clean
-        )
-
-    if current is not None:
-
-        current["options"] = (
-            parse_options(
-                option_buffer
-            )
-        )
-
-        questions.append(
-            current
-        )
-
-    return questions
-
-
-# ----------------------------------------------------------------------
-# Listening exam
-# ----------------------------------------------------------------------
+# ======================================================================
+# LISTENING QUESTION PARSER
+# ======================================================================
 
 def detect_listening_part(
     line: str,
@@ -986,14 +550,19 @@ def detect_listening_part(
         line
     )
 
+    text = remove_markdown_heading(
+        text
+    )
+
     match = re.match(
-        r"^#{0,6}\s*Part\s+([ABC])"
+        r"^Part\s+([ABC])"
         r"(?:\s*[:：\-–—]\s*.*)?$",
         text,
         re.IGNORECASE,
     )
 
     if match:
+
         return match.group(1).upper()
 
     return None
@@ -1003,42 +572,31 @@ def parse_listening_question_line(
     line: str,
 ) -> Optional[Tuple[int, str]]:
 
-    clean = normalize_text(
+    text = normalize_text(
         line
     )
 
-    if not clean:
-        return None
-
     parsed = parse_question_header(
-        clean
+        text
     )
 
-    if parsed is not None:
+    if parsed:
         return parsed
 
     match = re.match(
         r"^(\d+)\s*[.．、)]\s*(.*?)\s*$",
-        clean,
+        text,
     )
 
-    if match:
+    if not match:
+        return None
 
-        try:
-            number = int(
-                match.group(1)
-            )
-
-        except ValueError:
-            return None
-
-        question_text = normalize_text(
+    return (
+        int(match.group(1)),
+        normalize_text(
             match.group(2)
-        )
-
-        return number, question_text
-
-    return None
+        ),
+    )
 
 
 def parse_listening(
@@ -1061,10 +619,7 @@ def parse_listening(
 
     option_buffer: List[str] = []
 
-    pending_number: Optional[int] = None
-    pending_part: Optional[str] = None
-
-    def flush_current() -> None:
+    def flush():
 
         nonlocal current
         nonlocal option_buffer
@@ -1085,31 +640,6 @@ def parse_listening(
         current = None
         option_buffer = []
 
-    def flush_pending_as_empty() -> None:
-
-        nonlocal pending_number
-        nonlocal pending_part
-
-        if (
-            pending_number is None
-            or pending_part is None
-        ):
-            return
-
-        current_question = base_question(
-            section="listening",
-            number=pending_number,
-            question="",
-            listening_part=pending_part,
-        )
-
-        questions.append(
-            current_question
-        )
-
-        pending_number = None
-        pending_part = None
-
     for line in lines:
 
         clean = normalize_text(
@@ -1125,88 +655,9 @@ def parse_listening(
 
         if part:
 
-            if pending_number is not None:
-
-                flush_pending_as_empty()
-
-            flush_current()
+            flush()
 
             current_part = part
-
-            continue
-
-        if pending_number is not None:
-
-            nested_question = (
-                parse_listening_question_line(
-                    clean
-                )
-            )
-
-            if nested_question is not None:
-
-                flush_pending_as_empty()
-
-                number, question_text = (
-                    nested_question
-                )
-
-                current = base_question(
-                    section="listening",
-                    number=number,
-                    question=question_text,
-                    listening_part=current_part,
-                )
-
-                option_buffer = []
-
-                continue
-
-            option_candidate = re.match(
-                r"^\s*(?:-\s*)?[A-D]\s*[.．、:：]\s*(.*?)\s*$",
-                clean,
-                re.IGNORECASE,
-            )
-
-            if not option_candidate:
-
-                pending_part_value = (
-                    pending_part
-                    or current_part
-                )
-
-                current = base_question(
-                    section="listening",
-                    number=pending_number,
-                    question=clean,
-                    listening_part=pending_part_value,
-                )
-
-                pending_number = None
-                pending_part = None
-
-                option_buffer = []
-
-                continue
-
-            current = base_question(
-                section="listening",
-                number=pending_number,
-                question="",
-                listening_part=(
-                    pending_part
-                    or current_part
-                ),
-            )
-
-            pending_number = None
-            pending_part = None
-
-            option_buffer = []
-
-            option_buffer.append(
-                clean
-            )
 
             continue
 
@@ -1214,27 +665,18 @@ def parse_listening(
             clean
         )
 
-        if parsed is not None:
+        if parsed:
 
-            flush_current()
+            flush()
 
-            number, question_text = parsed
-
-            if not question_text:
-
-                pending_number = number
-                pending_part = current_part
-
-                continue
+            number, question = parsed
 
             current = base_question(
                 section="listening",
                 number=number,
-                question=question_text,
-                listening_part=current_part,
+                question=question,
+                part=current_part or "A",
             )
-
-            option_buffer = []
 
             continue
 
@@ -1244,24 +686,102 @@ def parse_listening(
                 clean
             )
 
-    if pending_number is not None:
-
-        flush_pending_as_empty()
-
-    flush_current()
+    flush()
 
     return questions
 
 
-# ----------------------------------------------------------------------
-# Cloze
-# ----------------------------------------------------------------------
+# ======================================================================
+# CHOICE QUESTION PARSER
+# ======================================================================
 
-def extract_cloze_blank_numbers(
+def parse_choice_section(
+    text: str,
+    section: str,
+) -> List[Dict[str, Any]]:
+
+    lines = normalize_text(
+        text
+    ).splitlines()
+
+    questions: List[
+        Dict[str, Any]
+    ] = []
+
+    current: Optional[
+        Dict[str, Any]
+    ] = None
+
+    option_buffer: List[str] = []
+
+    def flush():
+
+        nonlocal current
+        nonlocal option_buffer
+
+        if current is None:
+            return
+
+        current["options"] = (
+            parse_options(
+                option_buffer
+            )
+        )
+
+        questions.append(
+            current
+        )
+
+        current = None
+        option_buffer = []
+
+    for line in lines:
+
+        clean = normalize_text(
+            line
+        )
+
+        if not clean:
+            continue
+
+        parsed = parse_question_header(
+            clean
+        )
+
+        if parsed:
+
+            flush()
+
+            number, question = parsed
+
+            current = base_question(
+                section=section,
+                number=number,
+                question=question,
+            )
+
+            continue
+
+        if current is not None:
+
+            option_buffer.append(
+                clean
+            )
+
+    flush()
+
+    return questions
+
+
+# ======================================================================
+# CLOZE PARSER
+# ======================================================================
+
+def extract_cloze_numbers(
     text: str,
 ) -> List[int]:
 
-    numbers = []
+    result: List[int] = []
 
     for match in re.finditer(
         r"\(\s*(\d+)\s*\)",
@@ -1272,13 +792,13 @@ def extract_cloze_blank_numbers(
             match.group(1)
         )
 
-        if number not in numbers:
+        if number not in result:
 
-            numbers.append(
+            result.append(
                 number
             )
 
-    return numbers
+    return result
 
 
 def parse_inline_cloze_options(
@@ -1290,7 +810,8 @@ def parse_inline_cloze_options(
     ] = []
 
     pattern = re.compile(
-        r"([A-D])\s*[.．、:：]\s*(.*?)(?=\s+[A-D]\s*[.．、:：]|$)",
+        r"([A-D])\s*[.．、:：]\s*"
+        r"(.*?)(?=\s+[A-D]\s*[.．、:：]|$)",
         re.IGNORECASE,
     )
 
@@ -1318,9 +839,9 @@ def parse_cloze(
 
     passage_lines: List[str] = []
 
-    in_options = False
+    option_lines: List[str] = []
 
-    option_section_lines: List[str] = []
+    in_options = False
 
     for line in lines:
 
@@ -1334,17 +855,15 @@ def parse_cloze(
 
             continue
 
-        if not in_options:
+        if in_options:
 
-            if clean:
+            option_lines.append(
+                clean
+            )
 
-                passage_lines.append(
-                    clean
-                )
+        elif clean:
 
-        else:
-
-            option_section_lines.append(
+            passage_lines.append(
                 clean
             )
 
@@ -1352,61 +871,53 @@ def parse_cloze(
         passage_lines
     ).strip()
 
-    blank_numbers = (
-        extract_cloze_blank_numbers(
-            passage
-        )
+    numbers = extract_cloze_numbers(
+        passage
     )
 
-    if not blank_numbers:
+    if not numbers:
 
-        blank_numbers = list(
+        numbers = list(
             range(1, 11)
         )
 
-    question_options: Dict[
+    option_map: Dict[
         int,
         List[Dict[str, str]]
     ] = {}
 
     current_number: Optional[int] = None
 
-    current_option_lines: List[str] = []
+    current_lines: List[str] = []
 
-    def flush_current() -> None:
+    def flush():
 
         nonlocal current_number
-        nonlocal current_option_lines
+        nonlocal current_lines
 
         if current_number is None:
             return
 
         parsed = parse_options(
-            current_option_lines
+            current_lines
         )
 
-        if (
-            not parsed
-            and current_option_lines
-        ):
+        if not parsed:
 
             parsed = parse_inline_cloze_options(
                 " ".join(
-                    current_option_lines
+                    current_lines
                 )
             )
 
-        question_options[
+        option_map[
             current_number
         ] = parsed
 
         current_number = None
-        current_option_lines = []
+        current_lines = []
 
-    for line in option_section_lines:
-
-        if not line:
-            continue
+    for line in option_lines:
 
         match = re.match(
             r"^#{1,6}\s*(\d+)\s*[.．、)]\s*(.*)$",
@@ -1415,82 +926,56 @@ def parse_cloze(
 
         if match:
 
-            flush_current()
+            flush()
 
             current_number = int(
                 match.group(1)
             )
 
-            inline_rest = normalize_text(
+            rest = normalize_text(
                 match.group(2)
             )
 
-            if inline_rest:
+            if rest:
 
-                inline_options = (
-                    parse_inline_cloze_options(
-                        f"{current_number}. {inline_rest}"
-                    )
+                current_lines.append(
+                    rest
                 )
-
-                if inline_options:
-
-                    question_options[
-                        current_number
-                    ] = inline_options
-
-                    current_option_lines = []
-
-                else:
-
-                    current_option_lines = [
-                        inline_rest
-                    ]
 
             continue
 
         if current_number is not None:
 
-            current_option_lines.append(
+            current_lines.append(
                 line
             )
 
-    flush_current()
+    flush()
 
     questions: List[
         Dict[str, Any]
     ] = []
 
-    for number in blank_numbers:
-
-        question_text = passage
-
-        question_text = re.sub(
-            rf"_{2,}\s*\(\s*{number}\s*\)\s*_{2,}",
-            f"____ ({number}) ____",
-            question_text,
-        )
-
-        options = question_options.get(
-            number,
-            [],
-        )
+    for number in numbers:
 
         questions.append(
             base_question(
                 section="cloze",
                 number=number,
-                question=question_text,
-                options=options,
+                question=passage,
+                options=option_map.get(
+                    number,
+                    [],
+                ),
             )
         )
 
     return questions
 
 
-# ----------------------------------------------------------------------
-# Translation
-# ----------------------------------------------------------------------
+# ======================================================================
+# TRANSLATION PARSER
+# ======================================================================
 
 def detect_translation_part(
     line: str,
@@ -1501,34 +986,20 @@ def detect_translation_part(
     )
 
     if re.search(
-        r"Part\s+A",
+        r"\bPart\s+A\b",
         text,
         re.IGNORECASE,
     ):
         return "A"
 
     if re.search(
-        r"Part\s+B",
+        r"\bPart\s+B\b",
         text,
         re.IGNORECASE,
     ):
         return "B"
 
     return None
-
-
-def is_translation_prompt(
-    line: str,
-) -> bool:
-
-    text = normalize_text(
-        line
-    )
-
-    return (
-        text.startswith("翻译：")
-        or text.startswith("翻译:")
-    )
 
 
 def parse_translation(
@@ -1548,6 +1019,18 @@ def parse_translation(
     current: Optional[
         Dict[str, Any]
     ] = None
+
+    def flush():
+
+        nonlocal current
+
+        if current is not None:
+
+            questions.append(
+                current
+            )
+
+            current = None
 
     for line in lines:
 
@@ -1574,47 +1057,25 @@ def parse_translation(
 
         if parsed:
 
-            if current is not None:
+            flush()
 
-                questions.append(
-                    current
-                )
-
-            number, prompt = parsed
+            number, question = parsed
 
             current = base_question(
                 section="translation",
                 number=number,
-                question=prompt,
-                listening_part=current_part,
+                question=question,
+                part=current_part or "A",
             )
 
-            current["part"] = (
-                current_part
-            )
-
-            continue
-
-        if current is None:
-            continue
-
-        if is_translation_prompt(
-            clean
-        ):
-            continue
-
-    if current is not None:
-
-        questions.append(
-            current
-        )
+    flush()
 
     return questions
 
 
-# ----------------------------------------------------------------------
-# Writing
-# ----------------------------------------------------------------------
+# ======================================================================
+# WRITING PARSER
+# ======================================================================
 
 def parse_writing(
     text: str,
@@ -1632,68 +1093,28 @@ def parse_writing(
         Dict[str, Any]
     ] = None
 
-    body_lines: List[str] = []
+    body: List[str] = []
 
-    def flush_current() -> None:
+    def flush():
 
         nonlocal current
-        nonlocal body_lines
+        nonlocal body
 
         if current is None:
             return
 
-        question_text = normalize_text(
-            current.get(
-                "question",
-                "",
-            )
-        )
-
-        if not question_text:
-
-            prompt_lines: List[str] = []
-
-            for raw in body_lines:
-
-                clean = normalize_text(
-                    raw
-                )
-
-                if not clean:
-                    continue
-
-                if re.match(
-                    r"^作文\s*[:：]",
-                    clean,
-                ):
-                    break
-
-                if re.fullmatch(
-                    r"_+",
-                    clean,
-                ):
-                    continue
-
-                prompt_lines.append(
-                    clean
-                )
-
-            question_text = " ".join(
-                prompt_lines
-            ).strip()
+        if not current.get(
+            "question"
+        ):
 
             current["question"] = (
-                question_text
+                " ".join(
+                    body
+                ).strip()
             )
 
         current["prompt"] = (
-            question_text
-        )
-
-        current["question"] = (
-            normalize_text(
-                current["question"]
-            )
+            current["question"]
         )
 
         questions.append(
@@ -1701,7 +1122,7 @@ def parse_writing(
         )
 
         current = None
-        body_lines = []
+        body = []
 
     for line in lines:
 
@@ -1718,34 +1139,84 @@ def parse_writing(
 
         if parsed:
 
-            flush_current()
+            flush()
 
-            number, prompt = parsed
+            number, question = parsed
 
             current = base_question(
                 section="writing",
                 number=number,
-                question=prompt,
+                question=question,
             )
-
-            body_lines = []
 
             continue
 
         if current is not None:
 
-            body_lines.append(
+            body.append(
                 clean
             )
 
-    flush_current()
+    flush()
 
     return questions
 
 
-# ----------------------------------------------------------------------
-# Full exam parser
-# ----------------------------------------------------------------------
+# ======================================================================
+# EXAM PARSER
+# ======================================================================
+
+def recover_listening_section(
+    exam_text: str,
+) -> str:
+
+    lines = normalize_text(
+        exam_text
+    ).splitlines()
+
+    start: Optional[int] = None
+
+    for index, line in enumerate(lines):
+
+        if detect_exam_section(
+            line
+        ) == "listening":
+
+            start = index
+
+            break
+
+    if start is None:
+        return ""
+
+    end = len(lines)
+
+    for index in range(
+        start + 1,
+        len(lines),
+    ):
+
+        section = detect_exam_section(
+            lines[index]
+        )
+
+        if section in {
+            "single_choice",
+            "multiple_choice",
+            "cloze",
+            "reading",
+            "translation",
+            "writing",
+        }:
+
+            end = index
+
+            break
+
+    return "\n".join(
+        lines[start:end]
+    ).strip()
+
 
 def parse_exam(
     exam_text: str,
@@ -1755,31 +1226,37 @@ def parse_exam(
         exam_text
     )
 
-    listening_questions: List[
+    questions: List[
         Dict[str, Any]
     ] = []
 
-    if "listening" in sections:
+    # Listening
+    listening_text = sections.get(
+        "listening",
+        "",
+    )
 
-        listening_questions = (
-            parse_listening(
-                sections["listening"]
-            )
+    listening_questions = (
+        parse_listening(
+            listening_text
         )
+        if listening_text
+        else []
+    )
 
     if len(listening_questions) < 15:
 
-        recovered_listening = (
+        recovered = (
             recover_listening_section(
                 exam_text
             )
         )
 
-        if recovered_listening:
+        if recovered:
 
             recovered_questions = (
                 parse_listening(
-                    recovered_listening
+                    recovered
                 )
             )
 
@@ -1791,14 +1268,11 @@ def parse_exam(
                     recovered_questions
                 )
 
-    questions: List[
-        Dict[str, Any]
-    ] = []
-
     questions.extend(
         listening_questions
     )
 
+    # Single choice
     if "single_choice" in sections:
 
         questions.extend(
@@ -1808,6 +1282,7 @@ def parse_exam(
             )
         )
 
+    # Multiple choice
     if "multiple_choice" in sections:
 
         questions.extend(
@@ -1817,6 +1292,7 @@ def parse_exam(
             )
         )
 
+    # Cloze
     if "cloze" in sections:
 
         questions.extend(
@@ -1825,6 +1301,7 @@ def parse_exam(
             )
         )
 
+    # Reading
     if "reading" in sections:
 
         questions.extend(
@@ -1834,6 +1311,7 @@ def parse_exam(
             )
         )
 
+    # Translation
     if "translation" in sections:
 
         questions.extend(
@@ -1842,6 +1320,7 @@ def parse_exam(
             )
         )
 
+    # Writing
     if "writing" in sections:
 
         questions.extend(
@@ -1854,160 +1333,12 @@ def parse_exam(
 
 
 # ======================================================================
-# ANSWER PARSING
+# ANSWER ROOT DETECTION
 # ======================================================================
-
-def clean_answer_line(
-    line: str,
-) -> str:
-
-    text = normalize_text(
-        line
-    )
-
-    text = re.sub(
-        r"^[>\-\*\s]+",
-        "",
-        text,
-    )
-
-    return text.strip()
-
-
-def extract_choice_answer(
-    line: str,
-) -> Optional[str]:
-
-    text = clean_answer_line(
-        line
-    )
-
-    text = text.replace(
-        "**",
-        "",
-    )
-
-    # --------------------------------------------------------------
-    # 答案：B
-    # 答案: B
-    # 答案：A, C
-    # --------------------------------------------------------------
-
-    match = re.search(
-        r"答案\s*[:：]\s*"
-        r"([A-D](?:\s*[,、，]\s*[A-D])*)",
-        text,
-        re.IGNORECASE,
-    )
-
-    if match:
-
-        return normalize_answer(
-            match.group(1)
-        )
-
-    # --------------------------------------------------------------
-    # 1. B
-    # 1、B
-    # 1) B
-    # --------------------------------------------------------------
-
-    match = re.match(
-        r"^(\d+)\s*[.．、)]\s*"
-        r"([A-D](?:\s*[,、，]\s*[A-D])*)"
-        r"\s*$",
-        text,
-        re.IGNORECASE,
-    )
-
-    if match:
-
-        return normalize_answer(
-            match.group(2)
-        )
-
-    match = re.match(
-        r"^\*{0,2}\s*"
-        r"(\d+)\s*[.．、)]\s*"
-        r"\*{0,2}\s*"
-        r"([A-D](?:\s*[,、，]\s*[A-D])*)"
-        r"\s*$",
-        text,
-        re.IGNORECASE,
-    )
-
-    if match:
-
-        return normalize_answer(
-            match.group(2)
-        )
-
-    return None
-
-
-def is_answer_heading(
-    line: str,
-) -> bool:
-
-    text = normalize_text(
-        line
-    )
-
-    if not text:
-        return False
-
-    normalized = normalize_heading(
-        text
-    )
-
-    patterns = [
-        "答案",
-        "答案与解析",
-        "参考答案",
-        "标准答案",
-        "听力答案",
-        "单项选择答案",
-        "多选题答案",
-        "多项选择答案",
-        "完形填空答案",
-        "阅读理解答案",
-        "翻译参考答案",
-        "写作参考范文",
-        "解析",
-    ]
-
-    return any(
-        normalized == pattern
-        or normalized.startswith(
-            pattern + " "
-        )
-        or normalized.startswith(
-            pattern + "："
-        )
-        or normalized.startswith(
-            pattern + ":"
-        )
-        for pattern in patterns
-    )
-
-
-# ----------------------------------------------------------------------
-# ANSWER HEADING NORMALIZATION
-# ----------------------------------------------------------------------
 
 def normalize_answer_heading(
     line: str,
 ) -> str:
-    """
-    Normalize Markdown answer headings.
-
-    Examples:
-
-        ## 二、标准答案
-        ### 听力
-        #### Part A
-
-    """
 
     text = normalize_text(
         line
@@ -2019,9 +1350,7 @@ def normalize_answer_heading(
         text,
     )
 
-    text = text.strip()
-
-    return text
+    return text.strip()
 
 
 def remove_heading_number(
@@ -2032,17 +1361,12 @@ def remove_heading_number(
         text
     )
 
-    # Chinese number:
-    # 二、标准答案
     text = re.sub(
-        r"^[一二三四五六七八九十百千万]+"
-        r"\s*[、.．:：]\s*",
+        r"^[一二三四五六七八九十百千万]+\s*[、.．:：]\s*",
         "",
         text,
     )
 
-    # Arabic number:
-    # 2. 标准答案
     text = re.sub(
         r"^\d+\s*[、.．:：]\s*",
         "",
@@ -2070,42 +1394,21 @@ def canonical_answer_heading(
         text,
     )
 
-    text = text.replace(
-        "：",
-        ":",
-    )
-
-    return text.strip()
+    return text
 
 
 def is_standard_answer_heading(
     line: str,
 ) -> bool:
-    """
-    Detect the ROOT standard-answer heading.
 
-    Real generated format:
-
-        ## 二、标准答案
-
-    Supported:
-
-        ## 二、标准答案
-        ## 二、答案
-        ## 二、答案与解析
-        ## 二、参考答案
-        ## 标准答案
-        ## 答案与解析
-    """
-
-    normalized = canonical_answer_heading(
+    text = canonical_answer_heading(
         line
     )
 
-    if not normalized:
+    if not text:
         return False
 
-    candidates = {
+    exact = {
         "答案",
         "答案与解析",
         "标准答案",
@@ -2115,20 +1418,20 @@ def is_standard_answer_heading(
         "参考答案与解析",
     }
 
-    if normalized in candidates:
+    if text in exact:
         return True
 
-    if normalized.startswith(
+    if text.startswith(
         "标准答案"
     ):
         return True
 
-    if normalized.startswith(
+    if text.startswith(
         "参考答案"
     ):
         return True
 
-    if normalized.startswith(
+    if text.startswith(
         "答案与解析"
     ):
         return True
@@ -2136,46 +1439,22 @@ def is_standard_answer_heading(
     return False
 
 
-# ----------------------------------------------------------------------
+# ======================================================================
 # ANSWER SECTION DETECTION
-# ----------------------------------------------------------------------
+# ======================================================================
 
 def detect_answer_section(
     line: str,
 ) -> Optional[str]:
-    """
-    Detect answer subsection.
-
-    Real format:
-
-        ### 听力
-
-        #### Part A
-        1. B
-
-        ### 单项选择
-        ...
-    """
-
-    raw = normalize_answer_heading(
-        line
-    )
-
-    if not raw:
-        return None
 
     text = canonical_answer_heading(
-        raw
+        line
     )
 
     if not text:
         return None
 
-    # --------------------------------------------------------------
-    # IMPORTANT:
-    # Part A/B/C are NOT sections.
-    # --------------------------------------------------------------
-
+    # Part A/B/C are not answer sections.
     if re.fullmatch(
         r"Part[ABC]",
         text,
@@ -2183,79 +1462,60 @@ def detect_answer_section(
     ):
         return None
 
-    # --------------------------------------------------------------
-    # Remove answer suffix.
-    #
-    # 听力答案 -> 听力
-    # 单项选择答案 -> 单项选择
-    # --------------------------------------------------------------
-
-    stripped = re.sub(
-        r"(?:标准答案|参考答案|答案)$",
-        "",
-        text,
-    )
-
-    # --------------------------------------------------------------
-    # Exact aliases.
-    # --------------------------------------------------------------
-
-    for title, section in (
-        ANSWER_SECTION_ALIASES.items()
+    # Listening
+    if (
+        text == "听力"
+        or text.startswith("听力答案")
+        or text.startswith("听力标准答案")
+        or text.startswith("听力参考答案")
     ):
-
-        title_normalized = canonical_answer_heading(
-            title
-        )
-
-        if (
-            text == title_normalized
-            or stripped == title_normalized
-        ):
-
-            return section
-
-    # --------------------------------------------------------------
-    # Explicit section names.
-    # --------------------------------------------------------------
-
-    if text == "听力":
         return "listening"
 
-    if text.startswith("听力答案"):
-        return "listening"
-
-    if text.startswith("听力参考答案"):
-        return "listening"
-
-    if text.startswith("听力标准答案"):
-        return "listening"
-
-    if text.startswith("单项选择"):
+    # Single choice
+    if text.startswith(
+        "单项选择"
+    ):
         return "single_choice"
 
-    if text.startswith("多选题"):
+    # Multiple choice
+    if (
+        text.startswith("多选题")
+        or text.startswith("多项选择")
+    ):
         return "multiple_choice"
 
-    if text.startswith("多项选择"):
-        return "multiple_choice"
-
-    if text.startswith("完形填空"):
+    # Cloze
+    if text.startswith(
+        "完形填空"
+    ):
         return "cloze"
 
-    if text.startswith("阅读理解"):
+    # Reading
+    if text.startswith(
+        "阅读理解"
+    ):
         return "reading"
 
-    if text.startswith("翻译"):
+    # Translation
+    if text.startswith(
+        "翻译"
+    ):
         return "translation"
 
-    if text.startswith("写作"):
+    # Writing
+    if text.startswith(
+        "写作"
+    ):
         return "writing"
 
     return None
 
 
-def detect_answer_part(
+# ======================================================================
+# CHOICE ANSWER EXTRACTION
+# ======================================================================
+
+def extract_choice_answer(
     line: str,
 ) -> Optional[str]:
 
@@ -2263,43 +1523,198 @@ def detect_answer_part(
         line
     )
 
-    match = re.search(
-        r"\bPart\s+([ABC])\b",
+    text = text.replace(
+        "**",
+        "",
+    )
+
+    # --------------------------------------------------------------
+    # 1. B
+    # 1、B
+    # 1) B
+    # --------------------------------------------------------------
+
+    match = re.match(
+        r"^\s*(\d+)\s*[.．、)]\s*"
+        r"([A-D](?:\s*[,、，]\s*[A-D])*)"
+        r"\s*$",
         text,
         re.IGNORECASE,
     )
 
     if match:
 
-        return match.group(1).upper()
+        return normalize_answer(
+            match.group(2)
+        )
 
-    if re.search(
-        r"汉译英",
+    # --------------------------------------------------------------
+    # 答案：B
+    # --------------------------------------------------------------
+
+    match = re.search(
+        r"答案\s*[:：]\s*"
+        r"([A-D](?:\s*[,、，]\s*[A-D])*)",
         text,
-    ):
+        re.IGNORECASE,
+    )
 
-        return "A"
+    if match:
 
-    if re.search(
-        r"英译汉",
-        text,
-    ):
-
-        return "B"
+        return normalize_answer(
+            match.group(1)
+        )
 
     return None
 
 
-def collect_numbered_answers(
-    lines: List[str],
-) -> Dict[int, str]:
+# ======================================================================
+# V1.6.1 LISTENING ANSWER PARSER
+# ======================================================================
 
-    answers: Dict[
-        int,
+def parse_listening_answers_v161(
+    answer_text: str,
+) -> Dict[Tuple[str, int], str]:
+    """
+    Dedicated V1.6.1 listening answer parser.
+
+    It does NOT depend on split_answer_blocks().
+
+    It scans the complete answer file and uses this state machine:
+
+        BEFORE_STANDARD
+            |
+            v
+        STANDARD_ANSWER
+            |
+            v
+        LISTENING
+            |
+            +--> PART A
+            |
+            +--> PART B
+            |
+            +--> PART C
+            |
+            v
+        NEXT_SECTION -> STOP
+
+    Expected result:
+
+        ("A", 1) -> "B"
+        ("A", 2) -> "C"
+        ...
+        ("C", 5) -> "D"
+    """
+
+    lines = normalize_text(
+        answer_text
+    ).splitlines()
+
+    result: Dict[
+        Tuple[str, int],
         str
     ] = {}
 
-    for line in lines:
+    in_standard_answer = False
+    in_listening = False
+
+    current_part: Optional[str] = None
+
+    for raw_line in lines:
+
+        line = normalize_text(
+            raw_line
+        )
+
+        if not line:
+            continue
+
+        # ----------------------------------------------------------
+        # STEP 1
+        # Find root:
+        #
+        # ## 二、标准答案
+        # ----------------------------------------------------------
+
+        if not in_standard_answer:
+
+            if is_standard_answer_heading(
+                line
+            ):
+
+                in_standard_answer = True
+
+            continue
+
+        # ----------------------------------------------------------
+        # STEP 2
+        # Find:
+        #
+        # ### 听力
+        # ----------------------------------------------------------
+
+        if not in_listening:
+
+            section = detect_answer_section(
+                line
+            )
+
+            if section == "listening":
+
+                in_listening = True
+                current_part = None
+
+                continue
+
+            # Another section appearing before
+            # listening means this answer file does
+            # not contain listening in the expected
+            # location.
+            continue
+
+        # ----------------------------------------------------------
+        # STEP 3
+        # Stop at next answer section.
+        # ----------------------------------------------------------
+
+        section = detect_answer_section(
+            line
+        )
+
+        if section in {
+            "single_choice",
+            "multiple_choice",
+            "cloze",
+            "reading",
+            "translation",
+            "writing",
+        }:
+
+            break
+
+        # ----------------------------------------------------------
+        # STEP 4
+        # Detect Part A/B/C.
+        # ----------------------------------------------------------
+
+        part = detect_listening_part(
+            line
+        )
+
+        if part:
+
+            current_part = part
+
+            continue
+
+        # ----------------------------------------------------------
+        # STEP 5
+        # Parse:
+        #
+        # 1. B
+        # 2. C
+        # ----------------------------------------------------------
 
         answer = extract_choice_answer(
             line
@@ -2308,29 +1723,77 @@ def collect_numbered_answers(
         if answer is None:
             continue
 
-        text = (
-            clean_answer_line(
-                line
-            ).replace(
+        match = re.match(
+            r"^\s*(\d+)\s*[.．、)]",
+            line.replace(
                 "**",
                 "",
-            )
+            ),
         )
 
-        match = re.match(
-            r"^(\d+)\s*[.．、)]",
-            text,
+        if not match:
+            continue
+
+        if current_part not in {
+            "A",
+            "B",
+            "C",
+        }:
+            continue
+
+        number = int(
+            match.group(1)
         )
 
-        if match:
+        if not 1 <= number <= 5:
+            continue
 
-            number = int(
-                match.group(1)
+        result[
+            (
+                current_part,
+                number,
             )
+        ] = normalize_answer(
+            answer
+        )
 
-            answers[number] = answer
+    return result
 
-    return answers
+
+# ======================================================================
+# LISTENING DIAGNOSTIC
+# ======================================================================
+
+def listening_answer_diagnostic(
+    answers: Dict[
+        Tuple[str, int],
+        str
+    ],
+) -> Dict[str, int]:
+
+    return {
+        "A": sum(
+            1
+            for number in range(1, 6)
+            if answers.get(
+                ("A", number)
+            )
+        ),
+        "B": sum(
+            1
+            for number in range(1, 6)
+            if answers.get(
+                ("B", number)
+            )
+        ),
+        "C": sum(
+            1
+            for number in range(1, 6)
+            if answers.get(
+                ("C", number)
+            )
+        ),
+    }
 
 
 # ======================================================================
@@ -2340,15 +1803,6 @@ def collect_numbered_answers(
 def split_answer_blocks(
     text: str,
 ) -> Dict[str, str]:
-    """
-    Split the real answer/explanation file.
-
-    Critical rule:
-
-        ONLY content after the standard-answer root is considered.
-
-    Therefore the earlier listening transcript is ignored.
-    """
 
     lines = normalize_text(
         text
@@ -2369,10 +1823,6 @@ def split_answer_blocks(
             line
         )
 
-        # ----------------------------------------------------------
-        # Root standard answer.
-        # ----------------------------------------------------------
-
         if is_standard_answer_heading(
             clean
         ):
@@ -2383,46 +1833,22 @@ def split_answer_blocks(
             continue
 
         if not in_standard_answer:
-
             continue
 
-        # ----------------------------------------------------------
-        # Blank line.
-        # ----------------------------------------------------------
-
-        if not clean:
-
-            if current:
-
-                blocks.setdefault(
-                    current,
-                    [],
-                ).append("")
-
-            continue
-
-        # ----------------------------------------------------------
-        # Answer subsection.
-        # ----------------------------------------------------------
-
-        detected = detect_answer_section(
+        section = detect_answer_section(
             clean
         )
 
-        if detected:
+        if section:
 
-            current = detected
+            current = section
 
             blocks.setdefault(
                 current,
-                [])
+                [],
+            )
 
             continue
-
-        # ----------------------------------------------------------
-        # Ignore Part A/B/C as sections.
-        # They belong to listening.
-        # ----------------------------------------------------------
 
         if current:
 
@@ -2431,373 +1857,43 @@ def split_answer_blocks(
             )
 
     return {
-        key: "\n".join(value).strip()
+        key: "\n".join(
+            value
+        ).strip()
         for key, value in blocks.items()
     }
 
 
 # ======================================================================
-# DIRECT ANSWER RECOVERY
+# GENERAL ANSWER PARSERS
 # ======================================================================
 
-def extract_standard_answer_area(
+def collect_numbered_answers(
     text: str,
-) -> str:
-    """
-    Return everything beginning at the standard-answer root.
-    """
+) -> Dict[int, str]:
 
-    lines = normalize_text(
-        text
-    ).splitlines()
-
-    start_index: Optional[int] = None
-
-    for index, line in enumerate(lines):
-
-        if is_standard_answer_heading(
-            line
-        ):
-
-            start_index = index
-
-            break
-
-    if start_index is None:
-        return ""
-
-    return "\n".join(
-        lines[start_index:]
-    ).strip()
-
-
-def extract_listening_answer_block_direct(
-    text: str,
-) -> str:
-    """
-    Direct recovery of:
-
-        ## 二、标准答案
-        ### 听力
-        #### Part A
-        1. B
-        ...
-        #### Part B
-        ...
-        #### Part C
-        ...
-
-    Stops when another real answer section begins.
-    """
-
-    lines = normalize_text(
-        text
-    ).splitlines()
-
-    standard_start: Optional[int] = None
-
-    # --------------------------------------------------------------
-    # Find standard-answer root.
-    # --------------------------------------------------------------
-
-    for index, line in enumerate(lines):
-
-        if is_standard_answer_heading(
-            line
-        ):
-
-            standard_start = index
-
-            break
-
-    if standard_start is None:
-        return ""
-
-    # --------------------------------------------------------------
-    # Find listening heading after root.
-    # --------------------------------------------------------------
-
-    listening_start: Optional[int] = None
-
-    for index in range(
-        standard_start + 1,
-        len(lines),
-    ):
-
-        section = detect_answer_section(
-            lines[index]
-        )
-
-        if section == "listening":
-
-            listening_start = index
-
-            break
-
-        # If another answer section appears first,
-        # there is no listening block.
-        if section in {
-            "single_choice",
-            "multiple_choice",
-            "cloze",
-            "reading",
-            "translation",
-            "writing",
-        }:
-
-            return ""
-
-    if listening_start is None:
-        return ""
-
-    # --------------------------------------------------------------
-    # Collect listening answer lines.
-    # --------------------------------------------------------------
-
-    listening_lines: List[str] = []
-
-    for index in range(
-        listening_start + 1,
-        len(lines),
-    ):
-
-        section = detect_answer_section(
-            lines[index]
-        )
-
-        if section in {
-            "single_choice",
-            "multiple_choice",
-            "cloze",
-            "reading",
-            "translation",
-            "writing",
-        }:
-
-            break
-
-        listening_lines.append(
-            lines[index]
-        )
-
-    return "\n".join(
-        listening_lines
-    ).strip()
-
-
-# ======================================================================
-# LISTENING ANSWER PARSER
-# ======================================================================
-
-def is_listening_answer_boundary(
-    line: str,
-) -> bool:
-
-    text = canonical_answer_heading(
-        line
-    )
-
-    if not text:
-        return False
-
-    patterns = [
-        "标准答案",
-        "参考答案",
-        "答案与解析",
-        "答案",
-    ]
-
-    for pattern in patterns:
-
-        if text == pattern:
-            return True
-
-        if text.startswith(
-            pattern + ":"
-        ):
-            return True
-
-    return False
-
-
-def is_standalone_listening_part(
-    line: str,
-) -> Optional[str]:
-
-    clean = normalize_text(
-        line
-    )
-
-    # Remove Markdown heading prefix.
-    clean = re.sub(
-        r"^#{1,6}\s*",
-        "",
-        clean,
-    ).strip()
-
-    match = re.match(
-        r"^Part\s+([ABC])"
-        r"(?:\s*[:：\-–—]\s*.*)?$",
-        clean,
-        re.IGNORECASE,
-    )
-
-    if match:
-
-        return match.group(1).upper()
-
-    return None
-
-
-def is_numbered_answer_line(
-    line: str,
-) -> bool:
-
-    return (
-        extract_choice_answer(line)
-        is not None
-    )
-
-
-def flat_listening_answers_to_parts(
-    answers: List[str],
-) -> Dict[Tuple[str, int], str]:
-    """
-    Convert flat 15-answer sequence into:
-
-        A1-A5
-        B1-B5
-        C1-C5
-    """
-
-    result: Dict[
-        Tuple[str, int],
+    answers: Dict[
+        int,
         str
     ] = {}
 
-    for index, answer in enumerate(
-        answers[:15]
-    ):
-
-        if index < 5:
-
-            part = "A"
-            number = index + 1
-
-        elif index < 10:
-
-            part = "B"
-            number = index - 4
-
-        else:
-
-            part = "C"
-            number = index - 9
-
-        result[
-            (
-                part,
-                number,
-            )
-        ] = normalize_answer(
-            answer
-        )
-
-    return result
-
-
-def parse_listening_answers(
-    text: str,
-) -> Dict[Tuple[str, int], str]:
-    """
-    Parse listening answers.
-
-    Primary supported format:
-
-        ### 听力
-
-        #### Part A
-        1. B
-        2. C
-        3. D
-        4. D
-        5. A
-
-        #### Part B
-        1. B
-        2. A
-        3. B
-        4. B
-        5. C
-
-        #### Part C
-        1. A
-        2. B
-        3. C
-        4. C
-        5. D
-    """
-
-    lines = normalize_text(
+    for line in normalize_text(
         text
-    ).splitlines()
-
-    result: Dict[
-        Tuple[str, int],
-        str
-    ] = {}
-
-    current_part: Optional[str] = None
-
-    flat_answers: List[str] = []
-
-    explicit_part_mode = any(
-        is_standalone_listening_part(line)
-        for line in lines
-    )
-
-    for line in lines:
-
-        clean = normalize_text(
-            line
-        )
-
-        if not clean:
-            continue
-
-        # ----------------------------------------------------------
-        # Part A/B/C
-        # ----------------------------------------------------------
-
-        part = is_standalone_listening_part(
-            clean
-        )
-
-        if part:
-
-            current_part = part
-
-            continue
-
-        # ----------------------------------------------------------
-        # Numbered answer
-        # ----------------------------------------------------------
+    ).splitlines():
 
         answer = extract_choice_answer(
-            clean
+            line
         )
 
         if answer is None:
             continue
 
-        answer_text = clean.replace(
-            "**",
-            "",
-        )
-
         match = re.match(
-            r"^(\d+)\s*[.．、)]",
-            answer_text,
+            r"^\s*(\d+)\s*[.．、)]",
+            line.replace(
+                "**",
+                "",
+            ),
         )
 
         if not match:
@@ -2807,131 +1903,11 @@ def parse_listening_answers(
             match.group(1)
         )
 
-        # ----------------------------------------------------------
-        # Explicit Part A/B/C mode.
-        # ----------------------------------------------------------
-
-        if explicit_part_mode:
-
-            if (
-                current_part
-                and 1 <= number <= 5
-            ):
-
-                result[
-                    (
-                        current_part,
-                        number,
-                    )
-                ] = normalize_answer(
-                    answer
-                )
-
-            continue
-
-        # ----------------------------------------------------------
-        # Flat mode.
-        # ----------------------------------------------------------
-
-        flat_answers.append(
-            normalize_answer(
-                answer
-            )
+        answers[number] = normalize_answer(
+            answer
         )
 
-    # --------------------------------------------------------------
-    # Explicit Part mode.
-    # --------------------------------------------------------------
-
-    if explicit_part_mode:
-
-        # Exact expected 15 answers.
-        if len(result) == 15:
-
-            return result
-
-        # ----------------------------------------------------------
-        # Recovery for mixed format.
-        #
-        # If some answers were found without a valid current part,
-        # assign them sequentially.
-        # ----------------------------------------------------------
-
-        if flat_answers:
-
-            flat_result = (
-                flat_listening_answers_to_parts(
-                    flat_answers
-                )
-            )
-
-            for key, value in flat_result.items():
-
-                if key not in result:
-
-                    result[key] = value
-
-        return result
-
-    # --------------------------------------------------------------
-    # Flat mode.
-    # --------------------------------------------------------------
-
-    return flat_listening_answers_to_parts(
-        flat_answers
-    )
-
-
-def parse_general_choice_answers(
-    text: str,
-) -> Dict[int, str]:
-
-    lines = normalize_text(
-        text
-    ).splitlines()
-
-    return collect_numbered_answers(
-        lines
-    )
-
-
-# ======================================================================
-# TRANSLATION REFERENCES
-# ======================================================================
-
-def extract_reference_after_number(
-    line: str,
-) -> Optional[Tuple[int, str]]:
-
-    text = clean_answer_line(
-        line
-    )
-
-    text = text.replace(
-        "**",
-        "",
-    )
-
-    match = re.match(
-        r"^(\d+)\s*[.．、)]\s*(.*?)\s*$",
-        text,
-    )
-
-    if not match:
-        return None
-
-    number = int(
-        match.group(1)
-    )
-
-    reference = normalize_text(
-        match.group(2)
-    )
-
-    if not reference:
-        return None
-
-    return number, reference
+    return answers
 
 
 def parse_translation_references(
@@ -2958,82 +1934,60 @@ def parse_translation_references(
         if not clean:
             continue
 
-        part = detect_answer_part(
-            clean
-        )
+        if re.search(
+            r"\bPart\s+A\b",
+            clean,
+            re.IGNORECASE,
+        ):
 
-        if part:
-
-            current_part = part
-
+            current_part = "A"
             continue
 
-        parsed = extract_reference_after_number(
-            clean
-        )
+        if re.search(
+            r"\bPart\s+B\b",
+            clean,
+            re.IGNORECASE,
+        ):
 
-        if not parsed:
+            current_part = "B"
             continue
 
-        number, reference = parsed
+        match = re.match(
+            r"^(\d+)\s*[.．、)]\s*(.*?)\s*$",
+            clean.replace(
+                "**",
+                "",
+            ),
+        )
 
-        if current_part in {
-            "A",
-            "B",
-        }:
+        if not match:
+            continue
+
+        number = int(
+            match.group(1)
+        )
+
+        value = normalize_text(
+            match.group(2)
+        )
+
+        if (
+            current_part in {
+                "A",
+                "B",
+            }
+            and value
+        ):
 
             result[
                 (
                     current_part,
                     number,
                 )
-            ] = reference
-
-    if not result:
-
-        refs: List[str] = []
-
-        for line in lines:
-
-            parsed = (
-                extract_reference_after_number(
-                    line
-                )
-            )
-
-            if parsed:
-
-                refs.append(
-                    parsed[1]
-                )
-
-        for index, reference in enumerate(
-            refs[:10]
-        ):
-
-            if index < 5:
-
-                part = "A"
-                number = index + 1
-
-            else:
-
-                part = "B"
-                number = index - 4
-
-            result[
-                (
-                    part,
-                    number,
-                )
-            ] = reference
+            ] = value
 
     return result
 
-
-# ======================================================================
-# WRITING REFERENCE
-# ======================================================================
 
 def parse_writing_reference(
     text: str,
@@ -3045,7 +1999,7 @@ def parse_writing_reference(
 
     collecting = False
 
-    reference_lines: List[str] = []
+    result: List[str] = []
 
     for line in lines:
 
@@ -3056,57 +2010,39 @@ def parse_writing_reference(
         if not clean:
             continue
 
-        heading = normalize_heading(
-            clean
-        )
-
-        if "写作参考范文" in heading:
+        if "写作参考范文" in clean:
 
             collecting = True
 
             continue
 
         if not collecting:
-
             continue
 
-        if re.match(
-            r"^#{1,6}\s+",
-            clean,
+        if (
+            clean.startswith("#")
+            and "写作参考范文"
+            not in clean
         ):
 
-            if (
-                "写作参考范文"
-                not in heading
-            ):
+            break
 
-                break
-
-        if re.fullmatch(
-            r"\*{0,2}\s*1\s*[.．、)]\s*\*{0,2}",
-            clean,
-        ):
-
-            continue
-
-        reference_lines.append(
+        result.append(
             clean.replace(
                 "**",
                 "",
             )
         )
 
-    reference = " ".join(
-        x
-        for x in reference_lines
-        if x
+    value = " ".join(
+        result
     ).strip()
 
-    return reference or None
+    return value or None
 
 
 # ======================================================================
-# EXPLANATION PARSING
+# EXPLANATIONS
 # ======================================================================
 
 def parse_explanations(
@@ -3125,49 +2061,43 @@ def parse_explanations(
         str
     ] = {}
 
-    current_section: Optional[
-        str
-    ] = None
-
-    current_part: Optional[
-        str
-    ] = None
-
-    current_number: Optional[
-        int
-    ] = None
-
+    current_section: Optional[str] = None
+    current_part: Optional[str] = None
+    current_number: Optional[int] = None
     buffer: List[str] = []
 
-    def flush() -> None:
+    def flush():
 
         nonlocal current_number
         nonlocal buffer
 
         if (
-            current_section is not None
+            current_section
             and current_number is not None
             and buffer
         ):
 
             value = " ".join(
-                x.strip()
+                x
                 for x in buffer
-                if x.strip()
+                if x
             ).strip()
 
             if value:
 
-                # Listening explanations need part-aware keys.
                 if current_section == "listening":
+
                     if current_part:
+
                         result[
                             (
                                 f"listening_{current_part}",
                                 current_number,
                             )
                         ] = value
+
                 else:
+
                     result[
                         (
                             current_section,
@@ -3187,22 +2117,22 @@ def parse_explanations(
         if not clean:
             continue
 
-        detected = detect_answer_section(
+        section = detect_answer_section(
             clean
         )
 
-        if detected:
+        if section:
 
             flush()
 
-            current_section = detected
+            current_section = section
             current_part = None
 
             continue
 
         if current_section == "listening":
 
-            part = detect_answer_part(
+            part = detect_listening_part(
                 clean
             )
 
@@ -3214,40 +2144,30 @@ def parse_explanations(
 
                 continue
 
-        text_without_bold = (
+        match = re.match(
+            r"^(\d+)\s*[.．、)]\s*(.*)$",
             clean.replace(
                 "**",
                 "",
-            )
-        )
-
-        match = re.match(
-            r"^(\d+)\s*[.．、)]\s*(.*)$",
-            text_without_bold,
+            ),
         )
 
         if match:
 
             flush()
 
-            try:
+            current_number = int(
+                match.group(1)
+            )
 
-                current_number = int(
-                    match.group(1)
-                )
-
-            except ValueError:
-
-                current_number = None
-
-            remainder = normalize_text(
+            rest = normalize_text(
                 match.group(2)
             )
 
-            if remainder:
+            if rest:
 
                 buffer.append(
-                    remainder
+                    rest
                 )
 
             continue
@@ -3260,60 +2180,16 @@ def parse_explanations(
 
     flush()
 
-    # --------------------------------------------------------------
-    # Backward-compatible aliases.
-    #
-    # Keep ordinary section keys for non-listening explanations.
-    # For listening, also expose the historical global mapping.
-    # --------------------------------------------------------------
-
-    listening_part_keys = {
-        key: value
-        for key, value in result.items()
-        if (
-            isinstance(key, tuple)
-            and len(key) == 2
-            and str(key[0]).startswith(
-                "listening_"
-            )
-        )
-    }
-
-    for key, value in listening_part_keys.items():
-
-        section_key, number = key
-
-        part = section_key.rsplit(
-            "_",
-            1
-        )[-1]
-
-        # Do not overwrite an existing normal key.
-        normal_key = (
-            "listening",
-            number,
-        )
-
-        if normal_key not in result:
-
-            result[
-                normal_key
-            ] = value
-
     return result
 
 
 # ======================================================================
-# REFERENCE ANSWER AGGREGATION
+# REFERENCE ANSWERS
 # ======================================================================
 
 def parse_reference_answers(
     answer_text: str,
 ) -> Dict[str, Any]:
-
-    blocks = split_answer_blocks(
-        answer_text
-    )
 
     result: Dict[str, Any] = {
         "choice": {},
@@ -3325,185 +2201,27 @@ def parse_reference_answers(
 
     # ==============================================================
     # LISTENING
+    #
+    # V1.6.1:
+    # DO NOT depend on split_answer_blocks().
     # ==============================================================
-
-    listening_text = blocks.get(
-        "listening",
-        "",
+    listening_answers = (
+        parse_listening_answers_v161(
+            answer_text
+        )
     )
 
-    if listening_text:
-
-        result["listening"] = (
-            parse_listening_answers(
-                listening_text
-            )
-        )
-
-    # --------------------------------------------------------------
-    # DIRECT RECOVERY
-    # --------------------------------------------------------------
-
-    if len(
-        result["listening"]
-    ) < 15:
-
-        direct_listening = (
-            extract_listening_answer_block_direct(
-                answer_text
-            )
-        )
-
-        if direct_listening:
-
-            direct_answers = (
-                parse_listening_answers(
-                    direct_listening
-                )
-            )
-
-            if len(direct_answers) > len(
-                result["listening"]
-            ):
-
-                result["listening"] = (
-                    direct_answers
-                )
-
-    # --------------------------------------------------------------
-    # FINAL LISTENING FLAT SCAN
-    #
-    # This is the last safety net for the exact real format.
-    #
-    # It scans ONLY inside:
-    #
-    #   标准答案 -> 听力
-    #
-    # and stops at the next answer section.
-    # --------------------------------------------------------------
-
-    if len(
-        result["listening"]
-    ) < 15:
-
-        lines = normalize_text(
-            answer_text
-        ).splitlines()
-
-        in_standard = False
-        in_listening = False
-
-        current_part: Optional[str] = None
-
-        fallback_answers: Dict[
-            Tuple[str, int],
-            str
-        ] = {}
-
-        for line in lines:
-
-            clean = normalize_text(
-                line
-            )
-
-            if is_standard_answer_heading(
-                clean
-            ):
-
-                in_standard = True
-                in_listening = False
-                current_part = None
-
-                continue
-
-            if not in_standard:
-                continue
-
-            section = detect_answer_section(
-                clean
-            )
-
-            if section == "listening":
-
-                in_listening = True
-                current_part = None
-
-                continue
-
-            if section in {
-                "single_choice",
-                "multiple_choice",
-                "cloze",
-                "reading",
-                "translation",
-                "writing",
-            }:
-
-                if in_listening:
-                    break
-
-                continue
-
-            if not in_listening:
-                continue
-
-            part = is_standalone_listening_part(
-                clean
-            )
-
-            if part:
-
-                current_part = part
-
-                continue
-
-            answer = extract_choice_answer(
-                clean
-            )
-
-            if answer is None:
-                continue
-
-            match = re.match(
-                r"^\s*(\d+)\s*[.．、)]",
-                clean.replace(
-                    "**",
-                    "",
-                ),
-            )
-
-            if not match:
-                continue
-
-            number = int(
-                match.group(1)
-            )
-
-            if (
-                current_part
-                and 1 <= number <= 5
-            ):
-
-                fallback_answers[
-                    (
-                        current_part,
-                        number,
-                    )
-                ] = normalize_answer(
-                    answer
-                )
-
-        if len(fallback_answers) > len(
-            result["listening"]
-        ):
-
-            result["listening"] = (
-                fallback_answers
-            )
+    result["listening"] = (
+        listening_answers
+    )
 
     # ==============================================================
-    # GENERAL CHOICE ANSWERS
+    # Other answer blocks
     # ==============================================================
+
+    blocks = split_answer_blocks(
+        answer_text
+    )
 
     for section in [
         "single_choice",
@@ -3517,51 +2235,50 @@ def parse_reference_answers(
             "",
         )
 
-        if not block:
-            continue
+        if block:
 
-        result["choice"][section] = (
-            parse_general_choice_answers(
-                block
+            result["choice"][section] = (
+                collect_numbered_answers(
+                    block
+                )
             )
-        )
 
     # ==============================================================
-    # TRANSLATION
+    # Translation
     # ==============================================================
 
-    translation_text = blocks.get(
+    translation_block = blocks.get(
         "translation",
         "",
     )
 
-    if translation_text:
+    if translation_block:
 
         result["translation"] = (
             parse_translation_references(
-                translation_text
+                translation_block
             )
         )
 
     # ==============================================================
-    # WRITING
+    # Writing
     # ==============================================================
 
-    writing_text = blocks.get(
+    writing_block = blocks.get(
         "writing",
         "",
     )
 
-    if writing_text:
+    if writing_block:
 
         result["writing"] = (
             parse_writing_reference(
-                writing_text
+                writing_block
             )
         )
 
     # ==============================================================
-    # EXPLANATIONS
+    # Explanations
     # ==============================================================
 
     result["explanations"] = (
@@ -3574,7 +2291,7 @@ def parse_reference_answers(
 
 
 # ======================================================================
-# ANSWER ATTACHMENT
+# ATTACH ANSWERS
 # ======================================================================
 
 def attach_answers(
@@ -3584,17 +2301,17 @@ def attach_answers(
 
     choice_answers = answer_data.get(
         "choice",
-        {},
+        {}
     )
 
     listening_answers = answer_data.get(
         "listening",
-        {},
+        {}
     )
 
     translation_answers = answer_data.get(
         "translation",
-        {},
+        {}
     )
 
     writing_reference = answer_data.get(
@@ -3603,33 +2320,43 @@ def attach_answers(
 
     explanations = answer_data.get(
         "explanations",
-        {},
+        {}
     )
-
-    listening_global_index = 0
 
     for question in questions:
 
-        section = question["section"]
+        section = question.get(
+            "section"
+        )
 
-        number = question["number"]
+        number = question.get(
+            "number"
+        )
 
-        correct_answer: Optional[
-            str
-        ] = None
+        correct_answer = None
 
-        reference_answer: Optional[
-            str
-        ] = None
+        reference_answer = None
 
         explanation = ""
 
+        # ==========================================================
+        # LISTENING
+        # ==========================================================
+
         if section == "listening":
 
-            part = question.get(
-                "part",
-                "A",
+            part = (
+                question.get(
+                    "part"
+                )
+                or "A"
             )
+
+            # ------------------------------------------------------
+            # PRIMARY:
+            #
+            # ("A", 1)
+            # ------------------------------------------------------
 
             correct_answer = (
                 listening_answers.get(
@@ -3641,75 +2368,75 @@ def attach_answers(
             )
 
             # ------------------------------------------------------
-            # Global fallback.
+            # SECONDARY:
+            #
+            # Derive directly from ID.
+            #
+            # listening_A_1
             # ------------------------------------------------------
 
             if not correct_answer:
 
-                global_number = (
-                    listening_global_index
-                    + 1
+                question_id = (
+                    question.get(
+                        "id",
+                        ""
+                    )
                 )
 
-                if global_number <= 5:
+                match = re.match(
+                    r"^listening_([ABC])_(\d+)$",
+                    question_id,
+                )
 
-                    fallback_part = "A"
-                    fallback_number = (
-                        global_number
+                if match:
+
+                    id_part = (
+                        match.group(1)
                     )
 
-                elif global_number <= 10:
-
-                    fallback_part = "B"
-                    fallback_number = (
-                        global_number - 5
+                    id_number = int(
+                        match.group(2)
                     )
 
-                else:
-
-                    fallback_part = "C"
-                    fallback_number = (
-                        global_number - 10
-                    )
-
-                correct_answer = (
-                    listening_answers.get(
-                        (
-                            fallback_part,
-                            fallback_number,
+                    correct_answer = (
+                        listening_answers.get(
+                            (
+                                id_part,
+                                id_number,
+                            )
                         )
                     )
-                )
 
             # ------------------------------------------------------
-            # Explanation lookup.
+            # Explanation.
             # ------------------------------------------------------
 
-            part_explanation = explanations.get(
-                (
-                    f"listening_{part}",
-                    number,
-                ),
-                "",
-            )
-
-            if part_explanation:
-
-                explanation = (
-                    part_explanation
-                )
-
-            else:
-
-                explanation = explanations.get(
+            explanation = (
+                explanations.get(
                     (
-                        "listening",
+                        f"listening_{part}",
                         number,
                     ),
-                    "",
+                    ""
+                )
+            )
+
+            if not explanation:
+
+                explanation = (
+                    explanations.get(
+                        (
+                            "listening",
+                            number,
+                        ),
+                        ""
+                    )
                 )
 
-            listening_global_index += 1
+        # ==========================================================
+        # OTHER AUTO-GRADED TYPES
+        # ==========================================================
 
         elif section in {
             "single_choice",
@@ -3721,7 +2448,7 @@ def attach_answers(
             section_answers = (
                 choice_answers.get(
                     section,
-                    {},
+                    {}
                 )
             )
 
@@ -3731,38 +2458,51 @@ def attach_answers(
                 )
             )
 
-            explanation = explanations.get(
-                (
-                    section,
-                    number,
-                ),
-                "",
+            explanation = (
+                explanations.get(
+                    (
+                        section,
+                        number,
+                    ),
+                    ""
+                )
             )
+
+        # ==========================================================
+        # TRANSLATION
+        # ==========================================================
 
         elif section == "translation":
 
-            part = question.get(
-                "part"
+            part = (
+                question.get(
+                    "part"
+                )
+                or "A"
             )
 
-            if part:
-
-                reference_answer = (
-                    translation_answers.get(
-                        (
-                            part,
-                            number,
-                        )
+            reference_answer = (
+                translation_answers.get(
+                    (
+                        part,
+                        number,
                     )
                 )
-
-            explanation = explanations.get(
-                (
-                    section,
-                    number,
-                ),
-                "",
             )
+
+            explanation = (
+                explanations.get(
+                    (
+                        section,
+                        number,
+                    ),
+                    ""
+                )
+            )
+
+        # ==========================================================
+        # WRITING
+        # ==========================================================
 
         elif section == "writing":
 
@@ -3770,54 +2510,61 @@ def attach_answers(
                 writing_reference
             )
 
-            explanation = explanations.get(
-                (
-                    section,
-                    number,
-                ),
-                "",
-            )
-
-        question["correct_answer"] = (
-            normalize_answer(
-                correct_answer
-            )
-            if correct_answer is not None
-            else None
-        )
-
-        question["reference_answer"] = (
-            reference_answer
-        )
-
-        question["explanation"] = (
-            explanation
-        )
-
-        if section in {
-            "single_choice",
-            "multiple_choice",
-            "cloze",
-            "reading",
-            "listening",
-        }:
-
-            question["graded"] = (
-                question[
-                    "correct_answer"
-                ]
-                not in (
-                    None,
-                    "",
+            explanation = (
+                explanations.get(
+                    (
+                        section,
+                        number,
+                    ),
+                    ""
                 )
             )
 
-        elif section in {
-            "translation",
-            "writing",
-        }:
+        # ==========================================================
+        # WRITE BACK
+        # ==========================================================
 
-            question["graded"] = False
+        if correct_answer is not None:
+
+            question[
+                "correct_answer"
+            ] = normalize_answer(
+                correct_answer
+            )
+
+        else:
+
+            question[
+                "correct_answer"
+            ] = None
+
+        question[
+            "reference_answer"
+        ] = reference_answer
+
+        question[
+            "explanation"
+        ] = explanation
+
+        # ----------------------------------------------------------
+        # Grading status
+        # ----------------------------------------------------------
+
+        if section in AUTO_GRADED_TYPES:
+
+            question[
+                "graded"
+            ] = bool(
+                question.get(
+                    "correct_answer"
+                )
+            )
+
+        elif section in MANUAL_REVIEW_TYPES:
+
+            question[
+                "graded"
+            ] = False
 
             question[
                 "review_required"
@@ -3827,7 +2574,7 @@ def attach_answers(
 
 
 # ======================================================================
-# BUILD COMPLETE EXAM
+# BUILD
 # ======================================================================
 
 def build_exam(
@@ -3839,14 +2586,6 @@ def build_exam(
         exam_text
     )
 
-    answer_data: Dict[str, Any] = {
-        "choice": {},
-        "listening": {},
-        "translation": {},
-        "writing": None,
-        "explanations": {},
-    }
-
     if answer_text:
 
         answer_data = (
@@ -3857,13 +2596,13 @@ def build_exam(
 
         questions = attach_answers(
             questions,
-            answer_data,
+            answer_data
         )
 
     return {
         "version": PARSER_VERSION,
         "parser": (
-            "748686 ENGLISH EXAM PARSER V1.6"
+            "748686 ENGLISH EXAM PARSER V1.6.1"
         ),
         "total_questions": len(
             questions
@@ -3876,32 +2615,6 @@ def build_exam(
 # VALIDATION
 # ======================================================================
 
-EXPECTED_COUNTS = {
-    "listening": 15,
-    "single_choice": 10,
-    "multiple_choice": 10,
-    "cloze": 10,
-    "reading": 5,
-    "translation": 10,
-    "writing": 1,
-}
-
-
-AUTO_GRADED_TYPES = {
-    "single_choice",
-    "multiple_choice",
-    "cloze",
-    "reading",
-    "listening",
-}
-
-
-MANUAL_REVIEW_TYPES = {
-    "translation",
-    "writing",
-}
-
-
 def validate_exam(
     exam: Dict[str, Any],
 ) -> List[str]:
@@ -3910,7 +2623,7 @@ def validate_exam(
 
     questions = exam.get(
         "questions",
-        [],
+        []
     )
 
     if not questions:
@@ -3926,17 +2639,20 @@ def validate_exam(
     for question in questions:
 
         section = question.get(
-            "section",
-            "",
+            "section"
         )
 
         counts[section] = (
             counts.get(
                 section,
-                0,
+                0
             )
             + 1
         )
+
+    # --------------------------------------------------------------
+    # Section counts
+    # --------------------------------------------------------------
 
     for section, expected in (
         EXPECTED_COUNTS.items()
@@ -3950,9 +2666,13 @@ def validate_exam(
         if actual != expected:
 
             errors.append(
-                f"{section}: 数量 {actual}, "
-                f"预期 {expected}"
+                f"{section}: "
+                f"{actual}/{expected}"
             )
+
+    # --------------------------------------------------------------
+    # IDs
+    # --------------------------------------------------------------
 
     ids = [
         q.get("id")
@@ -3965,30 +2685,30 @@ def validate_exam(
             "题目 ID 不唯一"
         )
 
+    # --------------------------------------------------------------
+    # Content
+    # --------------------------------------------------------------
+
     for question in questions:
 
         qid = question.get(
             "id",
-            "<unknown>",
+            "<unknown>"
         )
 
-        section = question.get(
-            "section",
-            "",
-        )
-
-        content = normalize_text(
+        if not normalize_text(
             question.get(
-                "question",
-                "",
+                "question"
             )
-        )
-
-        if not content:
+        ):
 
             errors.append(
                 f"{qid}: 缺少题目内容"
             )
+
+        section = question.get(
+            "section"
+        )
 
         if section in {
             "single_choice",
@@ -3996,37 +2716,55 @@ def validate_exam(
             "reading",
         }:
 
-            options = question.get(
-                "options",
-                [],
-            )
-
-            if len(options) < 4:
-
-                errors.append(
-                    f"{qid}: 选项数量不足 "
-                    f"({len(options)}/4)"
-                )
-
-        if section in AUTO_GRADED_TYPES:
-
-            answer = normalize_answer(
+            if len(
                 question.get(
-                    "correct_answer"
+                    "options",
+                    []
                 )
-            )
-
-            if not answer:
+            ) < 4:
 
                 errors.append(
-                    f"{qid}: 缺少正确答案"
+                    f"{qid}: 选项不足"
                 )
+
+    # --------------------------------------------------------------
+    # Total
+    # --------------------------------------------------------------
 
     if len(questions) != 61:
 
         errors.append(
-            f"题目总数错误: "
-            f"{len(questions)} / 61"
+            f"总题数错误: "
+            f"{len(questions)}/61"
+        )
+
+    # --------------------------------------------------------------
+    # Listening answers
+    # --------------------------------------------------------------
+
+    listening = [
+        q
+        for q in questions
+        if q.get(
+            "section"
+        ) == "listening"
+    ]
+
+    listening_answer_count = sum(
+        1
+        for q in listening
+        if normalize_answer(
+            q.get(
+                "correct_answer"
+            )
+        )
+    )
+
+    if listening_answer_count != 15:
+
+        errors.append(
+            "listening 标准答案绑定失败: "
+            f"{listening_answer_count}/15"
         )
 
     return errors
@@ -4042,7 +2780,7 @@ def build_summary(
 
     questions = exam.get(
         "questions",
-        [],
+        []
     )
 
     counts: Dict[str, int] = {}
@@ -4051,19 +2789,16 @@ def build_summary(
 
     auto_answered = 0
 
-    manual_total = 0
-
     for question in questions:
 
         section = question.get(
-            "section",
-            "",
+            "section"
         )
 
         counts[section] = (
             counts.get(
                 section,
-                0,
+                0
             )
             + 1
         )
@@ -4080,16 +2815,11 @@ def build_summary(
 
                 auto_answered += 1
 
-        elif section in MANUAL_REVIEW_TYPES:
-
-            manual_total += 1
-
     return {
         "total": len(questions),
         "counts": counts,
         "auto_graded": auto_total,
         "auto_with_answers": auto_answered,
-        "manual_review": manual_total,
     }
 
 
@@ -4101,34 +2831,34 @@ def main() -> int:
 
     parser = argparse.ArgumentParser(
         description=(
-            "748686 English Exam Parser V1.6"
+            "748686 English Exam Parser V1.6.1"
         )
     )
 
     parser.add_argument(
         "--exam",
         required=True,
-        help="考试试卷 Markdown 文件",
+        help="考试试卷 Markdown",
     )
 
     parser.add_argument(
         "--answers",
         required=False,
         default="",
-        help="答案与解析 Markdown 文件",
+        help="答案与解析 Markdown",
     )
 
     parser.add_argument(
         "--output",
         required=False,
         default="",
-        help="可选：输出 JSON 文件",
+        help="输出 JSON",
     )
 
     parser.add_argument(
         "--validate",
         action="store_true",
-        help="执行结构验证",
+        help="执行验证",
     )
 
     args = parser.parse_args()
@@ -4146,8 +2876,10 @@ def main() -> int:
 
         return 1
 
-    exam_text = exam_path.read_text(
-        encoding="utf-8"
+    exam_text = (
+        exam_path.read_text(
+            encoding="utf-8"
+        )
     )
 
     answer_text = ""
@@ -4182,48 +2914,135 @@ def main() -> int:
         exam
     )
 
-    print("=" * 70)
-
-    print(
-        "748686 ENGLISH EXAM PARSER V1.6"
-    )
-
-    print("=" * 70)
-
     print()
-
     print(
-        f"题目总数: "
-        f"{summary['total']}"
+        "======================================================================"
+    )
+    print(
+        "748686 ENGLISH EXAM PARSER V1.6.1"
+    )
+    print(
+        "======================================================================"
     )
 
     print()
+    print(
+        "JSON version:"
+    )
+    print(
+        " ",
+        exam.get("version")
+    )
 
-    print("题型统计:")
+    print()
+    print(
+        "总题数:"
+    )
+    print(
+        " ",
+        summary["total"]
+    )
+
+    print()
+    print(
+        "各 section 数量:"
+    )
 
     for section in SECTION_ORDER:
 
         print(
-            f"  {section:18s} "
+            f"  {section}: "
             f"{summary['counts'].get(section, 0)}"
         )
 
+    # --------------------------------------------------------------
+    # Listening binding diagnostic
+    # --------------------------------------------------------------
+
+    questions = exam.get(
+        "questions",
+        []
+    )
+
+    listening = [
+        q
+        for q in questions
+        if q.get(
+            "section"
+        ) == "listening"
+    ]
+
     print()
-
     print(
-        f"自动评分题: "
-        f"{summary['auto_graded']}"
+        "======================================================================"
+    )
+    print(
+        "LISTENING ANSWER BINDING"
+    )
+    print(
+        "======================================================================"
+    )
+
+    part_counts = {
+        "A": 0,
+        "B": 0,
+        "C": 0,
+    }
+
+    for question in listening:
+
+        part = question.get(
+            "part"
+        )
+
+        answer = normalize_answer(
+            question.get(
+                "correct_answer"
+            )
+        )
+
+        if (
+            part in part_counts
+            and answer
+        ):
+
+            part_counts[part] += 1
+
+    print()
+    print(
+        f"Part A: "
+        f"{part_counts['A']}/5"
     )
 
     print(
-        f"其中已绑定标准答案: "
-        f"{summary['auto_with_answers']}"
+        f"Part B: "
+        f"{part_counts['B']}/5"
     )
 
     print(
-        f"人工/语义评阅题: "
-        f"{summary['manual_review']}"
+        f"Part C: "
+        f"{part_counts['C']}/5"
     )
+
+    print(
+        f"TOTAL : "
+        f"{sum(part_counts.values())}/15"
+    )
+
+    if listening:
+
+        print()
+
+        for question in listening:
+
+            print(
+                f"  {question.get('id')}: "
+                f"{question.get('correct_answer')}"
+            )
+
+    # --------------------------------------------------------------
+    # Validation
+    # --------------------------------------------------------------
 
     if args.validate:
 
@@ -4236,10 +3055,16 @@ def main() -> int:
         if errors:
 
             print(
+                "======================================================================"
+            )
+
+            print(
                 "❌ VALIDATION FAILED"
             )
 
-            print()
+            print(
+                "======================================================================"
+            )
 
             for error in errors:
 
@@ -4262,9 +3087,22 @@ def main() -> int:
 
             return 1
 
+        print()
+        print(
+            "======================================================================"
+        )
+
         print(
             "✅ VALIDATION PASSED"
         )
+
+        print(
+            "======================================================================"
+        )
+
+    # --------------------------------------------------------------
+    # Output
+    # --------------------------------------------------------------
 
     if args.output:
 
@@ -4287,7 +3125,6 @@ def main() -> int:
         )
 
         print()
-
         print(
             f"JSON 已输出: "
             f"{output_path}"
