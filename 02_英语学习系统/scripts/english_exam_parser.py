@@ -70,18 +70,35 @@ V1.6 targeted robustness fixes:
 12. Exam section detection is tolerant of real generated heading
     variants, such as:
        一、听力
+       一、听力原文
        一、听力理解
+       一、听力部分
        一、听力（共15题）
        ## 一、听力
-       ## 一、听力：共15题
+       ## 一、听力原文
        第一部分：听力
 
 13. Listening Part A/B/C detection supports:
        Part A
-       ### Part A
-       Part A:
+       ### Part B
+       Part C:
        Part A：短对话
        ### Part A：短对话
+
+14. IMPORTANT:
+    Markdown Preview may display repeated source numbering
+       1-5
+       1-5
+       1-5
+    as continuous numbering 1-15.
+    The parser MUST use the actual Markdown source order,
+    not the Preview-rendered numbering.
+
+15. Listening answer parsing therefore treats three repeated
+    1-5 groups as:
+       first group  -> A1-A5
+       second group -> B1-B5
+       third group  -> C1-C5
 
 IMPORTANT
 ---------
@@ -110,6 +127,7 @@ PARSER_VERSION = "1.6"
 
 SECTION_MAP = {
     "一、听力": "listening",
+    "一、听力原文": "listening",
     "二、单项选择": "single_choice",
     "三、多选题": "multiple_choice",
     "四、完形填空": "cloze",
@@ -341,30 +359,16 @@ def normalize_heading(text: str) -> str:
 def normalize_section_text(text: str) -> str:
     """
     Normalize a section heading for robust matching.
-
-    This intentionally removes only formatting information,
-    not meaningful section names.
-
-    Examples:
-
-        一、听力（共15题）
-        一、听力(共15题)
-        一、听力：共15题
-        一、听力 - 共15题
-
-    become a form that can be matched by section detection.
     """
 
     text = normalize_heading(text)
 
-    # Normalize whitespace.
     text = re.sub(
         r"\s+",
         "",
         text,
     )
 
-    # Normalize full-width punctuation.
     text = text.replace(
         "：",
         ":",
@@ -553,24 +557,22 @@ def detect_exam_section(
     """
     Robustly detect exam sections.
 
-    Original V1.6 required exact matching:
+    Supports:
 
         一、听力
-
-    That is too strict for generated Markdown.
-
-    This version supports:
-
-        一、听力
+        一、听力原文
         一、听力理解
         一、听力部分
         一、听力（共15题）
         一、听力：共15题
         ## 一、听力
+        ## 一、听力原文
         第一部分：听力
         第一部分 听力
 
-    The same principle is applied to all seven sections.
+    IMPORTANT:
+    "听力原文" is intentionally recognized as the listening
+    section because the real generated files use this heading.
     """
 
     raw = normalize_text(line)
@@ -586,7 +588,7 @@ def detect_exam_section(
         return None
 
     # --------------------------------------------------------------
-    # Exact original mappings first.
+    # Exact mappings first.
     # --------------------------------------------------------------
 
     for title, section in SECTION_MAP.items():
@@ -597,7 +599,7 @@ def detect_exam_section(
             return section
 
     # --------------------------------------------------------------
-    # Remove the Chinese / Arabic section number.
+    # Remove section number.
     # --------------------------------------------------------------
 
     body = strip_section_number(
@@ -606,13 +608,6 @@ def detect_exam_section(
 
     # --------------------------------------------------------------
     # Remove trailing count / explanatory information.
-    #
-    # Examples:
-    #   听力（共15题）
-    #   听力:共15题
-    #   听力-共15题
-    #
-    # We do NOT remove arbitrary words from the beginning.
     # --------------------------------------------------------------
 
     body_base = body
@@ -629,6 +624,7 @@ def detect_exam_section(
 
     if (
         body_base == "听力"
+        or body_base == "听力原文"
         or body_base.startswith("听力理解")
         or body_base.startswith("听力部分")
         or body_base.startswith("听力测试")
@@ -701,12 +697,8 @@ def detect_exam_section(
         return "writing"
 
     # --------------------------------------------------------------
-    # Support:
-    #
-    #   第一部分：听力
-    #   第二部分：单项选择
-    #
-    # This is deliberately checked after the normal form.
+    # 第一部分：听力
+    # 第二部分：单项选择
     # --------------------------------------------------------------
 
     part_match = re.match(
@@ -971,9 +963,31 @@ def parse_listening(
         1) Question text
         2) Question text
 
-    This ordinary numbered-question support is intentionally
-    implemented only here so that other exam sections keep their
-    existing parsing behavior.
+    Part A/B/C are structural markers.
+
+    IMPORTANT:
+    Question numbers are kept exactly as they occur in the exam.
+    The Part field identifies the listening subsection.
+
+    For example:
+
+        Part A
+        1-5
+
+        Part B
+        1-5
+
+        Part C
+        1-5
+
+    are represented as:
+
+        A1-A5
+        B1-B5
+        C1-C5
+
+    The answer parser separately maps the three repeated answer
+    groups to these same Part/number pairs.
     """
 
     lines = normalize_text(
@@ -1892,9 +1906,14 @@ def split_answer_blocks(
         一、听力答案
         听力答案
         一、听力
-        Part A
+        听力
         二、单项选择答案
         多项选择答案
+
+    IMPORTANT:
+    "二、标准答案" is a container heading, not a section itself.
+    The following "听力" heading is therefore allowed to establish
+    the listening answer block.
     """
 
     lines = normalize_text(
@@ -1988,7 +2007,6 @@ def is_standalone_listening_part(
     line: str,
 ) -> Optional[str]:
     """
-    IMPORTANT:
     Only a standalone Part A/B/C line is accepted.
 
     Valid:
@@ -2044,44 +2062,53 @@ def parse_listening_answers(
     """
     Parse Listening A/B/C.
 
-    Supported real-world forms:
+    REAL GENERATED FORMAT
+    ---------------------
 
-    FORM 1
-    ------
-    标准答案
-    1. A
-    2. C
-    ...
-    5. B
-    1. A
-    ...
-    5. A
-    1. B
-    ...
-    5. B
+    The Markdown source may contain:
 
-    FORM 2
-    ------
-    Part A
-    1. A
-    ...
-    Part B
-    1. A
-    ...
-    Part C
-    1. B
-    ...
+        1. A
+        2. C
+        3. B
+        4. C
+        5. B
 
-    FORM 3
-    ------
-    split_answer_blocks() has already isolated the listening answer
-    section, so the block contains only the answer content and does
-    NOT contain a second "答案" heading.
+        1. A
+        2. C
+        3. A
+        4. B
+        5. A
 
-    Flat sequential mapping:
-        1-5   -> A1-A5
-        6-10  -> B1-B5
-        11-15 -> C1-C5
+        1. B
+        2. B
+        3. C
+        4. A
+        5. B
+
+    Markdown Preview may display these as:
+
+        1-15
+
+    But the source code is actually:
+
+        1-5
+        1-5
+        1-5
+
+    Therefore the parser deliberately uses SOURCE ORDER.
+
+    Mapping:
+
+        first five answers
+            -> A1-A5
+
+        second five answers
+            -> B1-B5
+
+        third five answers
+            -> C1-C5
+
+    Explicit Part A/B/C answer headings are also supported.
     """
 
     lines = normalize_text(
@@ -2135,6 +2162,10 @@ def parse_listening_answers(
         if not clean:
             continue
 
+        # ----------------------------------------------------------
+        # Optional answer boundary.
+        # ----------------------------------------------------------
+
         if is_listening_answer_boundary(
             clean
         ):
@@ -2142,15 +2173,25 @@ def parse_listening_answers(
             current_part = None
             continue
 
+        # ----------------------------------------------------------
+        # Already-isolated listening block.
+        # ----------------------------------------------------------
+
         if (
             not collecting_answers
             and answer_block_mode
-            and is_numbered_answer_line(clean)
+            and is_numbered_answer_line(
+                clean
+            )
         ):
             collecting_answers = True
 
         if not collecting_answers:
             continue
+
+        # ----------------------------------------------------------
+        # Explicit Part A/B/C.
+        # ----------------------------------------------------------
 
         part = is_standalone_listening_part(
             clean
@@ -2163,6 +2204,10 @@ def parse_listening_answers(
             explicit_part_mode = True
 
             continue
+
+        # ----------------------------------------------------------
+        # Actual numbered answer.
+        # ----------------------------------------------------------
 
         answer = extract_choice_answer(
             clean
@@ -2188,7 +2233,14 @@ def parse_listening_answers(
             match.group(1)
         )
 
-        if explicit_part_mode and current_part:
+        # ----------------------------------------------------------
+        # Explicit Part mode.
+        # ----------------------------------------------------------
+
+        if (
+            explicit_part_mode
+            and current_part
+        ):
 
             explicit_answers[
                 (
@@ -2197,11 +2249,22 @@ def parse_listening_answers(
                 )
             ] = answer
 
+        # ----------------------------------------------------------
+        # Real generated repeated 1-5 mode.
+        #
+        # We DO NOT use the visible Markdown number as a global
+        # question number. We use source order.
+        # ----------------------------------------------------------
+
         else:
 
             flat_answers.append(
                 answer
             )
+
+    # --------------------------------------------------------------
+    # Explicit Part A/B/C mode.
+    # --------------------------------------------------------------
 
     if explicit_part_mode:
 
@@ -2209,10 +2272,12 @@ def parse_listening_answers(
             explicit_answers
         )
 
+        # If there are also flat answers, bind the unqualified
+        # answers sequentially without overwriting explicit ones.
         if flat_answers:
 
             for index, answer in enumerate(
-                flat_answers
+                flat_answers[:15]
             ):
 
                 if index < 5:
@@ -2239,6 +2304,12 @@ def parse_listening_answers(
                     result[key] = answer
 
         return result
+
+    # --------------------------------------------------------------
+    # Repeated 1-5 groups.
+    #
+    # This is the REAL FORMAT of the user's generated answer file.
+    # --------------------------------------------------------------
 
     for index, answer in enumerate(
         flat_answers[:15]
@@ -2782,6 +2853,14 @@ def attach_answers(
                     )
                 )
             )
+
+            # ------------------------------------------------------
+            # Fallback:
+            # bind listening questions globally in source order.
+            #
+            # This protects against generated exams whose Part B/C
+            # question numbers restart at 1.
+            # ------------------------------------------------------
 
             if not correct_answer:
 
