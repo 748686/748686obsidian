@@ -8,7 +8,7 @@ FULL AUTOMATIC TEST
 
 测试目标：
 
-1. 真实 Parser V1.3 JSON
+1. 真实 Parser V1.5 JSON
 2. 61 道题结构
 3. 50 道自动评分题
 4. 11 道人工/语义处理题
@@ -28,12 +28,20 @@ import sys
 from pathlib import Path
 
 
+# ============================================================
+# CONFIG
+# ============================================================
+
+EXPECTED_PARSER_VERSION = "1.5"
+
+
 SCRIPT_DIR = Path(__file__).resolve().parent
 
 sys.path.insert(
     0,
     str(SCRIPT_DIR),
 )
+
 
 from english_exam_grader import (
     AUTO_GRADED_TYPES,
@@ -45,6 +53,10 @@ from english_exam_grader import (
     validate_submission,
 )
 
+
+# ============================================================
+# BASIC TEST HELPERS
+# ============================================================
 
 def fail(message: str):
     print(f"\n❌ {message}")
@@ -58,11 +70,17 @@ def check(condition: bool, message: str):
     print(f"   ✅ {message}")
 
 
+# ============================================================
+# JSON
+# ============================================================
+
 def load_json(path: str) -> dict:
     file = Path(path)
 
     if not file.exists():
-        fail(f"JSON 文件不存在: {file}")
+        fail(
+            f"JSON 文件不存在: {file}"
+        )
 
     try:
         return json.loads(
@@ -70,6 +88,7 @@ def load_json(path: str) -> dict:
                 encoding="utf-8"
             )
         )
+
     except Exception as exc:
         fail(
             f"JSON 读取失败: {file}\n"
@@ -77,9 +96,13 @@ def load_json(path: str) -> dict:
         )
 
 
+# ============================================================
+# BUILD CORRECT ANSWERS
+# ============================================================
+
 def build_all_correct_answers(exam: dict) -> dict:
     """
-    使用 Parser V1.3 已附着的 correct_answer
+    使用 Parser V1.5 已附着的 correct_answer
     构造完整 61 题答案。
     """
 
@@ -126,6 +149,10 @@ def build_all_correct_answers(exam: dict) -> dict:
 
     return answers
 
+
+# ============================================================
+# TEST 1
+# ============================================================
 
 def test_structure(exam: dict):
     print("\n" + "-" * 70)
@@ -192,14 +219,18 @@ def test_structure(exam: dict):
 
     check(
         auto_total == 50,
-        f"自动评分题 = 50",
+        "自动评分题 = 50",
     )
 
     check(
         manual_total == 11,
-        f"人工/语义处理题 = 11",
+        "人工/语义处理题 = 11",
     )
 
+
+# ============================================================
+# TEST 2
+# ============================================================
 
 def test_normalization():
     print("\n" + "-" * 70)
@@ -228,6 +259,10 @@ def test_normalization():
             f"{source!r} -> {actual!r}",
         )
 
+
+# ============================================================
+# TEST 3
+# ============================================================
 
 def test_all_correct(exam: dict):
     print("\n" + "-" * 70)
@@ -312,6 +347,10 @@ def test_all_correct(exam: dict):
             )
 
 
+# ============================================================
+# TEST 4
+# ============================================================
+
 def test_multiple_choice():
     print("\n" + "-" * 70)
     print("TEST 4 | MULTIPLE CHOICE SET MATCHING")
@@ -374,6 +413,10 @@ def test_multiple_choice():
     )
 
 
+# ============================================================
+# TEST 5
+# ============================================================
+
 def test_wrong_answers(exam: dict):
     print("\n" + "-" * 70)
     print("TEST 5 | INTENTIONAL WRONG ANSWERS")
@@ -419,6 +462,7 @@ def test_wrong_answers(exam: dict):
     for qtype, question in selected.items():
 
         qid = question["question_id"]
+
         correct = str(
             question.get(
                 "correct_answer",
@@ -489,6 +533,10 @@ def test_wrong_answers(exam: dict):
         )
 
 
+# ============================================================
+# TEST 6
+# ============================================================
+
 def test_manual_review(exam: dict):
     print("\n" + "-" * 70)
     print("TEST 6 | TRANSLATION / WRITING REVIEW")
@@ -544,6 +592,10 @@ def test_manual_review(exam: dict):
         "写作人工复核 = 1",
     )
 
+
+# ============================================================
+# TEST 7
+# ============================================================
 
 def test_submission_card(exam: dict):
     print("\n" + "-" * 70)
@@ -609,13 +661,21 @@ def test_submission_card(exam: dict):
     )
 
 
+# ============================================================
+# MAIN
+# ============================================================
+
 def main():
+
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
         "--exam-json",
         required=True,
-        help="Parser V1.3 输出的 exam JSON",
+        help=(
+            f"Parser V{EXPECTED_PARSER_VERSION} "
+            "输出的 exam JSON"
+        ),
     )
 
     args = parser.parse_args()
@@ -633,10 +693,30 @@ def main():
         args.exam_json
     )
 
-    check(
-        exam.get("version") == "1.3",
-        "Parser JSON version = 1.3",
+    # ========================================================
+    # PARSER VERSION CHECK
+    # ========================================================
+
+    actual_version = str(
+        exam.get(
+            "version",
+            ""
+        )
     )
+
+    check(
+        actual_version
+        == EXPECTED_PARSER_VERSION,
+        (
+            f"Parser JSON version = "
+            f"{EXPECTED_PARSER_VERSION}"
+            f"（实际 {actual_version or '缺失'}）"
+        ),
+    )
+
+    # ========================================================
+    # TESTS
+    # ========================================================
 
     test_structure(exam)
 
@@ -652,12 +732,20 @@ def main():
 
     test_submission_card(exam)
 
+    # ========================================================
+    # SUCCESS
+    # ========================================================
+
     print("\n" + "=" * 70)
     print("🎉 ALL GRADER V1.0 TESTS PASSED")
     print("=" * 70)
 
     print(
         "\n最终确认："
+    )
+
+    print(
+        "  Parser V1.5 JSON 正常"
     )
 
     print(
