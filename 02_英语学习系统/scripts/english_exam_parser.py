@@ -58,6 +58,16 @@ V1.6 fixes:
     It does NOT modify exam generation.
     It does NOT modify answer generation.
     It does NOT perform semantic grading.
+
+V1.6.1 targeted fix:
+11. Listening question parser now supports both Markdown heading
+    question numbers and ordinary numbered question lines:
+       ### 1. ...
+       1. ...
+       1、...
+       1) ...
+    This change is isolated to listening parsing and does not
+    modify the global question-header parser.
 """
 
 from __future__ import annotations
@@ -612,7 +622,7 @@ def detect_listening_part(
     text = normalize_text(line)
 
     match = re.match(
-        r"^#{1,6}\s*Part\s+([ABC])\b",
+        r"^#{0,6}\s*Part\s+([ABC])(?:\s*[:：].*)?$",
         text,
         re.IGNORECASE,
     )
@@ -626,6 +636,33 @@ def detect_listening_part(
 def parse_listening(
     text: str,
 ) -> List[Dict[str, Any]]:
+    """
+    Parse listening questions.
+
+    Supported question formats:
+
+        ### 1. Question text
+        ### 2. Question text
+
+    and:
+
+        1. Question text
+        2. Question text
+
+    and:
+
+        1、Question text
+        2、Question text
+
+    and:
+
+        1) Question text
+        2) Question text
+
+    This ordinary numbered-question support is intentionally
+    implemented only here so that other exam sections keep their
+    existing parsing behavior.
+    """
 
     lines = normalize_text(
         text
@@ -643,6 +680,27 @@ def parse_listening(
 
     option_buffer: List[str] = []
 
+    def flush_current() -> None:
+
+        nonlocal current
+        nonlocal option_buffer
+
+        if current is None:
+            return
+
+        current["options"] = (
+            parse_options(
+                option_buffer
+            )
+        )
+
+        questions.append(
+            current
+        )
+
+        current = None
+        option_buffer = []
+
     for line in lines:
 
         clean = normalize_text(line)
@@ -650,48 +708,94 @@ def parse_listening(
         if not clean:
             continue
 
+        # ----------------------------------------------------------
+        # Part A / Part B / Part C
+        #
+        # Supported:
+        #   Part A
+        #   ### Part A
+        #   Part A:
+        #   Part A：
+        #   ### Part A：短对话
+        # ----------------------------------------------------------
+
         part = detect_listening_part(
             clean
         )
 
         if part:
 
-            if current is not None:
-
-                current["options"] = (
-                    parse_options(
-                        option_buffer
-                    )
-                )
-
-                questions.append(
-                    current
-                )
-
-                current = None
-                option_buffer = []
+            flush_current()
 
             current_part = part
 
             continue
 
+        # ----------------------------------------------------------
+        # First try the original Markdown heading format:
+        #
+        #   ### 1. ...
+        # ----------------------------------------------------------
+
         parsed = parse_question_header(
             clean
         )
 
+        # ----------------------------------------------------------
+        # V1.6 targeted fix:
+        #
+        # Also support ordinary numbered listening questions:
+        #
+        #   1. ...
+        #   2. ...
+        #   3、...
+        #   4) ...
+        #
+        # IMPORTANT:
+        # This is only enabled inside parse_listening().
+        # The global parse_question_header() is unchanged.
+        # ----------------------------------------------------------
+
+        if parsed is None:
+
+            plain_match = re.match(
+                r"^(\d+)\s*[.．、)]\s*(.*?)\s*$",
+                clean,
+            )
+
+            if plain_match:
+
+                try:
+
+                    number = int(
+                        plain_match.group(1)
+                    )
+
+                except ValueError:
+
+                    number = None
+
+                question_text = normalize_text(
+                    plain_match.group(2)
+                )
+
+                if (
+                    number is not None
+                    and question_text
+                ):
+
+                    parsed = (
+                        number,
+                        question_text,
+                    )
+
+        # ----------------------------------------------------------
+        # New question
+        # ----------------------------------------------------------
+
         if parsed:
 
-            if current is not None:
-
-                current["options"] = (
-                    parse_options(
-                        option_buffer
-                    )
-                )
-
-                questions.append(
-                    current
-                )
+            flush_current()
 
             number, question_text = parsed
 
@@ -706,22 +810,21 @@ def parse_listening(
 
             continue
 
+        # ----------------------------------------------------------
+        # Current question content / options
+        # ----------------------------------------------------------
+
         if current is not None:
+
             option_buffer.append(
                 clean
             )
 
-    if current is not None:
+    # --------------------------------------------------------------
+    # Flush final question
+    # --------------------------------------------------------------
 
-        current["options"] = (
-            parse_options(
-                option_buffer
-            )
-        )
-
-        questions.append(
-            current
-        )
+    flush_current()
 
     return questions
 
@@ -1701,13 +1804,6 @@ def parse_listening_answers(
         str
     ] = {}
 
-    # --------------------------------------------------------------
-    # First determine whether this block already looks like an
-    # answer block.
-    #
-    # This is the critical V1.6 fix.
-    # --------------------------------------------------------------
-
     numbered_answer_count = 0
 
     for line in lines:
@@ -1724,12 +1820,6 @@ def parse_listening_answers(
         ):
             numbered_answer_count += 1
 
-    # If there are at least 3 numbered answer lines, this block is
-    # treated as potentially containing answers even if no explicit
-    # "答案" boundary exists.
-    #
-    # We deliberately do not require exactly 15 because explicit
-    # Part A/B/C formats may contain fewer lines per block.
     answer_block_mode = (
         numbered_answer_count >= 3
     )
@@ -1746,10 +1836,6 @@ def parse_listening_answers(
     current_part: Optional[str] = None
 
     explicit_part_mode = False
-
-    # --------------------------------------------------------------
-    # Parse lines.
-    # --------------------------------------------------------------
 
     for line in lines:
 
@@ -1772,14 +1858,7 @@ def parse_listening_answers(
             continue
 
         # ----------------------------------------------------------
-        # V1.6:
-        #
-        # If the listening block itself is already isolated and has
-        # numbered answer lines, we can begin collecting without a
-        # second "答案" heading.
-        #
-        # We only activate this when the current line is itself a
-        # valid numbered answer line.
+        # Already-isolated listening answer block.
         # ----------------------------------------------------------
 
         if (
@@ -1865,8 +1944,6 @@ def parse_listening_answers(
             explicit_answers
         )
 
-        # Any flat answers encountered before explicit Part heading
-        # are mapped sequentially.
         if flat_answers:
 
             for index, answer in enumerate(
@@ -1900,8 +1977,6 @@ def parse_listening_answers(
 
     # --------------------------------------------------------------
     # Flat 15-answer mapping.
-    #
-    # This is the critical mapping:
     #
     # index 0-4    -> A1-A5
     # index 5-9    -> B1-B5
