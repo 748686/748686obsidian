@@ -2,13 +2,13 @@
 # -*- coding: utf-8 -*-
 
 """
-748686 ENGLISH EXAM PARSER V1.6.1
+748686 ENGLISH EXAM PARSER V1.6
 
 Purpose
 -------
 Parse the generated English exam and its answer/explanation file.
 
-V1.6.1
+V1.6
 ------
 Listening answer binding repair.
 
@@ -58,7 +58,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 
-PARSER_VERSION = "1.6.1"
+PARSER_VERSION = "1.6"
 
 
 # ======================================================================
