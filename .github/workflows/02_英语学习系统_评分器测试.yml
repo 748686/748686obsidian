@@ -354,9 +354,97 @@ jobs:
           echo "✅ Parser V1.6 version = 1.6"
           echo "✅ Parser V1.6 输出 61 道题"
           echo "✅ 临时 exam.json 结构正常"
-
       # =========================================================
-      # 8. Grader V1.0 完整自动测试
+      # 8. DEBUG | 检查 Parser 输出中的听力结构
+      # =========================================================
+
+      - name: DEBUG listening questions in parsed JSON
+        shell: bash
+        run: |
+          set -e
+
+          JSON="/tmp/748686_exam_parser_v1_6.json"
+
+          echo
+          echo "============================================================"
+          echo "DEBUG PARSED LISTENING QUESTIONS"
+          echo "============================================================"
+
+          python - "$JSON" <<'PY'
+          import json
+          import sys
+
+          path = sys.argv[1]
+
+          with open(path, "r", encoding="utf-8") as f:
+              data = json.load(f)
+
+          questions = data.get("questions", [])
+
+          print()
+          print("JSON version:")
+          print(" ", data.get("version"))
+
+          print()
+          print("总题数:")
+          print(" ", len(questions))
+
+          print()
+          print("各 section 数量:")
+          counts = {}
+
+          for q in questions:
+              section = q.get("section")
+              counts[section] = counts.get(section, 0) + 1
+
+          for section, count in counts.items():
+              print(f"  {section}: {count}")
+
+          print()
+          print("============================================================")
+          print("LISTENING QUESTIONS")
+          print("============================================================")
+
+          listening = [
+              q for q in questions
+              if q.get("section") == "listening"
+          ]
+
+          print()
+          print("listening 数量:")
+          print(" ", len(listening))
+
+          for i, q in enumerate(listening, 1):
+              print()
+              print(f"[{i}]")
+              print("  id     :", q.get("id"))
+              print("  section:", q.get("section"))
+              print("  part   :", q.get("part"))
+              print("  number :", q.get("number"))
+              print("  answer :", q.get("answer"))
+              print("  question:", repr(q.get("question", ""))[:300])
+
+          print()
+          print("============================================================")
+          print("FIRST 25 QUESTIONS")
+          print("============================================================")
+
+          for i, q in enumerate(questions[:25], 1):
+              print(
+                  f"{i:02d}. "
+                  f"id={q.get('id')} | "
+                  f"section={q.get('section')} | "
+                  f"part={q.get('part')} | "
+                  f"number={q.get('number')}"
+              )
+
+          print()
+          print("============================================================")
+          print("DEBUG COMPLETE")
+          print("============================================================")
+          PY
+      # =========================================================
+      # 9. Grader V1.0 完整自动测试
       # =========================================================
 
       - name: Run Grader V1.0 FULL TEST
@@ -383,7 +471,7 @@ jobs:
             --exam-json "$EXAM_JSON"
 
       # =========================================================
-      # 9. 最终确认
+      # 10. 最终确认
       # =========================================================
 
       - name: Final Test Summary
