@@ -100,7 +100,7 @@ jobs:
       #       ↓
       # 真实答案与解析 Markdown
       #       ↓
-      # Parser V1.3
+      # Parser V1.6
       #       ↓
       # 临时 exam.json
       #       ↓
@@ -224,7 +224,7 @@ jobs:
           echo "answers=$ANSWERS" >> "$GITHUB_OUTPUT"
 
       # =========================================================
-      # 6. Parser V1.3
+      # 6. Parser V1.6
       #
       # 将真实 Markdown 临时转换成 exam.json
       #
@@ -233,7 +233,7 @@ jobs:
       # 不写回仓库
       # =========================================================
 
-      - name: Run Parser V1.3 and create temporary exam JSON
+      - name: Run Parser V1.6 and create temporary exam JSON
         env:
           EXAM: ${{ steps.locate_exam.outputs.exam }}
           ANSWERS: ${{ steps.locate_exam.outputs.answers }}
@@ -243,7 +243,7 @@ jobs:
 
           echo
           echo "============================================================"
-          echo "RUN ENGLISH EXAM PARSER V1.3"
+          echo "RUN ENGLISH EXAM PARSER V1.6"
           echo "============================================================"
           echo
           echo "真实试卷:"
@@ -253,7 +253,7 @@ jobs:
           echo "  $ANSWERS"
           echo
 
-          JSON="/tmp/748686_exam_parser_v1_3.json"
+          JSON="/tmp/748686_exam_parser_v1_6.json"
 
           rm -f "$JSON"
 
@@ -266,19 +266,19 @@ jobs:
 
           if [ ! -s "$JSON" ]; then
             echo
-            echo "❌ Parser V1.3 没有生成有效 JSON"
+            echo "❌ Parser V1.6 没有生成有效 JSON"
             exit 1
           fi
 
           echo
           echo "============================================================"
-          echo "✅ PARSER V1.3 PASSED"
+          echo "✅ PARSER V1.6 PASSED"
           echo "============================================================"
           echo
           echo "临时 JSON:"
           echo "  $JSON"
           echo
-          echo "Parser V1.3 已成功将真实试卷转换为 Grader 输入。"
+          echo "Parser V1.6 已成功将真实试卷转换为 Grader 输入。"
 
       # =========================================================
       # 7. 验证 Parser 生成的临时 JSON
@@ -289,7 +289,7 @@ jobs:
         run: |
           set -e
 
-          JSON="/tmp/748686_exam_parser_v1_3.json"
+          JSON="/tmp/748686_exam_parser_v1_6.json"
 
           echo
           echo "============================================================"
@@ -298,6 +298,28 @@ jobs:
 
           if [ ! -s "$JSON" ]; then
             echo "❌ JSON 不存在或为空"
+            exit 1
+          fi
+
+          VERSION="$(python -c '
+          import json
+          import sys
+
+          path = sys.argv[1]
+
+          with open(path, "r", encoding="utf-8") as f:
+              data = json.load(f)
+
+          print(data.get("version", ""))
+          ' "$JSON")"
+
+          echo
+          echo "Parser JSON version:"
+          echo "  $VERSION"
+
+          if [ "$VERSION" != "1.6" ]; then
+            echo
+            echo "❌ Parser JSON version 不是 1.6"
             exit 1
           fi
 
@@ -329,7 +351,8 @@ jobs:
           fi
 
           echo
-          echo "✅ Parser V1.3 输出 61 道题"
+          echo "✅ Parser V1.6 version = 1.6"
+          echo "✅ Parser V1.6 输出 61 道题"
           echo "✅ 临时 exam.json 结构正常"
 
       # =========================================================
@@ -341,7 +364,7 @@ jobs:
         run: |
           set -e
 
-          EXAM_JSON="/tmp/748686_exam_parser_v1_3.json"
+          EXAM_JSON="/tmp/748686_exam_parser_v1_6.json"
 
           echo
           echo "============================================================"
@@ -374,13 +397,14 @@ jobs:
           echo "真实数据链:"
           echo "  真实考试 Markdown"
           echo "        ↓"
-          echo "  Parser V1.3"
+          echo "  Parser V1.6"
           echo "        ↓"
           echo "  临时 exam.json"
           echo "        ↓"
           echo "  Grader V1.0"
           echo
           echo "已验证:"
+          echo "  ✅ Parser JSON version = 1.6"
           echo "  ✅ 61 道题结构"
           echo "  ✅ 50 道自动评分题"
           echo "  ✅ 11 道人工/语义处理题"
@@ -396,9 +420,9 @@ jobs:
           echo "  ✅ 写作人工复核"
           echo "  ✅ 提交结果卡"
           echo
-          echo "Parser V1.3：未修改"
+          echo "Parser V1.6：正常"
           echo "Grader V1.0：未修改"
-          echo "测试脚本：未修改"
+          echo "测试脚本：V1.0"
           echo
           echo "临时 exam.json：仅用于本次 Actions 测试，不写入仓库"
           echo
