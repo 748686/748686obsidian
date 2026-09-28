@@ -1,0 +1,798 @@
+name: 02_英语学习系统 - Feishu Exam Test
+
+on:
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+
+jobs:
+
+  feishu-exam-test:
+
+    name: Feishu English Exam Adapter V1.0 TEST
+
+    runs-on: ubuntu-latest
+
+
+    steps:
+
+      # ============================================================
+      # 1. CHECKOUT
+      # ============================================================
+
+      - name: Checkout repository
+
+        uses: actions/checkout@v4
+
+        with:
+          fetch-depth: 1
+
+
+      # ============================================================
+      # 2. PYTHON
+      # ============================================================
+
+      - name: Setup Python 3.12
+
+        uses: actions/setup-python@v5
+
+        with:
+          python-version: "3.12"
+
+
+      # ============================================================
+      # 3. UTC DATE
+      # ============================================================
+
+      - name: Determine UTC dates
+
+        shell: bash
+
+        run: |
+
+          set -e
+
+          TODAY="$(date -u +%Y-%m-%d)"
+          YESTERDAY="$(date -u -d '1 day ago' +%Y-%m-%d)"
+
+          echo "TODAY=$TODAY" >> "$GITHUB_ENV"
+          echo "YESTERDAY=$YESTERDAY" >> "$GITHUB_ENV"
+
+          echo
+          echo "============================================================"
+          echo "UTC DATE"
+          echo "============================================================"
+
+          echo "TODAY     : $TODAY"
+          echo "YESTERDAY : $YESTERDAY"
+
+
+      # ============================================================
+      # 4. CHECK FILES
+      # ============================================================
+
+      - name: Check Feishu Exam files
+
+        shell: bash
+
+        run: |
+
+          set -e
+
+          echo
+          echo "============================================================"
+          echo "CHECK FEISHU EXAM FILES"
+          echo "============================================================"
+
+          PARSER="02_英语学习系统/scripts/english_exam_parser.py"
+          GRADER="02_英语学习系统/scripts/english_exam_grader.py"
+          ADAPTER="02_英语学习系统/scripts/feishu_english_exam.py"
+
+          if [ ! -f "$PARSER" ]; then
+            echo "❌ 未找到 Parser:"
+            echo "   $PARSER"
+            exit 1
+          fi
+
+          if [ ! -f "$GRADER" ]; then
+            echo "❌ 未找到 Grader:"
+            echo "   $GRADER"
+            exit 1
+          fi
+
+          if [ ! -f "$ADAPTER" ]; then
+            echo "❌ 未找到 Feishu Adapter:"
+            echo "   $ADAPTER"
+            exit 1
+          fi
+
+          echo
+          echo "文件存在："
+
+          echo "  ✅ $PARSER"
+          echo "  ✅ $GRADER"
+          echo "  ✅ $ADAPTER"
+
+
+      # ============================================================
+      # 5. LOCATE REAL EXAM
+      # ============================================================
+
+      - name: Locate real English exam
+
+        shell: bash
+
+        run: |
+
+          set -e
+
+          echo
+          echo "============================================================"
+          echo "LOCATE REAL ENGLISH EXAM"
+          echo "============================================================"
+
+          ROOT="02_英语学习系统/output"
+
+          find_exam() {
+
+            local DATE="$1"
+            local DIR="$ROOT/$DATE/配套试卷"
+
+            if [ ! -d "$DIR" ]; then
+              return 1
+            fi
+
+            local EXAM=""
+
+            while IFS= read -r FILE; do
+
+              if [ -n "$FILE" ]; then
+                EXAM="$FILE"
+                break
+              fi
+
+            done < <(
+              find "$DIR" \
+                -maxdepth 1 \
+                -type f \
+                -name '*_试卷.md' \
+                | sort
+            )
+
+            if [ -z "$EXAM" ]; then
+              return 1
+            fi
+
+            echo "$EXAM"
+
+          }
+
+
+          EXAM=""
+
+          if EXAM="$(find_exam "$TODAY")"; then
+
+            EXAM_DATE="$TODAY"
+
+          elif EXAM="$(find_exam "$YESTERDAY")"; then
+
+            EXAM_DATE="$YESTERDAY"
+
+          else
+
+            echo
+            echo "❌ 今天和昨天都没有找到真实英语试卷"
+
+            echo
+            echo "当前 output 目录："
+
+            find "$ROOT" \
+              -maxdepth 4 \
+              -type f \
+              | sort \
+              | tail -100
+
+            exit 1
+
+          fi
+
+
+          BASENAME="$(basename "$EXAM" "_试卷.md")"
+
+          ANSWERS="$(dirname "$EXAM")/${BASENAME}_答案与解析.md"
+
+
+          if [ ! -f "$ANSWERS" ]; then
+
+            echo
+            echo "❌ 找不到对应答案文件："
+            echo "$ANSWERS"
+
+            exit 1
+
+          fi
+
+
+          echo "EXAM_DATE=$EXAM_DATE" >> "$GITHUB_ENV"
+          echo "EXAM=$EXAM" >> "$GITHUB_ENV"
+          echo "ANSWERS=$ANSWERS" >> "$GITHUB_ENV"
+
+
+          echo
+          echo "真实试卷："
+          echo "  $EXAM"
+
+          echo
+          echo "答案文件："
+          echo "  $ANSWERS"
+
+
+      # ============================================================
+      # 6. RUN PARSER V1.6
+      # ============================================================
+
+      - name: Run English Exam Parser V1.6
+
+        shell: bash
+
+        run: |
+
+          set -e
+
+          echo
+          echo "============================================================"
+          echo "RUN ENGLISH EXAM PARSER V1.6"
+          echo "============================================================"
+
+          python \
+            "02_英语学习系统/scripts/english_exam_parser.py" \
+            --exam "$EXAM" \
+            --answers "$ANSWERS" \
+            --output "/tmp/748686_exam_parser_v1_6.json" \
+            --validate
+
+
+      # ============================================================
+      # 7. VALIDATE PARSER JSON
+      # ============================================================
+
+      - name: Validate Parser JSON
+
+        shell: bash
+
+        run: |
+
+          set -e
+
+          JSON="/tmp/748686_exam_parser_v1_6.json"
+
+          echo
+          echo "============================================================"
+          echo "VALIDATE PARSER JSON"
+          echo "============================================================"
+
+          python - "$JSON" <<'PY'
+
+          import json
+          import sys
+
+          path = sys.argv[1]
+
+          with open(
+              path,
+              "r",
+              encoding="utf-8"
+          ) as f:
+              data = json.load(f)
+
+          version = data.get("version")
+          questions = data.get("questions", [])
+
+          print(f"JSON version: {version}")
+          print(f"总题数: {len(questions)}")
+
+          if version != "1.6":
+              raise SystemExit(
+                  f"❌ Parser version错误: {version}"
+              )
+
+          if len(questions) != 61:
+              raise SystemExit(
+                  f"❌ 题目数量错误: {len(questions)}"
+              )
+
+          print("✓ Parser version = 1.6")
+          print("✓ 总题数 = 61")
+
+          PY
+
+
+      # ============================================================
+      # 8. RUN FEISHU ADAPTER
+      # ============================================================
+
+      - name: Run Feishu Exam Adapter V1.0
+
+        shell: bash
+
+        run: |
+
+          set -e
+
+          echo
+          echo "============================================================"
+          echo "RUN FEISHU EXAM ADAPTER V1.0"
+          echo "============================================================"
+
+          python \
+            "02_英语学习系统/scripts/feishu_english_exam.py" \
+            --exam-json \
+              "/tmp/748686_exam_parser_v1_6.json" \
+            --output \
+              "/tmp/748686_feishu_exam_v1_0.json"
+
+
+      # ============================================================
+      # 9. VALIDATE FEISHU EXAM DATA
+      # ============================================================
+
+      - name: Validate Feishu Exam Data
+
+        shell: bash
+
+        run: |
+
+          set -e
+
+          JSON="/tmp/748686_feishu_exam_v1_0.json"
+
+          echo
+          echo "============================================================"
+          echo "VALIDATE FEISHU EXAM DATA"
+          echo "============================================================"
+
+          python - "$JSON" <<'PY'
+
+          import json
+          import sys
+
+          path = sys.argv[1]
+
+          with open(
+              path,
+              "r",
+              encoding="utf-8"
+          ) as f:
+              data = json.load(f)
+
+
+          # --------------------------------------------------------
+          # 基础结构
+          # --------------------------------------------------------
+
+          if data.get("version") != "1.0":
+              raise SystemExit(
+                  "❌ Feishu Adapter version错误"
+              )
+
+
+          exam = data.get(
+              "exam",
+              {}
+          )
+
+          questions = exam.get(
+              "questions",
+              []
+          )
+
+
+          if len(questions) != 61:
+
+              raise SystemExit(
+                  f"❌ 飞书题目数量错误: "
+                  f"{len(questions)}"
+              )
+
+
+          print(
+              f"✓ 飞书题目数量: "
+              f"{len(questions)}"
+          )
+
+
+          # --------------------------------------------------------
+          # 题型统计
+          # --------------------------------------------------------
+
+          expected = {
+              "listening": 15,
+              "single_choice": 10,
+              "multiple_choice": 10,
+              "cloze": 10,
+              "reading": 5,
+              "translation": 10,
+              "writing": 1,
+          }
+
+
+          actual = exam.get(
+              "type_counts",
+              {}
+          )
+
+
+          print()
+          print("题型统计：")
+
+          for qtype, count in expected.items():
+
+              actual_count = actual.get(
+                  qtype,
+                  0
+              )
+
+              print(
+                  f"  {qtype}: "
+                  f"{actual_count}"
+              )
+
+              if actual_count != count:
+
+                  raise SystemExit(
+                      f"❌ {qtype} 数量错误："
+                      f"{actual_count} != {count}"
+                  )
+
+
+          # --------------------------------------------------------
+          # question_id 唯一
+          # --------------------------------------------------------
+
+          ids = [
+              q.get("question_id")
+              for q in questions
+          ]
+
+
+          if any(
+              not x
+              for x in ids
+          ):
+
+              raise SystemExit(
+                  "❌ 存在空 question_id"
+              )
+
+
+          if len(ids) != len(set(ids)):
+
+              duplicates = [
+                  x
+                  for x in set(ids)
+                  if ids.count(x) > 1
+              ]
+
+              raise SystemExit(
+                  "❌ question_id 重复："
+                  f"{duplicates}"
+              )
+
+
+          print()
+          print(
+              "✓ question_id 全部唯一"
+          )
+
+
+          # --------------------------------------------------------
+          # 安全检查
+          # --------------------------------------------------------
+
+          forbidden = {
+              "correct_answer",
+              "explanation",
+              "reference_answer",
+          }
+
+
+          print()
+          print(
+              "检查答案泄露..."
+          )
+
+
+          for q in questions:
+
+              leaked = (
+                  forbidden
+                  & set(q.keys())
+              )
+
+              if leaked:
+
+                  raise SystemExit(
+                      "❌ SECURITY FAILURE\n"
+                      f"题目："
+                      f"{q.get('question_id')}\n"
+                      f"泄露："
+                      f"{sorted(leaked)}"
+                  )
+
+
+          print(
+              "✓ correct_answer 未泄露"
+          )
+
+          print(
+              "✓ explanation 未泄露"
+          )
+
+          print(
+              "✓ reference_answer 未泄露"
+          )
+
+
+          # --------------------------------------------------------
+          # 检查安全标记
+          # --------------------------------------------------------
+
+          security = data.get(
+              "security",
+              {}
+          )
+
+
+          required_security = {
+              "correct_answers_removed": True,
+              "answer_explanations_removed": True,
+              "reference_answers_removed": True,
+              "grading_hidden": True,
+          }
+
+
+          for key, expected_value in (
+              required_security.items()
+          ):
+
+              actual_value = security.get(
+                  key
+              )
+
+              if actual_value != expected_value:
+
+                  raise SystemExit(
+                      f"❌ 安全标记错误："
+                      f"{key}={actual_value}"
+                  )
+
+
+          print()
+          print(
+              "✓ 安全标记全部正确"
+          )
+
+
+          # --------------------------------------------------------
+          # 检查题目基本字段
+          # --------------------------------------------------------
+
+          required_fields = {
+              "question_id",
+              "type",
+              "question",
+              "options",
+              "answer_mode",
+              "input_type",
+          }
+
+
+          for q in questions:
+
+              missing = (
+                  required_fields
+                  - set(q.keys())
+              )
+
+              if missing:
+
+                  raise SystemExit(
+                      "❌ 题目缺少字段："
+                      f"{q.get('question_id')} "
+                      f"{sorted(missing)}"
+                  )
+
+
+          print(
+              "✓ 所有题目字段完整"
+          )
+
+
+          # --------------------------------------------------------
+          # 最终
+          # --------------------------------------------------------
+
+          print()
+          print("=" * 70)
+          print(
+              "✓ FEISHU EXAM DATA VALIDATION PASSED"
+          )
+          print("=" * 70)
+
+          PY
+
+
+      # ============================================================
+      # 10. PRINT SAMPLE
+      # ============================================================
+
+      - name: Print Feishu Exam Sample
+
+        shell: bash
+
+        run: |
+
+          set -e
+
+          JSON="/tmp/748686_feishu_exam_v1_0.json"
+
+          echo
+          echo "============================================================"
+          echo "FEISHU EXAM SAMPLE"
+          echo "============================================================"
+
+          python - "$JSON" <<'PY'
+
+          import json
+          import sys
+
+          path = sys.argv[1]
+
+          with open(
+              path,
+              "r",
+              encoding="utf-8"
+          ) as f:
+              data = json.load(f)
+
+          questions = (
+              data[
+                  "exam"
+              ][
+                  "questions"
+              ]
+          )
+
+          print()
+          print("前3题：")
+
+          for q in questions[:3]:
+
+              print()
+              print(
+                  "question_id:",
+                  q.get("question_id")
+              )
+
+              print(
+                  "type:",
+                  q.get("type")
+              )
+
+              print(
+                  "question:",
+                  q.get("question")
+              )
+
+              print(
+                  "options:",
+                  q.get("options")
+              )
+
+              print(
+                  "answer_mode:",
+                  q.get("answer_mode")
+              )
+
+              print(
+                  "input_type:",
+                  q.get("input_type")
+              )
+
+              print(
+                  "correct_answer:",
+                  "<NOT PRESENT>"
+              )
+
+          print()
+          print("最后1题：")
+
+          q = questions[-1]
+
+          print(
+              "question_id:",
+              q.get("question_id")
+          )
+
+          print(
+              "type:",
+              q.get("type")
+          )
+
+          print(
+              "input_type:",
+              q.get("input_type")
+          )
+
+          print(
+              "correct_answer:",
+              "<NOT PRESENT>"
+          )
+
+          PY
+
+
+      # ============================================================
+      # 11. FINAL SUMMARY
+      # ============================================================
+
+      - name: Final Summary
+
+        shell: bash
+
+        run: |
+
+          set -e
+
+          echo
+          echo "======================================================================"
+          echo "748686 FEISHU ENGLISH EXAM TEST"
+          echo "======================================================================"
+
+          echo
+          echo "考试日期:"
+          echo "  $EXAM_DATE"
+
+          echo
+          echo "真实试卷:"
+          echo "  $EXAM"
+
+          echo
+          echo "答案文件:"
+          echo "  $ANSWERS"
+
+          echo
+          echo "Parser:"
+          echo "  V1.6"
+
+          echo
+          echo "题目:"
+          echo "  61"
+
+          echo
+          echo "题型:"
+          echo "  听力       15"
+          echo "  单选       10"
+          echo "  多选       10"
+          echo "  完形       10"
+          echo "  阅读       5"
+          echo "  翻译       10"
+          echo "  写作       1"
+
+          echo
+          echo "Feishu Adapter:"
+          echo "  V1.0"
+
+          echo
+          echo "安全检查:"
+          echo "  correct_answer      已移除"
+          echo "  explanation         已移除"
+          echo "  reference_answer    已移除"
+
+          echo
+          echo "======================================================================"
+          echo "✅ FEISHU EXAM TEST PASSED"
+          echo "======================================================================"
