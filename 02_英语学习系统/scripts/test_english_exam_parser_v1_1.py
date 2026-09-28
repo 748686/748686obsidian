@@ -19,103 +19,12 @@ Supported structures:
 - Translation Part A / B
 - Writing
 
-V1.6 fixes:
-1. Support answer section alias "多项选择".
-2. Correctly separate listening transcript Part A/B/C from
-   the later standard-answer area.
-3. Namespace translation Part A/B question IDs.
-4. Support writing prompts placed on the line after "### 1.".
-5. Support multiple-choice answers with 3 or more options,
-   such as A,B,C and A,B,D.
-6. Correctly map flat listening answers:
-       1-5   -> Part A
-       6-10  -> Part B
-       11-15 -> Part C
-7. IMPORTANT:
-   Listening answer blocks may already be isolated by
-   split_answer_blocks() and therefore may NOT contain a second
-   "答案" / "标准答案" boundary heading.
-   V1.6 therefore supports both:
-       - explicit answer boundary mode
-       - already-isolated listening answer-block mode
-8. If listening answers are presented as repeated 1-5 groups:
-       1. A
-       2. C
-       ...
-       5. B
-       1. A
-       ...
-       5. A
-       1. B
-       ...
-       5. B
-   they are mapped sequentially to:
-       A1-A5
-       B1-B5
-       C1-C5
-9. Explicit Part A/B/C headings remain supported.
-10. Parser ONLY parses existing files.
-    It does NOT modify exam generation.
-    It does NOT modify answer generation.
-    It does NOT perform semantic grading.
-
-V1.6 targeted robustness fixes:
-11. Listening question parser supports both Markdown heading
-    question numbers and ordinary numbered question lines:
-       ### 1. ...
-       1. ...
-       1、...
-       1) ...
-
-12. Exam section detection is tolerant of real generated heading
-    variants, such as:
-       一、听力
-       一、听力原文
-       一、听力理解
-       一、听力部分
-       一、听力（共15题）
-       ## 一、听力
-       ## 一、听力原文
-       第一部分：听力
-
-13. Listening Part A/B/C detection supports:
-       Part A
-       ### Part B
-       Part C:
-       Part A：短对话
-       ### Part A：短对话
-
-14. IMPORTANT:
-    Markdown Preview may display repeated source numbering
-       1-5
-       1-5
-       1-5
-    as continuous numbering 1-15.
-    The parser MUST use the actual Markdown source order,
-    not the Preview-rendered numbering.
-
-15. Listening answer parsing therefore treats three repeated
-    1-5 groups as:
-       first group  -> A1-A5
-       second group -> B1-B5
-       third group -> C1-C5
-
-16. IMPORTANT:
-    If the main exam section detector fails to recognize the
-    listening heading, parse_exam() performs a second-pass
-    listening recovery based on Part A / Part B / Part C markers.
-
-17. Listening questions are NOT required to contain four options.
-    The parser preserves the real exam structure instead of
-    assuming every listening question has A-D choices.
-
 IMPORTANT
 ---------
 PARSER_VERSION remains "1.6" intentionally.
 
 The JSON contract is unchanged.
 """
-
 
 from __future__ import annotations
 
@@ -140,6 +49,8 @@ SECTION_MAP = {
     "一、听力理解": "listening",
     "一、听力部分": "listening",
     "一、听力测试": "listening",
+    "一、听力题目": "listening",
+    "一、听力试题": "listening",
 
     "二、单项选择": "single_choice",
 
@@ -359,15 +270,6 @@ def normalize_answer(answer: Any) -> str:
 def normalize_heading(
     text: str,
 ) -> str:
-    """
-    Normalize Markdown-style headings.
-
-    Examples:
-        ## 一、听力
-        ### 一、听力
-        一、听力
-        -> 一、听力
-    """
 
     text = normalize_text(
         text
@@ -391,9 +293,6 @@ def normalize_heading(
 def normalize_section_text(
     text: str,
 ) -> str:
-    """
-    Normalize a section heading for robust matching.
-    """
 
     text = normalize_heading(
         text
@@ -436,16 +335,6 @@ def normalize_section_text(
 def strip_section_number(
     text: str,
 ) -> str:
-    """
-    Remove Chinese / Arabic section numbering.
-
-    Examples:
-        一、听力
-        二、单项选择
-        1、听力
-
-    -> 听力
-    """
 
     text = normalize_section_text(
         text
@@ -606,22 +495,6 @@ def make_question_id(
 def detect_exam_section(
     line: str,
 ) -> Optional[str]:
-    """
-    Robustly detect exam sections.
-
-    Supports:
-
-        一、听力
-        一、听力原文
-        一、听力理解
-        一、听力部分
-        一、听力（共15题）
-        一、听力：共15题
-        ## 一、听力
-        ## 一、听力原文
-        第一部分：听力
-        第一部分 听力
-    """
 
     raw = normalize_text(
         line
@@ -637,20 +510,13 @@ def detect_exam_section(
     if not text:
         return None
 
-    # --------------------------------------------------------------
-    # Remove Markdown quote marker if present.
-    # --------------------------------------------------------------
-
     text = re.sub(
         r"^>\s*",
         "",
         text,
     ).strip()
 
-    # --------------------------------------------------------------
-    # Exact mappings first.
-    # --------------------------------------------------------------
-
+    # Exact mappings.
     for title, section in SECTION_MAP.items():
 
         if text == normalize_section_text(
@@ -658,32 +524,16 @@ def detect_exam_section(
         ):
             return section
 
-    # --------------------------------------------------------------
-    # Remove section number.
-    # --------------------------------------------------------------
-
     body = strip_section_number(
         text
     )
-
-    # --------------------------------------------------------------
-    # Normalize full-width punctuation again.
-    # --------------------------------------------------------------
 
     body = body.replace(
         "：",
         ":",
     )
 
-    # --------------------------------------------------------------
     # Remove trailing count / explanatory information.
-    #
-    # Examples:
-    #   听力(共15题)
-    #   听力:共15题
-    #   听力-共15题
-    # --------------------------------------------------------------
-
     body_base = re.split(
         r"[\(:\-]",
         body,
@@ -700,6 +550,8 @@ def detect_exam_section(
         "听力理解",
         "听力部分",
         "听力测试",
+        "听力题目",
+        "听力试题",
     )
 
     if (
@@ -708,10 +560,11 @@ def detect_exam_section(
         or body_base.startswith("听力理解")
         or body_base.startswith("听力部分")
         or body_base.startswith("听力测试")
+        or body_base.startswith("听力题目")
+        or body_base.startswith("听力试题")
     ):
         return "listening"
 
-    # Also support cases where trailing punctuation survived.
     if any(
         body.startswith(prefix)
         for prefix in listening_prefixes
@@ -785,11 +638,12 @@ def detect_exam_section(
 
     # --------------------------------------------------------------
     # 第一部分：听力
-    # 第二部分：单项选择
+    # 第1部分：听力
     # --------------------------------------------------------------
 
     part_match = re.match(
-        r"^第([一二三四五六七八九十\d]+)部分[:：]?(.*)$",
+        r"^第\s*([一二三四五六七八九十百千万\d]+)"
+        r"\s*部分\s*[:：]?\s*(.*)$",
         text,
     )
 
@@ -895,12 +749,6 @@ def split_sections(
 def contains_listening_markers(
     text: str,
 ) -> bool:
-    """
-    Detect whether a complete exam contains explicit
-    Listening Part A/B/C markers.
-
-    This is used only as a second-pass recovery mechanism.
-    """
 
     lines = normalize_text(
         text
@@ -928,18 +776,11 @@ def recover_listening_section(
     text: str,
 ) -> str:
     """
-    Second-pass listening recovery.
+    Recover listening directly from the original exam source.
 
-    Why this exists:
-    Some generated Markdown files may contain a heading variant
-    which is visually a listening section but is not recognized
-    by the normal section splitter.
-
-    If Part A/B/C markers are present, this function extracts
-    the listening block from the first listening marker until
-    the next recognized major exam section.
-
-    It does NOT touch the answer file.
+    This is deliberately based on Part A/B/C markers so that
+    the listening parser does not depend exclusively on the
+    major heading "一、听力".
     """
 
     lines = normalize_text(
@@ -958,19 +799,17 @@ def recover_listening_section(
         if detect_listening_part(
             line
         ):
+
             first_part_index = index
+
             break
 
     if first_part_index is None:
         return ""
 
-    # --------------------------------------------------------------
-    # Search backward for a probable listening heading.
-    # If none exists, start directly from Part A.
-    # --------------------------------------------------------------
-
     start_index = first_part_index
 
+    # Search backward for listening heading.
     for index in range(
         first_part_index - 1,
         -1,
@@ -984,9 +823,9 @@ def recover_listening_section(
         if detected == "listening":
 
             start_index = index
+
             break
 
-        # Stop if another major section is encountered.
         if detected in {
             "single_choice",
             "multiple_choice",
@@ -997,35 +836,33 @@ def recover_listening_section(
         }:
             break
 
-        # Look for explicit listening wording even if
-        # normal section detection missed it.
-        normalized = normalize_text(
+        candidate = normalize_text(
             lines[index]
         )
 
-        normalized = re.sub(
+        candidate = re.sub(
             r"^#+\s*",
             "",
-            normalized,
+            candidate,
         )
 
-        normalized = re.sub(
+        candidate = re.sub(
             r"^[一二三四五六七八九十百千万]+[、.．]\s*",
             "",
-            normalized,
+            candidate,
         )
 
         if (
-            normalized.startswith("听力")
-            or normalized.startswith("第一部分")
+            candidate.startswith("听力")
+            or candidate.startswith("第一部分")
+            or candidate.startswith("第1部分")
         ):
+
             start_index = index
+
             break
 
-    # --------------------------------------------------------------
-    # Search forward until the next major exam section.
-    # --------------------------------------------------------------
-
+    # Search forward for next major section.
     end_index = len(lines)
 
     for index in range(
@@ -1047,14 +884,13 @@ def recover_listening_section(
         }:
 
             end_index = index
+
             break
 
-    recovered = lines[
-        start_index:end_index
-    ]
-
     return "\n".join(
-        recovered
+        lines[
+            start_index:end_index
+        ]
     ).strip()
 
 
@@ -1205,54 +1041,108 @@ def detect_listening_part(
     return None
 
 
+def parse_listening_question_line(
+    line: str,
+) -> Optional[Tuple[int, str]]:
+    """
+    Parse both Markdown-heading and ordinary numbered
+    listening question lines.
+
+    Supported:
+
+        ### 1. Question
+        ## 2. Question
+        1. Question
+        1、Question
+        1) Question
+
+    IMPORTANT:
+    Empty Markdown question headings are accepted too:
+
+        ### 1.
+
+    In that case the caller may obtain the actual question
+    text from the following line.
+    """
+
+    clean = normalize_text(
+        line
+    )
+
+    if not clean:
+        return None
+
+    parsed = parse_question_header(
+        clean
+    )
+
+    if parsed is not None:
+        return parsed
+
+    match = re.match(
+        r"^(\d+)\s*[.．、)]\s*(.*?)\s*$",
+        clean,
+    )
+
+    if match:
+
+        try:
+            number = int(
+                match.group(1)
+            )
+
+        except ValueError:
+            return None
+
+        question_text = normalize_text(
+            match.group(2)
+        )
+
+        return number, question_text
+
+    return None
+
+
 def parse_listening(
     text: str,
 ) -> List[Dict[str, Any]]:
     """
-    Parse listening questions.
-
-    Supported question formats:
-
-        ### 1. Question text
-        ### 2. Question text
-
-    and:
-
-        1. Question text
-        2. Question text
-
-    and:
-
-        1、Question text
-        2、Question text
-
-    and:
-
-        1) Question text
-        2) Question text
-
-    Part A/B/C are structural markers.
-
-    IMPORTANT:
-    Question numbers are kept exactly as they occur in the exam.
-    The Part field identifies the listening subsection.
+    Parse the real generated listening format.
 
     Example:
 
-        Part A
-        1-5
+        ## Part A
 
-        Part B
-        1-5
+        ### 1. Question
+        - A. ...
+        - B. ...
+        - C. ...
+        - D. ...
 
-        Part C
-        1-5
+        ...
 
-    are represented as:
+        ## Part B
 
-        A1-A5
-        B1-B5
-        C1-C5
+        ### 1. Question
+
+        ...
+
+        ## Part C
+
+        ### 1. Question
+
+    The repeated numbering is intentional.
+    IDs are namespaced by Part:
+
+        listening_A_1
+        ...
+        listening_A_5
+        listening_B_1
+        ...
+        listening_B_5
+        listening_C_1
+        ...
+        listening_C_5
     """
 
     lines = normalize_text(
@@ -1270,6 +1160,9 @@ def parse_listening(
     ] = None
 
     option_buffer: List[str] = []
+
+    pending_number: Optional[int] = None
+    pending_part: Optional[str] = None
 
     def flush_current() -> None:
 
@@ -1292,6 +1185,31 @@ def parse_listening(
         current = None
         option_buffer = []
 
+    def flush_pending_as_empty() -> None:
+
+        nonlocal pending_number
+        nonlocal pending_part
+
+        if (
+            pending_number is None
+            or pending_part is None
+        ):
+            return
+
+        current_question = base_question(
+            section="listening",
+            number=pending_number,
+            question="",
+            listening_part=pending_part,
+        )
+
+        questions.append(
+            current_question
+        )
+
+        pending_number = None
+        pending_part = None
+
     for line in lines:
 
         clean = normalize_text(
@@ -1302,7 +1220,7 @@ def parse_listening(
             continue
 
         # ----------------------------------------------------------
-        # Part A / Part B / Part C
+        # Part A / B / C
         # ----------------------------------------------------------
 
         part = detect_listening_part(
@@ -1311,6 +1229,10 @@ def parse_listening(
 
         if part:
 
+            if pending_number is not None:
+
+                flush_pending_as_empty()
+
             flush_current()
 
             current_part = part
@@ -1318,59 +1240,112 @@ def parse_listening(
             continue
 
         # ----------------------------------------------------------
-        # Markdown question
+        # If a previous "### 1." had no text,
+        # use the next ordinary text line as the question.
         # ----------------------------------------------------------
 
-        parsed = parse_question_header(
+        if pending_number is not None:
+
+            # If another question starts before the pending
+            # question gets text, preserve the pending question
+            # rather than losing it.
+            nested_question = (
+                parse_listening_question_line(
+                    clean
+                )
+            )
+
+            if nested_question is not None:
+
+                flush_pending_as_empty()
+
+                number, question_text = (
+                    nested_question
+                )
+
+                current = base_question(
+                    section="listening",
+                    number=number,
+                    question=question_text,
+                    listening_part=current_part,
+                )
+
+                option_buffer = []
+
+                continue
+
+            # An option line cannot be a question sentence.
+            option_candidate = re.match(
+                r"^\s*(?:-\s*)?[A-D]\s*[.．、:：]\s*(.*?)\s*$",
+                clean,
+                re.IGNORECASE,
+            )
+
+            if not option_candidate:
+
+                pending_part_value = (
+                    pending_part
+                    or current_part
+                )
+
+                current = base_question(
+                    section="listening",
+                    number=pending_number,
+                    question=clean,
+                    listening_part=pending_part_value,
+                )
+
+                pending_number = None
+                pending_part = None
+
+                option_buffer = []
+
+                continue
+
+            # If the source really provides options immediately,
+            # preserve an empty question rather than dropping it.
+            current = base_question(
+                section="listening",
+                number=pending_number,
+                question="",
+                listening_part=(
+                    pending_part
+                    or current_part
+                ),
+            )
+
+            pending_number = None
+            pending_part = None
+
+            option_buffer = []
+
+            option_buffer.append(
+                clean
+            )
+
+            continue
+
+        # ----------------------------------------------------------
+        # Question number
+        # ----------------------------------------------------------
+
+        parsed = parse_listening_question_line(
             clean
         )
 
-        # ----------------------------------------------------------
-        # Ordinary numbered question
-        # ----------------------------------------------------------
-
-        if parsed is None:
-
-            plain_match = re.match(
-                r"^(\d+)\s*[.．、)]\s*(.*?)\s*$",
-                clean,
-            )
-
-            if plain_match:
-
-                try:
-
-                    number = int(
-                        plain_match.group(1)
-                    )
-
-                except ValueError:
-
-                    number = None
-
-                question_text = normalize_text(
-                    plain_match.group(2)
-                )
-
-                if (
-                    number is not None
-                    and question_text
-                ):
-
-                    parsed = (
-                        number,
-                        question_text,
-                    )
-
-        # ----------------------------------------------------------
-        # New question
-        # ----------------------------------------------------------
-
-        if parsed:
+        if parsed is not None:
 
             flush_current()
 
             number, question_text = parsed
+
+            # Markdown heading "### 1." with no question text.
+            if not question_text:
+
+                pending_number = number
+                pending_part = current_part
+
+                continue
 
             current = base_question(
                 section="listening",
@@ -1392,6 +1367,10 @@ def parse_listening(
             option_buffer.append(
                 clean
             )
+
+    if pending_number is not None:
+
+        flush_pending_as_empty()
 
     flush_current()
 
@@ -1901,32 +1880,12 @@ def parse_exam(
     )
 
     # --------------------------------------------------------------
-    # IMPORTANT:
-    # If normal section detection did not find listening,
-    # perform second-pass recovery.
+    # First listening parse.
     # --------------------------------------------------------------
 
-    if "listening" not in sections:
-
-        recovered_listening = (
-            recover_listening_section(
-                exam_text
-            )
-        )
-
-        if recovered_listening:
-
-            sections["listening"] = (
-                recovered_listening
-            )
-
-    questions: List[
+    listening_questions: List[
         Dict[str, Any]
     ] = []
-
-    # --------------------------------------------------------------
-    # Listening
-    # --------------------------------------------------------------
 
     if "listening" in sections:
 
@@ -1936,9 +1895,55 @@ def parse_exam(
             )
         )
 
-        questions.extend(
-            listening_questions
+    # --------------------------------------------------------------
+    # IMPORTANT FIX:
+    #
+    # Do NOT only recover listening when the section is completely
+    # missing.
+    #
+    # If the heading was recognized but the question parser only
+    # extracted part of the listening section, we must also perform
+    # the second-pass recovery.
+    #
+    # The real exam MUST contain 15 listening questions.
+    # --------------------------------------------------------------
+
+    if len(listening_questions) < 15:
+
+        recovered_listening = (
+            recover_listening_section(
+                exam_text
+            )
         )
+
+        if recovered_listening:
+
+            recovered_questions = (
+                parse_listening(
+                    recovered_listening
+                )
+            )
+
+            # Use the larger / more complete result.
+            if len(recovered_questions) > len(
+                listening_questions
+            ):
+
+                listening_questions = (
+                    recovered_questions
+                )
+
+    questions: List[
+        Dict[str, Any]
+    ] = []
+
+    # --------------------------------------------------------------
+    # Listening
+    # --------------------------------------------------------------
+
+    questions.extend(
+        listening_questions
+    )
 
     # --------------------------------------------------------------
     # Single choice
@@ -2152,14 +2157,12 @@ def detect_answer_section(
         line
     )
 
-    # Remove Chinese section number for flexible matching.
     text_without_number = re.sub(
         r"^[一二三四五六七八九十百千万]+[、.．]\s*",
         "",
         text,
     )
 
-    # Exact matching first.
     for title, section in (
         ANSWER_SECTION_ALIASES.items()
     ):
@@ -2172,7 +2175,6 @@ def detect_answer_section(
 
             return section
 
-    # Flexible matching.
     for title, section in (
         ANSWER_SECTION_ALIASES.items()
     ):
@@ -2185,7 +2187,6 @@ def detect_answer_section(
 
             return section
 
-    # Explicit generic listening variants.
     if (
         text_without_number.startswith(
             "听力答案"
@@ -2279,22 +2280,6 @@ def collect_numbered_answers(
 def split_answer_blocks(
     text: str,
 ) -> Dict[str, str]:
-    """
-    Split answer file by major answer sections.
-
-    Tolerates:
-        一、听力答案
-        听力答案
-        一、听力
-        听力
-        二、单项选择答案
-        多项选择答案
-
-    IMPORTANT:
-    "二、标准答案" is a container heading, not a section itself.
-    The following "听力" heading is therefore allowed to establish
-    the listening answer block.
-    """
 
     lines = normalize_text(
         text
@@ -2343,9 +2328,6 @@ def split_answer_blocks(
 def is_listening_answer_boundary(
     line: str,
 ) -> bool:
-    """
-    Detect the transition from listening transcript to actual answers.
-    """
 
     text = normalize_heading(
         line
@@ -2387,18 +2369,6 @@ def is_listening_answer_boundary(
 def is_standalone_listening_part(
     line: str,
 ) -> Optional[str]:
-    """
-    Only a standalone Part A/B/C line is accepted.
-
-    Valid:
-        Part A
-        ### Part B
-        Part C:
-        Part A：短对话
-
-    Invalid:
-        Explanation: Part C ...
-    """
 
     clean = normalize_text(
         line
@@ -2421,14 +2391,6 @@ def is_standalone_listening_part(
 def is_numbered_answer_line(
     line: str,
 ) -> bool:
-    """
-    True only for a pure numbered answer line such as:
-
-        1. A
-        2. C
-        3. A,B
-        **4.** B
-    """
 
     return (
         extract_choice_answer(line)
@@ -2439,57 +2401,6 @@ def is_numbered_answer_line(
 def parse_listening_answers(
     text: str,
 ) -> Dict[Tuple[str, int], str]:
-    """
-    Parse Listening A/B/C.
-
-    REAL GENERATED FORMAT
-    ---------------------
-
-    The Markdown source may contain:
-
-        1. A
-        2. C
-        3. B
-        4. C
-        5. B
-
-        1. A
-        2. C
-        3. A
-        4. B
-        5. A
-
-        1. B
-        2. B
-        3. C
-        4. A
-        5. B
-
-    Markdown Preview may display these as:
-
-        1-15
-
-    But the source code is actually:
-
-        1-5
-        1-5
-        1-5
-
-    Therefore the parser deliberately uses SOURCE ORDER.
-
-    Mapping:
-
-        first five answers
-            -> A1-A5
-
-        second five answers
-            -> B1-B5
-
-        third five answers
-            -> C1-C5
-
-    Explicit Part A/B/C answer headings are also supported.
-    """
 
     lines = normalize_text(
         text
@@ -2543,10 +2454,6 @@ def parse_listening_answers(
         if not clean:
             continue
 
-        # ----------------------------------------------------------
-        # Optional answer boundary.
-        # ----------------------------------------------------------
-
         if is_listening_answer_boundary(
             clean
         ):
@@ -2556,10 +2463,6 @@ def parse_listening_answers(
             current_part = None
 
             continue
-
-        # ----------------------------------------------------------
-        # Already-isolated listening block.
-        # ----------------------------------------------------------
 
         if (
             not collecting_answers
@@ -2575,10 +2478,6 @@ def parse_listening_answers(
 
             continue
 
-        # ----------------------------------------------------------
-        # Explicit Part A/B/C.
-        # ----------------------------------------------------------
-
         part = is_standalone_listening_part(
             clean
         )
@@ -2591,16 +2490,11 @@ def parse_listening_answers(
 
             continue
 
-        # ----------------------------------------------------------
-        # Actual numbered answer.
-        # ----------------------------------------------------------
-
         answer = extract_choice_answer(
             clean
         )
 
         if answer is None:
-
             continue
 
         text_clean = clean.replace(
@@ -2614,16 +2508,11 @@ def parse_listening_answers(
         )
 
         if not match:
-
             continue
 
         number = int(
             match.group(1)
         )
-
-        # ----------------------------------------------------------
-        # Explicit Part mode.
-        # ----------------------------------------------------------
 
         if (
             explicit_part_mode
@@ -2637,19 +2526,11 @@ def parse_listening_answers(
                 )
             ] = answer
 
-        # ----------------------------------------------------------
-        # Repeated 1-5 source-order mode.
-        # ----------------------------------------------------------
-
         else:
 
             flat_answers.append(
                 answer
             )
-
-    # --------------------------------------------------------------
-    # Explicit Part A/B/C mode.
-    # --------------------------------------------------------------
 
     if explicit_part_mode:
 
@@ -2657,41 +2538,35 @@ def parse_listening_answers(
             explicit_answers
         )
 
-        if flat_answers:
+        for index, answer in enumerate(
+            flat_answers[:15]
+        ):
 
-            for index, answer in enumerate(
-                flat_answers[:15]
-            ):
+            if index < 5:
 
-                if index < 5:
+                part = "A"
+                number = index + 1
 
-                    part = "A"
-                    number = index + 1
+            elif index < 10:
 
-                elif index < 10:
+                part = "B"
+                number = index - 4
 
-                    part = "B"
-                    number = index - 4
+            else:
 
-                else:
+                part = "C"
+                number = index - 9
 
-                    part = "C"
-                    number = index - 9
+            key = (
+                part,
+                number,
+            )
 
-                key = (
-                    part,
-                    number,
-                )
+            if key not in result:
 
-                if key not in result:
-
-                    result[key] = answer
+                result[key] = answer
 
         return result
-
-    # --------------------------------------------------------------
-    # Repeated 1-5 groups.
-    # --------------------------------------------------------------
 
     for index, answer in enumerate(
         flat_answers[:15]
@@ -2754,7 +2629,6 @@ def extract_reference_after_number(
     )
 
     if not match:
-
         return None
 
     number = int(
@@ -2766,7 +2640,6 @@ def extract_reference_after_number(
     )
 
     if not reference:
-
         return None
 
     return number, reference
@@ -2811,7 +2684,6 @@ def parse_translation_references(
         )
 
         if not parsed:
-
             continue
 
         number, reference = parsed
@@ -3100,10 +2972,6 @@ def parse_reference_answers(
         "explanations": {},
     }
 
-    # --------------------------------------------------------------
-    # Listening
-    # --------------------------------------------------------------
-
     listening_text = blocks.get(
         "listening",
         "",
@@ -3116,10 +2984,6 @@ def parse_reference_answers(
                 listening_text
             )
         )
-
-    # --------------------------------------------------------------
-    # Standard choice sections
-    # --------------------------------------------------------------
 
     for section in [
         "single_choice",
@@ -3134,7 +2998,6 @@ def parse_reference_answers(
         )
 
         if not block:
-
             continue
 
         result["choice"][section] = (
@@ -3142,10 +3005,6 @@ def parse_reference_answers(
                 block
             )
         )
-
-    # --------------------------------------------------------------
-    # Translation
-    # --------------------------------------------------------------
 
     translation_text = blocks.get(
         "translation",
@@ -3160,10 +3019,6 @@ def parse_reference_answers(
             )
         )
 
-    # --------------------------------------------------------------
-    # Writing
-    # --------------------------------------------------------------
-
     writing_text = blocks.get(
         "writing",
         "",
@@ -3176,10 +3031,6 @@ def parse_reference_answers(
                 writing_text
             )
         )
-
-    # --------------------------------------------------------------
-    # Explanations
-    # --------------------------------------------------------------
 
     result["explanations"] = (
         parse_explanations(
@@ -3256,11 +3107,6 @@ def attach_answers(
                     )
                 )
             )
-
-            # ------------------------------------------------------
-            # Fallback:
-            # bind listening questions globally in source order.
-            # ------------------------------------------------------
 
             if not correct_answer:
 
@@ -3344,10 +3190,6 @@ def attach_answers(
                 writing_reference
             )
 
-        # ----------------------------------------------------------
-        # Explanation lookup.
-        # ----------------------------------------------------------
-
         explanation = explanations.get(
             (
                 section,
@@ -3361,9 +3203,6 @@ def attach_answers(
             and not explanation
         ):
 
-            # IMPORTANT:
-            # listening_global_index has already been incremented.
-            # Current question is therefore global index - 1.
             current_global_number = (
                 listening_global_index
             )
@@ -3519,10 +3358,6 @@ def validate_exam(
 
         return errors
 
-    # --------------------------------------------------------------
-    # Count by type
-    # --------------------------------------------------------------
-
     counts: Dict[str, int] = {}
 
     for question in questions:
@@ -3546,7 +3381,7 @@ def validate_exam(
 
         actual = counts.get(
             section,
-            0,
+            0
         )
 
         if actual != expected:
@@ -3555,10 +3390,6 @@ def validate_exam(
                 f"{section}: 数量 {actual}, "
                 f"预期 {expected}"
             )
-
-    # --------------------------------------------------------------
-    # IDs
-    # --------------------------------------------------------------
 
     ids = [
         q.get("id")
@@ -3570,10 +3401,6 @@ def validate_exam(
         errors.append(
             "题目 ID 不唯一"
         )
-
-    # --------------------------------------------------------------
-    # Content and answers
-    # --------------------------------------------------------------
 
     for question in questions:
 
@@ -3600,14 +3427,7 @@ def validate_exam(
                 f"{qid}: 缺少题目内容"
             )
 
-        # ----------------------------------------------------------
-        # Choice questions must have A-D options.
-        #
-        # Listening is intentionally excluded because the real
-        # generated listening structure may contain transcript
-        # questions without embedded A-D options.
-        # ----------------------------------------------------------
-
+        # Listening deliberately does not require A-D.
         if section in {
             "single_choice",
             "multiple_choice",
@@ -3639,10 +3459,6 @@ def validate_exam(
                 errors.append(
                     f"{qid}: 缺少正确答案"
                 )
-
-    # --------------------------------------------------------------
-    # Final count
-    # --------------------------------------------------------------
 
     if len(questions) != 61:
 
