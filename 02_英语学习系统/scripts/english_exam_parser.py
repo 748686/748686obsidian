@@ -2,13 +2,13 @@
 # -*- coding: utf-8 -*-
 
 """
-748686 ENGLISH EXAM PARSER V1.4
+748686 ENGLISH EXAM PARSER V1.5
 
 Purpose
 -------
 Parse the generated English exam and its answer/explanation file.
 
-V1.4 is based on the real generated exam format:
+V1.5 is based on the real generated exam format:
 
 ### 1. Question text
 - A. ...
@@ -25,12 +25,18 @@ Special structures:
 - Translation Part A / B
 - Writing
 
-V1.4 fixes:
+V1.5 fixes:
 1. Support answer section alias "多项选择".
 2. Correctly separate listening transcript Part A/B/C from
    the later standard-answer area.
 3. Namespace translation Part A/B question IDs.
 4. Support writing prompts placed on the line after "### 1.".
+5. Support multiple-choice answers with 3 or more options,
+   such as A,B,C and A,B,D.
+6. Correctly map flat listening answers:
+       1-5   -> Part A
+       6-10  -> Part B
+       11-15 -> Part C
 
 Important:
 - This parser ONLY parses existing files.
@@ -49,7 +55,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 
-PARSER_VERSION = "1.4"
+PARSER_VERSION = "1.5"
 
 
 # ----------------------------------------------------------------------
@@ -128,6 +134,7 @@ def normalize_answer(answer: Any) -> str:
         A,C
         A、C
         A, C
+        A,B,D
         [A, C]
 
     -> canonical representation.
@@ -191,7 +198,7 @@ def normalize_answer(answer: Any) -> str:
         text,
     )
 
-    # A,C
+    # A,C / A,B,D
     if "," in text:
         parts = [
             x.strip()
@@ -1385,7 +1392,12 @@ def extract_choice_answer(
         1、A
         1. A,C
         1. A、C
+        1. A,B,D
+        1. A,B,C
         **1.** A
+
+    Multiple-choice answers may contain any number of
+    A-D options.
     """
 
     text = clean_answer_line(
@@ -1400,7 +1412,8 @@ def extract_choice_answer(
 
     # Explicit answer marker.
     match = re.search(
-        r"答案\s*[:：]\s*([A-D](?:\s*[,、，]\s*[A-D])*)",
+        r"答案\s*[:：]\s*"
+        r"([A-D](?:\s*[,、，]\s*[A-D])*)",
         text,
         re.IGNORECASE,
     )
@@ -1411,8 +1424,18 @@ def extract_choice_answer(
         )
 
     # Numbered answer.
+    #
+    # Supports:
+    #   1. A
+    #   1. A,C
+    #   1. A,B,D
+    #   1. A,B,C
+    #
+    # The previous V1.4 version allowed only one separator.
     match = re.match(
-        r"^(\d+)\s*[.．、)]\s*([A-D](?:\s*[,、，]\s*[A-D])?)\s*$",
+        r"^(\d+)\s*[.．、)]\s*"
+        r"([A-D](?:\s*[,、，]\s*[A-D])*)"
+        r"\s*$",
         text,
         re.IGNORECASE,
     )
@@ -1424,7 +1447,11 @@ def extract_choice_answer(
 
     # **1.** A
     match = re.match(
-        r"^\*{0,2}\s*(\d+)\s*[.．、)]\s*\*{0,2}\s*([A-D](?:\s*[,、，]\s*[A-D])?)\s*$",
+        r"^\*{0,2}\s*"
+        r"(\d+)\s*[.．、)]\s*"
+        r"\*{0,2}\s*"
+        r"([A-D](?:\s*[,、，]\s*[A-D])*)"
+        r"\s*$",
         text,
         re.IGNORECASE,
     )
@@ -1678,36 +1705,40 @@ def parse_listening_answers(
     """
     Parse Listening A/B/C.
 
-    The real generated answer file can contain:
+    Real generated answer format:
 
-        Part A
-        [listening transcript...]
-
-        Part B
-        [listening transcript...]
-
-        Part C
-        [listening transcript...]
-
-        标准答案
+        ### 听力
 
         1. A
+        2. C
+        3. B
+        4. C
+        5. B
+        1. A
+        2. C
+        3. A
+        4. B
+        5. A
+        1. B
         2. B
-        ...
-        15. C
+        3. C
+        4. A
+        5. B
 
-    The Part A/B/C headings appearing BEFORE the standard-answer
-    boundary belong to the transcript and must NOT control answer
-    assignment.
+    V1.5 rules:
 
-    V1.4 therefore:
-
-    1. Wait for an explicit answer boundary.
-    2. Reset current_part at that boundary.
-    3. Collect numbered answers after the boundary.
-    4. If no explicit Part headings occur after the boundary,
-       map 1-5 -> A, 6-10 -> B, 11-15 -> C.
-    5. If Part headings DO occur after the boundary, use them.
+    1. Before the answer boundary, ignore all transcript content.
+    2. After the answer boundary, only an EXACT standalone
+       "Part A / Part B / Part C" heading can switch parts.
+    3. Ordinary explanation text containing "Part C" must NOT
+       switch the current listening part.
+    4. If no explicit Part headings exist in the answer area,
+       collect all numbered answers in order and map:
+           1-5   -> A1-A5
+           6-10  -> B1-B5
+           11-15 -> C1-C5
+    5. If explicit Part headings exist after the answer boundary,
+       use those headings for mapping.
     """
 
     lines = normalize_text(
@@ -1719,13 +1750,20 @@ def parse_listening_answers(
         str
     ] = {}
 
-    current_part: Optional[str] = None
-
     collecting_answers = False
 
-    all_answers: List[str] = []
+    # Flat answers found after the answer boundary.
+    flat_answers: List[str] = []
 
-    explicit_part_answers = False
+    # Answers explicitly associated with Part A/B/C.
+    explicit_answers: Dict[
+        Tuple[str, int],
+        str
+    ] = {}
+
+    current_part: Optional[str] = None
+
+    explicit_part_mode = False
 
     for line in lines:
         clean = normalize_text(
@@ -1736,36 +1774,47 @@ def parse_listening_answers(
             continue
 
         # --------------------------------------------------------------
-        # Enter actual standard-answer area.
+        # Enter the actual answer area.
         # --------------------------------------------------------------
 
         if is_listening_answer_boundary(
             clean
         ):
             collecting_answers = True
-
-            # Critical:
-            # Do NOT carry transcript Part C into the answer area.
             current_part = None
-
             continue
 
-        # Ignore all transcript content before the answer boundary.
+        # Ignore transcript before the answer boundary.
         if not collecting_answers:
             continue
 
         # --------------------------------------------------------------
-        # Part headings AFTER answer boundary are valid.
+        # IMPORTANT:
+        #
+        # Only accept a standalone Part A/B/C heading.
+        #
+        # Do NOT use detect_answer_part() here because that function
+        # intentionally matches "Part C" anywhere in a line, which
+        # would incorrectly switch parts inside explanations.
         # --------------------------------------------------------------
 
-        part = detect_answer_part(
-            clean
+        part_match = re.match(
+            r"^#{0,6}\s*Part\s+([ABC])\s*$",
+            clean,
+            re.IGNORECASE,
         )
 
-        if part:
-            current_part = part
-            explicit_part_answers = True
+        if part_match:
+            current_part = (
+                part_match.group(1).upper()
+            )
+
+            explicit_part_mode = True
             continue
+
+        # --------------------------------------------------------------
+        # Extract numbered answer.
+        # --------------------------------------------------------------
 
         answer = extract_choice_answer(
             clean
@@ -1779,7 +1828,6 @@ def parse_listening_answers(
             "",
         )
 
-        # Only numbered answer lines.
         match = re.match(
             r"^(\d+)\s*[.．、)]",
             text_clean,
@@ -1792,158 +1840,104 @@ def parse_listening_answers(
             match.group(1)
         )
 
-        if current_part:
-            result[
+        # --------------------------------------------------------------
+        # Explicit Part mode.
+        # --------------------------------------------------------------
+
+        if explicit_part_mode and current_part:
+            explicit_answers[
                 (
                     current_part,
                     number,
                 )
             ] = answer
 
+        # --------------------------------------------------------------
+        # Flat mode.
+        #
+        # This is the actual generated format:
+        # three repeated 1-5 blocks.
+        # --------------------------------------------------------------
+
         else:
-            all_answers.append(
+            flat_answers.append(
                 answer
             )
 
     # --------------------------------------------------------------
-    # If there were no Part headings after the answer boundary,
-    # the generated 15 answers are treated as a flat list.
+    # If explicit Part headings were actually present, use them.
     # --------------------------------------------------------------
 
-    if (
-        all_answers
-        and not explicit_part_answers
-    ):
-        for index, answer in enumerate(
-            all_answers[:15]
-        ):
-            if index < 5:
-                part = "A"
-                number = index + 1
+    if explicit_part_mode:
+        result.update(
+            explicit_answers
+        )
 
-            elif index < 10:
-                part = "B"
-                number = index - 4
-
-            else:
-                part = "C"
-                number = index - 9
-
-            result[
-                (
-                    part,
-                    number,
-                )
-            ] = answer
-
-    # --------------------------------------------------------------
-    # Additional compatibility fallback:
-    #
-    # If no explicit answer boundary exists in an older answer file,
-    # preserve the original V1.3 Part-based behavior.
-    # --------------------------------------------------------------
-
-    if (
-        not collecting_answers
-        and not result
-    ):
-        current_part = None
-
-        fallback_answers: List[
-            Tuple[
-                Optional[str],
-                int,
-                str,
-            ]
-        ] = []
-
-        for line in lines:
-            clean = normalize_text(
-                line
-            )
-
-            if not clean:
-                continue
-
-            part = detect_answer_part(
-                clean
-            )
-
-            if part:
-                current_part = part
-                continue
-
-            answer = extract_choice_answer(
-                clean
-            )
-
-            if answer is None:
-                continue
-
-            text_clean = clean.replace(
-                "**",
-                "",
-            )
-
-            match = re.match(
-                r"^(\d+)\s*[.．、)]",
-                text_clean,
-            )
-
-            if not match:
-                continue
-
-            number = int(
-                match.group(1)
-            )
-
-            fallback_answers.append(
-                (
-                    current_part,
-                    number,
-                    answer,
-                )
-            )
-
-        for part, number, answer in (
-            fallback_answers
-        ):
-            if part:
-                result[
-                    (
-                        part,
-                        number,
-                    )
-                ] = answer
-
-        # If still no Part mapping, use flat 1-15 mapping.
-        if not result:
-            flat = [
-                item[2]
-                for item in fallback_answers
-            ]
-
+        # If some answers existed before the first explicit Part
+        # heading, map those remaining answers sequentially.
+        if flat_answers:
             for index, answer in enumerate(
-                flat[:15]
+                flat_answers
             ):
-                if index < 5:
-                    part = "A"
-                    number = index + 1
+                global_index = index + 1
 
-                elif index < 10:
+                if global_index <= 5:
+                    part = "A"
+                    number = global_index
+
+                elif global_index <= 10:
                     part = "B"
-                    number = index - 4
+                    number = (
+                        global_index - 5
+                    )
 
                 else:
                     part = "C"
-                    number = index - 9
-
-                result[
-                    (
-                        part,
-                        number,
+                    number = (
+                        global_index - 10
                     )
-                ] = answer
+
+                key = (
+                    part,
+                    number,
+                )
+
+                if key not in result:
+                    result[key] = answer
+
+        return result
+
+    # --------------------------------------------------------------
+    # Flat 15-answer mapping.
+    #
+    # Actual generated format:
+    #
+    # 1-5   -> Listening A
+    # 6-10  -> Listening B
+    # 11-15 -> Listening C
+    # --------------------------------------------------------------
+
+    for index, answer in enumerate(
+        flat_answers[:15]
+    ):
+        if index < 5:
+            part = "A"
+            number = index + 1
+
+        elif index < 10:
+            part = "B"
+            number = index - 4
+
+        else:
+            part = "C"
+            number = index - 9
+
+        result[
+            (
+                part,
+                number,
+            )
+        ] = answer
 
     return result
 
@@ -2645,7 +2639,7 @@ def build_exam(
     return {
         "version": PARSER_VERSION,
         "parser": (
-            "748686 ENGLISH EXAM PARSER V1.4"
+            "748686 ENGLISH EXAM PARSER V1.5"
         ),
         "total_questions": len(
             questions
@@ -2884,7 +2878,7 @@ def main() -> int:
 
     parser = argparse.ArgumentParser(
         description=(
-            "748686 English Exam Parser V1.4"
+            "748686 English Exam Parser V1.5"
         )
     )
 
@@ -2965,7 +2959,7 @@ def main() -> int:
     print("=" * 70)
 
     print(
-        "748686 ENGLISH EXAM PARSER V1.4"
+        "748686 ENGLISH EXAM PARSER V1.5"
     )
 
     print("=" * 70)
