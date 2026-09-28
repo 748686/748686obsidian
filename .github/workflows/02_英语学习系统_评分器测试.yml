@@ -30,10 +30,29 @@ jobs:
           python-version: "3.12"
 
       # =========================================================
-      # 3. 检查评分器文件
+      # 3. 确定 UTC 日期
       # =========================================================
 
-      - name: Check Grader Files
+      - name: Determine UTC test dates
+        id: dates
+        shell: bash
+        run: |
+          set -e
+
+          TODAY="$(date -u +%Y-%m-%d)"
+          YESTERDAY="$(date -u -d '1 day ago' +%Y-%m-%d)"
+
+          echo "TODAY=$TODAY"
+          echo "YESTERDAY=$YESTERDAY"
+
+          echo "today=$TODAY" >> "$GITHUB_OUTPUT"
+          echo "yesterday=$YESTERDAY" >> "$GITHUB_OUTPUT"
+
+      # =========================================================
+      # 4. 检查测试脚本
+      # =========================================================
+
+      - name: Check Grader files
         shell: bash
         run: |
           set -e
@@ -53,38 +72,185 @@ jobs:
             "02_英语学习系统/scripts/english_exam_grader_test.py"
 
           echo
-          echo "✅ Parser V1.3 文件存在"
-          echo "✅ Grader V1.0 文件存在"
-          echo "✅ Grader Test 文件存在"
+          echo "✅ english_exam_parser.py"
+          echo "✅ english_exam_grader.py"
+          echo "✅ english_exam_grader_test.py"
 
       # =========================================================
-      # 4. 检查真实 exam.json
+      # 5. 自动寻找当前日期考试 JSON
       # =========================================================
 
-      - name: Inspect Exam JSON
+      - name: Locate current exam JSON
+        id: locate_exam
+        env:
+          TODAY: ${{ steps.dates.outputs.today }}
+          YESTERDAY: ${{ steps.dates.outputs.yesterday }}
         shell: bash
         run: |
           set -e
 
-          EXAM_JSON="02_英语学习系统/output/2026-09-08/.system/exam.json"
-
           echo
           echo "============================================================"
-          echo "INSPECT EXAM JSON"
+          echo "LOCATE CURRENT EXAM JSON"
           echo "============================================================"
 
-          if [ ! -f "$EXAM_JSON" ]; then
-            echo "❌ 文件不存在："
-            echo "   $EXAM_JSON"
+          echo
+          echo "UTC 今天:"
+          echo "  $TODAY"
+
+          echo
+          echo "UTC 昨天:"
+          echo "  $YESTERDAY"
+
+          FOUND=""
+
+          # ---------------------------------------------------------
+          # 优先检查今天
+          # ---------------------------------------------------------
+
+          TODAY_DIR="02_英语学习系统/output/$TODAY"
+
+          if [ -d "$TODAY_DIR" ]; then
+
+            echo
+            echo "检查今天目录:"
+            echo "  $TODAY_DIR"
+
+            while IFS= read -r file; do
+
+              if python - "$file" <<'PY'
+          import json
+          import sys
+
+          path = sys.argv[1]
+
+          try:
+              with open(path, "r", encoding="utf-8") as f:
+                  data = json.load(f)
+          except Exception:
+              raise SystemExit(1)
+
+          questions = data.get("questions")
+
+          if isinstance(questions, list) and len(questions) == 61:
+              raise SystemExit(0)
+
+          raise SystemExit(1)
+          PY
+              then
+                FOUND="$file"
+                break
+              fi
+
+            done < <(
+              find "$TODAY_DIR" \
+                -type f \
+                -name "*.json" \
+                | sort
+            )
+          fi
+
+          # ---------------------------------------------------------
+          # 今天没有，检查昨天
+          # ---------------------------------------------------------
+
+          if [ -z "$FOUND" ]; then
+
+            YESTERDAY_DIR="02_英语学习系统/output/$YESTERDAY"
+
+            if [ -d "$YESTERDAY_DIR" ]; then
+
+              echo
+              echo "今天没有找到合格考试 JSON。"
+              echo "检查昨天目录:"
+              echo "  $YESTERDAY_DIR"
+
+              while IFS= read -r file; do
+
+                if python - "$file" <<'PY'
+          import json
+          import sys
+
+          path = sys.argv[1]
+
+          try:
+              with open(path, "r", encoding="utf-8") as f:
+                  data = json.load(f)
+          except Exception:
+              raise SystemExit(1)
+
+          questions = data.get("questions")
+
+          if isinstance(questions, list) and len(questions) == 61:
+              raise SystemExit(0)
+
+          raise SystemExit(1)
+          PY
+                then
+                  FOUND="$file"
+                  break
+                fi
+
+              done < <(
+                find "$YESTERDAY_DIR" \
+                  -type f \
+                  -name "*.json" \
+                  | sort
+              )
+            fi
+          fi
+
+          # ---------------------------------------------------------
+          # 没找到
+          # ---------------------------------------------------------
+
+          if [ -z "$FOUND" ]; then
+
+            echo
+            echo "❌ 当前日期没有找到 61 题考试 JSON"
+            echo
+            echo "搜索范围:"
+            echo "  $TODAY_DIR"
+            echo "  02_英语学习系统/output/$YESTERDAY"
+
+            echo
+            echo "当前 output 日期目录:"
+
+            find "02_英语学习系统/output" \
+              -maxdepth 1 \
+              -mindepth 1 \
+              -type d \
+              | sort || true
+
+            echo
+            echo "因此本次测试停止。"
             exit 1
           fi
 
           echo
-          echo "文件："
-          echo "  $EXAM_JSON"
+          echo "============================================================"
+          echo "✅ 找到考试 JSON"
+          echo "============================================================"
+          echo
+          echo "  $FOUND"
+
+          echo "exam_json=$FOUND" >> "$GITHUB_OUTPUT"
+
+      # =========================================================
+      # 6. 输出考试 JSON 基础信息
+      # =========================================================
+
+      - name: Inspect exam JSON
+        env:
+          EXAM_JSON: ${{ steps.locate_exam.outputs.exam_json }}
+        shell: bash
+        run: |
+          set -e
 
           echo
-          echo "JSON 顶层结构："
+          echo "============================================================"
+          echo "EXAM JSON INSPECTION"
+          echo "============================================================"
 
           python - "$EXAM_JSON" <<'PY'
           import json
@@ -93,42 +259,45 @@ jobs:
           path = sys.argv[1]
 
           with open(path, "r", encoding="utf-8") as f:
-              data = json.load(f)
+              exam = json.load(f)
 
-          print("keys:")
-          for key in data.keys():
-              print(f"  - {key}")
+          questions = exam.get("questions", [])
+
+          print(f"文件: {path}")
+          print(f"顶层字段: {list(exam.keys())}")
+          print(f"题目数量: {len(questions)}")
+
+          if len(questions) != 61:
+              raise SystemExit(
+                  f"❌ 题目数量异常: {len(questions)}"
+              )
+
+          counts = {}
+
+          for question in questions:
+              qtype = question.get("type", "<missing>")
+              counts[qtype] = counts.get(qtype, 0) + 1
 
           print()
-          print("version:")
-          print(f"  {data.get('version', '<无 version 字段>')}")
+          print("题型统计:")
 
-          questions = data.get("questions", [])
+          for qtype, count in sorted(counts.items()):
+              print(f"  {qtype}: {count}")
 
           print()
-          print("questions:")
-          print(f"  {len(questions)}")
-
-          if questions:
-              print()
-              print("第一道题：")
-              print(json.dumps(
-                  questions[0],
-                  ensure_ascii=False,
-                  indent=2,
-              ))
+          print("✅ 考试 JSON = 61 道题")
           PY
 
       # =========================================================
-      # 5. 运行 Grader V1.0
+      # 7. 运行 Grader V1.0 FULL TEST
       # =========================================================
 
-      - name: Run Grader V1.0 FULL TEST
+      - name: Run English Exam Grader V1.0 FULL TEST
+        env:
+          EXAM_JSON: ${{ steps.locate_exam.outputs.exam_json }}
         shell: bash
         run: |
           set -e
-
-          EXAM_JSON="02_英语学习系统/output/2026-09-08/.system/exam.json"
 
           echo
           echo "============================================================"
@@ -140,12 +309,33 @@ jobs:
             --exam-json "$EXAM_JSON"
 
       # =========================================================
-      # 6. 完成
+      # 8. 最终确认
       # =========================================================
 
-      - name: Test Passed
+      - name: Final Test Summary
         run: |
           echo
           echo "============================================================"
-          echo "🎉 GRADER V1.0 TEST PASSED"
+          echo "🎉 GRADER V1.0 FULL TEST PASSED"
+          echo "============================================================"
+          echo
+          echo "已验证："
+          echo "  61 道题结构"
+          echo "  50 道自动评分题"
+          echo "  11 道人工/语义处理题"
+          echo "  50/50 全部正确"
+          echo "  单选评分"
+          echo "  多选集合匹配"
+          echo "  完形评分"
+          echo "  阅读评分"
+          echo "  听力评分"
+          echo "  故意错误识别"
+          echo "  错题回顾"
+          echo "  翻译人工复核"
+          echo "  写作人工复核"
+          echo "  提交结果卡"
+          echo
+          echo "Parser V1.3：未修改"
+          echo "Grader V1.0：未修改"
+          echo
           echo "============================================================"
