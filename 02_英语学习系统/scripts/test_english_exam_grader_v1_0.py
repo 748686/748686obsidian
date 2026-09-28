@@ -532,7 +532,6 @@ def test_wrong_answers(exam: dict):
             f"{qtype} 错题进入回顾",
         )
 
-
 # ============================================================
 # TEST 6
 # ============================================================
@@ -572,14 +571,14 @@ def test_manual_review(exam: dict):
         1
         for item in manual_items
         if item["section"]
-        == "翻译"
+        == "translation"
     )
 
     writing_count = sum(
         1
         for item in manual_items
         if item["section"]
-        == "写作"
+        == "writing"
     )
 
     check(
@@ -591,8 +590,6 @@ def test_manual_review(exam: dict):
         writing_count == 1,
         "写作人工复核 = 1",
     )
-
-
 # ============================================================
 # TEST 7
 # ============================================================
