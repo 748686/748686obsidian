@@ -59,16 +59,37 @@ V1.6 fixes:
     It does NOT modify answer generation.
     It does NOT perform semantic grading.
 
-V1.6.1 targeted fix:
-11. Listening question parser now supports both Markdown heading
+V1.6 targeted robustness fixes:
+11. Listening question parser supports both Markdown heading
     question numbers and ordinary numbered question lines:
        ### 1. ...
        1. ...
        1、...
        1) ...
-    This change is isolated to listening parsing and does not
-    modify the global question-header parser.
+
+12. Exam section detection is tolerant of real generated heading
+    variants, such as:
+       一、听力
+       一、听力理解
+       一、听力（共15题）
+       ## 一、听力
+       ## 一、听力：共15题
+       第一部分：听力
+
+13. Listening Part A/B/C detection supports:
+       Part A
+       ### Part A
+       Part A:
+       Part A：短对话
+       ### Part A：短对话
+
+IMPORTANT
+---------
+PARSER_VERSION remains "1.6" intentionally.
+
+The JSON contract is unchanged.
 """
+
 
 from __future__ import annotations
 
@@ -96,6 +117,7 @@ SECTION_MAP = {
     "六、翻译": "translation",
     "七、写作": "writing",
 }
+
 
 ANSWER_SECTION_ALIASES = {
     "一、听力": "listening",
@@ -289,6 +311,16 @@ def normalize_answer(answer: Any) -> str:
 
 
 def normalize_heading(text: str) -> str:
+    """
+    Normalize Markdown-style headings.
+
+    Examples:
+        ## 一、听力
+        ### 一、听力
+        一、听力
+        -> 一、听力
+    """
+
     text = normalize_text(text)
 
     text = re.sub(
@@ -306,6 +338,94 @@ def normalize_heading(text: str) -> str:
     return text.strip()
 
 
+def normalize_section_text(text: str) -> str:
+    """
+    Normalize a section heading for robust matching.
+
+    This intentionally removes only formatting information,
+    not meaningful section names.
+
+    Examples:
+
+        一、听力（共15题）
+        一、听力(共15题)
+        一、听力：共15题
+        一、听力 - 共15题
+
+    become a form that can be matched by section detection.
+    """
+
+    text = normalize_heading(text)
+
+    # Normalize whitespace.
+    text = re.sub(
+        r"\s+",
+        "",
+        text,
+    )
+
+    # Normalize full-width punctuation.
+    text = text.replace(
+        "：",
+        ":",
+    )
+
+    text = text.replace(
+        "（",
+        "(",
+    )
+
+    text = text.replace(
+        "）",
+        ")",
+    )
+
+    text = text.replace(
+        "－",
+        "-",
+    )
+
+    text = text.replace(
+        "—",
+        "-",
+    )
+
+    return text.strip()
+
+
+def strip_section_number(
+    text: str,
+) -> str:
+    """
+    Remove Chinese / Arabic section numbering.
+
+    Examples:
+        一、听力
+        二、单项选择
+        1、听力
+
+    -> 听力
+    """
+
+    text = normalize_section_text(
+        text
+    )
+
+    text = re.sub(
+        r"^[一二三四五六七八九十百千万]+[、.．:：]\s*",
+        "",
+        text,
+    )
+
+    text = re.sub(
+        r"^\d+[、.．:：]\s*",
+        "",
+        text,
+    )
+
+    return text.strip()
+
+
 def parse_question_number(
     text: str,
 ) -> Optional[int]:
@@ -313,7 +433,7 @@ def parse_question_number(
     text = normalize_text(text)
 
     if not re.match(
-        r"^#{1,6}\s+",
+        r"^#{1,6}\s*",
         text,
     ):
         return None
@@ -341,7 +461,7 @@ def parse_question_header(
     text = normalize_text(text)
 
     if not re.match(
-        r"^#{1,6}\s+",
+        r"^#{1,6}\s*",
         text,
     ):
         return None
@@ -430,29 +550,217 @@ def make_question_id(
 def detect_exam_section(
     line: str,
 ) -> Optional[str]:
+    """
+    Robustly detect exam sections.
 
-    text = normalize_heading(line)
+    Original V1.6 required exact matching:
+
+        一、听力
+
+    That is too strict for generated Markdown.
+
+    This version supports:
+
+        一、听力
+        一、听力理解
+        一、听力部分
+        一、听力（共15题）
+        一、听力：共15题
+        ## 一、听力
+        第一部分：听力
+        第一部分 听力
+
+    The same principle is applied to all seven sections.
+    """
+
+    raw = normalize_text(line)
+
+    if not raw:
+        return None
+
+    text = normalize_section_text(
+        raw
+    )
+
+    if not text:
+        return None
+
+    # --------------------------------------------------------------
+    # Exact original mappings first.
+    # --------------------------------------------------------------
 
     for title, section in SECTION_MAP.items():
-        if text == title:
+
+        if text == normalize_section_text(
+            title
+        ):
             return section
 
-    for title, section in SECTION_MAP.items():
+    # --------------------------------------------------------------
+    # Remove the Chinese / Arabic section number.
+    # --------------------------------------------------------------
 
-        clean_title = re.sub(
-            r"^[一二三四五六七八九十]+[、.．]\s*",
-            "",
-            title,
+    body = strip_section_number(
+        text
+    )
+
+    # --------------------------------------------------------------
+    # Remove trailing count / explanatory information.
+    #
+    # Examples:
+    #   听力（共15题）
+    #   听力:共15题
+    #   听力-共15题
+    #
+    # We do NOT remove arbitrary words from the beginning.
+    # --------------------------------------------------------------
+
+    body_base = body
+
+    body_base = re.split(
+        r"[\(:\-]",
+        body_base,
+        maxsplit=1,
+    )[0].strip()
+
+    # --------------------------------------------------------------
+    # Listening
+    # --------------------------------------------------------------
+
+    if (
+        body_base == "听力"
+        or body_base.startswith("听力理解")
+        or body_base.startswith("听力部分")
+        or body_base.startswith("听力测试")
+    ):
+        return "listening"
+
+    # --------------------------------------------------------------
+    # Single choice
+    # --------------------------------------------------------------
+
+    if (
+        body_base == "单项选择"
+        or body_base.startswith("单项选择题")
+        or body_base.startswith("单项选择")
+    ):
+        return "single_choice"
+
+    # --------------------------------------------------------------
+    # Multiple choice
+    # --------------------------------------------------------------
+
+    if (
+        body_base == "多选题"
+        or body_base == "多项选择"
+        or body_base.startswith("多选题")
+        or body_base.startswith("多项选择")
+    ):
+        return "multiple_choice"
+
+    # --------------------------------------------------------------
+    # Cloze
+    # --------------------------------------------------------------
+
+    if (
+        body_base == "完形填空"
+        or body_base.startswith("完形填空")
+    ):
+        return "cloze"
+
+    # --------------------------------------------------------------
+    # Reading
+    # --------------------------------------------------------------
+
+    if (
+        body_base == "阅读理解"
+        or body_base.startswith("阅读理解")
+    ):
+        return "reading"
+
+    # --------------------------------------------------------------
+    # Translation
+    # --------------------------------------------------------------
+
+    if (
+        body_base == "翻译"
+        or body_base.startswith("翻译题")
+        or body_base.startswith("翻译")
+    ):
+        return "translation"
+
+    # --------------------------------------------------------------
+    # Writing
+    # --------------------------------------------------------------
+
+    if (
+        body_base == "写作"
+        or body_base.startswith("写作题")
+        or body_base.startswith("写作")
+    ):
+        return "writing"
+
+    # --------------------------------------------------------------
+    # Support:
+    #
+    #   第一部分：听力
+    #   第二部分：单项选择
+    #
+    # This is deliberately checked after the normal form.
+    # --------------------------------------------------------------
+
+    part_match = re.match(
+        r"^第([一二三四五六七八九十\d]+)部分[:：]?(.*)$",
+        text,
+    )
+
+    if part_match:
+
+        part_body = normalize_text(
+            part_match.group(2)
         )
 
-        clean_line = re.sub(
-            r"^[一二三四五六七八九十]+[、.．]\s*",
+        part_body = re.sub(
+            r"\s+",
             "",
-            text,
+            part_body,
         )
 
-        if clean_line == clean_title:
-            return section
+        if part_body.startswith(
+            "听力"
+        ):
+            return "listening"
+
+        if part_body.startswith(
+            "单项选择"
+        ):
+            return "single_choice"
+
+        if (
+            part_body.startswith("多选题")
+            or part_body.startswith("多项选择")
+        ):
+            return "multiple_choice"
+
+        if part_body.startswith(
+            "完形填空"
+        ):
+            return "cloze"
+
+        if part_body.startswith(
+            "阅读理解"
+        ):
+            return "reading"
+
+        if part_body.startswith(
+            "翻译"
+        ):
+            return "translation"
+
+        if part_body.startswith(
+            "写作"
+        ):
+            return "writing"
 
     return None
 
@@ -476,6 +784,7 @@ def split_sections(
         )
 
         if detected:
+
             current = detected
 
             sections.setdefault(
@@ -568,6 +877,7 @@ def parse_choice_section(
         if parsed:
 
             if current is not None:
+
                 current["options"] = (
                     parse_options(
                         option_buffer
@@ -598,6 +908,7 @@ def parse_choice_section(
         )
 
     if current is not None:
+
         current["options"] = (
             parse_options(
                 option_buffer
@@ -622,7 +933,8 @@ def detect_listening_part(
     text = normalize_text(line)
 
     match = re.match(
-        r"^#{0,6}\s*Part\s+([ABC])(?:\s*[:：].*)?$",
+        r"^#{0,6}\s*Part\s+([ABC])"
+        r"(?:\s*[:：\-–—]\s*.*)?$",
         text,
         re.IGNORECASE,
     )
@@ -710,13 +1022,6 @@ def parse_listening(
 
         # ----------------------------------------------------------
         # Part A / Part B / Part C
-        #
-        # Supported:
-        #   Part A
-        #   ### Part A
-        #   Part A:
-        #   Part A：
-        #   ### Part A：短对话
         # ----------------------------------------------------------
 
         part = detect_listening_part(
@@ -732,9 +1037,7 @@ def parse_listening(
             continue
 
         # ----------------------------------------------------------
-        # First try the original Markdown heading format:
-        #
-        #   ### 1. ...
+        # Markdown question
         # ----------------------------------------------------------
 
         parsed = parse_question_header(
@@ -742,18 +1045,7 @@ def parse_listening(
         )
 
         # ----------------------------------------------------------
-        # V1.6 targeted fix:
-        #
-        # Also support ordinary numbered listening questions:
-        #
-        #   1. ...
-        #   2. ...
-        #   3、...
-        #   4) ...
-        #
-        # IMPORTANT:
-        # This is only enabled inside parse_listening().
-        # The global parse_question_header() is unchanged.
+        # Ordinary numbered question
         # ----------------------------------------------------------
 
         if parsed is None:
@@ -819,10 +1111,6 @@ def parse_listening(
             option_buffer.append(
                 clean
             )
-
-    # --------------------------------------------------------------
-    # Flush final question
-    # --------------------------------------------------------------
 
     flush_current()
 
@@ -1706,6 +1994,8 @@ def is_standalone_listening_part(
     Valid:
         Part A
         ### Part B
+        Part C:
+        Part A：短对话
 
     Invalid:
         Explanation: Part C ...
@@ -1716,7 +2006,8 @@ def is_standalone_listening_part(
     )
 
     match = re.match(
-        r"^#{0,6}\s*Part\s+([ABC])\s*$",
+        r"^#{0,6}\s*Part\s+([ABC])"
+        r"(?:\s*[:：\-–—]\s*.*)?$",
         clean,
         re.IGNORECASE,
     )
@@ -1787,8 +2078,6 @@ def parse_listening_answers(
     section, so the block contains only the answer content and does
     NOT contain a second "答案" heading.
 
-    V1.6 therefore supports all three forms.
-
     Flat sequential mapping:
         1-5   -> A1-A5
         6-10  -> B1-B5
@@ -1846,20 +2135,12 @@ def parse_listening_answers(
         if not clean:
             continue
 
-        # ----------------------------------------------------------
-        # Explicit answer boundary.
-        # ----------------------------------------------------------
-
         if is_listening_answer_boundary(
             clean
         ):
             collecting_answers = True
             current_part = None
             continue
-
-        # ----------------------------------------------------------
-        # Already-isolated listening answer block.
-        # ----------------------------------------------------------
 
         if (
             not collecting_answers
@@ -1870,10 +2151,6 @@ def parse_listening_answers(
 
         if not collecting_answers:
             continue
-
-        # ----------------------------------------------------------
-        # Standalone Part A/B/C.
-        # ----------------------------------------------------------
 
         part = is_standalone_listening_part(
             clean
@@ -1886,10 +2163,6 @@ def parse_listening_answers(
             explicit_part_mode = True
 
             continue
-
-        # ----------------------------------------------------------
-        # Numbered answer.
-        # ----------------------------------------------------------
 
         answer = extract_choice_answer(
             clean
@@ -1915,10 +2188,6 @@ def parse_listening_answers(
             match.group(1)
         )
 
-        # ----------------------------------------------------------
-        # Explicit Part mode.
-        # ----------------------------------------------------------
-
         if explicit_part_mode and current_part:
 
             explicit_answers[
@@ -1933,10 +2202,6 @@ def parse_listening_answers(
             flat_answers.append(
                 answer
             )
-
-    # --------------------------------------------------------------
-    # Explicit Part mode.
-    # --------------------------------------------------------------
 
     if explicit_part_mode:
 
@@ -1974,14 +2239,6 @@ def parse_listening_answers(
                     result[key] = answer
 
         return result
-
-    # --------------------------------------------------------------
-    # Flat 15-answer mapping.
-    #
-    # index 0-4    -> A1-A5
-    # index 5-9    -> B1-B5
-    # index 10-14  -> C1-C5
-    # --------------------------------------------------------------
 
     for index, answer in enumerate(
         flat_answers[:15]
@@ -2077,9 +2334,7 @@ def parse_translation_references(
 
     for line in lines:
 
-        clean = normalize_text(
-            line
-        )
+        clean = normalize_text(line)
 
         if not clean:
             continue
@@ -2167,9 +2422,7 @@ def parse_writing_reference(
 
     for line in lines:
 
-        clean = normalize_text(
-            line
-        )
+        clean = normalize_text(line)
 
         if not clean:
             continue
@@ -2281,9 +2534,7 @@ def parse_explanations(
 
     for line in lines:
 
-        clean = normalize_text(
-            line
-        )
+        clean = normalize_text(line)
 
         if not clean:
             continue
