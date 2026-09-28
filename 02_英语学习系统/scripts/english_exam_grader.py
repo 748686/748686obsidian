@@ -4,489 +4,273 @@
 """
 748686 English Learning System
 English Exam Grader V1.0
+FULL AUTOMATIC TEST
 
-职责：
-- 单选评分
-- 多选评分
-- 完形评分
-- 阅读评分
-- 听力评分
-- 翻译提交结果整理
-- 写作提交结果整理
-- 生成统一评分结果
+测试目标：
 
-原则：
-1. 不修改试卷
-2. 不修改答案解析
-3. 不调用 AI
-4. 不提前显示正确答案
-5. 多选必须集合完全匹配
-6. 翻译 / 写作不做机械精确匹配
+1. 真实 Parser V1.6 JSON
+2. 61 道题结构
+3. 50 道自动评分题
+4. 11 道人工/语义处理题
+5. 全部正确 => 50/50
+6. 故意错误 => 正确识别
+7. 多选集合匹配
+8. 翻译/写作进入 manual_review
+9. 错题回顾数据完整
+10. 提交结果卡数据完整
 """
 
 from __future__ import annotations
 
-from copy import deepcopy
-from typing import Any
+import argparse
+import json
+import sys
+from pathlib import Path
 
 
-AUTO_GRADED_TYPES = {
-    "single_choice",
-    "multiple_choice",
-    "cloze",
-    "reading",
-    "listening",
-}
+# ============================================================
+# CONFIG
+# ============================================================
 
-MANUAL_REVIEW_TYPES = {
-    "translation",
-    "writing",
-}
+EXPECTED_PARSER_VERSION = "1.6"
 
 
-def normalize_answer(value: Any) -> str:
-    if value is None:
-        return ""
+SCRIPT_DIR = Path(__file__).resolve().parent
 
-    if isinstance(value, list):
-        value = ",".join(str(x) for x in value)
+sys.path.insert(
+    0,
+    str(SCRIPT_DIR),
+)
 
-    value = str(value).strip().upper()
 
-    value = value.replace("，", ",")
-    value = value.replace("、", ",")
-    value = value.replace(";", ",")
-    value = value.replace("；", ",")
+from english_exam_grader import (
+    AUTO_GRADED_TYPES,
+    MANUAL_REVIEW_TYPES,
+    grade_exam,
+    make_review_data,
+    build_submission_card_data,
+    normalize_answer,
+    validate_submission,
+)
 
-    value = value.replace(" ", "")
 
-    # 多选：
-    # A,C
-    # C,A
-    # AC
-    if "," in value:
-        parts = [
-            x for x in value.split(",")
-            if x
-        ]
+# ============================================================
+# BASIC TEST HELPERS
+# ============================================================
 
-        parts = sorted(set(parts))
+def fail(message: str):
+    print(f"\n❌ {message}")
+    raise SystemExit(1)
 
-        return ",".join(parts)
 
-    if len(value) > 1 and value.isalpha():
-        return ",".join(
-            sorted(set(value))
+def check(condition: bool, message: str):
+    if not condition:
+        fail(message)
+
+    print(f"   ✅ {message}")
+
+
+# ============================================================
+# JSON
+# ============================================================
+
+def load_json(path: str) -> dict:
+    file = Path(path)
+
+    if not file.exists():
+        fail(
+            f"JSON 文件不存在: {file}"
         )
 
-    return value
+    try:
+        return json.loads(
+            file.read_text(
+                encoding="utf-8"
+            )
+        )
+
+    except Exception as exc:
+        fail(
+            f"JSON 读取失败: {file}\n"
+            f"错误: {exc}"
+        )
 
 
-def grade_choice(
-    correct_answer: str,
-    user_answer: str,
-    multiple: bool = False,
-) -> bool:
+# ============================================================
+# BUILD CORRECT ANSWERS
+# ============================================================
 
-    correct = normalize_answer(
-        correct_answer
-    )
+def build_all_correct_answers(exam: dict) -> dict:
+    """
+    使用 Parser V1.6 已附着的 correct_answer
+    构造完整 61 题答案。
+    """
 
-    user = normalize_answer(
-        user_answer
-    )
+    answers = {}
 
-    if multiple:
-        return correct == user
+    for question in exam.get(
+        "questions",
+        [],
+    ):
 
-    return correct == user
+        qid = question["question_id"]
+        qtype = question["type"]
 
+        if qtype in AUTO_GRADED_TYPES:
 
-def grade_question(
-    question: dict[str, Any],
-    user_answer: Any,
-) -> dict[str, Any]:
-
-    result = deepcopy(question)
-
-    qtype = question.get("type")
-
-    result["user_answer"] = user_answer
-
-    # ---------------------------------------------------------
-    # 自动评分
-    # ---------------------------------------------------------
-
-    if qtype in {
-        "single_choice",
-        "cloze",
-        "reading",
-        "listening",
-    }:
-
-        correct = grade_choice(
-            question.get(
+            correct = question.get(
                 "correct_answer",
                 "",
-            ),
-            user_answer,
-            multiple=False,
-        )
+            )
 
-        result["graded"] = True
-        result["correct"] = correct
+            if not correct:
+                fail(
+                    f"自动评分题缺少 correct_answer: "
+                    f"{qid}"
+                )
 
-        return result
+            answers[qid] = correct
 
-    # ---------------------------------------------------------
-    # 多选
-    # ---------------------------------------------------------
+        elif qtype in MANUAL_REVIEW_TYPES:
 
-    if qtype == "multiple_choice":
+            # 翻译 / 写作：
+            # 不参与自动正确率，
+            # 但必须允许提交。
+            answers[qid] = (
+                "TEST MANUAL ANSWER"
+            )
 
-        correct = grade_choice(
-            question.get(
-                "correct_answer",
-                "",
-            ),
-            user_answer,
-            multiple=True,
-        )
+        else:
 
-        result["graded"] = True
-        result["correct"] = correct
+            fail(
+                f"未知题型: "
+                f"{qid} / {qtype}"
+            )
 
-        return result
-
-    # ---------------------------------------------------------
-    # 翻译
-    # ---------------------------------------------------------
-
-    if qtype == "translation":
-
-        result["graded"] = False
-        result["correct"] = None
-        result["review_required"] = True
-
-        return result
-
-    # ---------------------------------------------------------
-    # 写作
-    # ---------------------------------------------------------
-
-    if qtype == "writing":
-
-        result["graded"] = False
-        result["correct"] = None
-        result["review_required"] = True
-
-        return result
-
-    result["graded"] = False
-    result["correct"] = None
-
-    return result
+    return answers
 
 
-def grade_exam(
-    exam: dict[str, Any],
-    answers: dict[str, Any],
-) -> dict[str, Any]:
+# ============================================================
+# TEST 1
+# ============================================================
+
+def test_structure(exam: dict):
+    print("\n" + "-" * 70)
+    print("TEST 1 | EXAM STRUCTURE")
+    print("-" * 70)
 
     questions = exam.get(
         "questions",
-        [],
+        []
     )
 
-    results: list[dict[str, Any]] = []
+    check(
+        len(questions) == 61,
+        f"总题数 = 61（实际 {len(questions)}）",
+    )
 
-    auto_total = 0
-    auto_correct = 0
+    counts = {}
 
-    manual_total = 0
+    for q in questions:
 
-    for question in questions:
+        qtype = q.get("type")
 
-        qid = question["question_id"]
-
-        user_answer = answers.get(
-            qid,
-            "",
+        counts[qtype] = (
+            counts.get(qtype, 0) + 1
         )
 
-        result = grade_question(
-            question,
-            user_answer,
+    expected = {
+        "listening": 15,
+        "single_choice": 10,
+        "multiple_choice": 10,
+        "cloze": 10,
+        "reading": 5,
+        "translation": 10,
+        "writing": 1,
+    }
+
+    for qtype, expected_count in expected.items():
+
+        actual = counts.get(
+            qtype,
+            0,
         )
 
-        results.append(result)
-
-        if question["type"] in AUTO_GRADED_TYPES:
-
-            auto_total += 1
-
-            if result.get("correct"):
-                auto_correct += 1
-
-        elif question["type"] in MANUAL_REVIEW_TYPES:
-
-            manual_total += 1
-
-    total = len(questions)
-
-    wrong = (
-        auto_total
-        - auto_correct
-    )
-
-    accuracy = (
-        auto_correct / auto_total * 100
-        if auto_total
-        else 0
-    )
-
-    return {
-        "version": "1.0",
-        "total_questions": total,
-        "auto_graded_questions": auto_total,
-        "auto_correct": auto_correct,
-        "auto_wrong": wrong,
-        "manual_review_questions": manual_total,
-        "accuracy": round(
-            accuracy,
-            1,
-        ),
-        "results": results,
-    }
-
-
-def make_review_data(
-    grading_result: dict[str, Any],
-) -> list[dict[str, Any]]:
-
-    review: list[dict[str, Any]] = []
-
-    for result in grading_result["results"]:
-
-        qtype = result.get("type")
-
-        # 自动评分错误
-        if (
-            qtype in AUTO_GRADED_TYPES
-            and result.get("correct") is False
-        ):
-
-            review.append(
-                {
-                    "question_id":
-                        result["question_id"],
-
-                    "section":
-                        result["section"],
-
-                    "question":
-                        result["question"],
-
-                    "user_answer":
-                        result.get(
-                            "user_answer",
-                            "",
-                        ),
-
-                    "correct_answer":
-                        result.get(
-                            "correct_answer",
-                            "",
-                        ),
-
-                    "explanation":
-                        result.get(
-                            "explanation",
-                            "",
-                        ),
-
-                    "status": "wrong",
-                }
-            )
-
-        # 翻译
-        elif qtype == "translation":
-
-            review.append(
-                {
-                    "question_id":
-                        result["question_id"],
-
-                    "section":
-                        result["section"],
-
-                    "question":
-                        result["question"],
-
-                    "user_answer":
-                        result.get(
-                            "user_answer",
-                            "",
-                        ),
-
-                    "reference_answer":
-                        result.get(
-                            "reference_answer",
-                            "",
-                        ),
-
-                    "explanation":
-                        result.get(
-                            "explanation",
-                            "",
-                        ),
-
-                    "status":
-                        "manual_review",
-                }
-            )
-
-        # 写作
-        elif qtype == "writing":
-
-            review.append(
-                {
-                    "question_id":
-                        result["question_id"],
-
-                    "section":
-                        result["section"],
-
-                    "question":
-                        result["question"],
-
-                    "user_answer":
-                        result.get(
-                            "user_answer",
-                            "",
-                        ),
-
-                    "reference_answer":
-                        result.get(
-                            "reference_answer",
-                            "",
-                        ),
-
-                    "explanation":
-                        result.get(
-                            "explanation",
-                            "",
-                        ),
-
-                    "status":
-                        "manual_review",
-                }
-            )
-
-    return review
-
-
-def build_submission_card_data(
-    grading_result: dict[str, Any],
-) -> dict[str, Any]:
-
-    return {
-        "status": "graded",
-        "title": "📊 已评分",
-        "total_questions":
-            grading_result[
-                "total_questions"
-            ],
-        "auto_graded_questions":
-            grading_result[
-                "auto_graded_questions"
-            ],
-        "correct":
-            grading_result[
-                "auto_correct"
-            ],
-        "wrong":
-            grading_result[
-                "auto_wrong"
-            ],
-        "accuracy":
-            grading_result[
-                "accuracy"
-            ],
-        "manual_review":
-            grading_result[
-                "manual_review_questions"
-            ],
-        "review":
-            make_review_data(
-                grading_result
-            ),
-    }
-
-
-def validate_submission(
-    exam: dict[str, Any],
-    answers: dict[str, Any],
-) -> list[str]:
-
-    errors: list[str] = []
-
-    question_ids = {
-        q["question_id"]
-        for q in exam.get(
-            "questions",
-            [],
+        check(
+            actual == expected_count,
+            f"{qtype}: {actual}/{expected_count}",
         )
-    }
 
-    for question_id in answers:
-
-        if question_id not in question_ids:
-
-            errors.append(
-                f"未知题目 ID: {question_id}"
-            )
-
-    return errors
-
-
-def main():
-    import argparse
-    import json
-
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument(
-        "--exam-json",
-        required=True,
+    auto_total = sum(
+        counts.get(
+            qtype,
+            0,
+        )
+        for qtype in AUTO_GRADED_TYPES
     )
 
-    parser.add_argument(
-        "--answers-json",
-        required=True,
+    manual_total = sum(
+        counts.get(
+            qtype,
+            0,
+        )
+        for qtype in MANUAL_REVIEW_TYPES
     )
 
-    parser.add_argument(
-        "--output",
-        required=False,
+    check(
+        auto_total == 50,
+        "自动评分题 = 50",
     )
 
-    args = parser.parse_args()
-
-    exam = json.loads(
-        open(
-            args.exam_json,
-            "r",
-            encoding="utf-8",
-        ).read()
+    check(
+        manual_total == 11,
+        "人工/语义处理题 = 11",
     )
 
-    answers = json.loads(
-        open(
-            args.answers_json,
-            "r",
-            encoding="utf-8",
-        ).read()
+
+# ============================================================
+# TEST 2
+# ============================================================
+
+def test_normalization():
+    print("\n" + "-" * 70)
+    print("TEST 2 | ANSWER NORMALIZATION")
+    print("-" * 70)
+
+    cases = [
+        ("A", "A"),
+        ("a", "A"),
+        ("A,C", "A,C"),
+        ("C,A", "A,C"),
+        ("AC", "A,C"),
+        ("A、C", "A,C"),
+        ("A，C", "A,C"),
+        (" A , C ", "A,C"),
+    ]
+
+    for source, expected in cases:
+
+        actual = normalize_answer(
+            source
+        )
+
+        check(
+            actual == expected,
+            f"{source!r} -> {actual!r}",
+        )
+
+
+# ============================================================
+# TEST 3
+# ============================================================
+
+def test_all_correct(exam: dict):
+    print("\n" + "-" * 70)
+    print("TEST 3 | FULL 50/50 CORRECT")
+    print("-" * 70)
+
+    answers = build_all_correct_answers(
+        exam
     )
 
     errors = validate_submission(
@@ -494,74 +278,504 @@ def main():
         answers,
     )
 
-    if errors:
-
-        print("❌ SUBMISSION VALIDATION FAILED")
-
-        for error in errors:
-            print(
-                f"   - {error}"
-            )
-
-        raise SystemExit(1)
+    check(
+        not errors,
+        "提交答案 ID 全部合法",
+    )
 
     result = grade_exam(
         exam,
         answers,
     )
 
-    print("=" * 70)
-    print("748686 ENGLISH EXAM GRADER V1.0")
-    print("=" * 70)
-
-    print(
-        f"总题数: {result['total_questions']}"
+    check(
+        result["total_questions"] == 61,
+        "总题数 = 61",
     )
 
-    print(
-        f"自动评分题数: "
-        f"{result['auto_graded_questions']}"
+    check(
+        result["auto_graded_questions"] == 50,
+        "自动评分题 = 50",
     )
 
-    print(
-        f"正确: "
-        f"{result['auto_correct']}"
+    check(
+        result["auto_correct"] == 50,
+        "自动评分正确 = 50",
     )
 
-    print(
-        f"错误: "
-        f"{result['auto_wrong']}"
+    check(
+        result["auto_wrong"] == 0,
+        "自动评分错误 = 0",
     )
 
-    print(
-        f"正确率: "
-        f"{result['accuracy']}%"
+    check(
+        result["accuracy"] == 100.0,
+        "自动评分正确率 = 100.0%",
     )
 
-    print(
-        f"待人工/语义处理: "
-        f"{result['manual_review_questions']}"
+    check(
+        result["manual_review_questions"] == 11,
+        "人工/语义处理 = 11",
     )
 
-    if args.output:
+    for item in result["results"]:
 
-        with open(
-            args.output,
-            "w",
-            encoding="utf-8",
-        ) as f:
+        qtype = item["type"]
 
-            json.dump(
-                result,
-                f,
-                ensure_ascii=False,
-                indent=2,
+        if qtype in AUTO_GRADED_TYPES:
+
+            check(
+                item.get("graded") is True,
+                f"{item['question_id']} 已自动评分",
             )
 
-        print(
-            f"\n✅ 评分结果已写入: "
-            f"{args.output}"
+            check(
+                item.get("correct") is True,
+                f"{item['question_id']} 判定正确",
+            )
+
+        elif qtype in MANUAL_REVIEW_TYPES:
+
+            check(
+                item.get("graded") is False,
+                f"{item['question_id']} 未机械评分",
+            )
+
+            check(
+                item.get("review_required") is True,
+                f"{item['question_id']} 进入人工/语义处理",
+            )
+
+
+# ============================================================
+# TEST 4
+# ============================================================
+
+def test_multiple_choice():
+    print("\n" + "-" * 70)
+    print("TEST 4 | MULTIPLE CHOICE SET MATCHING")
+    print("-" * 70)
+
+    from english_exam_grader import grade_choice
+
+    check(
+        grade_choice(
+            "A,C",
+            "A,C",
+            multiple=True,
+        ),
+        "A,C == A,C",
+    )
+
+    check(
+        grade_choice(
+            "A,C",
+            "C,A",
+            multiple=True,
+        ),
+        "A,C == C,A",
+    )
+
+    check(
+        grade_choice(
+            "A,C",
+            "AC",
+            multiple=True,
+        ),
+        "A,C == AC",
+    )
+
+    check(
+        not grade_choice(
+            "A,C",
+            "A",
+            multiple=True,
+        ),
+        "A,C != A",
+    )
+
+    check(
+        not grade_choice(
+            "A,C",
+            "A,B,C",
+            multiple=True,
+        ),
+        "A,C != A,B,C",
+    )
+
+    check(
+        not grade_choice(
+            "A,C",
+            "B,C",
+            multiple=True,
+        ),
+        "A,C != B,C",
+    )
+
+
+# ============================================================
+# TEST 5
+# ============================================================
+
+def test_wrong_answers(exam: dict):
+    print("\n" + "-" * 70)
+    print("TEST 5 | INTENTIONAL WRONG ANSWERS")
+    print("-" * 70)
+
+    answers = build_all_correct_answers(
+        exam
+    )
+
+    auto_questions = [
+        q
+        for q in exam["questions"]
+        if q["type"] in AUTO_GRADED_TYPES
+    ]
+
+    check(
+        len(auto_questions) == 50,
+        "找到 50 道自动评分题",
+    )
+
+    # 分别挑选不同题型制造错误
+    selected = {}
+
+    for q in auto_questions:
+
+        if q["type"] not in selected:
+            selected[q["type"]] = q
+
+    for qtype in [
+        "listening",
+        "single_choice",
+        "multiple_choice",
+        "cloze",
+        "reading",
+    ]:
+
+        check(
+            qtype in selected,
+            f"找到 {qtype} 测试题",
         )
+
+    # 制造错误
+    for qtype, question in selected.items():
+
+        qid = question["question_id"]
+
+        correct = str(
+            question.get(
+                "correct_answer",
+                "",
+            )
+        )
+
+        if qtype == "multiple_choice":
+
+            # 与正确答案不同的完整集合
+            answers[qid] = "Z"
+
+        else:
+
+            # A/B/C/D 中选择一个明确不同的答案
+            answers[qid] = (
+                "A"
+                if correct != "A"
+                else "B"
+            )
+
+    result = grade_exam(
+        exam,
+        answers,
+    )
+
+    check(
+        result["auto_correct"] == 45,
+        "故意制造 5 个错误后，正确 = 45",
+    )
+
+    check(
+        result["auto_wrong"] == 5,
+        "故意制造 5 个错误后，错误 = 5",
+    )
+
+    check(
+        result["accuracy"] == 90.0,
+        "故意制造 5 个错误后，正确率 = 90.0%",
+    )
+
+    review = make_review_data(
+        result
+    )
+
+    wrong_items = [
+        item
+        for item in review
+        if item.get("status") == "wrong"
+    ]
+
+    check(
+        len(wrong_items) == 5,
+        "错题回顾 = 5 道",
+    )
+
+    wrong_ids = {
+        item["question_id"]
+        for item in wrong_items
+    }
+
+    for qtype, question in selected.items():
+
+        check(
+            question["question_id"]
+            in wrong_ids,
+            f"{qtype} 错题进入回顾",
+        )
+
+# ============================================================
+# TEST 6
+# ============================================================
+
+def test_manual_review(exam: dict):
+    print("\n" + "-" * 70)
+    print("TEST 6 | TRANSLATION / WRITING REVIEW")
+    print("-" * 70)
+
+    answers = build_all_correct_answers(
+        exam
+    )
+
+    result = grade_exam(
+        exam,
+        answers,
+    )
+
+    review = make_review_data(
+        result
+    )
+
+    manual_items = [
+        item
+        for item in review
+        if item.get(
+            "status"
+        ) == "manual_review"
+    ]
+
+    check(
+        len(manual_items) == 11,
+        "翻译 + 写作人工/语义复核 = 11",
+    )
+
+    translation_count = sum(
+        1
+        for item in manual_items
+        if item["section"]
+        == "translation"
+    )
+
+    writing_count = sum(
+        1
+        for item in manual_items
+        if item["section"]
+        == "writing"
+    )
+
+    check(
+        translation_count == 10,
+        "翻译人工复核 = 10",
+    )
+
+    check(
+        writing_count == 1,
+        "写作人工复核 = 1",
+    )
+# ============================================================
+# TEST 7
+# ============================================================
+
+def test_submission_card(exam: dict):
+    print("\n" + "-" * 70)
+    print("TEST 7 | SUBMISSION CARD DATA")
+    print("-" * 70)
+
+    answers = build_all_correct_answers(
+        exam
+    )
+
+    result = grade_exam(
+        exam,
+        answers,
+    )
+
+    card = build_submission_card_data(
+        result
+    )
+
+    check(
+        card["status"] == "graded",
+        "状态 = graded",
+    )
+
+    check(
+        card["title"] == "📊 已评分",
+        "标题 = 📊 已评分",
+    )
+
+    check(
+        card["total_questions"] == 61,
+        "卡片总题数 = 61",
+    )
+
+    check(
+        card["auto_graded_questions"] == 50,
+        "卡片自动评分题 = 50",
+    )
+
+    check(
+        card["correct"] == 50,
+        "卡片正确 = 50",
+    )
+
+    check(
+        card["wrong"] == 0,
+        "卡片错误 = 0",
+    )
+
+    check(
+        card["accuracy"] == 100.0,
+        "卡片正确率 = 100.0%",
+    )
+
+    check(
+        card["manual_review"] == 11,
+        "卡片人工复核 = 11",
+    )
+
+    check(
+        len(card["review"]) == 11,
+        "全答对时回顾区只包含 11 道人工/语义题",
+    )
+
+
+# ============================================================
+# MAIN
+# ============================================================
+
+def main():
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "--exam-json",
+        required=True,
+        help=(
+            f"Parser V{EXPECTED_PARSER_VERSION} "
+            "输出的 exam JSON"
+        ),
+    )
+
+    args = parser.parse_args()
+
+    print("=" * 70)
+    print("748686 ENGLISH EXAM GRADER V1.0")
+    print("FULL AUTOMATIC TEST")
+    print("=" * 70)
+
+    print(
+        f"\n考试 JSON:\n  {args.exam_json}"
+    )
+
+    exam = load_json(
+        args.exam_json
+    )
+
+    # ========================================================
+    # PARSER VERSION CHECK
+    # ========================================================
+
+    actual_version = str(
+        exam.get(
+            "version",
+            ""
+        )
+    )
+
+    check(
+        actual_version
+        == EXPECTED_PARSER_VERSION,
+        (
+            f"Parser JSON version = "
+            f"{EXPECTED_PARSER_VERSION}"
+            f"（实际 {actual_version or '缺失'}）"
+        ),
+    )
+
+    # ========================================================
+    # TESTS
+    # ========================================================
+
+    test_structure(exam)
+
+    test_normalization()
+
+    test_all_correct(exam)
+
+    test_multiple_choice()
+
+    test_wrong_answers(exam)
+
+    test_manual_review(exam)
+
+    test_submission_card(exam)
+
+    # ========================================================
+    # SUCCESS
+    # ========================================================
+
+    print("\n" + "=" * 70)
+    print("🎉 ALL GRADER V1.0 TESTS PASSED")
+    print("=" * 70)
+
+    print(
+        "\n最终确认："
+    )
+
+    print(
+        "  Parser V1.6 JSON 正常"
+    )
+
+    print(
+        "  61 道题结构正常"
+    )
+
+    print(
+        "  50 道自动评分题正常"
+    )
+
+    print(
+        "  50/50 全部答对测试通过"
+    )
+
+    print(
+        "  单选/多选/完形/阅读/听力错误识别通过"
+    )
+
+    print(
+        "  多选集合匹配通过"
+    )
+
+    print(
+        "  翻译 10 + 写作 1 人工/语义复核通过"
+    )
+
+    print(
+        "  错题回顾通过"
+    )
+
+    print(
+        "  提交结果卡数据通过"
+    )
 
 
 if __name__ == "__main__":
