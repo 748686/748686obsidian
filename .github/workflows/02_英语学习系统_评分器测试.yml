@@ -67,14 +67,24 @@ jobs:
           echo "CHECK GRADER FILES"
           echo "============================================================"
 
-          test -f \
-            "02_英语学习系统/scripts/english_exam_parser.py"
+          PARSER="02_英语学习系统/scripts/english_exam_parser.py"
+          GRADER="02_英语学习系统/scripts/english_exam_grader.py"
+          TEST="02_英语学习系统/scripts/test_english_exam_grader_v1_0.py"
 
-          test -f \
-            "02_英语学习系统/scripts/english_exam_grader.py"
+          if [ ! -f "$PARSER" ]; then
+            echo "❌ 未找到: $PARSER"
+            exit 1
+          fi
 
-          test -f \
-            "02_英语学习系统/scripts/test_english_exam_grader_v1_0.py"
+          if [ ! -f "$GRADER" ]; then
+            echo "❌ 未找到: $GRADER"
+            exit 1
+          fi
+
+          if [ ! -f "$TEST" ]; then
+            echo "❌ 未找到: $TEST"
+            exit 1
+          fi
 
           echo
           echo "✅ english_exam_parser.py"
@@ -101,120 +111,59 @@ jobs:
 
           FOUND=""
 
-          # ---------------------------------------------------------
-          # 优先检查 UTC 今天
-          # ---------------------------------------------------------
-
           TODAY_DIR="02_英语学习系统/output/$TODAY"
+          YESTERDAY_DIR="02_英语学习系统/output/$YESTERDAY"
 
           echo
-          echo "检查今天:"
+          echo "检查 UTC 今天:"
           echo "  $TODAY_DIR"
 
           if [ -d "$TODAY_DIR" ]; then
-
             while IFS= read -r file; do
-
-              if python - "$file" <<'PY'
-          import json
-          import sys
-
-          path = sys.argv[1]
-
-          try:
-           with open(path, "r", encoding="utf-8") as f:
-           data = json.load(f)
-          except Exception:
-            raise SystemExit(1)
-
-           questions = data.get("questions")
-
-          if isinstance(questions, list) and len(questions) == 61:
-          raise SystemExit(0)
-
-          raise SystemExit(1)
-          PY
-              then
+              if jq -e '.questions | type == "array" and length == 61' "$file" >/dev/null 2>&1; then
                 FOUND="$file"
                 break
               fi
-
             done < <(
               find "$TODAY_DIR" \
                 -type f \
                 -name "*.json" \
                 | sort
             )
-
           else
             echo "  ⚠️ 今天目录不存在"
           fi
 
-          # ---------------------------------------------------------
-          # 今天没有，检查 UTC 昨天
-          # ---------------------------------------------------------
-
           if [ -z "$FOUND" ]; then
-
-            YESTERDAY_DIR="02_英语学习系统/output/$YESTERDAY"
-
             echo
             echo "今天没有找到 61 题考试 JSON。"
-            echo "检查昨天:"
+            echo "检查 UTC 昨天:"
             echo "  $YESTERDAY_DIR"
 
             if [ -d "$YESTERDAY_DIR" ]; then
-
               while IFS= read -r file; do
-
-                if python - "$file" <<'PY'
-            import json
-            import sys
-
-            path = sys.argv[1]
-
-            try:
-             with open(path, "r", encoding="utf-8") as f:
-             data = json.load(f)
-            except Exception:
-             raise SystemExit(1)
-
-            questions = data.get("questions")
-
-            if isinstance(questions, list) and len(questions) == 61:
-             raise SystemExit(0)
-
-             raise SystemExit(1)
-              PY
-                then
+                if jq -e '.questions | type == "array" and length == 61' "$file" >/dev/null 2>&1; then
                   FOUND="$file"
                   break
                 fi
-
               done < <(
                 find "$YESTERDAY_DIR" \
                   -type f \
                   -name "*.json" \
                   | sort
               )
-
             else
               echo "  ⚠️ 昨天目录不存在"
             fi
           fi
 
-          # ---------------------------------------------------------
-          # 没找到
-          # ---------------------------------------------------------
-
           if [ -z "$FOUND" ]; then
-
             echo
             echo "❌ 未找到当前日期范围内的 61 题考试 JSON"
             echo
             echo "搜索范围:"
             echo "  $TODAY_DIR"
-            echo "  02_英语学习系统/output/$YESTERDAY"
+            echo "  $YESTERDAY_DIR"
 
             echo
             echo "现有 output 日期目录:"
@@ -257,66 +206,59 @@ jobs:
           echo "VALIDATE EXAM STRUCTURE"
           echo "============================================================"
 
-          python - "$EXAM_JSON" <<'PY'
-import json
-import sys
+          TOTAL="$(jq '.questions | length' "$EXAM_JSON")"
 
-path = sys.argv[1]
+          echo
+          echo "文件:"
+          echo "  $EXAM_JSON"
 
-with open(path, "r", encoding="utf-8") as f:
-    exam = json.load(f)
+          echo
+          echo "题目数量:"
+          echo "  $TOTAL"
 
-questions = exam.get("questions", [])
+          if [ "$TOTAL" -ne 61 ]; then
+            echo
+            echo "❌ 题目数量错误"
+            exit 1
+          fi
 
-print(f"文件: {path}")
-print(f"题目数量: {len(questions)}")
+          LISTENING="$(jq '[.questions[] | select(.type == "listening")] | length' "$EXAM_JSON")"
+          SINGLE="$(jq '[.questions[] | select(.type == "single_choice")] | length' "$EXAM_JSON")"
+          MULTIPLE="$(jq '[.questions[] | select(.type == "multiple_choice")] | length' "$EXAM_JSON")"
+          CLOZE="$(jq '[.questions[] | select(.type == "cloze")] | length' "$EXAM_JSON")"
+          READING="$(jq '[.questions[] | select(.type == "reading")] | length' "$EXAM_JSON")"
+          TRANSLATION="$(jq '[.questions[] | select(.type == "translation")] | length' "$EXAM_JSON")"
+          WRITING="$(jq '[.questions[] | select(.type == "writing")] | length' "$EXAM_JSON")"
 
-if len(questions) != 61:
-    raise SystemExit(
-        f"❌ 题目数量错误: {len(questions)}"
-    )
+          echo
+          echo "题型统计:"
+          echo "  listening       : $LISTENING"
+          echo "  single_choice   : $SINGLE"
+          echo "  multiple_choice : $MULTIPLE"
+          echo "  cloze           : $CLOZE"
+          echo "  reading         : $READING"
+          echo "  translation     : $TRANSLATION"
+          echo "  writing         : $WRITING"
 
-counts = {}
+          if [ "$LISTENING" -ne 15 ]; then exit 1; fi
+          if [ "$SINGLE" -ne 10 ]; then exit 1; fi
+          if [ "$MULTIPLE" -ne 10 ]; then exit 1; fi
+          if [ "$CLOZE" -ne 10 ]; then exit 1; fi
+          if [ "$READING" -ne 5 ]; then exit 1; fi
+          if [ "$TRANSLATION" -ne 10 ]; then exit 1; fi
+          if [ "$WRITING" -ne 1 ]; then exit 1; fi
 
-for question in questions:
-    qtype = question.get("type", "<missing>")
-    counts[qtype] = counts.get(qtype, 0) + 1
-
-expected = {
-    "listening": 15,
-    "single_choice": 10,
-    "multiple_choice": 10,
-    "cloze": 10,
-    "reading": 5,
-    "translation": 10,
-    "writing": 1,
-}
-
-print()
-print("题型统计:")
-
-for qtype, count in sorted(counts.items()):
-    print(f"  {qtype}: {count}")
-
-if counts != expected:
-    print()
-    print("❌ 题型结构错误")
-    print("实际:", counts)
-    print("预期:", expected)
-    raise SystemExit(1)
-
-print()
-print("✅ 61 道题")
-print("✅ 15 listening")
-print("✅ 10 single_choice")
-print("✅ 10 multiple_choice")
-print("✅ 10 cloze")
-print("✅ 5 reading")
-print("✅ 10 translation")
-print("✅ 1 writing")
-print()
-print("✅ EXAM STRUCTURE PASSED")
-PY
+          echo
+          echo "✅ 61 道题"
+          echo "✅ 15 listening"
+          echo "✅ 10 single_choice"
+          echo "✅ 10 multiple_choice"
+          echo "✅ 10 cloze"
+          echo "✅ 5 reading"
+          echo "✅ 10 translation"
+          echo "✅ 1 writing"
+          echo
+          echo "✅ EXAM STRUCTURE PASSED"
 
       # =========================================================
       # 7. Grader V1.0 完整自动测试
@@ -339,6 +281,7 @@ PY
           echo
           echo "测试脚本:"
           echo "  02_英语学习系统/scripts/test_english_exam_grader_v1_0.py"
+          echo
 
           python \
             "02_英语学习系统/scripts/test_english_exam_grader_v1_0.py" \
@@ -349,6 +292,7 @@ PY
       # =========================================================
 
       - name: Final Test Summary
+        shell: bash
         run: |
           echo
           echo "============================================================"
