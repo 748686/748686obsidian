@@ -513,24 +513,56 @@ def base_question(
     part: Optional[str] = None,
 ) -> Dict[str, Any]:
 
+    question_id = make_question_id(
+        section,
+        number,
+        part,
+    )
+
     data: Dict[str, Any] = {
-        "id": make_question_id(
-            section,
-            number,
-            part,
-        ),
+        # ----------------------------------------------------------
+        # JSON contract
+        #
+        # Grader V1.0 expects:
+        #   question_id
+        #   type
+        #   correct_answer
+        #
+        # Keep the original fields too for backward compatibility.
+        # ----------------------------------------------------------
+        "question_id": question_id,
+        "type": section,
+
+        # ----------------------------------------------------------
+        # Original parser fields
+        # ----------------------------------------------------------
+        "id": question_id,
         "section": section,
         "number": number,
         "question": normalize_text(
             question
         ),
         "options": options or [],
+
+        # ----------------------------------------------------------
+        # Answer / explanation
+        # ----------------------------------------------------------
         "correct_answer": None,
         "explanation": "",
         "reference_answer": None,
+
+        # ----------------------------------------------------------
+        # Grading state
+        # ----------------------------------------------------------
         "graded": False,
         "review_required": False,
     }
+
+    if part is not None:
+
+        data["part"] = part
+
+    return data
 
     if part is not None:
         data["part"] = part
