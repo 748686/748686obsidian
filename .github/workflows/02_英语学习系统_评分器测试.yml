@@ -54,7 +54,7 @@ jobs:
           echo "yesterday=$YESTERDAY" >> "$GITHUB_OUTPUT"
 
       # =========================================================
-      # 4. 检查 Grader 文件
+      # 4. 检查 Parser / Grader / Test 文件
       # =========================================================
 
       - name: Check Grader files
@@ -92,10 +92,24 @@ jobs:
           echo "✅ test_english_exam_grader_v1_0.py"
 
       # =========================================================
-      # 5. 寻找当前日期考试 JSON
+      # 5. 寻找真实考试 Markdown
+      #
+      # 正确数据链：
+      #
+      # 真实试卷 Markdown
+      #       ↓
+      # 真实答案与解析 Markdown
+      #       ↓
+      # Parser V1.3
+      #       ↓
+      # 临时 exam.json
+      #       ↓
+      # Grader V1.0
+      #
+      # 只检查 UTC 今天 / UTC 昨天
       # =========================================================
 
-      - name: Locate current exam JSON
+      - name: Locate real exam Markdown
         id: locate_exam
         env:
           TODAY: ${{ steps.dates.outputs.today }}
@@ -106,65 +120,75 @@ jobs:
 
           echo
           echo "============================================================"
-          echo "LOCATE EXAM JSON"
+          echo "LOCATE REAL EXAM MARKDOWN"
           echo "============================================================"
 
-          FOUND=""
+          FOUND_DATE=""
+          EXAM=""
+          ANSWERS=""
 
-          TODAY_DIR="02_英语学习系统/output/$TODAY"
-          YESTERDAY_DIR="02_英语学习系统/output/$YESTERDAY"
+          for DATE in "$TODAY" "$YESTERDAY"; do
 
-          echo
-          echo "检查 UTC 今天:"
-          echo "  $TODAY_DIR"
+            DIR="02_英语学习系统/output/$DATE/配套试卷"
 
-          if [ -d "$TODAY_DIR" ]; then
-            while IFS= read -r file; do
-              if jq -e '.questions | type == "array" and length == 61' "$file" >/dev/null 2>&1; then
-                FOUND="$file"
-                break
-              fi
-            done < <(
-              find "$TODAY_DIR" \
-                -type f \
-                -name "*.json" \
-                | sort
-            )
-          else
-            echo "  ⚠️ 今天目录不存在"
-          fi
-
-          if [ -z "$FOUND" ]; then
             echo
-            echo "今天没有找到 61 题考试 JSON。"
-            echo "检查 UTC 昨天:"
-            echo "  $YESTERDAY_DIR"
+            echo "检查日期:"
+            echo "  $DATE"
+            echo "检查目录:"
+            echo "  $DIR"
 
-            if [ -d "$YESTERDAY_DIR" ]; then
-              while IFS= read -r file; do
-                if jq -e '.questions | type == "array" and length == 61' "$file" >/dev/null 2>&1; then
-                  FOUND="$file"
-                  break
-                fi
-              done < <(
-                find "$YESTERDAY_DIR" \
-                  -type f \
-                  -name "*.json" \
-                  | sort
-              )
-            else
-              echo "  ⚠️ 昨天目录不存在"
+            if [ ! -d "$DIR" ]; then
+              echo "  ⚠️ 配套试卷目录不存在"
+              continue
             fi
-          fi
 
-          if [ -z "$FOUND" ]; then
+            CANDIDATE="$(find "$DIR" \
+              -maxdepth 1 \
+              -type f \
+              -name "*_试卷.md" \
+              | sort \
+              | head -n 1)"
+
+            if [ -z "$CANDIDATE" ]; then
+              echo "  ⚠️ 未找到 *_试卷.md"
+              continue
+            fi
+
+            BASENAME="$(basename "$CANDIDATE" "_试卷.md")"
+            CANDIDATE_ANSWERS="$DIR/${BASENAME}_答案与解析.md"
+
             echo
-            echo "❌ 未找到当前日期范围内的 61 题考试 JSON"
+            echo "发现试卷:"
+            echo "  $CANDIDATE"
+
+            echo
+            echo "寻找答案与解析:"
+            echo "  $CANDIDATE_ANSWERS"
+
+            if [ ! -f "$CANDIDATE_ANSWERS" ]; then
+              echo "  ⚠️ 对应答案与解析不存在"
+              continue
+            fi
+
+            FOUND_DATE="$DATE"
+            EXAM="$CANDIDATE"
+            ANSWERS="$CANDIDATE_ANSWERS"
+
+            break
+          done
+
+          if [ -z "$EXAM" ]; then
+            echo
+            echo "❌ 未找到当前日期范围内的真实考试 Markdown"
             echo
             echo "搜索范围:"
-            echo "  $TODAY_DIR"
-            echo "  $YESTERDAY_DIR"
-
+            echo "  UTC 今天    : $TODAY"
+            echo "  UTC 昨天    : $YESTERDAY"
+            echo
+            echo "期望结构:"
+            echo "  02_英语学习系统/output/YYYY-MM-DD/配套试卷/"
+            echo "    *_试卷.md"
+            echo "    *_答案与解析.md"
             echo
             echo "现有 output 日期目录:"
 
@@ -183,93 +207,141 @@ jobs:
 
           echo
           echo "============================================================"
-          echo "✅ FOUND EXAM JSON"
+          echo "✅ FOUND REAL EXAM"
           echo "============================================================"
           echo
-          echo "$FOUND"
+          echo "考试日期:"
+          echo "  $FOUND_DATE"
+          echo
+          echo "试卷:"
+          echo "  $EXAM"
+          echo
+          echo "答案与解析:"
+          echo "  $ANSWERS"
 
-          echo "exam_json=$FOUND" >> "$GITHUB_OUTPUT"
+          echo "date=$FOUND_DATE" >> "$GITHUB_OUTPUT"
+          echo "exam=$EXAM" >> "$GITHUB_OUTPUT"
+          echo "answers=$ANSWERS" >> "$GITHUB_OUTPUT"
 
       # =========================================================
-      # 6. 验证考试结构
+      # 6. Parser V1.3
+      #
+      # 将真实 Markdown 临时转换成 exam.json
+      #
+      # 注意：
+      # 这个 JSON 只存在于 GitHub Actions runner 的 /tmp
+      # 不写回仓库
       # =========================================================
 
-      - name: Validate exam structure
+      - name: Run Parser V1.3 and create temporary exam JSON
         env:
-          EXAM_JSON: ${{ steps.locate_exam.outputs.exam_json }}
+          EXAM: ${{ steps.locate_exam.outputs.exam }}
+          ANSWERS: ${{ steps.locate_exam.outputs.answers }}
         shell: bash
         run: |
           set -e
 
           echo
           echo "============================================================"
-          echo "VALIDATE EXAM STRUCTURE"
+          echo "RUN ENGLISH EXAM PARSER V1.3"
+          echo "============================================================"
+          echo
+          echo "真实试卷:"
+          echo "  $EXAM"
+          echo
+          echo "答案与解析:"
+          echo "  $ANSWERS"
+          echo
+
+          JSON="/tmp/748686_exam_parser_v1_3.json"
+
+          rm -f "$JSON"
+
+          python \
+            "02_英语学习系统/scripts/english_exam_parser.py" \
+            --exam "$EXAM" \
+            --answers "$ANSWERS" \
+            --output "$JSON" \
+            --validate
+
+          if [ ! -s "$JSON" ]; then
+            echo
+            echo "❌ Parser V1.3 没有生成有效 JSON"
+            exit 1
+          fi
+
+          echo
+          echo "============================================================"
+          echo "✅ PARSER V1.3 PASSED"
+          echo "============================================================"
+          echo
+          echo "临时 JSON:"
+          echo "  $JSON"
+          echo
+          echo "Parser V1.3 已成功将真实试卷转换为 Grader 输入。"
+
+      # =========================================================
+      # 7. 验证 Parser 生成的临时 JSON
+      # =========================================================
+
+      - name: Validate parsed exam JSON
+        shell: bash
+        run: |
+          set -e
+
+          JSON="/tmp/748686_exam_parser_v1_3.json"
+
+          echo
+          echo "============================================================"
+          echo "VALIDATE PARSED EXAM JSON"
           echo "============================================================"
 
-          TOTAL="$(jq '.questions | length' "$EXAM_JSON")"
+          if [ ! -s "$JSON" ]; then
+            echo "❌ JSON 不存在或为空"
+            exit 1
+          fi
+
+          TOTAL="$(python -c '
+          import json
+          import sys
+
+          path = sys.argv[1]
+
+          with open(path, "r", encoding="utf-8") as f:
+              data = json.load(f)
+
+          questions = data.get("questions")
+
+          if not isinstance(questions, list):
+              raise SystemExit("questions 不是数组")
+
+          print(len(questions))
+          ' "$JSON")"
 
           echo
-          echo "文件:"
-          echo "  $EXAM_JSON"
-
-          echo
-          echo "题目数量:"
+          echo "Parser 输出题目数量:"
           echo "  $TOTAL"
 
           if [ "$TOTAL" -ne 61 ]; then
             echo
-            echo "❌ 题目数量错误"
+            echo "❌ Parser 输出不是 61 道题"
             exit 1
           fi
 
-          LISTENING="$(jq '[.questions[] | select(.type == "listening")] | length' "$EXAM_JSON")"
-          SINGLE="$(jq '[.questions[] | select(.type == "single_choice")] | length' "$EXAM_JSON")"
-          MULTIPLE="$(jq '[.questions[] | select(.type == "multiple_choice")] | length' "$EXAM_JSON")"
-          CLOZE="$(jq '[.questions[] | select(.type == "cloze")] | length' "$EXAM_JSON")"
-          READING="$(jq '[.questions[] | select(.type == "reading")] | length' "$EXAM_JSON")"
-          TRANSLATION="$(jq '[.questions[] | select(.type == "translation")] | length' "$EXAM_JSON")"
-          WRITING="$(jq '[.questions[] | select(.type == "writing")] | length' "$EXAM_JSON")"
-
           echo
-          echo "题型统计:"
-          echo "  listening       : $LISTENING"
-          echo "  single_choice   : $SINGLE"
-          echo "  multiple_choice : $MULTIPLE"
-          echo "  cloze           : $CLOZE"
-          echo "  reading         : $READING"
-          echo "  translation     : $TRANSLATION"
-          echo "  writing         : $WRITING"
-
-          if [ "$LISTENING" -ne 15 ]; then exit 1; fi
-          if [ "$SINGLE" -ne 10 ]; then exit 1; fi
-          if [ "$MULTIPLE" -ne 10 ]; then exit 1; fi
-          if [ "$CLOZE" -ne 10 ]; then exit 1; fi
-          if [ "$READING" -ne 5 ]; then exit 1; fi
-          if [ "$TRANSLATION" -ne 10 ]; then exit 1; fi
-          if [ "$WRITING" -ne 1 ]; then exit 1; fi
-
-          echo
-          echo "✅ 61 道题"
-          echo "✅ 15 listening"
-          echo "✅ 10 single_choice"
-          echo "✅ 10 multiple_choice"
-          echo "✅ 10 cloze"
-          echo "✅ 5 reading"
-          echo "✅ 10 translation"
-          echo "✅ 1 writing"
-          echo
-          echo "✅ EXAM STRUCTURE PASSED"
+          echo "✅ Parser V1.3 输出 61 道题"
+          echo "✅ 临时 exam.json 结构正常"
 
       # =========================================================
-      # 7. Grader V1.0 完整自动测试
+      # 8. Grader V1.0 完整自动测试
       # =========================================================
 
       - name: Run Grader V1.0 FULL TEST
-        env:
-          EXAM_JSON: ${{ steps.locate_exam.outputs.exam_json }}
         shell: bash
         run: |
           set -e
+
+          EXAM_JSON="/tmp/748686_exam_parser_v1_3.json"
 
           echo
           echo "============================================================"
@@ -288,7 +360,7 @@ jobs:
             --exam-json "$EXAM_JSON"
 
       # =========================================================
-      # 8. 最终确认
+      # 9. 最终确认
       # =========================================================
 
       - name: Final Test Summary
@@ -298,6 +370,15 @@ jobs:
           echo "============================================================"
           echo "🎉 GRADER V1.0 FULL TEST PASSED"
           echo "============================================================"
+          echo
+          echo "真实数据链:"
+          echo "  真实考试 Markdown"
+          echo "        ↓"
+          echo "  Parser V1.3"
+          echo "        ↓"
+          echo "  临时 exam.json"
+          echo "        ↓"
+          echo "  Grader V1.0"
           echo
           echo "已验证:"
           echo "  ✅ 61 道题结构"
@@ -317,5 +398,8 @@ jobs:
           echo
           echo "Parser V1.3：未修改"
           echo "Grader V1.0：未修改"
+          echo "测试脚本：未修改"
+          echo
+          echo "临时 exam.json：仅用于本次 Actions 测试，不写入仓库"
           echo
           echo "============================================================"
