@@ -8,7 +8,7 @@ FULL AUTOMATIC TEST
 
 测试目标：
 
-1. 真实 Parser V1.5 JSON
+1. 真实 Parser V1.6 JSON
 2. 61 道题结构
 3. 50 道自动评分题
 4. 11 道人工/语义处理题
@@ -32,7 +32,7 @@ from pathlib import Path
 # CONFIG
 # ============================================================
 
-EXPECTED_PARSER_VERSION = "1.5"
+EXPECTED_PARSER_VERSION = "1.6"
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -102,7 +102,7 @@ def load_json(path: str) -> dict:
 
 def build_all_correct_answers(exam: dict) -> dict:
     """
-    使用 Parser V1.5 已附着的 correct_answer
+    使用 Parser V1.6 已附着的 correct_answer
     构造完整 61 题答案。
     """
 
@@ -745,7 +745,7 @@ def main():
     )
 
     print(
-        "  Parser V1.5 JSON 正常"
+        "  Parser V1.6 JSON 正常"
     )
 
     print(
