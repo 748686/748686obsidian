@@ -1,0 +1,492 @@
+name: 748686 FEISHU E2E CALLBACK TEST V6.0
+
+on:
+  workflow_dispatch:
+
+jobs:
+  feishu-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Feishu SDK
+        run: |
+          python -m pip install --upgrade pip
+          pip install -U lark-oapi
+
+      - name: Run E2E Card Update Test
+        env:
+          LARK_APP_ID: ${{ secrets.APP_ID }}
+          LARK_APP_SECRET: ${{ secrets.APP_SECRET }}
+        run: |
+          python <<'PY'
+          import os
+          import lark_oapi as lark
+
+          from lark_oapi.event.callback.model.p2_card_action_trigger import (
+              P2CardActionTrigger,
+              P2CardActionTriggerResponse,
+          )
+
+
+          # ============================================================
+          # 748686 FEISHU E2E CALLBACK TEST V6.0
+          #
+          # 目标：
+          #
+          # 飞书卡片
+          #     ↓
+          # 用户点击
+          #     ↓
+          # card.action.trigger
+          #     ↓
+          # GitHub WebSocket
+          #     ↓
+          # 判题
+          #     ↓
+          # 返回 CARD
+          #     ↓
+          # 飞书卡片原地显示结果
+          #
+          # 本版本：
+          # - 不使用 Toast
+          # - 不使用正式 Parser
+          # - 不使用正式 Grader
+          # - 不修改正式考试
+          # ============================================================
+
+
+          print("=" * 70)
+          print("748686 FEISHU E2E CALLBACK TEST V6.0")
+          print("=" * 70)
+
+          print()
+          print("MODE:")
+          print("  CARD UPDATE TEST")
+
+          print()
+          print("FLOW:")
+          print("  Feishu Card")
+          print("      ↓")
+          print("  User Click")
+          print("      ↓")
+          print("  card.action.trigger")
+          print("      ↓")
+          print("  GitHub WebSocket")
+          print("      ↓")
+          print("  REAL JUDGING")
+          print("      ↓")
+          print("  CARD RESPONSE")
+          print("      ↓")
+          print("  Feishu Card Updated")
+
+          print()
+          print("=" * 70)
+
+
+          # ============================================================
+          # 测试题
+          # ============================================================
+
+          QUESTIONS = {
+              "e2e_test_001": {
+                  "number": 1,
+                  "question": "1 + 1 = ?",
+                  "options": {
+                      "A": "1",
+                      "B": "2",
+                      "C": "3",
+                  },
+                  "correct": "B",
+              },
+
+              "e2e_test_002": {
+                  "number": 2,
+                  "question": "2 + 3 = ?",
+                  "options": {
+                      "A": "4",
+                      "B": "5",
+                      "C": "6",
+                  },
+                  "correct": "B",
+              },
+
+              "e2e_test_003": {
+                  "number": 3,
+                  "question": "5 - 2 = ?",
+                  "options": {
+                      "A": "2",
+                      "B": "3",
+                      "C": "4",
+                  },
+                  "correct": "B",
+              },
+          }
+
+
+          # ============================================================
+          # 状态
+          # ============================================================
+
+          answers = {}
+          score = 0
+
+
+          # ============================================================
+          # 构造卡片
+          # ============================================================
+
+          def build_result_card(question, user_answer, is_correct, score, completed):
+
+              total = len(QUESTIONS)
+
+              if is_correct:
+                  result_text = "✅ 回答正确"
+              else:
+                  result_text = (
+                      f"❌ 回答错误\n"
+                      f"正确答案：{question['correct']}"
+                  )
+
+              elements = [
+                  {
+                      "tag": "div",
+                      "text": {
+                          "tag": "plain_text",
+                          "content": (
+                              f"第 {question['number']} 题\n"
+                              f"{question['question']}"
+                          ),
+                      },
+                  },
+
+                  {
+                      "tag": "div",
+                      "text": {
+                          "tag": "plain_text",
+                          "content": result_text,
+                      },
+                  },
+
+                  {
+                      "tag": "div",
+                      "text": {
+                          "tag": "plain_text",
+                          "content": (
+                              f"你的答案：{user_answer}\n"
+                              f"进度：{completed}/{total}\n"
+                              f"当前得分：{score}"
+                          ),
+                      },
+                  },
+              ]
+
+              # --------------------------------------------------------
+              # 全部完成
+              # --------------------------------------------------------
+
+              if completed == total:
+
+                  percentage = round(score / total * 100)
+
+                  elements.append(
+                      {
+                          "tag": "hr",
+                      }
+                  )
+
+                  elements.append(
+                      {
+                          "tag": "div",
+                          "text": {
+                              "tag": "plain_text",
+                              "content": (
+                                  f"🎉 答题完成\n"
+                                  f"最终得分：{score}/{total}\n"
+                                  f"正确率：{percentage}%"
+                              ),
+                          },
+                      }
+                  )
+
+              return {
+                  "schema": "2.0",
+
+                  "header": {
+                      "title": {
+                          "tag": "plain_text",
+                          "content": "748686 英语学习 · 答题结果",
+                      },
+                      "template": (
+                          "green"
+                          if is_correct
+                          else "red"
+                      ),
+                  },
+
+                  "body": {
+                      "direction": "vertical",
+                      "padding": "12px 12px 12px 12px",
+
+                      "elements": elements,
+                  },
+              }
+
+
+          # ============================================================
+          # Card Callback
+          # ============================================================
+
+          def do_card_action_trigger(
+              data: P2CardActionTrigger
+          ) -> P2CardActionTriggerResponse:
+
+              global score
+
+              print()
+              print("=" * 70)
+              print("CARD ACTION RECEIVED")
+              print("=" * 70)
+
+              try:
+
+                  event = data.event
+                  action = event.action
+                  value = action.value or {}
+
+                  question_id = value.get("question_id")
+                  answer = value.get("answer")
+
+                  print(f"question_id = {question_id}")
+                  print(f"answer      = {answer}")
+
+                  # ----------------------------------------------------
+                  # 基础检查
+                  # ----------------------------------------------------
+
+                  if not question_id:
+
+                      print("ERROR: missing question_id")
+
+                      return P2CardActionTriggerResponse({
+                          "toast": {
+                              "type": "error",
+                              "content": "❌ 缺少题目 ID",
+                          }
+                      })
+
+                  if not answer:
+
+                      print("ERROR: missing answer")
+
+                      return P2CardActionTriggerResponse({
+                          "toast": {
+                              "type": "error",
+                              "content": "❌ 缺少答案",
+                          }
+                      })
+
+                  answer = str(answer).strip().upper()
+
+                  # ----------------------------------------------------
+                  # 检查题目
+                  # ----------------------------------------------------
+
+                  if question_id not in QUESTIONS:
+
+                      print("ERROR: unknown question")
+
+                      return P2CardActionTriggerResponse({
+                          "toast": {
+                              "type": "error",
+                              "content": "❌ 未知题目",
+                          }
+                      })
+
+                  question = QUESTIONS[question_id]
+
+                  # ----------------------------------------------------
+                  # 防重复
+                  # ----------------------------------------------------
+
+                  if question_id in answers:
+
+                      print("Duplicate answer")
+
+                      return P2CardActionTriggerResponse({
+                          "toast": {
+                              "type": "warning",
+                              "content": "⚠️ 这道题已经回答过了",
+                          }
+                      })
+
+                  # ----------------------------------------------------
+                  # 保存
+                  # ----------------------------------------------------
+
+                  answers[question_id] = answer
+
+                  # ----------------------------------------------------
+                  # 判题
+                  # ----------------------------------------------------
+
+                  correct_answer = question["correct"]
+
+                  is_correct = (
+                      answer == correct_answer
+                  )
+
+                  if is_correct:
+
+                      score += 1
+
+                      print("RESULT = CORRECT")
+
+                  else:
+
+                      print("RESULT = WRONG")
+                      print(
+                          f"correct = {correct_answer}"
+                      )
+
+                  completed = len(answers)
+
+                  print(f"score = {score}")
+                  print(
+                      f"completed = "
+                      f"{completed}/{len(QUESTIONS)}"
+                  )
+
+                  # ----------------------------------------------------
+                  # 构造更新后的卡片
+                  # ----------------------------------------------------
+
+                  updated_card = build_result_card(
+                      question=question,
+                      user_answer=answer,
+                      is_correct=is_correct,
+                      score=score,
+                      completed=completed,
+                  )
+
+                  print()
+                  print("=" * 70)
+                  print("RETURNING UPDATED CARD")
+                  print("=" * 70)
+
+                  print(
+                      "card update prepared"
+                  )
+
+                  # ----------------------------------------------------
+                  # 返回 CARD
+                  # ----------------------------------------------------
+
+                  return P2CardActionTriggerResponse({
+                      "card": {
+                          "type": "card",
+                          "data": updated_card,
+                      }
+                  })
+
+              except Exception as e:
+
+                  print()
+                  print("=" * 70)
+                  print("CALLBACK ERROR")
+                  print("=" * 70)
+
+                  print(repr(e))
+
+                  print("=" * 70)
+
+                  return P2CardActionTriggerResponse({
+                      "toast": {
+                          "type": "error",
+                          "content": "❌ 卡片更新发生错误",
+                      }
+                  })
+
+
+          # ============================================================
+          # Event Handler
+          # ============================================================
+
+          print()
+          print("=" * 70)
+          print("EVENT HANDLER READY")
+          print("=" * 70)
+
+          event_handler = (
+              lark.EventDispatcherHandler.builder(
+                  "",
+                  "",
+                  lark.LogLevel.DEBUG,
+              )
+              .register_p2_card_action_trigger(
+                  do_card_action_trigger
+              )
+              .build()
+          )
+
+          print("✓ card.action.trigger registered")
+          print("✓ REAL JUDGING enabled")
+          print("✓ CARD UPDATE RESPONSE enabled")
+
+
+          # ============================================================
+          # WebSocket
+          # ============================================================
+
+          print()
+          print("=" * 70)
+          print("STARTING FEISHU WEBSOCKET")
+          print("=" * 70)
+
+          app_id = os.environ.get("LARK_APP_ID")
+          app_secret = os.environ.get("LARK_APP_SECRET")
+
+          if not app_id:
+              raise RuntimeError(
+                  "LARK_APP_ID is missing"
+              )
+
+          if not app_secret:
+              raise RuntimeError(
+                  "LARK_APP_SECRET is missing"
+              )
+
+          print("APP_ID: ***")
+          print("APP_SECRET: loaded")
+
+          print()
+          print("Waiting for Feishu card actions...")
+
+          print()
+          print("IMPORTANT:")
+          print("1. Keep this GitHub Action running.")
+          print("2. Open the 3 existing test cards.")
+          print("3. Click one answer.")
+          print("4. Check whether the card itself changes.")
+          print()
+
+
+          cli = lark.ws.Client(
+              app_id,
+              app_secret,
+              event_handler=event_handler,
+              log_level=lark.LogLevel.DEBUG,
+          )
+
+          print("Connecting...")
+
+          cli.start()
+          PY
