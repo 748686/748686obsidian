@@ -1,0 +1,463 @@
+name: 02_英语学习系统 - Feishu Full Exam V8.1
+
+on:
+
+  workflow_dispatch:
+
+    inputs:
+
+      date:
+        description: "考试日期（留空=UTC今天）"
+        required: false
+        default: ""
+
+      audio_format:
+        description: "听力音频格式"
+        required: true
+        type: choice
+        options:
+          - mp3
+          - m4a
+          - wav
+        default: mp3
+
+      persist_github:
+        description: "是否保存答题状态到 GitHub"
+        required: true
+        type: choice
+        options:
+          - "true"
+          - "false"
+        default: "true"
+
+
+permissions:
+  contents: write
+
+
+jobs:
+
+  feishu-full-exam:
+
+    runs-on: ubuntu-latest
+
+    timeout-minutes: 350
+
+    steps:
+
+      # ======================================================
+      # 1. Checkout
+      # ======================================================
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+
+      # ======================================================
+      # 2. Python
+      # ======================================================
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+
+      # ======================================================
+      # 3. 日期
+      # ======================================================
+
+      - name: Resolve exam date
+        id: date
+        shell: bash
+        env:
+          INPUT_DATE: ${{ inputs.date }}
+        run: |
+
+          set -e
+
+          if [ -n "$INPUT_DATE" ]; then
+            EXAM_DATE="$INPUT_DATE"
+          else
+            EXAM_DATE="$(date -u +%Y-%m-%d)"
+          fi
+
+          echo "EXAM_DATE=$EXAM_DATE"
+
+          echo "exam_date=$EXAM_DATE" >> "$GITHUB_OUTPUT"
+
+
+      # ======================================================
+      # 4. 安装依赖
+      # ======================================================
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+
+          set -e
+
+          python -m pip install --upgrade pip
+
+          pip install \
+            requests \
+            lark-oapi==1.7.3
+
+
+      # ======================================================
+      # 5. 检查英语系统目录
+      # ======================================================
+
+      - name: Check English learning system
+        shell: bash
+        run: |
+
+          set -e
+
+          test -f "02_英语学习系统/scripts/english_exam_parser.py"
+
+          test -f "02_英语学习系统/scripts/english_exam_grader.py"
+
+          test -f "02_英语学习系统/scripts/feishu_english_exam.py"
+
+          test -f "02_英语学习系统/scripts/feishu_full_english_exam_runner_v8.py"
+
+          echo "=============================================="
+          echo "English system files OK"
+          echo "=============================================="
+
+
+      # ======================================================
+      # 6. 自动寻找当天试卷
+      # ======================================================
+
+      - name: Locate exam and answer files
+        id: locate
+        shell: bash
+        env:
+          EXAM_DATE: ${{ steps.date.outputs.exam_date }}
+        run: |
+
+          set -e
+
+          ROOT="02_英语学习系统/output/$EXAM_DATE"
+
+          echo "搜索目录:"
+          echo "$ROOT"
+
+          if [ ! -d "$ROOT" ]; then
+            echo "❌ 当天英语考试目录不存在:"
+            echo "$ROOT"
+            exit 1
+          fi
+
+          echo
+          echo "发现 Markdown 文件:"
+          find "$ROOT" -type f -name "*.md" -print | sort
+
+
+          # --------------------------------------------------
+          # 优先寻找文件名中包含“试卷”的 Markdown
+          # --------------------------------------------------
+
+          EXAM_FILE="$(
+            find "$ROOT" \
+              -type f \
+              -name "*.md" \
+              | grep -E '试卷|exam|Exam|EXAM' \
+              | grep -v '答案' \
+              | grep -v '解析' \
+              | head -n 1 \
+              || true
+          )"
+
+
+          # --------------------------------------------------
+          # 如果没有，使用内容特征寻找
+          # --------------------------------------------------
+
+          if [ -z "$EXAM_FILE" ]; then
+
+            EXAM_FILE="$(
+              python - "$ROOT" <<'PY'
+          import pathlib
+          import sys
+
+          root = pathlib.Path(sys.argv[1])
+
+          candidates = []
+
+          for path in root.rglob("*.md"):
+
+              name = path.name
+
+              if "答案" in name or "解析" in name:
+                  continue
+
+              try:
+                  text = path.read_text(
+                      encoding="utf-8",
+                      errors="ignore",
+                  )
+              except Exception:
+                  continue
+
+              score = 0
+
+              if "### 1." in text:
+                  score += 5
+
+              if "A." in text and "B." in text:
+                  score += 3
+
+              if "听力" in text:
+                  score += 2
+
+              if "完形" in text:
+                  score += 2
+
+              if "阅读" in text:
+                  score += 2
+
+              if "翻译" in text:
+                  score += 2
+
+              if "写作" in text:
+                  score += 2
+
+              if score:
+                  candidates.append(
+                      (score, path)
+                  )
+
+          if candidates:
+              candidates.sort(
+                  key=lambda x: (
+                      -x[0],
+                      str(x[1]),
+                  )
+              )
+
+              print(candidates[0][1])
+          PY
+            )"
+
+          fi
+
+
+          # --------------------------------------------------
+          # 答案解析文件
+          # --------------------------------------------------
+
+          ANSWERS_FILE="$(
+            find "$ROOT" \
+              -type f \
+              -name "*.md" \
+              | grep -E '答案|解析|answer|Answer|ANSWER' \
+              | head -n 1 \
+              || true
+          )"
+
+
+          if [ -z "$EXAM_FILE" ]; then
+
+            echo
+            echo "❌ 找不到试卷 Markdown"
+
+            exit 1
+
+          fi
+
+
+          if [ -z "$ANSWERS_FILE" ]; then
+
+            echo
+            echo "❌ 找不到答案/解析 Markdown"
+
+            exit 1
+
+          fi
+
+
+          echo
+          echo "=============================================="
+          echo "EXAM FILE"
+          echo "=============================================="
+          echo "$EXAM_FILE"
+
+
+          echo
+          echo "=============================================="
+          echo "ANSWERS FILE"
+          echo "=============================================="
+          echo "$ANSWERS_FILE"
+
+
+          echo "exam_file=$EXAM_FILE" >> "$GITHUB_OUTPUT"
+
+          echo "answers_file=$ANSWERS_FILE" >> "$GITHUB_OUTPUT"
+
+
+      # ======================================================
+      # 7. Parser V1.6.1
+      # ======================================================
+
+      - name: Run English Exam Parser V1.6.1
+        shell: bash
+        env:
+          EXAM_FILE: ${{ steps.locate.outputs.exam_file }}
+          ANSWERS_FILE: ${{ steps.locate.outputs.answers_file }}
+        run: |
+
+          set -e
+
+          echo
+          echo "============================================================"
+          echo "748686 ENGLISH EXAM PARSER V1.6.1"
+          echo "============================================================"
+
+          python \
+            "02_英语学习系统/scripts/english_exam_parser.py" \
+            --exam "$EXAM_FILE" \
+            --answers "$ANSWERS_FILE" \
+            --output "/tmp/748686_exam_parser_v1_6.json" \
+            --validate
+
+
+      # ======================================================
+      # 8. 检查 Parser 输出
+      # ======================================================
+
+      - name: Validate parser output
+        shell: bash
+        run: |
+
+          set -e
+
+          python - <<'PY'
+
+          import json
+
+          path = "/tmp/748686_exam_parser_v1_6.json"
+
+          with open(
+              path,
+              "r",
+              encoding="utf-8",
+          ) as f:
+              data = json.load(f)
+
+          questions = data.get(
+              "questions",
+              [],
+          )
+
+          print()
+          print("=" * 60)
+          print("PARSER OUTPUT VALIDATION")
+          print("=" * 60)
+
+          print(
+              "total:",
+              len(questions),
+          )
+
+          expected = {
+              "listening": 15,
+              "single_choice": 10,
+              "multiple_choice": 10,
+              "cloze": 10,
+              "reading": 5,
+              "translation": 10,
+              "writing": 1,
+          }
+
+          counts = {}
+
+          for q in questions:
+
+              qtype = q.get(
+                  "type",
+                  "",
+              )
+
+              counts[qtype] = (
+                  counts.get(qtype, 0) + 1
+              )
+
+          print(
+              "counts:",
+              counts,
+          )
+
+          if len(questions) != 61:
+              raise SystemExit(
+                  "❌ Parser 未生成 61 道题"
+              )
+
+          for key, value in expected.items():
+
+              if counts.get(key, 0) != value:
+
+                  raise SystemExit(
+                      f"❌ {key}: "
+                      f"{counts.get(key, 0)} "
+                      f"/ {value}"
+                  )
+
+          print()
+          print(
+              "✅ Parser V1.6.1 输出通过"
+          )
+
+          PY
+
+
+      # ======================================================
+      # 9. 启动 61 题飞书答题系统
+      # ======================================================
+
+      - name: Start Feishu Full English Exam V8.1
+        env:
+
+          APP_ID: ${{ secrets.APP_ID }}
+
+          APP_SECRET: ${{ secrets.APP_SECRET }}
+
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+
+          EXAM_DATE: ${{ steps.date.outputs.exam_date }}
+
+          AUDIO_FORMAT: ${{ inputs.audio_format }}
+
+          PERSIST_GITHUB: ${{ inputs.persist_github }}
+
+          EXAM_JSON: /tmp/748686_exam_parser_v1_6.json
+
+          ANSWERS_JSON: /tmp/748686_feishu_answers.json
+
+          GRADER_OUTPUT: /tmp/748686_feishu_grader_result.json
+
+          FEISHU_STATE_FILE: /tmp/748686_feishu_exam_state.json
+
+          FEISHU_CHAT_NAME: 748686知识系统
+
+          PERSIST_GITHUB_PATH: .feishu_state
+
+        shell: bash
+        run: |
+
+          set -e
+
+          echo
+          echo "============================================================"
+          echo "748686 FEISHU FULL ENGLISH EXAM V8.1"
+          echo "============================================================"
+
+          python \
+            "02_英语学习系统/scripts/feishu_full_english_exam_runner_v8.py"
