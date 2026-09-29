@@ -591,6 +591,16 @@ def upload_feishu_file(
             timeout=120,
         )
 
+    if not response.ok:
+    print()
+    print("=" * 70)
+    print("❌ 飞书文件上传失败")
+    print("=" * 70)
+    print("HTTP:", response.status_code)
+    print("URL:", response.url)
+    print("Response:", response.text)
+    print("=" * 70)
+    print()
     response.raise_for_status()
 
     result = response.json()
