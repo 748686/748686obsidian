@@ -1,0 +1,357 @@
+name: 02_英语学习系统 - Feishu E2E Send Test V1.0
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+
+  send-e2e-cards:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # ============================================================
+      # 1. Checkout
+      # ============================================================
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ============================================================
+      # 2. Send 3 E2E Questions
+      # ============================================================
+
+      - name: Send E2E Questions to Feishu
+        env:
+          APP_ID: ${{ secrets.APP_ID }}
+          APP_SECRET: ${{ secrets.APP_SECRET }}
+
+        run: |
+          set -e
+
+          echo "============================================================"
+          echo "748686 FEISHU E2E SEND TEST V1.0"
+          echo "============================================================"
+
+          if [ -z "$APP_ID" ]; then
+            echo "❌ APP_ID is missing"
+            exit 1
+          fi
+
+          if [ -z "$APP_SECRET" ]; then
+            echo "❌ APP_SECRET is missing"
+            exit 1
+          fi
+
+          echo
+          echo "APP_ID: loaded"
+          echo "APP_SECRET: loaded"
+          echo
+
+          # ==========================================================
+          # 1. 获取 tenant_access_token
+          # ==========================================================
+
+          echo "============================================================"
+          echo "STEP 1 | GET TENANT ACCESS TOKEN"
+          echo "============================================================"
+
+          TOKEN_RESPONSE=$(curl -sS \
+            -X POST \
+            "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal" \
+            -H "Content-Type: application/json; charset=utf-8" \
+            -d "{
+              \"app_id\": \"$APP_ID\",
+              \"app_secret\": \"$APP_SECRET\"
+            }")
+
+          echo "$TOKEN_RESPONSE" | python -m json.tool
+
+          TOKEN=$(echo "$TOKEN_RESPONSE" | python -c '
+          import json
+          import sys
+
+          data = json.load(sys.stdin)
+
+          if data.get("code") != 0:
+              print("TOKEN ERROR:", data, file=sys.stderr)
+              raise SystemExit(1)
+
+          token = data.get("tenant_access_token")
+
+          if not token:
+              print("Missing tenant_access_token", file=sys.stderr)
+              raise SystemExit(1)
+
+          print(token)
+          ')
+
+          echo
+          echo "tenant_access_token: loaded"
+          echo
+
+          # ==========================================================
+          # 2. 获取群聊列表
+          # ==========================================================
+
+          echo "============================================================"
+          echo "STEP 2 | FIND CHAT"
+          echo "============================================================"
+
+          CHAT_RESPONSE=$(curl -sS \
+            -X GET \
+            "https://open.feishu.cn/open-apis/im/v1/chats?page_size=100" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json; charset=utf-8")
+
+          echo "$CHAT_RESPONSE" | python -m json.tool
+
+          CHAT_ID=$(echo "$CHAT_RESPONSE" | python -c '
+          import json
+          import sys
+
+          data = json.load(sys.stdin)
+
+          if data.get("code") != 0:
+              print("CHAT LIST ERROR:", data, file=sys.stderr)
+              raise SystemExit(1)
+
+          target = "748686知识系统"
+
+          for item in data.get("data", {}).get("items", []):
+              if item.get("name") == target:
+                  print(item.get("chat_id"))
+                  raise SystemExit(0)
+
+          print(
+              f"Chat not found: {target}",
+              file=sys.stderr
+          )
+
+          raise SystemExit(1)
+          ')
+
+          if [ -z "$CHAT_ID" ]; then
+            echo "❌ CHAT_ID is empty"
+            exit 1
+          fi
+
+          echo
+          echo "CHAT_ID: $CHAT_ID"
+          echo
+
+          # ==========================================================
+          # 3. 发送测试卡片函数
+          # ==========================================================
+
+          send_question() {
+
+            QUESTION_ID="$1"
+            QUESTION_NUMBER="$2"
+            QUESTION_TEXT="$3"
+            OPTION_A="$4"
+            OPTION_B="$5"
+            OPTION_C="$6"
+
+            echo
+            echo "============================================================"
+            echo "SEND QUESTION $QUESTION_NUMBER"
+            echo "============================================================"
+
+            CARD_JSON=$(python - \
+              "$QUESTION_ID" \
+              "$QUESTION_NUMBER" \
+              "$QUESTION_TEXT" \
+              "$OPTION_A" \
+              "$OPTION_B" \
+              "$OPTION_C" <<'PY'
+          import json
+          import sys
+
+          question_id = sys.argv[1]
+          question_number = sys.argv[2]
+          question_text = sys.argv[3]
+          option_a = sys.argv[4]
+          option_b = sys.argv[5]
+          option_c = sys.argv[6]
+
+          card = {
+              "schema": "2.0",
+
+              "header": {
+                  "title": {
+                      "tag": "plain_text",
+                      "content": f"748686 E2E 测试 · 第 {question_number} 题"
+                  },
+                  "template": "blue"
+              },
+
+              "body": {
+                  "elements": [
+
+                      {
+                          "tag": "markdown",
+                          "content":
+                              f"### 第 {question_number} 题\n\n"
+                              f"**{question_text}**"
+                      },
+
+                      {
+                          "tag": "button",
+                          "text": {
+                              "tag": "plain_text",
+                              "content": f"A. {option_a}"
+                          },
+                          "type": "default",
+                          "action_type": "callback",
+                          "value": {
+                              "question_id": question_id,
+                              "answer": "A"
+                          }
+                      },
+
+                      {
+                          "tag": "button",
+                          "text": {
+                              "tag": "plain_text",
+                              "content": f"B. {option_b}"
+                          },
+                          "type": "default",
+                          "action_type": "callback",
+                          "value": {
+                              "question_id": question_id,
+                              "answer": "B"
+                          }
+                      },
+
+                      {
+                          "tag": "button",
+                          "text": {
+                              "tag": "plain_text",
+                              "content": f"C. {option_c}"
+                          },
+                          "type": "default",
+                          "action_type": "callback",
+                          "value": {
+                              "question_id": question_id,
+                              "answer": "C"
+                          }
+                      }
+
+                  ]
+              }
+          }
+
+          print(
+              json.dumps(
+                  card,
+                  ensure_ascii=False
+              )
+          )
+          PY
+            )
+
+            MESSAGE_RESPONSE=$(curl -sS \
+              -X POST \
+              "https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=chat_id" \
+              -H "Authorization: Bearer $TOKEN" \
+              -H "Content-Type: application/json; charset=utf-8" \
+              -d "{
+                \"receive_id\": \"$CHAT_ID\",
+                \"msg_type\": \"interactive\",
+                \"content\": $(printf '%s' "$CARD_JSON" | python -c '
+          import json
+          import sys
+
+          card = json.load(sys.stdin)
+
+          print(
+              json.dumps(
+                  json.dumps(
+                      card,
+                      ensure_ascii=False
+                  ),
+                  ensure_ascii=False
+              )
+          ')
+              }")
+
+            echo "$MESSAGE_RESPONSE" | python -m json.tool
+
+            CODE=$(echo "$MESSAGE_RESPONSE" | python -c '
+          import json
+          import sys
+
+          data = json.load(sys.stdin)
+
+          print(data.get("code", -1))
+          ')
+
+            if [ "$CODE" != "0" ]; then
+              echo
+              echo "❌ FEISHU MESSAGE SEND FAILED"
+              echo "code=$CODE"
+              exit 1
+            fi
+
+            echo
+            echo "✅ QUESTION $QUESTION_NUMBER SENT"
+          }
+
+
+          # ==========================================================
+          # 4. 发送三道测试题
+          # ==========================================================
+
+          send_question \
+            "e2e_test_001" \
+            "1" \
+            "1 + 1 = ?" \
+            "1" \
+            "2" \
+            "3"
+
+          send_question \
+            "e2e_test_002" \
+            "2" \
+            "2 + 3 = ?" \
+            "4" \
+            "5" \
+            "6"
+
+          send_question \
+            "e2e_test_003" \
+            "3" \
+            "5 - 2 = ?" \
+            "2" \
+            "3" \
+            "4"
+
+
+          # ==========================================================
+          # 5. 完成
+          # ==========================================================
+
+          echo
+          echo "============================================================"
+          echo "748686 FEISHU E2E QUESTIONS SENT SUCCESSFULLY"
+          echo "============================================================"
+
+          echo
+          echo "请现在打开飞书：748686知识系统"
+          echo
+          echo "依次回答："
+          echo
+          echo "第 1 题 → B"
+          echo "第 2 题 → B"
+          echo "第 3 题 → B"
+          echo
+          echo "然后回到："
+          echo "02_英语学习系统 - Feishu E2E Test V1.0"
+          echo
+          echo "查看 cardAction 日志。"
+          echo
