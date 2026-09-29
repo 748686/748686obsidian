@@ -1,0 +1,124 @@
+name: 02_英语学习系统 - Feishu Long Connection Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  feishu-long-connection:
+    runs-on: ubuntu-latest
+
+    timeout-minutes: 350
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Feishu Channel SDK
+        run: |
+          set -e
+
+          echo "============================================================"
+          echo "INSTALL FEISHU CHANNEL SDK"
+          echo "============================================================"
+
+          python -m pip install --upgrade pip
+          python -m pip install lark-channel-sdk
+
+          echo
+          echo "============================================================"
+          echo "VERIFY SDK"
+          echo "============================================================"
+
+          python - <<'PY'
+          import lark_channel
+
+          print("lark_channel import: OK")
+          print("Feishu Channel SDK: installed")
+          PY
+
+      - name: Start Feishu Long Connection
+        env:
+          LARK_APP_ID: ${{ secrets.FEISHU_APP_ID }}
+          LARK_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+        run: |
+          set -e
+
+          echo "============================================================"
+          echo "748686 FEISHU LONG CONNECTION TEST"
+          echo "============================================================"
+
+          python - <<'PY'
+          import asyncio
+          import os
+          import time
+
+          from lark_channel import FeishuChannel
+
+
+          APP_ID = os.environ.get("LARK_APP_ID")
+          APP_SECRET = os.environ.get("LARK_APP_SECRET")
+
+          if not APP_ID:
+              raise RuntimeError("Missing secret: FEISHU_APP_ID")
+
+          if not APP_SECRET:
+              raise RuntimeError("Missing secret: FEISHU_APP_SECRET")
+
+          print("APP_ID:", APP_ID)
+          print("APP_SECRET: loaded")
+          print()
+          print("Starting Feishu WebSocket long connection...")
+          print()
+
+
+          async def on_error(error):
+              print()
+              print("============================================================")
+              print("FEISHU CHANNEL ERROR")
+              print("============================================================")
+              print(repr(error))
+              print()
+
+
+          async def on_reconnecting():
+              print()
+              print("============================================================")
+              print("FEISHU RECONNECTING")
+              print("============================================================")
+              print()
+
+
+          async def on_reconnected():
+              print()
+              print("============================================================")
+              print("FEISHU RECONNECTED")
+              print("============================================================")
+              print()
+
+
+          async def main():
+              channel = FeishuChannel(
+                  app_id=APP_ID,
+                  app_secret=APP_SECRET,
+              )
+
+              channel.on("error", on_error)
+              channel.on("reconnecting", on_reconnecting)
+              channel.on("reconnected", on_reconnected)
+
+              print("Connecting...")
+              print()
+
+              await channel.connect()
+
+
+          asyncio.run(main())
+          PY
