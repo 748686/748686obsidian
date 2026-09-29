@@ -390,12 +390,13 @@ jobs:
                   # 返回 CARD
                   # ----------------------------------------------------
 
-                  return P2CardActionTriggerResponse({
-                      "card": {
-                          "type": "card",
-                          "data": updated_card,
-                      }
-                  })
+                  response = P2CardActionTriggerResponse()
+
+                     card = CallBackCard()
+                     card.type = "raw"
+                      card.data = updated_card
+                      response.card = card
+                       return response
 
               except Exception as e:
 
