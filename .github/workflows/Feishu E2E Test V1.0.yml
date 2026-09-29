@@ -1,840 +1,547 @@
-name: 02_英语学习系统 - Feishu E2E Test V1.0
+name: 02_英语学习系统 - Feishu E2E Test V2.0
 
 on:
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
-
-  feishu-e2e-test:
-
+  e2e:
     runs-on: ubuntu-latest
-
     timeout-minutes: 30
 
     steps:
-
-      # ============================================================
-      # 1. Checkout
-      # ============================================================
-
       - name: Checkout
         uses: actions/checkout@v4
-
-      # ============================================================
-      # 2. Setup Python
-      # ============================================================
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      # ============================================================
-      # 3. Install Feishu Channel SDK
-      # ============================================================
-
-      - name: Install Feishu Channel SDK
+      - name: Install Feishu SDK
         run: |
-          set -e
-
-          echo "============================================================"
-          echo "INSTALL FEISHU CHANNEL SDK"
-          echo "============================================================"
-
           python -m pip install --upgrade pip
-          python -m pip install lark-channel-sdk
+          pip install lark-channel-sdk
 
-          echo
-          echo "============================================================"
-          echo "VERIFY SDK"
-          echo "============================================================"
-
-          python - <<'PY'
-          import lark_channel
-
-          print("lark_channel import: OK")
-          print("Feishu Channel SDK: installed")
-          PY
-
-      # ============================================================
-      # 4. Start E2E Test
-      # ============================================================
-
-      - name: Start Feishu E2E Test
+      - name: Run Feishu E2E Receiver
         env:
           LARK_APP_ID: ${{ secrets.APP_ID }}
           LARK_APP_SECRET: ${{ secrets.APP_SECRET }}
-
         run: |
           set -e
 
-          echo "============================================================"
-          echo "748686 FEISHU E2E TEST V1.0"
-          echo "============================================================"
-
-          mkdir -p 02_英语学习系统/feishu_e2e_test
-
           python - <<'PY'
-
           import asyncio
           import json
           import os
-          from datetime import datetime, timezone
+          from pathlib import Path
 
           from lark_channel import FeishuChannel
 
 
-          # ============================================================
-          # 基础配置
-          # ============================================================
+          print("=" * 60)
+          print("748686 FEISHU E2E TEST V2.0")
+          print("=" * 60)
 
-          APP_ID = os.environ.get("LARK_APP_ID")
-          APP_SECRET = os.environ.get("LARK_APP_SECRET")
+          APP_ID = os.environ["LARK_APP_ID"]
+          APP_SECRET = os.environ["LARK_APP_SECRET"]
 
-          if not APP_ID:
-              raise RuntimeError("Missing secret: APP_ID")
-
-          if not APP_SECRET:
-              raise RuntimeError("Missing secret: APP_SECRET")
-
-
-          DATA_DIR = "02_英语学习系统/feishu_e2e_test"
-
-          ANSWER_FILE = os.path.join(
-              DATA_DIR,
-              "e2e_answers.json"
-          )
-
+          print("APP_ID: ***")
+          print("APP_SECRET: loaded")
 
           # ============================================================
-          # 3道测试题
+          # E2E TEST QUESTIONS
           # ============================================================
 
-          QUESTIONS = [
-              {
-                  "question_id": "e2e_test_001",
-                  "question_number": 1,
+          QUESTIONS = {
+              "e2e_test_001": {
                   "question": "1 + 1 = ?",
                   "options": {
                       "A": "1",
                       "B": "2",
-                      "C": "3"
+                      "C": "3",
                   },
-                  "correct_answer": "B"
+                  "correct_answer": "B",
               },
-              {
-                  "question_id": "e2e_test_002",
-                  "question_number": 2,
+
+              "e2e_test_002": {
                   "question": "2 + 3 = ?",
                   "options": {
                       "A": "4",
                       "B": "5",
-                      "C": "6"
+                      "C": "6",
                   },
-                  "correct_answer": "B"
+                  "correct_answer": "B",
               },
-              {
-                  "question_id": "e2e_test_003",
-                  "question_number": 3,
+
+              "e2e_test_003": {
                   "question": "5 - 2 = ?",
                   "options": {
                       "A": "2",
                       "B": "3",
-                      "C": "4"
+                      "C": "4",
                   },
-                  "correct_answer": "B"
-              }
-          ]
-
-
-          QUESTION_MAP = {
-              q["question_id"]: q
-              for q in QUESTIONS
+                  "correct_answer": "B",
+              },
           }
 
+          ANSWERS = {}
+          RESULTS = {}
 
-          # ============================================================
-          # 时间
-          # ============================================================
-
-          def utc_now():
-
-              return datetime.now(
-                  timezone.utc
-              ).isoformat()
-
-
-          # ============================================================
-          # 状态
-          # ============================================================
-
-          state = {
-              "version": "1.0",
-              "test": "feishu_e2e",
-              "started_at": utc_now(),
-              "answers": {},
-              "result": None
-          }
-
-
-          # ============================================================
-          # 保存状态
-          # ============================================================
-
-          def save_state():
-
-              os.makedirs(
-                  DATA_DIR,
-                  exist_ok=True
-              )
-
-              with open(
-                  ANSWER_FILE,
-                  "w",
-                  encoding="utf-8"
-              ) as f:
-
-                  json.dump(
-                      state,
-                      f,
-                      ensure_ascii=False,
-                      indent=2
-                  )
-
-
-          save_state()
-
-
-          # ============================================================
-          # 打印测试信息
-          # ============================================================
-
-          print()
-          print("============================================================")
-          print("748686 FEISHU E2E TEST V1.0")
-          print("============================================================")
-          print()
-
-          print(
-              "APP_ID:",
-              APP_ID
+          PERSIST_DIR = Path(
+              "02_英语学习系统/feishu_e2e_test"
           )
 
-          print(
-              "APP_SECRET: loaded"
+          PERSIST_DIR.mkdir(
+              parents=True,
+              exist_ok=True,
           )
 
-          print()
-
-          print(
-              "Questions:",
-              len(QUESTIONS)
+          PERSIST_FILE = (
+              PERSIST_DIR / "e2e_answers.json"
           )
 
-          print(
-              "Persistent file:",
-              ANSWER_FILE
-          )
-
-          print()
-
-
-          # ============================================================
-          # 打印测试题
-          # ============================================================
-
-          print("============================================================")
+          print("=" * 60)
           print("E2E QUESTIONS")
-          print("============================================================")
+          print("=" * 60)
 
-          for q in QUESTIONS:
-
+          for qid, q in QUESTIONS.items():
               print()
-              print(
-                  f"Question {q['question_number']}:"
-              )
+              print(f"Question ID: {qid}")
+              print(q["question"])
+
+              for key, value in q["options"].items():
+                  print(f"{key}. {value}")
 
               print(
-                  q["question"]
-              )
-
-              print(
-                  "A.",
-                  q["options"]["A"]
-              )
-
-              print(
-                  "B.",
-                  q["options"]["B"]
-              )
-
-              print(
-                  "C.",
-                  q["options"]["C"]
+                  f"Correct Answer: {q['correct_answer']}"
               )
 
           print()
-          print("============================================================")
-          print()
+          print("=" * 60)
+          print("Persistent file:")
+          print(PERSIST_FILE)
+          print("=" * 60)
 
 
-          # ============================================================
-          # cardAction
-          # ============================================================
+          def extract_action(event):
+              """
+              尽可能兼容不同 SDK 事件结构。
+              """
+
+              # lark-channel-sdk 标准结构
+              try:
+                  action = event.action
+
+                  value = action.value
+
+                  return action, value
+
+              except Exception:
+                  pass
+
+              # 兼容字典结构
+              if isinstance(event, dict):
+
+                  action = event.get("action")
+
+                  if isinstance(action, dict):
+                      return action, action.get("value")
+
+                  event_data = event.get("event")
+
+                  if isinstance(event_data, dict):
+                      action = event_data.get("action")
+
+                      if isinstance(action, dict):
+                          return action, action.get("value")
+
+              return None, None
+
+
+          def get_value(value, key, default=None):
+
+              if isinstance(value, dict):
+                  return value.get(key, default)
+
+              return default
+
+
+          def save_results():
+
+              data = {
+                  "version": "2.0",
+                  "answers": ANSWERS,
+                  "results": RESULTS,
+                  "total": len(QUESTIONS),
+                  "answered": len(ANSWERS),
+                  "correct": sum(
+                      1
+                      for item in RESULTS.values()
+                      if item.get("correct") is True
+                  ),
+                  "wrong": sum(
+                      1
+                      for item in RESULTS.values()
+                      if item.get("correct") is False
+                  ),
+              }
+
+              PERSIST_FILE.write_text(
+                  json.dumps(
+                      data,
+                      ensure_ascii=False,
+                      indent=2,
+                  ),
+                  encoding="utf-8",
+              )
+
 
           async def on_card_action(event):
 
               print()
-              print()
-              print("=" * 70)
+              print("=" * 60)
               print("748686 FEISHU CARD ACTION RECEIVED")
-              print("=" * 70)
-
-              # --------------------------------------------------------
-              # 原始事件
-              # --------------------------------------------------------
-
-              try:
-
-                  print()
-                  print("RAW EVENT:")
-
-                  print(
-                      json.dumps(
-                          event,
-                          ensure_ascii=False,
-                          indent=2,
-                          default=str
-                      )
-                  )
-
-              except Exception as e:
-
-                  print(
-                      "RAW EVENT PRINT ERROR:",
-                      repr(e)
-                  )
-
-
-              # --------------------------------------------------------
-              # 提取 action
-              # --------------------------------------------------------
-
-              action = None
-
-              try:
-
-                  if isinstance(event, dict):
-
-                      candidate = event.get(
-                          "action"
-                      )
-
-                      if isinstance(
-                          candidate,
-                          dict
-                      ):
-
-                          action = candidate
-
-                      if action is None:
-
-                          data = event.get(
-                              "data"
-                          )
-
-                          if isinstance(
-                              data,
-                              dict
-                          ):
-
-                              candidate = data.get(
-                                  "action"
-                              )
-
-                              if isinstance(
-                                  candidate,
-                                  dict
-                              ):
-
-                                  action = candidate
-
-              except Exception as e:
-
-                  print(
-                      "ACTION PARSE ERROR:",
-                      repr(e)
-                  )
-
-
-              print()
-              print("ACTION:")
+              print("=" * 60)
 
               print(
-                  json.dumps(
-                      action,
-                      ensure_ascii=False,
-                      indent=2,
-                      default=str
-                  )
+                  f"EVENT TYPE: {type(event).__name__}"
               )
 
-
-              # --------------------------------------------------------
-              # 提取 value
-              # --------------------------------------------------------
-
-              value = None
-
-              if isinstance(
-                  action,
-                  dict
-              ):
-
-                  value = action.get(
-                      "value"
-                  )
-
-
-              print()
-              print("VALUE:")
+              action, value = extract_action(event)
 
               print(
-                  json.dumps(
-                      value,
-                      ensure_ascii=False,
-                      indent=2,
-                      default=str
-                  )
+                  f"ACTION: {action}"
               )
 
+              print(
+                  f"ACTION VALUE: {value}"
+              )
 
               # --------------------------------------------------------
-              # 提取 question_id / answer
+              # Extract question_id / answer
               # --------------------------------------------------------
 
-              question_id = None
-              answer = None
-
-              if isinstance(
+              question_id = get_value(
                   value,
-                  dict
-              ):
+                  "question_id",
+              )
 
-                  question_id = value.get(
-                      "question_id"
-                  )
-
-                  answer = value.get(
-                      "answer"
-                  )
-
-
-              print()
-              print(
-                  "QUESTION ID:",
-                  question_id
+              answer = get_value(
+                  value,
+                  "answer",
               )
 
               print(
-                  "ANSWER:",
-                  answer
+                  f"QUESTION ID: {question_id}"
               )
 
+              print(
+                  f"ANSWER: {answer}"
+              )
 
               # --------------------------------------------------------
-              # 验证题目
+              # Validate callback payload
               # --------------------------------------------------------
 
-              if question_id not in QUESTION_MAP:
+              if not question_id:
 
-                  print()
                   print(
-                      "UNKNOWN QUESTION ID"
+                      "ERROR: question_id missing"
                   )
 
                   return {
                       "toast": {
-                          "type": "warning",
-                          "content": "未知测试题"
+                          "type": "error",
+                          "content": "未识别题目",
                       }
                   }
 
+              if not answer:
 
-              question = QUESTION_MAP[
-                  question_id
+                  print(
+                      "ERROR: answer missing"
+                  )
+
+                  return {
+                      "toast": {
+                          "type": "error",
+                          "content": "未识别答案",
+                      }
+                  }
+
+              # --------------------------------------------------------
+              # Validate question
+              # --------------------------------------------------------
+
+              if question_id not in QUESTIONS:
+
+                  print(
+                      "ERROR: unknown question"
+                  )
+
+                  return {
+                      "toast": {
+                          "type": "error",
+                          "content": "未知题目",
+                      }
+                  }
+
+              question = QUESTIONS[question_id]
+
+              correct_answer = question[
+                  "correct_answer"
               ]
 
-
               # --------------------------------------------------------
-              # 验证答案
+              # Duplicate protection
               # --------------------------------------------------------
 
-              if answer not in question["options"]:
+              if question_id in ANSWERS:
 
-                  print()
+                  old_answer = ANSWERS[
+                      question_id
+                  ]
+
                   print(
-                      "INVALID ANSWER"
+                      f"DUPLICATE ANSWER: "
+                      f"{question_id}"
+                  )
+
+                  print(
+                      f"Existing answer: "
+                      f"{old_answer}"
                   )
 
                   return {
                       "toast": {
                           "type": "warning",
-                          "content": "无效答案"
+                          "content": "这道题已经回答过了",
                       }
                   }
 
-
               # --------------------------------------------------------
-              # 防止重复提交
-              # --------------------------------------------------------
-
-              if question_id in state["answers"]:
-
-                  old_answer = state["answers"][
-                      question_id
-                  ]["answer"]
-
-                  print()
-                  print(
-                      "DUPLICATE ANSWER"
-                  )
-
-                  print(
-                      "Existing:",
-                      old_answer
-                  )
-
-                  print(
-                      "New:",
-                      answer
-                  )
-
-                  return {
-                      "toast": {
-                          "type": "info",
-                          "content":
-                              f"第 {question['question_number']} 题已经回答"
-                      }
-                  }
-
-
-              # --------------------------------------------------------
-              # 判断正误
+              # Grade
               # --------------------------------------------------------
 
-              correct = (
-                  answer
-                  == question["correct_answer"]
+              is_correct = (
+                  str(answer).upper()
+                  ==
+                  str(correct_answer).upper()
               )
 
+              ANSWERS[question_id] = (
+                  str(answer).upper()
+              )
 
-              # --------------------------------------------------------
-              # 保存答案
-              # --------------------------------------------------------
-
-              state["answers"][
-                  question_id
-              ] = {
-
-                  "question_id":
-                      question_id,
-
-                  "question_number":
-                      question["question_number"],
-
-                  "answer":
-                      answer,
-
-                  "correct":
-                      correct,
-
-                  "received_at":
-                      utc_now()
+              RESULTS[question_id] = {
+                  "question_id": question_id,
+                  "answer": str(answer).upper(),
+                  "correct_answer": correct_answer,
+                  "correct": is_correct,
               }
 
+              save_results()
 
-              save_state()
+              answered = len(ANSWERS)
+              total = len(QUESTIONS)
 
+              correct_count = sum(
+                  1
+                  for item in RESULTS.values()
+                  if item.get("correct") is True
+              )
 
-              # --------------------------------------------------------
-              # 输出
-              # --------------------------------------------------------
+              wrong_count = sum(
+                  1
+                  for item in RESULTS.values()
+                  if item.get("correct") is False
+              )
 
               print()
               print(
-                  "============================================================"
+                  f"CORRECT ANSWER: "
+                  f"{correct_answer}"
               )
 
               print(
-                  "ANSWER RECORDED"
+                  f"RESULT: "
+                  f"{'CORRECT' if is_correct else 'WRONG'}"
               )
 
-              print(
-                  "Question:",
-                  question_id
-              )
-
-              print(
-                  "Answer:",
-                  answer
-              )
-
-              print(
-                  "Correct:",
-                  correct
-              )
-
-              print(
-                  "============================================================"
-              )
-
-
-              # --------------------------------------------------------
-              # 当前进度
-              # --------------------------------------------------------
-
-              answered_count = len(
-                  state["answers"]
-              )
-
-              total_count = len(
-                  QUESTIONS
-              )
-
-
-              print()
               print(
                   f"PROGRESS: "
-                  f"{answered_count}/{total_count}"
+                  f"{answered}/{total}"
               )
 
+              print(
+                  f"CORRECT: "
+                  f"{correct_count}"
+              )
+
+              print(
+                  f"WRONG: "
+                  f"{wrong_count}"
+              )
 
               # --------------------------------------------------------
-              # 全部完成
+              # Final result
               # --------------------------------------------------------
 
-              if answered_count == total_count:
+              if answered >= total:
 
-                  correct_count = 0
-
-                  for item in state[
-                      "answers"
-                  ].values():
-
-                      if item.get(
-                          "correct"
-                      ):
-
-                          correct_count += 1
-
-
-                  wrong_count = (
-                      total_count
-                      - correct_count
-                  )
-
-
-                  score = int(
+                  score = round(
                       correct_count
-                      / total_count
+                      / total
                       * 100
                   )
 
-
-                  state["result"] = {
-
-                      "completed_at":
-                          utc_now(),
-
-                      "total":
-                          total_count,
-
-                      "correct":
-                          correct_count,
-
-                      "wrong":
-                          wrong_count,
-
-                      "score":
-                          score
-                  }
-
-
-                  save_state()
-
-
                   print()
-                  print("=" * 70)
-                  print("748686 FEISHU E2E TEST COMPLETED")
-                  print("=" * 70)
-
+                  print("=" * 60)
                   print(
-                      f"TOTAL: {total_count}"
+                      "748686 FEISHU E2E TEST COMPLETED"
                   )
-
+                  print("=" * 60)
+                  print(
+                      f"TOTAL:   {total}"
+                  )
                   print(
                       f"CORRECT: {correct_count}"
                   )
-
                   print(
-                      f"WRONG: {wrong_count}"
+                      f"WRONG:   {wrong_count}"
                   )
-
                   print(
-                      f"SCORE: {score}/100"
+                      f"SCORE:   {score}/100"
                   )
+                  print("=" * 60)
 
-                  print("=" * 70)
-                  print()
-
-
+                  # 最后一题直接反馈最终成绩
                   return {
                       "toast": {
-                          "type": "success",
-                          "content":
-                              f"测试完成：{correct_count}/{total_count}，{score}分"
+                          "type": (
+                              "success"
+                              if correct_count == total
+                              else "info"
+                          ),
+                          "content": (
+                              f"答题完成 "
+                              f"{correct_count}/{total} "
+                              f"得分 {score}/100"
+                          ),
                       }
                   }
 
-
               # --------------------------------------------------------
-              # 尚未完成
+              # Immediate Feishu feedback
               # --------------------------------------------------------
 
-              remaining = (
-                  total_count
-                  - answered_count
+              if is_correct:
+
+                  feedback = (
+                      f"✅ 回答正确 "
+                      f"({answered}/{total})"
+                  )
+
+                  feedback_type = "success"
+
+              else:
+
+                  feedback = (
+                      f"❌ 回答错误 "
+                      f"({answered}/{total})"
+                  )
+
+                  feedback_type = "error"
+
+              print(
+                  f"FEISHU FEEDBACK: "
+                  f"{feedback}"
               )
-
 
               return {
                   "toast": {
-                      "type": "success",
-                      "content":
-                          f"第 {question['question_number']} 题已记录，还剩 {remaining} 题"
+                      "type": feedback_type,
+                      "content": feedback,
                   }
               }
 
-
-          # ============================================================
-          # 错误
-          # ============================================================
 
           async def on_error(error):
 
               print()
-              print("=" * 70)
+              print("=" * 60)
               print("FEISHU CHANNEL ERROR")
-              print("=" * 70)
+              print("=" * 60)
+              print(error)
+              print("=" * 60)
 
-              print(
-                  repr(error)
-              )
-
-              print()
-
-
-          # ============================================================
-          # 重连
-          # ============================================================
 
           async def on_reconnecting():
 
               print()
-              print("=" * 70)
-              print("FEISHU RECONNECTING")
-              print("=" * 70)
-              print()
+              print(
+                  "FEISHU RECONNECTING..."
+              )
 
 
           async def on_reconnected():
 
               print()
-              print("=" * 70)
-              print("FEISHU RECONNECTED")
-              print("=" * 70)
-              print()
+              print(
+                  "FEISHU RECONNECTED"
+              )
 
-
-          # ============================================================
-          # 主程序
-          # ============================================================
 
           async def main():
 
               channel = FeishuChannel(
                   app_id=APP_ID,
-                  app_secret=APP_SECRET
+                  app_secret=APP_SECRET,
               )
-
-
-              # --------------------------------------------------------
-              # 使用已经验证成功的 cardAction
-              # --------------------------------------------------------
 
               channel.on(
                   "cardAction",
-                  on_card_action
+                  on_card_action,
               )
 
               channel.on(
                   "error",
-                  on_error
+                  on_error,
               )
 
               channel.on(
                   "reconnecting",
-                  on_reconnecting
+                  on_reconnecting,
               )
 
               channel.on(
                   "reconnected",
-                  on_reconnected
+                  on_reconnected,
               )
 
-
+              print()
               print(
                   "Registered event handlers:"
               )
-
               print(
                   "  - cardAction"
               )
-
               print(
                   "  - error"
               )
-
               print(
                   "  - reconnecting"
               )
-
               print(
                   "  - reconnected"
               )
 
               print()
-
-              print(
-                  "Connecting..."
-              )
-
-              print()
-
+              print("Connecting...")
 
               await channel.connect()
 
 
-          # ============================================================
-          # 启动
-          # ============================================================
-
-          asyncio.run(
-              main()
-          )
+          asyncio.run(main())
 
           PY
