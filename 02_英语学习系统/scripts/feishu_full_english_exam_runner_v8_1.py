@@ -25,6 +25,14 @@ Feishu Full English Exam Runner V8.1
 9. 不向飞书初始题卡泄露正确答案
 10. 不在生产日志中打印正确答案
 
+听力处理
+--------
+- 飞书文件上传 API 不接受 file_type=mp3
+- MP3 自动转换为 OPUS
+- 使用 file_type=opus 上传
+- 上传后取得 file_key
+- 听力题卡使用 file_key 播放
+
 原则
 ----
 - Parser V1.6.1 不修改
@@ -41,6 +49,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import shutil
 import subprocess
 import sys
 import threading
@@ -624,6 +633,147 @@ def find_chat_id(
 
 
 # ============================================================
+# 听力格式转换
+# ============================================================
+
+def find_ffmpeg() -> str:
+
+    ffmpeg = shutil.which(
+        "ffmpeg"
+    )
+
+    if ffmpeg:
+
+        return ffmpeg
+
+    fail(
+        "系统中没有找到 ffmpeg，"
+        "无法将 MP3 转换为 OPUS"
+    )
+
+    return ""
+
+
+def convert_audio_to_opus(
+    source_path: Path,
+) -> Path:
+
+    if not source_path.exists():
+
+        fail(
+            f"源听力文件不存在: "
+            f"{source_path}"
+        )
+
+    if source_path.stat().st_size <= 0:
+
+        fail(
+            f"源听力文件为空: "
+            f"{source_path}"
+        )
+
+    if (
+        source_path.suffix
+        .lower()
+        == ".opus"
+    ):
+
+        return source_path
+
+    ffmpeg = find_ffmpeg()
+
+    output_dir = (
+        Path("/tmp")
+        / "748686_feishu_opus"
+    )
+
+    output_dir.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    output_path = (
+        output_dir
+        / f"{source_path.stem}.opus"
+    )
+
+    # --------------------------------------------------------
+    # 每次重新生成，避免旧 OPUS 与新 MP3 不一致
+    # --------------------------------------------------------
+
+    if output_path.exists():
+
+        try:
+
+            output_path.unlink()
+
+        except Exception:
+
+            pass
+
+    log(
+        f"  🎧 MP3 → OPUS: "
+        f"{source_path.name}"
+    )
+
+    command = [
+        ffmpeg,
+        "-y",
+        "-i",
+        str(source_path),
+        "-acodec",
+        "libopus",
+        "-ac",
+        "1",
+        "-ar",
+        "16000",
+        str(output_path),
+    ]
+
+    result = subprocess.run(
+        command,
+        text=True,
+        capture_output=True,
+    )
+
+    if result.returncode != 0:
+
+        log(
+            result.stdout
+        )
+
+        log(
+            result.stderr
+        )
+
+        fail(
+            f"MP3 转 OPUS 失败: "
+            f"{source_path.name}"
+        )
+
+    if not output_path.exists():
+
+        fail(
+            f"ffmpeg 执行成功但没有生成 OPUS: "
+            f"{output_path}"
+        )
+
+    if output_path.stat().st_size <= 0:
+
+        fail(
+            f"生成的 OPUS 文件为空: "
+            f"{output_path}"
+        )
+
+    log(
+        f"  ✅ OPUS 已生成: "
+        f"{output_path.name}"
+    )
+
+    return output_path
+
+
+# ============================================================
 # 文件上传
 # ============================================================
 
@@ -636,6 +786,29 @@ def upload_feishu_file(
 
         fail(
             f"听力文件不存在: {file_path}"
+        )
+
+    if file_path.stat().st_size <= 0:
+
+        fail(
+            f"听力文件为空: {file_path}"
+        )
+
+    # --------------------------------------------------------
+    # 飞书音频上传：
+    # file_type 必须使用 opus
+    # file_name 必须包含 .opus 后缀
+    # --------------------------------------------------------
+
+    if (
+        file_path.suffix
+        .lower()
+        != ".opus"
+    ):
+
+        fail(
+            "Feishu 音频上传函数收到的不是 OPUS 文件: "
+            f"{file_path.name}"
         )
 
     headers = {
@@ -652,11 +825,13 @@ def upload_feishu_file(
             "file": (
                 file_path.name,
                 f,
+                "audio/ogg",
             )
         }
 
         data = {
-            "file_type": "mp3",
+            "file_type": "opus",
+            "file_name": file_path.name,
         }
 
         response = requests.post(
@@ -668,7 +843,7 @@ def upload_feishu_file(
         )
 
     # --------------------------------------------------------
-    # 诊断 Feishu HTTP 错误
+    # HTTP 错误诊断
     # --------------------------------------------------------
 
     if not response.ok:
@@ -695,6 +870,15 @@ def upload_feishu_file(
         print(
             "URL:",
             response.url,
+        )
+
+        print(
+            "File:",
+            file_path.name,
+        )
+
+        print(
+            "File Type: opus"
         )
 
         print(
@@ -740,6 +924,11 @@ def upload_feishu_file(
         print(
             "Message:",
             result.get("msg"),
+        )
+
+        print(
+            "File:",
+            file_path.name,
         )
 
         print(
@@ -823,9 +1012,17 @@ def prepare_audio(
 
         if not candidates:
 
+            log(
+                f"⚠️ 未找到听力 {part}"
+            )
+
             continue
 
         audio_path = None
+
+        # ----------------------------------------------------
+        # 优先使用指定 AUDIO_FORMAT
+        # ----------------------------------------------------
 
         for candidate in candidates:
 
@@ -840,26 +1037,55 @@ def prepare_audio(
 
                 break
 
+        # ----------------------------------------------------
+        # 找不到指定格式时使用第一个
+        # ----------------------------------------------------
+
         if audio_path is None:
 
             audio_path = candidates[0]
 
         log(
-            f"上传听力 {part}: "
+            f"准备听力 {part}: "
             f"{audio_path.name}"
         )
 
-        AUDIO_FILE_KEYS[part] = (
-            upload_feishu_file(
-                token,
-                audio_path,
-            )
+        # ----------------------------------------------------
+        # 转 OPUS
+        # ----------------------------------------------------
+
+        opus_path = convert_audio_to_opus(
+            audio_path
         )
 
-    log(
-        f"✅ 听力文件准备完成: "
-        f"{len(AUDIO_FILE_KEYS)} 组"
-    )
+        log(
+            f"上传听力 {part}: "
+            f"{opus_path.name}"
+        )
+
+        file_key = upload_feishu_file(
+            token,
+            opus_path,
+        )
+
+        AUDIO_FILE_KEYS[part] = file_key
+
+        log(
+            f"  ✅ 听力 {part} 上传成功"
+        )
+
+    if len(AUDIO_FILE_KEYS) == 3:
+
+        log(
+            "✅ 听力 A/B/C 三组文件全部准备完成"
+        )
+
+    else:
+
+        log(
+            f"⚠️ 听力文件准备完成: "
+            f"{len(AUDIO_FILE_KEYS)}/3 组"
+        )
 
 
 # ============================================================
@@ -968,6 +1194,20 @@ def build_choice_card(
                 {
                     "tag": "audio",
                     "file_key": file_key,
+                }
+            )
+
+        else:
+
+            elements.append(
+                {
+                    "tag": "div",
+                    "text": {
+                        "tag": "lark_md",
+                        "content": (
+                            "⚠️ **听力音频暂不可用**"
+                        ),
+                    },
                 }
             )
 
@@ -2945,6 +3185,11 @@ def main() -> None:
         f"✅ 找到飞书群: "
         f"{FEISHU_CHAT_NAME}"
     )
+
+    # --------------------------------------------------------
+    # 准备听力
+    # MP3 → OPUS → Feishu file_key
+    # --------------------------------------------------------
 
     prepare_audio(
         token
