@@ -441,9 +441,58 @@ jobs:
 
           PY
 
-
       # ======================================================
-      # 10. 启动 61 题飞书答题系统
+      # 10. DEBUG：检查全部题目的 options 实际结构
+      # ======================================================
+
+      - name: Debug parsed question options
+        shell: bash
+        run: |
+
+          set -e
+
+          python - <<'PY'
+
+          import json
+
+          path = "/tmp/748686_exam_parser_v1_6.json"
+
+          with open(
+              path,
+              "r",
+              encoding="utf-8",
+          ) as f:
+              data = json.load(f)
+
+          questions = data["questions"]
+
+          print()
+          print("=" * 80)
+          print("DEBUG PARSED QUESTION OPTIONS")
+          print("=" * 80)
+
+          for q in questions:
+
+              qid = q.get("question_id")
+              qtype = q.get("type")
+              options = q.get("options")
+
+              print()
+              print("-" * 80)
+              print("QUESTION:", qid)
+              print("TYPE:", qtype)
+              print("OPTIONS TYPE:", type(options).__name__)
+              print("OPTIONS LEN:", len(options) if options is not None else 0)
+              print("OPTIONS:", repr(options))
+
+          print()
+          print("=" * 80)
+          print("DEBUG COMPLETE")
+          print("=" * 80)
+
+          PY
+      # ======================================================
+      # 11. 启动 61 题飞书答题系统
       # ======================================================
 
       - name: Start Feishu Full English Exam V8.1
