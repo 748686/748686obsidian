@@ -5,7 +5,7 @@ status: active
 importance: 4
 confidence: 0.8
 created_at: 2026-09-14
-last_updated: 2026-09-14
+last_updated: 2026-09-28
 ---
 
 # Dario Amodei
@@ -407,3 +407,16 @@ Anthropic公司CEO，于2026年9月28日在白宫被特朗普接待。
 
 - [[特朗普]]
 - [[Anthropic]]
+
+## 知识更新｜2026-09-28
+
+Anthropic CEO，于2026年9月计划与美国总统特朗普会晤，旨在应对公众对AI安全的担忧，反映了AI行业领袖积极介入政策制定的趋势。
+
+### 新增事实
+
+- 2026年9月计划与特朗普会晤讨论AI安全
+
+### 来源 EventUnit
+
+- `EVT-20260928-000036`
+
