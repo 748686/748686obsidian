@@ -3,49 +3,44 @@
 
 """
 748686 English Learning System
-Feishu E2E Interactive Exam V7.0
+Feishu E2E Callback Test V7.1
 
 目标
 ----
-验证完整的飞书交互答题闭环：
+1. 第1张题卡点击后原地更新
+2. 第2张题卡点击后原地更新
+3. 第3张题卡点击后原地更新
+4. 三题完成后，发送第4张总结卡
 
-1. 飞书发送 3 张独立题目卡
-2. 用户点击 A / B / C
-3. card.action.trigger 到达 GitHub Actions
-4. 程序立即判断答案
-5. 当前题目卡原地更新
-6. 卡片显示：
-   - 用户答案
-   - 正确 / 错误
-   - 正确答案
-   - 解析
-7. 三道题全部完成后
-8. 程序额外发送第 4 张总结卡
-9. 总结卡显示：
-   - 总题数
-   - 答对
-   - 答错
-   - 正确率
-   - 每题结果
+V7.1 修复
+----------
+V7.0 的 WebSocket Client 没有 .im API。
+V7.1 将：
+
+- WebSocket Client
+  用于接收 card.action.trigger
+
+- API Client
+  用于发送最终总结卡
+
+彻底分离。
 
 注意
 ----
-- 本程序仅用于 E2E 测试
-- 不修改 Parser V1.6
-- 不修改 Grader V1.0
-- 不读取正式 61 题试卷
-- 不调用 AI
-- 不修改正式考试数据
+本测试不修改：
+- English Exam Parser
+- English Exam Grader
+- 正式试卷
+- 正式答案
+- 正式考试数据
 """
 
 import os
-import sys
 import json
 import time
 import traceback
 
 import lark_oapi as lark
-
 from lark_oapi.ws.client import Client
 
 from lark_oapi.event.callback.model.p2_card_action_trigger import (
@@ -54,8 +49,6 @@ from lark_oapi.event.callback.model.p2_card_action_trigger import (
     CallBackCard,
 )
 
-from lark_oapi.event.dispatcher_handler import EventDispatcherHandler
-
 from lark_oapi.api.im.v1 import (
     CreateMessageRequest,
     CreateMessageRequestBody,
@@ -63,21 +56,21 @@ from lark_oapi.api.im.v1 import (
 
 
 # ============================================================
-# 基本配置
+# CONFIG
 # ============================================================
 
-APP_ID = os.environ.get("APP_ID", "").strip()
-APP_SECRET = os.environ.get("APP_SECRET", "").strip()
+APP_ID = os.environ.get("APP_ID")
+APP_SECRET = os.environ.get("APP_SECRET")
 
 if not APP_ID:
-    raise RuntimeError("缺少环境变量 APP_ID")
+    raise RuntimeError("APP_ID is missing")
 
 if not APP_SECRET:
-    raise RuntimeError("缺少环境变量 APP_SECRET")
+    raise RuntimeError("APP_SECRET is missing")
 
 
 # ============================================================
-# E2E 测试题
+# QUESTIONS
 # ============================================================
 
 QUESTIONS = [
@@ -121,356 +114,223 @@ QUESTIONS = [
 
 
 # ============================================================
-# 运行状态
+# STATE
 # ============================================================
 
 answer_state = {}
 
-for q in QUESTIONS:
-    answer_state[q["question_id"]] = {
-        "answered": False,
-        "answer": None,
-        "correct": False,
-    }
-
 
 # ============================================================
-# 找题
+# QUESTION HELPERS
 # ============================================================
 
 def get_question(question_id):
     for q in QUESTIONS:
         if q["question_id"] == question_id:
             return q
-
     return None
 
 
 # ============================================================
-# 构造原始题目卡
+# QUESTION CARD
 # ============================================================
 
 def build_question_card(question):
     """
-    生成最开始发送给用户的题目卡。
-
-    注意：
-    这里使用 schema 2.0。
-    按钮使用 behaviors callback。
+    初始题卡
     """
 
-    elements = []
-
-    # 题目
-    elements.append({
-        "tag": "div",
-        "text": {
-            "tag": "lark_md",
+    elements = [
+        {
+            "tag": "markdown",
             "content": (
-                f"**第 {question['number']} 题**\n\n"
+                f"### 第 {question['number']} 题\n\n"
                 f"**{question['question']}**"
             ),
-        },
-    })
-
-    # 选项
-    option_lines = []
+        }
+    ]
 
     for key, value in question["options"].items():
-        option_lines.append(
-            f"**{key}.** {value}"
+        elements.append(
+            {
+                "tag": "button",
+                "text": {
+                    "tag": "plain_text",
+                    "content": f"{key}. {value}",
+                },
+                "type": "default",
+                "behaviors": [
+                    {
+                        "type": "callback",
+                        "value": {
+                            "question_id": question["question_id"],
+                            "answer": key,
+                        },
+                    }
+                ],
+            }
         )
-
-    elements.append({
-        "tag": "div",
-        "text": {
-            "tag": "lark_md",
-            "content": "\n".join(option_lines),
-        },
-    })
-
-    # 分割线
-    elements.append({
-        "tag": "hr",
-    })
-
-    # 按钮
-    buttons = []
-
-    for key in ["A", "B", "C"]:
-        buttons.append({
-            "tag": "button",
-            "text": {
-                "tag": "plain_text",
-                "content": key,
-            },
-            "type": "default",
-            "behaviors": [
-                {
-                    "type": "callback",
-                    "value": {
-                        "question_id": question["question_id"],
-                        "answer": key,
-                    },
-                }
-            ],
-        })
-
-    elements.append({
-        "tag": "column_set",
-        "columns": [
-            {
-                "tag": "column",
-                "width": "weighted",
-                "elements": [buttons[0]],
-            },
-            {
-                "tag": "column",
-                "width": "weighted",
-                "elements": [buttons[1]],
-            },
-            {
-                "tag": "column",
-                "width": "weighted",
-                "elements": [buttons[2]],
-            },
-        ],
-    })
 
     return {
         "schema": "2.0",
-        "config": {
-            "wide_screen_mode": True,
-        },
-        "header": {
-            "title": {
-                "tag": "plain_text",
-                "content": f"英语答题测试 · 第 {question['number']} 题",
-            },
-            "template": "blue",
-        },
         "body": {
-            "elements": elements,
+            "elements": elements
         },
     }
 
 
 # ============================================================
-# 构造“已作答”卡片
+# ANSWERED CARD
 # ============================================================
 
 def build_answered_card(question, user_answer):
     """
-    原地替换当前题目卡。
-
-    这是本版本最关键的地方。
+    用户回答后：
+    原题卡原地替换成结果卡。
     """
 
     correct_answer = question["correct_answer"]
+
     is_correct = user_answer == correct_answer
 
     if is_correct:
-        result_text = "✅ **回答正确**"
-        template = "green"
+        result_text = "### ✅ 回答正确"
     else:
-        result_text = "❌ **回答错误**"
-        template = "red"
+        result_text = "### ❌ 回答错误"
 
-    elements = []
+    user_option_text = question["options"].get(
+        user_answer,
+        user_answer
+    )
 
-    # 题目
-    elements.append({
-        "tag": "div",
-        "text": {
-            "tag": "lark_md",
+    correct_option_text = question["options"].get(
+        correct_answer,
+        correct_answer
+    )
+
+    elements = [
+        {
+            "tag": "markdown",
             "content": (
-                f"**第 {question['number']} 题**\n\n"
+                f"### 第 {question['number']} 题\n\n"
                 f"**{question['question']}**"
             ),
         },
-    })
-
-    # 原选项
-    option_lines = []
-
-    for key, value in question["options"].items():
-        option_lines.append(
-            f"**{key}.** {value}"
-        )
-
-    elements.append({
-        "tag": "div",
-        "text": {
-            "tag": "lark_md",
-            "content": "\n".join(option_lines),
-        },
-    })
-
-    elements.append({
-        "tag": "hr",
-    })
-
-    # 用户答案
-    elements.append({
-        "tag": "div",
-        "text": {
-            "tag": "lark_md",
+        {
+            "tag": "markdown",
             "content": (
-                f"**你的答案：{user_answer}**"
+                f"{result_text}\n\n"
+                f"**你的答案：** {user_answer}. {user_option_text}\n\n"
+                f"**正确答案：** "
+                f"{correct_answer}. {correct_option_text}"
             ),
         },
-    })
-
-    # 对错
-    elements.append({
-        "tag": "div",
-        "text": {
-            "tag": "lark_md",
-            "content": result_text,
+        {
+            "tag": "hr"
         },
-    })
-
-    # 正确答案
-    elements.append({
-        "tag": "div",
-        "text": {
-            "tag": "lark_md",
+        {
+            "tag": "markdown",
             "content": (
-                f"**正确答案：{correct_answer}**"
-            ),
-        },
-    })
-
-    # 解析
-    elements.append({
-        "tag": "div",
-        "text": {
-            "tag": "lark_md",
-            "content": (
-                f"**解析：**\n"
+                f"**解析：**\n\n"
                 f"{question['explanation']}"
             ),
         },
-    })
+    ]
 
     return {
         "schema": "2.0",
-        "config": {
-            "wide_screen_mode": True,
-        },
-        "header": {
-            "title": {
-                "tag": "plain_text",
-                "content": (
-                    f"第 {question['number']} 题 · "
-                    + ("正确" if is_correct else "错误")
-                ),
-            },
-            "template": template,
-        },
         "body": {
-            "elements": elements,
+            "elements": elements
         },
     }
 
 
 # ============================================================
-# 构造最终总结卡
+# SUMMARY CARD
 # ============================================================
 
 def build_summary_card():
     total = len(QUESTIONS)
 
-    completed = 0
-    correct = 0
+    answered = len(answer_state)
 
-    result_lines = []
-
-    for q in QUESTIONS:
-        state = answer_state[q["question_id"]]
-
-        if state["answered"]:
-            completed += 1
-
-            if state["correct"]:
-                correct += 1
-                result_lines.append(
-                    f"第 {q['number']} 题：✅"
-                )
-            else:
-                result_lines.append(
-                    f"第 {q['number']} 题：❌"
-                )
-        else:
-            result_lines.append(
-                f"第 {q['number']} 题：未作答"
-            )
-
-    wrong = completed - correct
-
-    if total:
-        percentage = correct / total * 100
-    else:
-        percentage = 0
-
-    content = (
-        "## 🎯 答题完成\n\n"
-        f"**总题数：** {total}\n\n"
-        f"**已作答：** {completed}\n\n"
-        f"**答对：** {correct}\n\n"
-        f"**答错：** {wrong}\n\n"
-        f"**正确率：** {percentage:.1f}%\n\n"
-        "---\n\n"
-        + "\n".join(result_lines)
+    correct = sum(
+        1
+        for item in answer_state.values()
+        if item["is_correct"]
     )
+
+    wrong = answered - correct
+
+    if answered:
+        accuracy = correct / answered * 100
+    else:
+        accuracy = 0
+
+    elements = [
+        {
+            "tag": "markdown",
+            "content": "## 📊 本次答题总结",
+        },
+        {
+            "tag": "hr",
+        },
+        {
+            "tag": "markdown",
+            "content": (
+                f"**总题数：** {total}\n\n"
+                f"**已答：** {answered}\n\n"
+                f"**正确：** {correct}\n\n"
+                f"**错误：** {wrong}\n\n"
+                f"**正确率：** {accuracy:.1f}%"
+            ),
+        },
+        {
+            "tag": "hr",
+        },
+    ]
+
+    for question in QUESTIONS:
+        result = answer_state.get(question["question_id"])
+
+        if not result:
+            continue
+
+        if result["is_correct"]:
+            icon = "✅"
+            result_text = "正确"
+        else:
+            icon = "❌"
+            result_text = "错误"
+
+        elements.append(
+            {
+                "tag": "markdown",
+                "content": (
+                    f"{icon} **第 {question['number']} 题："
+                    f"{result_text}**\n\n"
+                    f"你的答案：{result['answer']}\n\n"
+                    f"正确答案：{question['correct_answer']}"
+                ),
+            }
+        )
 
     return {
         "schema": "2.0",
-        "config": {
-            "wide_screen_mode": True,
-        },
-        "header": {
-            "title": {
-                "tag": "plain_text",
-                "content": "🎯 本次答题结果",
-            },
-            "template": "green",
-        },
         "body": {
-            "elements": [
-                {
-                    "tag": "div",
-                    "text": {
-                        "tag": "lark_md",
-                        "content": content,
-                    },
-                }
-            ],
+            "elements": elements
         },
     }
 
 
 # ============================================================
-# 用 SDK 正确构造“原地更新卡片”响应
+# CALLBACK CARD RESPONSE
 # ============================================================
 
 def make_card_callback_response(card_data):
     """
-    关键修复：
-
-    不能：
-        P2CardActionTriggerResponse({
-            "card": {
-                "type": "card",
-                "data": card_data
-            }
-        })
-
-    必须使用：
-        CallBackCard()
-        card.type = "raw"
-        card.data = card_data
-        response.card = card
+    将更新后的卡片返回给飞书，
+    实现原地更新。
     """
 
     response = P2CardActionTriggerResponse()
@@ -486,22 +346,26 @@ def make_card_callback_response(card_data):
 
 
 # ============================================================
-# 发送第4张总结卡
+# SEND SUMMARY CARD
 # ============================================================
 
-def send_summary_card(chat_id):
+def send_summary_card(api_client, chat_id):
     """
-    三道题全部完成以后，额外发送第4张总结卡。
+    使用普通 API Client 发送第4张总结卡。
+
+    注意：
+    这里不能使用 WebSocket Client，
+    因为 WebSocket Client 没有 .im。
     """
 
-    if not chat_id:
-        print("WARNING: 没有获得 open_chat_id，无法发送总结卡")
-        return
+    print("=" * 70)
+    print("SENDING SUMMARY CARD")
+    print("=" * 70)
 
-    card_data = build_summary_card()
+    summary_card = build_summary_card()
 
     content = json.dumps(
-        card_data,
+        summary_card,
         ensure_ascii=False,
         separators=(",", ":"),
     )
@@ -519,141 +383,133 @@ def send_summary_card(chat_id):
         .build()
     )
 
-    try:
-        response = client.im.v1.message.create(request)
+    print("chat_id =", chat_id)
+    print("msg_type = interactive")
+    print("creating summary message...")
 
-        if response.success():
-            print("")
-            print("=" * 70)
-            print("SUMMARY CARD SENT")
-            print("=" * 70)
-            print(f"chat_id = {chat_id}")
-            print("第4张总结卡发送成功")
-            print("=" * 70)
-        else:
-            print("")
-            print("=" * 70)
-            print("SUMMARY CARD SEND FAILED")
-            print("=" * 70)
-            print(response.raw.content if response.raw else response)
-            print("=" * 70)
+    response = api_client.im.v1.message.create(request)
 
-    except Exception as exc:
-        print("")
+    print("summary response =", response)
+
+    if not response.success():
         print("=" * 70)
-        print("SUMMARY CARD EXCEPTION")
+        print("SUMMARY CARD SEND FAILED")
         print("=" * 70)
-        print(repr(exc))
-        traceback.print_exc()
-        print("=" * 70)
+        print("code =", response.code)
+        print("msg  =", response.msg)
+        print("request_id =", response.request_id())
+        return False
+
+    print("=" * 70)
+    print("SUMMARY CARD SENT SUCCESSFULLY")
+    print("=" * 70)
+
+    return True
 
 
 # ============================================================
-# 卡片点击处理
+# CARD ACTION HANDLER
 # ============================================================
 
 def do_card_action_trigger(
-    data: P2CardActionTrigger,
-) -> P2CardActionTriggerResponse:
+    event: P2CardActionTrigger,
+    api_client,
+):
+    """
+    处理飞书卡片点击。
+    """
 
-    print("")
     print("=" * 70)
     print("CARD ACTION RECEIVED")
     print("=" * 70)
 
     try:
-        event = data.event
 
-        action = event.action
-        action_value = action.value or {}
+        action = event.event.action
 
-        question_id = action_value.get("question_id")
-        user_answer = action_value.get("answer")
+        value = action.value
 
-        print(f"question_id = {question_id}")
-        print(f"answer      = {user_answer}")
+        question_id = value.get("question_id")
+        answer = value.get("answer")
 
-        # ----------------------------------------------------
-        # 找题
-        # ----------------------------------------------------
+        print("question_id =", question_id)
+        print("answer      =", answer)
 
         question = get_question(question_id)
 
-        if question is None:
+        if not question:
             print("ERROR: unknown question_id")
 
-            return P2CardActionTriggerResponse({
-                "toast": {
-                    "type": "error",
-                    "content": "未知题目",
+            return P2CardActionTriggerResponse(
+                {
+                    "toast": {
+                        "type": "error",
+                        "content": "题目不存在",
+                    }
                 }
-            })
+            )
 
         # ----------------------------------------------------
-        # 检查重复作答
+        # Duplicate protection
         # ----------------------------------------------------
 
-        state = answer_state[question_id]
+        if question_id in answer_state:
 
-        if state["answered"]:
             print("Duplicate answer")
 
-            # 已经答过：
-            # 不再重新计算，也不重新修改卡片。
-            return P2CardActionTriggerResponse({
-                "toast": {
-                    "type": "info",
-                    "content": "这道题已经回答过了",
+            return P2CardActionTriggerResponse(
+                {
+                    "toast": {
+                        "type": "warning",
+                        "content": f"第 {question['number']} 题已经回答",
+                    }
                 }
-            })
+            )
 
         # ----------------------------------------------------
-        # 判断答案
+        # Judge
         # ----------------------------------------------------
 
         correct_answer = question["correct_answer"]
-        is_correct = user_answer == correct_answer
 
-        state["answered"] = True
-        state["answer"] = user_answer
-        state["correct"] = is_correct
+        is_correct = answer == correct_answer
 
-        print(
-            "RESULT = "
-            + ("CORRECT" if is_correct else "WRONG")
+        answer_state[question_id] = {
+            "answer": answer,
+            "correct_answer": correct_answer,
+            "is_correct": is_correct,
+        }
+
+        score = sum(
+            1
+            for item in answer_state.values()
+            if item["is_correct"]
         )
 
-        if not is_correct:
-            print(f"correct = {correct_answer}")
-
-        # ----------------------------------------------------
-        # 统计
-        # ----------------------------------------------------
-
-        completed = 0
-        score = 0
-
-        for q in QUESTIONS:
-            q_state = answer_state[q["question_id"]]
-
-            if q_state["answered"]:
-                completed += 1
-
-            if q_state["correct"]:
-                score += 1
-
+        completed = len(answer_state)
         total = len(QUESTIONS)
 
-        print(f"score = {score}")
-        print(f"completed = {completed}/{total}")
+        if is_correct:
+
+            print("RESULT = CORRECT")
+
+        else:
+
+            print("RESULT = WRONG")
+            print("correct =", correct_answer)
+
+        print("score =", score)
+        print(
+            f"completed = {completed}/{total}"
+        )
 
         # ----------------------------------------------------
-        # 生成“当前题目”的已作答卡
+        # Build updated card
         # ----------------------------------------------------
 
         updated_card = build_answered_card(
             question,
-            user_answer,
+            answer,
         )
 
         print("RETURNING UPDATED CARD")
@@ -661,154 +517,184 @@ def do_card_action_trigger(
         print("card update prepared")
 
         # ----------------------------------------------------
-        # 三题完成
+        # Final summary
         # ----------------------------------------------------
 
         if completed == total:
-            print("")
+
             print("=" * 70)
             print("E2E TEST COMPLETE")
             print("=" * 70)
 
-            percentage = score / total * 100
+            percentage = (
+                score / total * 100
+            )
 
-            print(f"Score: {score}/{total}")
-            print(f"Percentage: {percentage:.1f}%")
+            print(
+                f"Score: {score}/{total}"
+            )
 
-            # 从 callback event 获取当前卡片所在 chat
-            context = getattr(event, "context", None)
+            print(
+                f"Percentage: {percentage:.1f}%"
+            )
 
-            chat_id = ""
-
-            if context is not None:
-                chat_id = str(
-                    getattr(
-                        context,
-                        "open_chat_id",
-                        "",
-                    )
-                    or ""
-                )
-
-            print(f"chat_id = {chat_id}")
-
-            # ------------------------------------------------
-            # 注意：
-            #
-            # 当前 callback 必须先返回“第3题更新后的卡片”。
-            #
-            # 总结卡单独发送。
-            #
-            # 这里直接发送第4张。
-            # ------------------------------------------------
+            chat_id = None
 
             try:
-                send_summary_card(chat_id)
+                chat_id = (
+                    event.event.context.open_chat_id
+                )
             except Exception:
-                traceback.print_exc()
+
+                pass
+
+            if not chat_id:
+
+                print(
+                    "ERROR: open_chat_id not found"
+                )
+
+            else:
+
+                print(
+                    "chat_id =",
+                    chat_id,
+                )
+
+                try:
+
+                    send_summary_card(
+                        api_client,
+                        chat_id,
+                    )
+
+                except Exception as exc:
+
+                    print("=" * 70)
+                    print("SUMMARY CARD EXCEPTION")
+                    print("=" * 70)
+
+                    print(
+                        repr(exc)
+                    )
+
+                    traceback.print_exc()
 
         # ----------------------------------------------------
-        # 返回当前题目的更新卡片
+        # Return updated original card
         # ----------------------------------------------------
 
-        return make_card_callback_response(updated_card)
+        return make_card_callback_response(
+            updated_card
+        )
 
     except Exception as exc:
 
-        print("")
         print("=" * 70)
-        print("CARD ACTION HANDLER ERROR")
+        print("CARD ACTION EXCEPTION")
         print("=" * 70)
 
-        print(repr(exc))
+        print(
+            repr(exc)
+        )
+
         traceback.print_exc()
 
-        print("=" * 70)
-
-        # 出错时不要返回错误卡片，
-        # 返回 Toast 方便定位。
-        return P2CardActionTriggerResponse({
-            "toast": {
-                "type": "error",
-                "content": "处理失败，请查看 GitHub Actions 日志",
+        return P2CardActionTriggerResponse(
+            {
+                "toast": {
+                    "type": "error",
+                    "content": "处理失败，请稍后重试",
+                }
             }
-        })
+        )
 
 
 # ============================================================
-# SDK Handler
+# MAIN
 # ============================================================
 
-event_handler = (
-    lark.EventDispatcherHandler
-    .builder(
-        "",
-        "",
-        lark.LogLevel.DEBUG,
-    )
-    .register_p2_card_action_trigger(
-        do_card_action_trigger
-    )
-    .build()
-)
+def main():
 
-
-# ============================================================
-# WebSocket Client
-# ============================================================
-
-client = Client(
-    APP_ID,
-    APP_SECRET,
-    event_handler=event_handler,
-    log_level=lark.LogLevel.DEBUG,
-)
-
-
-# ============================================================
-# Main
-# ============================================================
-
-if __name__ == "__main__":
-
-    print("")
     print("=" * 70)
-    print("748686 FEISHU E2E V7.0")
+    print("748686 FEISHU E2E V7.1")
     print("=" * 70)
 
-    print("")
     print("目标：")
     print("1. 原地更新第1张题卡")
     print("2. 原地更新第2张题卡")
     print("3. 原地更新第3张题卡")
     print("4. 三题完成后发送第4张总结卡")
-    print("")
 
     print("Questions:")
 
     for q in QUESTIONS:
+
         print(
             f"  {q['question_id']} | "
             f"第 {q['number']} 题 | "
             f"答案 = {q['correct_answer']}"
         )
 
-    print("")
+    # ========================================================
+    # API CLIENT
+    # ========================================================
+
+    print()
+    print("Creating Feishu API client...")
+
+    api_client = (
+        lark.Client.builder()
+        .app_id(APP_ID)
+        .app_secret(APP_SECRET)
+        .build()
+    )
+
+    print("Feishu API client ready.")
+
+    # ========================================================
+    # EVENT HANDLER
+    # ========================================================
+
+    def callback(event):
+
+        return do_card_action_trigger(
+            event,
+            api_client,
+        )
+
+    event_handler = (
+        lark.EventDispatcherHandler.builder(
+            "",
+            "",
+            lark.LogLevel.DEBUG,
+        )
+        .register_p2_card_action_trigger(
+            callback
+        )
+        .build()
+    )
+
+    # ========================================================
+    # WEBSOCKET CLIENT
+    # ========================================================
+
+    print()
     print("Connecting to Feishu...")
-    print("")
 
-    try:
-        client.start()
+    client = Client(
+        APP_ID,
+        APP_SECRET,
+        event_handler=event_handler,
+        log_level=lark.LogLevel.DEBUG,
+    )
 
-    except KeyboardInterrupt:
-        print("")
-        print("Stopped by user.")
+    client.start()
 
-    except Exception as exc:
-        print("")
-        print("=" * 70)
-        print("FATAL ERROR")
-        print("=" * 70)
-        print(repr(exc))
-        traceback.print_exc()
-        sys.exit(1)
+
+# ============================================================
+# ENTRY
+# ============================================================
+
+if __name__ == "__main__":
+    main()
