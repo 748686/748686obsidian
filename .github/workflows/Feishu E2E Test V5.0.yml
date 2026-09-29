@@ -31,7 +31,7 @@ jobs:
           import json
           import time
           import lark_oapi as lark
-          from lark_oapi.api.card.v1 import P2CardActionTriggerResponse
+          from lark_oapi.event.callback.model.p2_card_action_trigger import P2CardActionTriggerResponse
 
 
           # ============================================================
