@@ -58,8 +58,6 @@ from lark_oapi.event.callback.model.p2_card_action_trigger import (
     CallBackCard,
 )
 
-from lark_oapi.event.dispatcher_handler import EventDispatcherHandler
-
 
 # ============================================================
 # 基础配置
@@ -101,8 +99,15 @@ STATE_FILE = Path(
     )
 )
 
-APP_ID = os.environ.get("APP_ID", "").strip()
-APP_SECRET = os.environ.get("APP_SECRET", "").strip()
+APP_ID = os.environ.get(
+    "APP_ID",
+    "",
+).strip()
+
+APP_SECRET = os.environ.get(
+    "APP_SECRET",
+    "",
+).strip()
 
 FEISHU_CHAT_NAME = os.environ.get(
     "FEISHU_CHAT_NAME",
@@ -169,17 +174,30 @@ STATE_LOCK = threading.RLock()
 
 WS_CLIENT = None
 
+RUNTIME_TOKEN = ""
+
+RUNTIME_CHAT_ID = ""
+
 
 # ============================================================
 # 通用工具
 # ============================================================
 
 def log(message: str) -> None:
-    print(message, flush=True)
+
+    print(
+        message,
+        flush=True,
+    )
 
 
 def fail(message: str) -> None:
-    print(f"❌ {message}", flush=True)
+
+    print(
+        f"❌ {message}",
+        flush=True,
+    )
+
     raise SystemExit(1)
 
 
@@ -213,7 +231,9 @@ def atomic_write_json(
     tmp.replace(path)
 
 
-def load_json(path: Path) -> Any:
+def load_json(
+    path: Path,
+) -> Any:
 
     if not path.exists():
 
@@ -239,7 +259,9 @@ def load_exam() -> None:
     global QUESTIONS
     global QUESTION_MAP
 
-    data = load_json(EXAM_JSON)
+    data = load_json(
+        EXAM_JSON
+    )
 
     QUESTIONS = data.get(
         "questions",
@@ -250,7 +272,10 @@ def load_exam() -> None:
         QUESTIONS,
         list,
     ):
-        fail("Parser JSON 的 questions 不是列表")
+
+        fail(
+            "Parser JSON 的 questions 不是列表"
+        )
 
     QUESTION_MAP = {
         q["question_id"]: q
@@ -274,20 +299,35 @@ def validate_exam() -> None:
 
     for q in QUESTIONS:
 
-        qid = q.get("question_id")
+        qid = q.get(
+            "question_id"
+        )
 
         if not qid:
-            fail("存在没有 question_id 的题目")
+
+            fail(
+                "存在没有 question_id 的题目"
+            )
 
         if qid in seen:
-            fail(f"重复 question_id: {qid}")
+
+            fail(
+                f"重复 question_id: {qid}"
+            )
 
         seen.add(qid)
 
-        qtype = q.get("type", "")
+        qtype = q.get(
+            "type",
+            "",
+        )
 
         counts[qtype] = (
-            counts.get(qtype, 0) + 1
+            counts.get(
+                qtype,
+                0,
+            )
+            + 1
         )
 
     for qtype, expected in EXPECTED_COUNTS.items():
@@ -305,11 +345,27 @@ def validate_exam() -> None:
             )
 
     log("")
-    log("=" * 70)
-    log("748686 FEISHU FULL ENGLISH EXAM V8.1")
-    log("=" * 70)
-    log(f"考试日期: {EXAM_DATE or '未指定'}")
-    log(f"总题数: {len(QUESTIONS)}")
+
+    log(
+        "=" * 70
+    )
+
+    log(
+        "748686 FEISHU FULL ENGLISH EXAM V8.1"
+    )
+
+    log(
+        "=" * 70
+    )
+
+    log(
+        f"考试日期: "
+        f"{EXAM_DATE or '未指定'}"
+    )
+
+    log(
+        f"总题数: {len(QUESTIONS)}"
+    )
 
     for qtype, expected in EXPECTED_COUNTS.items():
 
@@ -317,7 +373,9 @@ def validate_exam() -> None:
             f"  {qtype:<16} {expected}"
         )
 
-    log("=" * 70)
+    log(
+        "=" * 70
+    )
 
 
 # ============================================================
@@ -338,15 +396,22 @@ def load_adapter_module():
         ADAPTER_PATH,
     )
 
-    if spec is None or spec.loader is None:
+    if (
+        spec is None
+        or spec.loader is None
+    ):
 
-        fail("无法加载 Feishu Adapter")
+        fail(
+            "无法加载 Feishu Adapter"
+        )
 
     module = importlib.util.module_from_spec(
         spec
     )
 
-    spec.loader.exec_module(module)
+    spec.loader.exec_module(
+        module
+    )
 
     return module
 
@@ -386,12 +451,15 @@ def build_safe_exam() -> None:
         }
     )
 
-    SAFE_QUESTIONS = safe_exam.get(
-        "exam",
-        {}
-    ).get(
-        "questions",
-        []
+    SAFE_QUESTIONS = (
+        safe_exam.get(
+            "exam",
+            {},
+        )
+        .get(
+            "questions",
+            [],
+        )
     )
 
     if len(SAFE_QUESTIONS) != EXPECTED_TOTAL:
@@ -492,6 +560,7 @@ def find_chat_id(
         }
 
         if page_token:
+
             params["page_token"] = page_token
 
         response = requests.get(
@@ -517,10 +586,10 @@ def find_chat_id(
 
         for chat in data.get(
             "data",
-            {}
+            {},
         ).get(
             "items",
-            []
+            [],
         ):
 
             name = chat.get(
@@ -533,15 +602,22 @@ def find_chat_id(
                 return chat["chat_id"]
 
         page_token = (
-            data.get("data", {})
-            .get("page_token")
+            data.get(
+                "data",
+                {},
+            )
+            .get(
+                "page_token"
+            )
         )
 
         if not page_token:
+
             break
 
     fail(
-        f"没有找到飞书群: {FEISHU_CHAT_NAME}"
+        f"没有找到飞书群: "
+        f"{FEISHU_CHAT_NAME}"
     )
 
     return ""
@@ -591,40 +667,113 @@ def upload_feishu_file(
             timeout=120,
         )
 
+    # --------------------------------------------------------
+    # 诊断 Feishu HTTP 错误
+    # --------------------------------------------------------
+
     if not response.ok:
-    print()
-    print("=" * 70)
-    print("❌ 飞书文件上传失败")
-    print("=" * 70)
-    print("HTTP:", response.status_code)
-    print("URL:", response.url)
-    print("Response:", response.text)
-    print("=" * 70)
-    print()
-    response.raise_for_status()
+
+        print()
+
+        print(
+            "=" * 70
+        )
+
+        print(
+            "❌ 飞书文件上传失败"
+        )
+
+        print(
+            "=" * 70
+        )
+
+        print(
+            "HTTP:",
+            response.status_code,
+        )
+
+        print(
+            "URL:",
+            response.url,
+        )
+
+        print(
+            "Response:",
+            response.text,
+        )
+
+        print(
+            "=" * 70
+        )
+
+        print()
+
+        response.raise_for_status()
 
     result = response.json()
 
+    # --------------------------------------------------------
+    # Feishu API code 检查
+    # --------------------------------------------------------
+
     if result.get("code") != 0:
 
-        fail(
-            "上传飞书文件失败: "
-            + json.dumps(
-                result,
-                ensure_ascii=False,
-            )
+        print()
+
+        print(
+            "=" * 70
+        )
+
+        print(
+            "❌ 飞书文件上传 API 返回错误"
+        )
+
+        print(
+            "=" * 70
+        )
+
+        print(
+            "Code:",
+            result.get("code"),
+        )
+
+        print(
+            "Message:",
+            result.get("msg"),
+        )
+
+        print(
+            "Response:",
+            response.text,
+        )
+
+        print(
+            "=" * 70
+        )
+
+        print()
+
+        raise RuntimeError(
+            "Feishu file upload failed: "
+            f"code={result.get('code')}, "
+            f"msg={result.get('msg')}"
         )
 
     file_key = (
-        result.get("data", {})
-        .get("file_key")
+        result.get(
+            "data",
+            {},
+        )
+        .get(
+            "file_key"
+        )
     )
 
     if not file_key:
 
         fail(
-            f"飞书文件上传成功但没有 file_key: "
-            f"{file_path.name}"
+            "飞书文件上传成功但没有 "
+            f"file_key: {file_path.name}"
         )
 
     return file_key
@@ -637,7 +786,8 @@ def prepare_audio(
     if not EXAM_DATE:
 
         log(
-            "⚠️ 未设置 EXAM_DATE，跳过听力文件准备"
+            "⚠️ 未设置 EXAM_DATE，"
+            "跳过听力文件准备"
         )
 
         return
@@ -653,7 +803,8 @@ def prepare_audio(
     if not audio_dir.exists():
 
         log(
-            f"⚠️ 听力目录不存在: {audio_dir}"
+            f"⚠️ 听力目录不存在: "
+            f"{audio_dir}"
         )
 
         return
@@ -671,17 +822,22 @@ def prepare_audio(
         )
 
         if not candidates:
+
             continue
 
         audio_path = None
 
         for candidate in candidates:
 
-            if candidate.suffix.lower().lstrip(
-                "."
-            ) == AUDIO_FORMAT:
+            if (
+                candidate.suffix
+                .lower()
+                .lstrip(".")
+                == AUDIO_FORMAT
+            ):
 
                 audio_path = candidate
+
                 break
 
         if audio_path is None:
@@ -715,6 +871,7 @@ def md_escape(
 ) -> str:
 
     if value is None:
+
         return ""
 
     return str(value)
@@ -729,7 +886,9 @@ def question_header(
         "",
     )
 
-    return f"英语答题测试 · 第 {number} 题"
+    return (
+        f"英语答题测试 · 第 {number} 题"
+    )
 
 
 def get_option_lines(
@@ -843,6 +1002,7 @@ def build_choice_card(
             "options",
             {},
         ):
+
             continue
 
         actions.append(
@@ -864,6 +1024,12 @@ def build_choice_card(
                     }
                 ],
             }
+        )
+
+    if len(actions) < 4:
+
+        return build_error_card(
+            f"题目 {qid} 的选项不足 4 个"
         )
 
     elements.append(
@@ -962,7 +1128,7 @@ def build_multiple_card(
     elements.append(
         {
             "tag": "hr",
-        }
+        },
     )
 
     selected_text = (
@@ -1004,6 +1170,7 @@ def build_multiple_card(
             "options",
             {},
         ):
+
             continue
 
         label = (
@@ -1037,6 +1204,12 @@ def build_multiple_card(
                     }
                 ],
             }
+        )
+
+    if len(actions) < 4:
+
+        return build_error_card(
+            f"题目 {qid} 的选项不足 4 个"
         )
 
     elements.append(
@@ -1246,13 +1419,17 @@ def build_answered_card(
     if is_correct:
 
         result_text = "✅ **回答正确**"
+
         template = "green"
+
         title = "正确"
 
     else:
 
         result_text = "❌ **回答错误**"
+
         template = "red"
+
         title = "错误"
 
     elements: list[dict[str, Any]] = []
@@ -1315,7 +1492,8 @@ def build_answered_card(
             "text": {
                 "tag": "lark_md",
                 "content": (
-                    f"**你的答案：{md_escape(user_answer_text)}**"
+                    f"**你的答案："
+                    f"{md_escape(user_answer_text)}**"
                 ),
             },
         }
@@ -1337,7 +1515,8 @@ def build_answered_card(
             "text": {
                 "tag": "lark_md",
                 "content": (
-                    f"**正确答案：{md_escape(correct_answer)}**"
+                    f"**正确答案："
+                    f"{md_escape(correct_answer)}**"
                 ),
             },
         }
@@ -1453,6 +1632,7 @@ def normalize_answer(
 ) -> str:
 
     if value is None:
+
         return ""
 
     if isinstance(
@@ -1465,7 +1645,11 @@ def normalize_answer(
             for x in value
         )
 
-    value = str(value).strip().upper()
+    value = (
+        str(value)
+        .strip()
+        .upper()
+    )
 
     value = value.replace(
         "，",
@@ -1571,8 +1755,14 @@ def send_card(
         )
 
     return (
-        result.get("data", {})
-        .get("message_id", "")
+        result.get(
+            "data",
+            {},
+        )
+        .get(
+            "message_id",
+            "",
+        )
     )
 
 
@@ -1582,6 +1772,7 @@ def send_all_questions(
 ) -> None:
 
     log("")
+
     log(
         "开始发送 61 道题..."
     )
@@ -1623,13 +1814,18 @@ def send_all_questions(
             card,
         )
 
-        if index == 1 or index % 10 == 0:
+        if (
+            index == 1
+            or index % 10 == 0
+        ):
 
             log(
                 f"  已发送 {index}/61"
             )
 
-        time.sleep(0.15)
+        time.sleep(
+            0.15
+        )
 
     log(
         "✅ 61 道题全部发送完成"
@@ -1665,6 +1861,7 @@ def persist_state() -> None:
     )
 
     if not PERSIST_GITHUB:
+
         return
 
     repo_root = BASE_DIR.parent
@@ -1962,7 +2159,9 @@ def event_to_dict(
             data
         )
 
-        return json.loads(raw)
+        return json.loads(
+            raw
+        )
 
     except Exception:
 
@@ -1985,12 +2184,12 @@ def extract_action(
 
     event = payload.get(
         "event",
-        {}
+        {},
     )
 
     action = event.get(
         "action",
-        {}
+        {},
     )
 
     if not isinstance(
@@ -2011,8 +2210,13 @@ def extract_action(
     ):
 
         try:
-            value = json.loads(value)
+
+            value = json.loads(
+                value
+            )
+
         except Exception:
+
             value = {}
 
     if not isinstance(
@@ -2022,18 +2226,27 @@ def extract_action(
 
         value = {}
 
-    merged = dict(value)
+    merged = dict(
+        value
+    )
 
-    if action.get("name"):
+    if action.get(
+        "name"
+    ):
+
         merged.setdefault(
             "name",
             action["name"],
         )
 
-    if action.get("form_value") is not None:
+    if action.get(
+        "form_value"
+    ) is not None:
 
-        merged["form_value"] = action.get(
-            "form_value"
+        merged["form_value"] = (
+            action.get(
+                "form_value"
+            )
         )
 
     return merged
@@ -2083,8 +2296,6 @@ def handle_single_answer(
     answer: str,
 ) -> dict[str, Any]:
 
-    global SUMMARY_SENT
-
     question = QUESTION_MAP.get(
         question_id
     )
@@ -2093,32 +2304,14 @@ def handle_single_answer(
         question_id
     )
 
-    if not question or not safe_question:
+    if (
+        not question
+        or not safe_question
+    ):
 
-        return {
-            "schema": "2.0",
-            "config": {
-                "wide_screen_mode": True,
-            },
-            "header": {
-                "title": {
-                    "tag": "plain_text",
-                    "content": "错误",
-                },
-                "template": "red",
-            },
-            "body": {
-                "elements": [
-                    {
-                        "tag": "div",
-                        "text": {
-                            "tag": "plain_text",
-                            "content": "题目不存在",
-                        },
-                    }
-                ],
-            },
-        }
+        return build_error_card(
+            "题目不存在"
+        )
 
     with STATE_LOCK:
 
@@ -2188,13 +2381,19 @@ def handle_multiple_toggle(
 
         if answer in selected:
 
-            selected.remove(answer)
+            selected.remove(
+                answer
+            )
 
         else:
 
-            selected.add(answer)
+            selected.add(
+                answer
+            )
 
-        current = set(selected)
+        current = set(
+            selected
+        )
 
     return build_multiple_card(
         question,
@@ -2205,8 +2404,6 @@ def handle_multiple_toggle(
 def handle_multiple_submit(
     question_id: str,
 ) -> dict[str, Any]:
-
-    global SUMMARY_SENT
 
     question = QUESTION_MAP.get(
         question_id
@@ -2242,7 +2439,9 @@ def handle_multiple_submit(
         )
 
         answer = ",".join(
-            sorted(selected)
+            sorted(
+                selected
+            )
         )
 
         ANSWER_STATE[
@@ -2377,9 +2576,11 @@ def send_final_summary_once(
     with STATE_LOCK:
 
         if SUMMARY_SENT:
+
             return
 
         if not all_questions_answered():
+
             return
 
         SUMMARY_SENT = True
@@ -2404,11 +2605,6 @@ def send_final_summary_once(
 # ============================================================
 # WebSocket callback
 # ============================================================
-
-RUNTIME_TOKEN = ""
-
-RUNTIME_CHAT_ID = ""
-
 
 def do_card_action_trigger(
     data: P2CardActionTrigger,
@@ -2520,8 +2716,10 @@ def do_card_action_trigger(
         # ----------------------------------------------------
 
         elif (
-            action.get("name", "")
-            .startswith("submit_")
+            action.get(
+                "name",
+                "",
+            ).startswith("submit_")
             and qtype in {
                 "translation",
                 "writing",
@@ -2565,7 +2763,6 @@ def do_card_action_trigger(
             and all_questions_answered()
         ):
 
-            # 不阻塞当前卡片替换。
             threading.Thread(
                 target=send_final_summary_once,
                 args=(
@@ -2593,21 +2790,27 @@ def do_card_action_trigger(
         )
 
 
-def on_error(data: Any) -> None:
+def on_error(
+    data: Any,
+) -> None:
 
     log(
         f"⚠️ Feishu WebSocket error: {data}"
     )
 
 
-def on_reconnecting(data: Any) -> None:
+def on_reconnecting(
+    data: Any,
+) -> None:
 
     log(
         "🔄 Feishu WebSocket 正在重连..."
     )
 
 
-def on_reconnected(data: Any) -> None:
+def on_reconnected(
+    data: Any,
+) -> None:
 
     log(
         "✅ Feishu WebSocket 已重连"
@@ -2651,6 +2854,7 @@ def start_websocket() -> None:
 def load_existing_state() -> None:
 
     if not STATE_FILE.exists():
+
         return
 
     try:
@@ -2665,6 +2869,7 @@ def load_existing_state() -> None:
         )
 
         if saved_date != EXAM_DATE:
+
             return
 
         answers = data.get(
@@ -2676,11 +2881,13 @@ def load_existing_state() -> None:
             answers,
             dict,
         ):
+
             return
 
         for qid, value in answers.items():
 
             if qid not in QUESTION_MAP:
+
                 continue
 
             if isinstance(
@@ -2688,7 +2895,9 @@ def load_existing_state() -> None:
                 dict,
             ):
 
-                ANSWER_STATE[qid] = value
+                ANSWER_STATE[
+                    qid
+                ] = value
 
         if ANSWER_STATE:
 
@@ -2700,7 +2909,8 @@ def load_existing_state() -> None:
     except Exception as exc:
 
         log(
-            f"⚠️ 恢复状态失败，忽略旧状态: {exc}"
+            "⚠️ 恢复状态失败，"
+            f"忽略旧状态: {exc}"
         )
 
 
@@ -2732,7 +2942,8 @@ def main() -> None:
     RUNTIME_CHAT_ID = chat_id
 
     log(
-        f"✅ 找到飞书群: {FEISHU_CHAT_NAME}"
+        f"✅ 找到飞书群: "
+        f"{FEISHU_CHAT_NAME}"
     )
 
     prepare_audio(
@@ -2751,7 +2962,10 @@ def main() -> None:
     ws_thread.start()
 
     # 给长连接一点初始化时间
-    time.sleep(3)
+
+    time.sleep(
+        3
+    )
 
     log(
         "✅ WebSocket 监听线程已启动"
@@ -2778,10 +2992,22 @@ def main() -> None:
         )
 
     log("")
-    log("=" * 70)
-    log("🟢 61 题英语答题系统正在运行")
-    log("🟢 等待飞书用户提交答案")
-    log("=" * 70)
+
+    log(
+        "=" * 70
+    )
+
+    log(
+        "🟢 61 题英语答题系统正在运行"
+    )
+
+    log(
+        "🟢 等待飞书用户提交答案"
+    )
+
+    log(
+        "=" * 70
+    )
 
     # --------------------------------------------------------
     # GitHub Actions runner 保持运行
@@ -2789,13 +3015,15 @@ def main() -> None:
 
     while True:
 
-        time.sleep(30)
+        time.sleep(
+            30
+        )
 
         if all_questions_answered():
 
-            # 成绩已经发送后继续保持短时间，
-            # 防止最后一个 callback 尚未完全返回。
-            time.sleep(10)
+            time.sleep(
+                10
+            )
 
             break
 
@@ -2805,4 +3033,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+
     main()
