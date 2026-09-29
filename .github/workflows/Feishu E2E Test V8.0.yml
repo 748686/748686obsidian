@@ -1,0 +1,219 @@
+name: 748686 FEISHU FULL ENGLISH EXAM V8.0
+
+on:
+  workflow_dispatch:
+
+    inputs:
+
+      exam_date:
+        description: "考试日期，例如 2026-09-28"
+        required: true
+        default: "2026-09-28"
+
+      exam_json:
+        description: "Parser V1.6 JSON 路径"
+        required: true
+        default: "/tmp/748686_exam_parser_v1_6.json"
+
+      audio_format:
+        description: "听力音频格式"
+        required: true
+        type: choice
+        options:
+          - mp3
+          - m4a
+          - wav
+        default: mp3
+
+jobs:
+
+  feishu-full-exam:
+
+    runs-on: ubuntu-latest
+
+    # GitHub-hosted runner 单个 job 默认最多 360 分钟。
+    # 这里留足完整考试答题时间。
+    timeout-minutes: 350
+
+    steps:
+
+      # ======================================================
+      # 1. Checkout
+      # ======================================================
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+
+      # ======================================================
+      # 2. Python
+      # ======================================================
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+
+        with:
+          python-version: "3.12"
+
+
+      # ======================================================
+      # 3. 安装依赖
+      # ======================================================
+
+      - name: Install Feishu SDK
+        run: |
+
+          python -m pip install --upgrade pip
+
+          pip install -U \
+            lark-oapi \
+            requests
+
+
+      # ======================================================
+      # 4. 检查核心文件
+      # ======================================================
+
+      - name: Check Full Exam Files
+        run: |
+
+          set -e
+
+          echo
+          echo "============================================================"
+          echo "CHECK FULL FEISHU EXAM FILES"
+          echo "============================================================"
+          echo
+
+          test -f \
+            "02_英语学习系统/scripts/feishu_e2e_v7.py"
+
+          test -f \
+            "02_英语学习系统/scripts/feishu_english_exam.py"
+
+          test -f \
+            "02_英语学习系统/scripts/english_exam_grader.py"
+
+          test -f \
+            "${{ inputs.exam_json }}"
+
+          echo
+          echo "✓ feishu_e2e_v7.py"
+          echo "✓ feishu_english_exam.py"
+          echo "✓ english_exam_grader.py"
+          echo "✓ Parser JSON"
+          echo
+
+
+      # ======================================================
+      # 5. 显示考试文件
+      # ======================================================
+
+      - name: Inspect Exam JSON
+        run: |
+
+          python - <<'PY'
+
+          import json
+
+          path = "${{ inputs.exam_json }}"
+
+          with open(
+              path,
+              "r",
+              encoding="utf-8",
+          ) as f:
+
+              data = json.load(f)
+
+          questions = data.get(
+              "questions",
+              [],
+          )
+
+          print(
+              "Parser version:",
+              data.get(
+                  "version",
+                  "",
+              ),
+          )
+
+          print(
+              "Parser:",
+              data.get(
+                  "parser",
+                  "",
+              ),
+          )
+
+          print(
+              "Questions:",
+              len(questions),
+          )
+
+          if len(questions) != 61:
+
+              raise SystemExit(
+                  f"ERROR: expected 61 questions, "
+                  f"got {len(questions)}"
+              )
+
+          print(
+              "✓ Parser JSON = 61 questions"
+          )
+
+          PY
+
+
+      # ======================================================
+      # 6. 启动完整 61 题考试
+      # ======================================================
+
+      - name: Run Full Feishu English Exam V8.0
+
+        env:
+
+          APP_ID: ${{ secrets.APP_ID }}
+
+          APP_SECRET: ${{ secrets.APP_SECRET }}
+
+          EXAM_JSON: ${{ inputs.exam_json }}
+
+          EXAM_DATE: ${{ inputs.exam_date }}
+
+          AUDIO_FORMAT: ${{ inputs.audio_format }}
+
+          FEISHU_CHAT_NAME: "748686知识系统"
+
+        run: |
+
+          set -e
+
+          echo
+          echo "============================================================"
+          echo "748686 FEISHU FULL ENGLISH EXAM V8.0"
+          echo "============================================================"
+          echo
+
+          echo "考试日期："
+          echo "${EXAM_DATE}"
+
+          echo
+          echo "Parser JSON："
+          echo "${EXAM_JSON}"
+
+          echo
+          echo "听力格式："
+          echo "${AUDIO_FORMAT}"
+
+          echo
+          echo "目标群："
+          echo "${FEISHU_CHAT_NAME}"
+
+          echo
+          echo "============================================================"
+          echo
+
+          python \
+            "02_英语学习系统/scripts/feishu_e2e_v7.py"
