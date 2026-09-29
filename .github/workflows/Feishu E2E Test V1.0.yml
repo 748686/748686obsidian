@@ -1,0 +1,865 @@
+name: 02_英语学习系统 - Feishu E2E Test V1.0
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+
+  feishu-e2e-test:
+
+    runs-on: ubuntu-latest
+
+    # GitHub Hosted Runner 单 Job 最长 6 小时
+    # 本测试最多运行 30 分钟即可
+    timeout-minutes: 30
+
+    steps:
+
+      # ============================================================
+      # 1. Checkout
+      # ============================================================
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ============================================================
+      # 2. Setup Python
+      # ============================================================
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # ============================================================
+      # 3. Install SDK
+      # ============================================================
+
+      - name: Install Feishu Channel SDK
+        run: |
+          set -e
+
+          echo "============================================================"
+          echo "INSTALL FEISHU CHANNEL SDK"
+          echo "============================================================"
+
+          python -m pip install --upgrade pip
+          python -m pip install lark-channel-sdk
+
+          python - <<'PY'
+          import lark_channel
+
+          print("lark_channel import: OK")
+          print("Feishu Channel SDK: installed")
+          PY
+
+      # ============================================================
+      # 4. Start E2E Test
+      # ============================================================
+
+      - name: Run Feishu E2E Test
+        env:
+          LARK_APP_ID: ${{ secrets.APP_ID }}
+          LARK_APP_SECRET: ${{ secrets.APP_SECRET }}
+
+        run: |
+          set -e
+
+          echo "============================================================"
+          echo "748686 FEISHU E2E TEST V1.0"
+          echo "============================================================"
+
+          mkdir -p 02_英语学习系统/feishu_e2e_test
+
+          python - <<'PY'
+          import asyncio
+          import json
+          import os
+          import subprocess
+          from datetime import datetime, timezone
+
+          from lark_channel import FeishuChannel
+
+
+          # ============================================================
+          # 基础配置
+          # ============================================================
+
+          APP_ID = os.environ.get("LARK_APP_ID")
+          APP_SECRET = os.environ.get("LARK_APP_SECRET")
+
+          if not APP_ID:
+              raise RuntimeError("Missing secret: APP_ID")
+
+          if not APP_SECRET:
+              raise RuntimeError("Missing secret: APP_SECRET")
+
+
+          DATA_DIR = "02_英语学习系统/feishu_e2e_test"
+          ANSWER_FILE = os.path.join(
+              DATA_DIR,
+              "e2e_answers.json"
+          )
+
+
+          # ============================================================
+          # 3道测试题
+          # ============================================================
+
+          QUESTIONS = [
+              {
+                  "question_id": "e2e_test_001",
+                  "question_number": 1,
+                  "question": "1 + 1 = ?",
+                  "options": {
+                      "A": "1",
+                      "B": "2",
+                      "C": "3",
+                  },
+                  "correct_answer": "B",
+              },
+              {
+                  "question_id": "e2e_test_002",
+                  "question_number": 2,
+                  "question": "2 + 3 = ?",
+                  "options": {
+                      "A": "4",
+                      "B": "5",
+                      "C": "6",
+                  },
+                  "correct_answer": "B",
+              },
+              {
+                  "question_id": "e2e_test_003",
+                  "question_number": 3,
+                  "question": "5 - 2 = ?",
+                  "options": {
+                      "A": "2",
+                      "B": "3",
+                      "C": "4",
+                  },
+                  "correct_answer": "B",
+              },
+          ]
+
+
+          QUESTION_MAP = {
+              q["question_id"]: q
+              for q in QUESTIONS
+          }
+
+
+          # ============================================================
+          # 持久化
+          # ============================================================
+
+          def utc_now():
+              return datetime.now(timezone.utc).isoformat()
+
+
+          def load_answers():
+
+              if not os.path.exists(ANSWER_FILE):
+                  return {
+                      "version": "1.0",
+                      "test": "feishu_e2e",
+                      "started_at": utc_now(),
+                      "answers": {},
+                      "result": None,
+                  }
+
+              try:
+                  with open(
+                      ANSWER_FILE,
+                      "r",
+                      encoding="utf-8"
+                  ) as f:
+                      return json.load(f)
+
+              except Exception:
+                  return {
+                      "version": "1.0",
+                      "test": "feishu_e2e",
+                      "started_at": utc_now(),
+                      "answers": {},
+                      "result": None,
+                  }
+
+
+          state = load_answers()
+
+
+          def save_answers():
+
+              tmp_file = ANSWER_FILE + ".tmp"
+
+              with open(
+                  tmp_file,
+                  "w",
+                  encoding="utf-8"
+              ) as f:
+
+                  json.dump(
+                      state,
+                      f,
+                      ensure_ascii=False,
+                      indent=2
+                  )
+
+              os.replace(
+                  tmp_file,
+                  ANSWER_FILE
+              )
+
+
+          # ============================================================
+          # Git 持久化
+          # ============================================================
+
+          def git_persist(message):
+
+              try:
+
+                  subprocess.run(
+                      [
+                          "git",
+                          "config",
+                          "user.name",
+                          "github-actions[bot]"
+                      ],
+                      check=True
+                  )
+
+                  subprocess.run(
+                      [
+                          "git",
+                          "config",
+                          "user.email",
+                          "41898282+github-actions[bot]@users.noreply.github.com"
+                      ],
+                      check=True
+                  )
+
+                  subprocess.run(
+                      [
+                          "git",
+                          "add",
+                          ANSWER_FILE
+                      ],
+                      check=True
+                  )
+
+                  result = subprocess.run(
+                      [
+                          "git",
+                          "diff",
+                          "--cached",
+                          "--quiet"
+                      )
+
+                  if result.returncode == 0:
+                      print("No Git changes to commit.")
+                      return
+
+                  subprocess.run(
+                      [
+                          "git",
+                          "commit",
+                          "-m",
+                          message
+                      ],
+                      check=True
+                  )
+
+                  subprocess.run(
+                      [
+                          "git",
+                          "push"
+                      ],
+                      check=True
+                  )
+
+                  print("Persistent storage: Git push SUCCESS")
+
+              except Exception as e:
+
+                  print(
+                      "WARNING: Git persistence failed:",
+                      repr(e)
+                  )
+
+                  # 不让答题流程因为 Git 暂时失败直接崩溃
+                  # 当前进程仍然保留答案
+                  # 后续可以继续处理
+
+
+          # ============================================================
+          # 保存启动状态
+          # ============================================================
+
+          save_answers()
+
+          print()
+          print("============================================================")
+          print("748686 FEISHU E2E TEST V1.0")
+          print("============================================================")
+          print()
+          print("Questions:", len(QUESTIONS))
+          print("Persistent file:", ANSWER_FILE)
+          print()
+
+
+          # ============================================================
+          # 构造单题卡片
+          # ============================================================
+
+          def build_question_card(q):
+
+              elements = []
+
+              elements.append(
+                  {
+                      "tag": "markdown",
+                      "content":
+                          f"### 第 {q['question_number']} 题\n\n"
+                          f"**{q['question']}**"
+                  }
+              )
+
+              for letter in ["A", "B", "C"]:
+
+                  elements.append(
+                      {
+                          "tag": "button",
+                          "text": {
+                              "tag": "plain_text",
+                              "content":
+                                  f"{letter}. {q['options'][letter]}"
+                          },
+                          "type": "default",
+                          "action_type": "callback",
+                          "value": {
+                              "question_id": q["question_id"],
+                              "answer": letter,
+                          }
+                      }
+                  )
+
+              return {
+                  "schema": "2.0",
+                  "header": {
+                      "title": {
+                          "tag": "plain_text",
+                          "content":
+                              f"748686 E2E 测试 · 第 {q['question_number']} 题"
+                      },
+                      "template": "blue"
+                  },
+                  "body": {
+                      "elements": elements
+                  }
+              }
+
+
+          # ============================================================
+          # 注意
+          #
+          # 这里使用 SDK 的卡片回调机制接收点击。
+          #
+          # 本 E2E 测试的核心验证并不是“发送卡片”本身，
+          # 而是：
+          #
+          # 飞书按钮
+          #    ↓
+          # cardAction
+          #    ↓
+          # question_id
+          #    ↓
+          # answer
+          #    ↓
+          # 持久化
+          # ============================================================
+
+
+          async def send_test_cards(channel):
+
+              print()
+              print("============================================================")
+              print("TEST QUESTIONS")
+              print("============================================================")
+
+              for q in QUESTIONS:
+
+                  print(
+                      f"Question {q['question_number']}: "
+                      f"{q['question_id']}"
+                  )
+
+                  print(
+                      "Question:",
+                      q["question"]
+                  )
+
+                  print()
+
+
+              print("============================================================")
+              print("IMPORTANT")
+              print("============================================================")
+              print()
+              print("本测试使用当前已经验证成功的 Feishu Long Connection。")
+              print()
+              print("请在飞书中完成 3 道测试题。")
+              print()
+              print("推荐答案：")
+              print("B")
+              print("B")
+              print("B")
+              print()
+
+
+          # ============================================================
+          # 卡片点击处理
+          # ============================================================
+
+          async def on_card_action(event):
+
+              print()
+              print()
+              print("=" * 70)
+              print("748686 FEISHU CARD ACTION RECEIVED")
+              print("=" * 70)
+
+              try:
+
+                  print(
+                      "RAW EVENT:"
+                  )
+
+                  print(
+                      json.dumps(
+                          event,
+                          ensure_ascii=False,
+                          indent=2,
+                          default=str
+                      )
+                  )
+
+              except Exception as e:
+
+                  print(
+                      "RAW EVENT PRINT ERROR:",
+                      repr(e)
+                  )
+
+
+              # --------------------------------------------------------
+              # 尝试从事件中提取 value
+              # --------------------------------------------------------
+
+              value = None
+
+              try:
+
+                  if isinstance(event, dict):
+
+                      # 常见结构
+                      if isinstance(
+                          event.get("action"),
+                          dict
+                      ):
+
+                          value = event["action"].get(
+                              "value"
+                          )
+
+                      # 某些 SDK 结构可能嵌套在 data
+                      if value is None:
+
+                          data = event.get("data")
+
+                          if isinstance(data, dict):
+
+                              action = data.get(
+                                  "action"
+                              )
+
+                              if isinstance(action, dict):
+
+                                  value = action.get(
+                                      "value"
+                                  )
+
+              except Exception as e:
+
+                  print(
+                      "VALUE PARSE ERROR:",
+                      repr(e)
+                  )
+
+
+              print()
+              print("PARSED ACTION VALUE:")
+              print(
+                  json.dumps(
+                      value,
+                      ensure_ascii=False,
+                      indent=2,
+                      default=str
+                  )
+              )
+
+
+              # --------------------------------------------------------
+              # 解析题号和答案
+              # --------------------------------------------------------
+
+              question_id = None
+              answer = None
+
+              if isinstance(value, dict):
+
+                  question_id = value.get(
+                      "question_id"
+                  )
+
+                  answer = value.get(
+                      "answer"
+                  )
+
+
+              print()
+              print("QUESTION ID:", question_id)
+              print("ANSWER:", answer)
+
+
+              # --------------------------------------------------------
+              # 验证题目
+              # --------------------------------------------------------
+
+              if question_id not in QUESTION_MAP:
+
+                  print()
+                  print(
+                      "WARNING: Unknown question_id"
+                  )
+
+                  return {
+                      "toast": {
+                          "type": "warning",
+                          "content":
+                              "未知测试题"
+                      }
+                  }
+
+
+              q = QUESTION_MAP[question_id]
+
+
+              if answer not in q["options"]:
+
+                  print()
+                  print(
+                      "WARNING: Invalid answer"
+                  )
+
+                  return {
+                      "toast": {
+                          "type": "warning",
+                          "content":
+                              "无效答案"
+                      }
+                  }
+
+
+              # --------------------------------------------------------
+              # 防止重复提交
+              # --------------------------------------------------------
+
+              if question_id in state["answers"]:
+
+                  old_answer = state["answers"][
+                      question_id
+                  ].get("answer")
+
+                  print()
+                  print(
+                      "DUPLICATE ANSWER"
+                  )
+
+                  print(
+                      "Existing:",
+                      old_answer
+                  )
+
+                  print(
+                      "New:",
+                      answer
+                  )
+
+                  return {
+                      "toast": {
+                          "type": "info",
+                          "content":
+                              f"第 {q['question_number']} 题已经回答"
+                      }
+                  }
+
+
+              # --------------------------------------------------------
+              # 判断
+              # --------------------------------------------------------
+
+              correct = (
+                  answer == q["correct_answer"]
+              )
+
+
+              # --------------------------------------------------------
+              # 立即写入持久化状态
+              # --------------------------------------------------------
+
+              state["answers"][question_id] = {
+
+                  "question_id":
+                      question_id,
+
+                  "question_number":
+                      q["question_number"],
+
+                  "answer":
+                      answer,
+
+                  "correct":
+                      correct,
+
+                  "received_at":
+                      utc_now(),
+              }
+
+
+              save_answers()
+
+
+              print()
+              print(
+                  "ANSWER PERSISTED LOCALLY"
+              )
+
+
+              # --------------------------------------------------------
+              # 立即 Git 持久化
+              # --------------------------------------------------------
+
+              git_persist(
+                  f"Feishu E2E answer: {question_id}"
+              )
+
+
+              # --------------------------------------------------------
+              # 当前答题进度
+              # --------------------------------------------------------
+
+              answered = len(
+                  state["answers"]
+              )
+
+              total = len(
+                  QUESTIONS
+              )
+
+
+              print()
+              print(
+                  f"PROGRESS: {answered}/{total}"
+              )
+
+
+              # --------------------------------------------------------
+              # 如果全部完成，计算成绩
+              # --------------------------------------------------------
+
+              if answered >= total:
+
+                  correct_count = sum(
+                      1
+                      for item
+                      in state["answers"].values()
+                      if item.get("correct")
+                  )
+
+                  score = int(
+                      correct_count
+                      / total
+                      * 100
+                  )
+
+
+                  state["result"] = {
+
+                      "completed_at":
+                          utc_now(),
+
+                      "total":
+                          total,
+
+                      "correct":
+                          correct_count,
+
+                      "wrong":
+                          total - correct_count,
+
+                      "score":
+                          score,
+                  }
+
+
+                  save_answers()
+
+
+                  git_persist(
+                      "Feishu E2E test completed"
+                  )
+
+
+                  print()
+                  print("=" * 70)
+                  print("748686 FEISHU E2E TEST COMPLETED")
+                  print("=" * 70)
+
+                  print(
+                      f"RESULT: "
+                      f"{correct_count}/{total}"
+                  )
+
+                  print(
+                      f"SCORE: "
+                      f"{score}/100"
+                  )
+
+                  print("=" * 70)
+                  print()
+
+
+                  return {
+                      "toast": {
+                          "type": "success",
+                          "content":
+                              f"测试完成：{correct_count}/{total}，{score}分"
+                      }
+                  }
+
+
+              # --------------------------------------------------------
+              # 尚未完成
+              # --------------------------------------------------------
+
+              remaining = total - answered
+
+              return {
+                  "toast": {
+                      "type": "success",
+                      "content":
+                          f"第 {q['question_number']} 题已记录，还剩 {remaining} 题"
+                  }
+              }
+
+
+          # ============================================================
+          # 错误处理
+          # ============================================================
+
+          async def on_error(error):
+
+              print()
+              print("=" * 70)
+              print("FEISHU CHANNEL ERROR")
+              print("=" * 70)
+
+              print(
+                  repr(error)
+              )
+
+              print()
+
+
+          async def on_reconnecting():
+
+              print()
+              print("=" * 70)
+              print("FEISHU RECONNECTING")
+              print("=" * 70)
+              print()
+
+
+          async def on_reconnected():
+
+              print()
+              print("=" * 70)
+              print("FEISHU RECONNECTED")
+              print("=" * 70)
+              print()
+
+
+          # ============================================================
+          # 主程序
+          # ============================================================
+
+          async def main():
+
+              channel = FeishuChannel(
+                  app_id=APP_ID,
+                  app_secret=APP_SECRET,
+              )
+
+
+              # --------------------------------------------------------
+              # 核心：使用已经验证成功的 cardAction
+              # --------------------------------------------------------
+
+              channel.on(
+                  "cardAction",
+                  on_card_action
+              )
+
+              channel.on(
+                  "error",
+                  on_error
+              )
+
+              channel.on(
+                  "reconnecting",
+                  on_reconnecting
+              )
+
+              channel.on(
+                  "reconnected",
+                  on_reconnected
+              )
+
+
+              print()
+              print("Registered event handlers:")
+              print("  - cardAction")
+              print("  - error")
+              print("  - reconnecting")
+              print("  - reconnected")
+              print()
+
+
+              print(
+                  "Connecting..."
+              )
+
+              print()
+
+
+              await channel.connect()
+
+
+          asyncio.run(main())
+
+          PY
