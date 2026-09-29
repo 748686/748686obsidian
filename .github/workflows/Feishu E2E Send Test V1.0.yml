@@ -1,4 +1,4 @@
-name: 02_英语学习系统 - Feishu E2E Send Test V1.1
+name: 02_英语学习系统 - Feishu E2E Send Test V1.2
 
 on:
   workflow_dispatch:
@@ -14,16 +14,8 @@ jobs:
 
     steps:
 
-      # ============================================================
-      # 1. Checkout
-      # ============================================================
-
       - name: Checkout
         uses: actions/checkout@v4
-
-      # ============================================================
-      # 2. Send E2E Questions
-      # ============================================================
 
       - name: Send E2E Questions to Feishu
         env:
@@ -34,7 +26,7 @@ jobs:
           set -e
 
           echo "============================================================"
-          echo "748686 FEISHU E2E SEND TEST V1.1"
+          echo "748686 FEISHU E2E SEND TEST V1.2"
           echo "============================================================"
 
           if [ -z "$APP_ID" ]; then
@@ -47,16 +39,11 @@ jobs:
             exit 1
           fi
 
-          echo
-          echo "APP_ID: loaded"
-          echo "APP_SECRET: loaded"
-          echo
-
           # ==========================================================
-          # STEP 1
-          # 获取 tenant_access_token
+          # STEP 1 | 获取 token
           # ==========================================================
 
+          echo
           echo "============================================================"
           echo "STEP 1 | GET TENANT ACCESS TOKEN"
           echo "============================================================"
@@ -70,8 +57,6 @@ jobs:
               \"app_secret\": \"$APP_SECRET\"
             }")
 
-          echo "$TOKEN_RESPONSE" | python -m json.tool
-
           TOKEN=$(echo "$TOKEN_RESPONSE" | python -c '
           import json
           import sys
@@ -79,27 +64,19 @@ jobs:
           data = json.load(sys.stdin)
 
           if data.get("code") != 0:
-              print("TOKEN ERROR:", data, file=sys.stderr)
+              print(data, file=sys.stderr)
               raise SystemExit(1)
 
-          token = data.get("tenant_access_token")
-
-          if not token:
-              print("Missing tenant_access_token", file=sys.stderr)
-              raise SystemExit(1)
-
-          print(token)
+          print(data["tenant_access_token"])
           ')
 
-          echo
           echo "tenant_access_token: loaded"
+
+          # ==========================================================
+          # STEP 2 | 找群
+          # ==========================================================
+
           echo
-
-          # ==========================================================
-          # STEP 2
-          # 获取群聊
-          # ==========================================================
-
           echo "============================================================"
           echo "STEP 2 | FIND CHAT"
           echo "============================================================"
@@ -110,8 +87,6 @@ jobs:
             -H "Authorization: Bearer $TOKEN" \
             -H "Content-Type: application/json; charset=utf-8")
 
-          echo "$CHAT_RESPONSE" | python -m json.tool
-
           CHAT_ID=$(echo "$CHAT_RESPONSE" | python -c '
           import json
           import sys
@@ -119,35 +94,21 @@ jobs:
           data = json.load(sys.stdin)
 
           if data.get("code") != 0:
-              print("CHAT LIST ERROR:", data, file=sys.stderr)
+              print(data, file=sys.stderr)
               raise SystemExit(1)
 
-          target = "748686知识系统"
-
           for item in data.get("data", {}).get("items", []):
-              if item.get("name") == target:
-                  print(item.get("chat_id"))
+              if item.get("name") == "748686知识系统":
+                  print(item["chat_id"])
                   raise SystemExit(0)
 
-          print(
-              f"Chat not found: {target}",
-              file=sys.stderr
-          )
-
-          raise SystemExit(1)
+          raise SystemExit("Chat not found")
           ')
 
-          if [ -z "$CHAT_ID" ]; then
-            echo "❌ CHAT_ID is empty"
-            exit 1
-          fi
-
-          echo
           echo "CHAT_ID: $CHAT_ID"
-          echo
 
           # ==========================================================
-          # 函数：发送一道测试题
+          # 函数：发送一道题
           # ==========================================================
 
           send_question() {
@@ -163,10 +124,6 @@ jobs:
             echo "============================================================"
             echo "SEND QUESTION $QUESTION_NUMBER"
             echo "============================================================"
-
-            # --------------------------------------------------------
-            # 直接由 Python 生成完整的 message body JSON
-            # --------------------------------------------------------
 
             python - \
               "$QUESTION_ID" \
@@ -187,71 +144,72 @@ jobs:
           option_b = sys.argv[5]
           option_c = sys.argv[6]
 
+
+          def make_button(letter, text):
+
+              return {
+                  "tag": "button",
+
+                  "text": {
+                      "tag": "plain_text",
+                      "content": f"{letter}. {text}"
+                  },
+
+                  "type": "default",
+
+                  "behaviors": [
+                      {
+                          "type": "callback",
+                          "value": {
+                              "question_id": question_id,
+                              "answer": letter
+                          }
+                      }
+                  ]
+              }
+
+
           card = {
               "schema": "2.0",
 
               "header": {
                   "title": {
                       "tag": "plain_text",
-                      "content": f"748686 E2E 测试 · 第 {question_number} 题"
+                      "content":
+                          f"748686 E2E 测试 · 第 {question_number} 题"
                   },
                   "template": "blue"
               },
 
               "body": {
                   "elements": [
+
                       {
                           "tag": "markdown",
-                          "content": (
+                          "content":
                               f"### 第 {question_number} 题\n\n"
                               f"**{question_text}**"
-                          )
                       },
 
-                      {
-                          "tag": "button",
-                          "text": {
-                              "tag": "plain_text",
-                              "content": f"A. {option_a}"
-                          },
-                          "type": "default",
-                          "action_type": "callback",
-                          "value": {
-                              "question_id": question_id,
-                              "answer": "A"
-                          }
-                      },
+                      make_button(
+                          "A",
+                          option_a
+                      ),
 
-                      {
-                          "tag": "button",
-                          "text": {
-                              "tag": "plain_text",
-                              "content": f"B. {option_b}"
-                          },
-                          "type": "default",
-                          "action_type": "callback",
-                          "value": {
-                              "question_id": question_id,
-                              "answer": "B"
-                          }
-                      },
+                      make_button(
+                          "B",
+                          option_b
+                      ),
 
-                      {
-                          "tag": "button",
-                          "text": {
-                              "tag": "plain_text",
-                              "content": f"C. {option_c}"
-                          },
-                          "type": "default",
-                          "action_type": "callback",
-                          "value": {
-                              "question_id": question_id,
-                              "answer": "C"
-                          }
-                      }
+                      make_button(
+                          "C",
+                          option_c
+                      )
+
                   ]
               }
           }
+
 
           message = {
               "receive_id": "",
@@ -261,6 +219,7 @@ jobs:
                   ensure_ascii=False
               )
           }
+
 
           print(
               json.dumps(
@@ -272,7 +231,7 @@ jobs:
           PY
 
             # --------------------------------------------------------
-            # 注入 receive_id
+            # 写入 chat_id
             # --------------------------------------------------------
 
             python - "$CHAT_ID" <<'PY'
@@ -287,6 +246,7 @@ jobs:
               "r",
               encoding="utf-8"
           ) as f:
+
               data = json.load(f)
 
           data["receive_id"] = chat_id
@@ -296,6 +256,7 @@ jobs:
               "w",
               encoding="utf-8"
           ) as f:
+
               json.dump(
                   data,
                   f,
@@ -305,19 +266,20 @@ jobs:
           PY
 
             # --------------------------------------------------------
-            # 显示发送结构
-            # 不显示 token
+            # 显示 JSON
             # --------------------------------------------------------
 
             echo
             echo "MESSAGE BODY:"
-            cat /tmp/feishu_message.json | python -m json.tool
+
+            cat /tmp/feishu_message.json \
+              | python -m json.tool
 
             # --------------------------------------------------------
             # 发送
             # --------------------------------------------------------
 
-            MESSAGE_RESPONSE=$(curl -sS \
+            RESPONSE=$(curl -sS \
               -X POST \
               "https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=chat_id" \
               -H "Authorization: Bearer $TOKEN" \
@@ -326,18 +288,19 @@ jobs:
 
             echo
             echo "FEISHU RESPONSE:"
-            echo "$MESSAGE_RESPONSE" | python -m json.tool
+
+            echo "$RESPONSE" \
+              | python -m json.tool
 
             # --------------------------------------------------------
-            # 检查 code
+            # 检查
             # --------------------------------------------------------
 
-            CODE=$(echo "$MESSAGE_RESPONSE" | python -c '
+            CODE=$(echo "$RESPONSE" | python -c '
           import json
           import sys
 
           data = json.load(sys.stdin)
-
           print(data.get("code", -1))
           ')
 
@@ -358,8 +321,7 @@ jobs:
 
 
           # ==========================================================
-          # STEP 3
-          # 发送三道题
+          # STEP 3 | 三道测试题
           # ==========================================================
 
           send_question \
@@ -401,14 +363,8 @@ jobs:
           echo
           echo "请打开飞书：748686知识系统"
           echo
-          echo "然后依次点击："
-          echo
+          echo "依次点击："
           echo "第 1 题 → B"
           echo "第 2 题 → B"
           echo "第 3 题 → B"
-          echo
-          echo "再回到："
-          echo "Feishu E2E Test V1.0"
-          echo
-          echo "查看 CARD ACTION 日志。"
           echo
