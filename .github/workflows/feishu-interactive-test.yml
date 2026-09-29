@@ -1,10 +1,13 @@
-name: 02_英语学习系统 - 飞书交互测试 V2.0
+name: 02_英语学习系统 - 飞书交互测试 V2.1
 
 on:
+
   workflow_dispatch:
+
 
 permissions:
   contents: read
+
 
 jobs:
 
@@ -15,61 +18,55 @@ jobs:
     steps:
 
       # ============================================================
-      # 1. 测试信息
+      # 1. 检查 Secrets
       # ============================================================
 
-      - name: 显示测试信息
-        run: |
-          set -e
+      - name: Check Feishu Secrets
 
-          echo "============================================================"
-          echo "748686 FEISHU INTERACTIVE TEST V2.0"
-          echo "============================================================"
-          echo
-          echo "测试目标："
-          echo "GitHub Actions → 飞书消息卡片 → 卡片交互"
-          echo
-          echo "测试问题："
-          echo "1 + 1 = ?"
-          echo
-          echo "正确答案：B"
-          echo
-          echo "============================================================"
-
-
-      # ============================================================
-      # 2. 检查 Webhook
-      # ============================================================
-
-      - name: 检查飞书 Webhook
         env:
-          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+          APP_ID: ${{ secrets.APP_ID }}
+          APP_SECRET: ${{ secrets.APP_SECRET }}
 
         run: |
+
           set -e
 
-          if [ -z "$FEISHU_WEBHOOK" ]; then
-            echo "❌ FEISHU_WEBHOOK 未配置"
+          echo
+          echo "============================================================"
+          echo "CHECK FEISHU APP CONFIGURATION"
+          echo "============================================================"
+
+          if [ -z "$APP_ID" ]; then
+            echo "❌ APP_ID 未配置"
             exit 1
           fi
 
-          echo "✅ FEISHU_WEBHOOK 已配置"
+          if [ -z "$APP_SECRET" ]; then
+            echo "❌ APP_SECRET 未配置"
+            exit 1
+          fi
+
+          echo "✅ APP_ID 已配置"
+          echo "✅ APP_SECRET 已配置"
 
 
       # ============================================================
-      # 3. 发送交互式卡片
+      # 2. 通过 APP_ID / APP_SECRET 获取 tenant_access_token
       # ============================================================
 
-      - name: 发送飞书交互测试卡片
+      - name: Get Feishu Tenant Access Token
+
         env:
-          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+          APP_ID: ${{ secrets.APP_ID }}
+          APP_SECRET: ${{ secrets.APP_SECRET }}
 
         run: |
+
           set -e
 
           echo
           echo "============================================================"
-          echo "SEND FEISHU INTERACTIVE CARD V2.0"
+          echo "GET FEISHU TENANT ACCESS TOKEN"
           echo "============================================================"
 
           python - <<'PY'
@@ -81,157 +78,31 @@ jobs:
           import urllib.error
 
 
-          webhook = os.environ["FEISHU_WEBHOOK"]
+          app_id = os.environ["APP_ID"]
+          app_secret = os.environ["APP_SECRET"]
 
 
-          # ========================================================
-          # 飞书消息卡片
-          # ========================================================
-
-          card = {
-
-              "schema": "2.0",
-
-              "config": {
-                  "wide_screen_mode": True
-              },
-
-              "header": {
-                  "title": {
-                      "tag": "plain_text",
-                      "content": "🧪 748686 飞书交互测试 V2.0"
-                  },
-                  "template": "blue"
-              },
-
-              "body": {
-
-                  "direction": "vertical",
-
-                  "padding": "12px",
-
-                  "elements": [
-
-                      # ------------------------------------------------
-                      # 测试说明
-                      # ------------------------------------------------
-
-                      {
-                          "tag": "markdown",
-                          "content": (
-                              "**测试目标**\n"
-                              "验证飞书消息卡片按钮是否能够产生 "
-                              "`card.action.trigger` 交互事件。\n\n"
-                              "**问题：1 + 1 = ?**"
-                          )
-                      },
-
-                      # ------------------------------------------------
-                      # A / B / C 按钮
-                      #
-                      # 使用 action 容器承载按钮
-                      # ------------------------------------------------
-
-                      {
-                          "tag": "action",
-
-                          "actions": [
-
-                              {
-                                  "tag": "button",
-
-                                  "text": {
-                                      "tag": "plain_text",
-                                      "content": "A. 1"
-                                  },
-
-                                  "type": "default",
-
-                                  "value": {
-                                      "question_id": "interactive_test_001",
-                                      "answer": "A"
-                                  }
-                              },
-
-                              {
-                                  "tag": "button",
-
-                                  "text": {
-                                      "tag": "plain_text",
-                                      "content": "B. 2"
-                                  },
-
-                                  "type": "primary",
-
-                                  "value": {
-                                      "question_id": "interactive_test_001",
-                                      "answer": "B"
-                                  }
-                              },
-
-                              {
-                                  "tag": "button",
-
-                                  "text": {
-                                      "tag": "plain_text",
-                                      "content": "C. 3"
-                                  },
-
-                                  "type": "default",
-
-                                  "value": {
-                                      "question_id": "interactive_test_001",
-                                      "answer": "C"
-                                  }
-                              }
-
-                          ]
-                      },
-
-                      # ------------------------------------------------
-                      # 操作提示
-                      # ------------------------------------------------
-
-                      {
-                          "tag": "markdown",
-                          "content": (
-                              "👉 **请点击 B. 2**\n\n"
-                              "点击后，GitHub Actions 中的长连接程序 "
-                              "应该收到 `cardAction` 事件。"
-                          )
-                      }
-
-                  ]
-              }
-          }
+          url = (
+              "https://open.feishu.cn"
+              "/open-apis/auth/v3/tenant_access_token/internal"
+          )
 
 
           payload = {
-              "msg_type": "interactive",
-              "card": card
+              "app_id": app_id,
+              "app_secret": app_secret
           }
 
 
-          # ========================================================
-          # HTTP POST
-          # ========================================================
-
-          data = json.dumps(
-              payload,
-              ensure_ascii=False
-          ).encode("utf-8")
+          data = json.dumps(payload).encode("utf-8")
 
 
           request = urllib.request.Request(
-
-              webhook,
-
+              url,
               data=data,
-
               headers={
                   "Content-Type": "application/json; charset=utf-8"
               },
-
               method="POST"
           )
 
@@ -243,45 +114,588 @@ jobs:
                   timeout=30
               ) as response:
 
-                  status = response.status
+                  http_status = response.status
 
                   body = response.read().decode(
                       "utf-8",
                       errors="replace"
                   )
 
-                  print()
-                  print("HTTP STATUS:", status)
-                  print()
-                  print("FEISHU RESPONSE:")
-                  print(body)
-                  print()
-
-                  if status < 200 or status >= 300:
-
-                      print(
-                          "❌ 飞书 Webhook 请求失败"
-                      )
-
-                      sys.exit(1)
-
 
           except urllib.error.HTTPError as e:
 
-              print()
-              print(
-                  "❌ HTTP ERROR:",
-                  e.code
-              )
+              print("❌ HTTP ERROR:", e.code)
 
               try:
-
                   print(
                       e.read().decode(
                           "utf-8",
                           errors="replace"
                       )
                   )
+              except Exception:
+                  pass
+
+              sys.exit(1)
+
+
+          print("HTTP STATUS:", http_status)
+
+
+          try:
+              result = json.loads(body)
+          except Exception:
+
+              print("❌ 飞书返回不是合法 JSON")
+              print(body)
+
+              sys.exit(1)
+
+
+          code = result.get("code")
+
+
+          if code != 0:
+
+              print()
+              print("❌ 获取 tenant_access_token 失败")
+              print("CODE:", code)
+              print("MSG:", result.get("msg"))
+
+              sys.exit(1)
+
+
+          token = result.get("tenant_access_token")
+
+
+          if not token:
+
+              print("❌ tenant_access_token 不存在")
+
+              sys.exit(1)
+
+
+          # 不把 token 打到日志
+          with open(
+              "/tmp/feishu_tenant_access_token",
+              "w",
+              encoding="utf-8"
+          ) as f:
+
+              f.write(token)
+
+
+          print("✅ tenant_access_token 获取成功")
+
+          PY
+
+
+      # ============================================================
+      # 3. 获取机器人所在群
+      #
+      # 使用应用身份查询群列表。
+      # ============================================================
+
+      - name: Find Target Feishu Chat
+
+        run: |
+
+          set -e
+
+          echo
+          echo "============================================================"
+          echo "FIND TARGET FEISHU CHAT"
+          echo "============================================================"
+
+
+          python - <<'PY'
+
+          import json
+          import sys
+          import urllib.request
+          import urllib.error
+
+
+          with open(
+              "/tmp/feishu_tenant_access_token",
+              "r",
+              encoding="utf-8"
+          ) as f:
+
+              token = f.read().strip()
+
+
+          url = (
+              "https://open.feishu.cn"
+              "/open-apis/im/v1/chats"
+              "?page_size=100"
+          )
+
+
+          request = urllib.request.Request(
+
+              url,
+
+              headers={
+                  "Authorization": f"Bearer {token}",
+                  "Content-Type": "application/json; charset=utf-8"
+              },
+
+              method="GET"
+          )
+
+
+          try:
+
+              with urllib.request.urlopen(
+                  request,
+                  timeout=30
+              ) as response:
+
+                  http_status = response.status
+
+                  body = response.read().decode(
+                      "utf-8",
+                      errors="replace"
+                  )
+
+
+          except urllib.error.HTTPError as e:
+
+              print("❌ HTTP ERROR:", e.code)
+
+              try:
+                  print(
+                      e.read().decode(
+                          "utf-8",
+                          errors="replace"
+                      )
+                  )
+              except Exception:
+                  pass
+
+              sys.exit(1)
+
+
+          print("HTTP STATUS:", http_status)
+
+
+          try:
+
+              result = json.loads(body)
+
+          except Exception:
+
+              print("❌ 飞书返回不是合法 JSON")
+              print(body)
+
+              sys.exit(1)
+
+
+          code = result.get("code")
+
+
+          if code != 0:
+
+              print()
+              print("❌ 获取群列表失败")
+              print("CODE:", code)
+              print("MSG:", result.get("msg"))
+
+              sys.exit(1)
+
+
+          items = (
+              result
+              .get("data", {})
+              .get("items", [])
+          )
+
+
+          print()
+          print("发现群数量:", len(items))
+          print()
+
+
+          # --------------------------------------------------------
+          # 查找目标群
+          # --------------------------------------------------------
+
+          target = None
+
+
+          for item in items:
+
+              name = item.get("name", "")
+
+              chat_id = item.get("chat_id", "")
+
+
+              print(
+                  "群:",
+                  name,
+                  "| chat_id:",
+                  chat_id
+              )
+
+
+              if name == "748686知识系统":
+
+                  target = item
+
+
+          # --------------------------------------------------------
+          # 找不到目标群
+          # --------------------------------------------------------
+
+          if target is None:
+
+              print()
+              print(
+                  "❌ 没有找到名为「748686知识系统」的群。"
+              )
+
+              print()
+              print(
+                  "请确认："
+              )
+
+              print(
+                  "1. 748686知识系统 应用机器人已经加入该群"
+              )
+
+              print(
+                  "2. 应用机器人拥有群发言权限"
+              )
+
+              print(
+                  "3. 群名称确实是 748686知识系统"
+              )
+
+              sys.exit(1)
+
+
+          target_chat_id = target.get("chat_id")
+
+
+          if not target_chat_id:
+
+              print("❌ 找到了目标群，但没有 chat_id")
+
+              sys.exit(1)
+
+
+          # 只写文件，不在后续日志暴露不必要信息
+          with open(
+              "/tmp/feishu_chat_id",
+              "w",
+              encoding="utf-8"
+          ) as f:
+
+              f.write(target_chat_id)
+
+
+          print()
+          print(
+              "✅ 找到目标群：748686知识系统"
+          )
+
+          print(
+              "✅ chat_id 已获取"
+          )
+
+          PY
+
+
+      # ============================================================
+      # 4. 发送真正的 Schema 2.0 交互卡片
+      # ============================================================
+
+      - name: Send Feishu Interactive Card V2.1
+
+        run: |
+
+          set -e
+
+          echo
+          echo "============================================================"
+          echo "SEND FEISHU INTERACTIVE CARD V2.1"
+          echo "============================================================"
+
+
+          python - <<'PY'
+
+          import json
+          import sys
+          import urllib.request
+          import urllib.error
+
+
+          # --------------------------------------------------------
+          # 读取 token
+          # --------------------------------------------------------
+
+          with open(
+              "/tmp/feishu_tenant_access_token",
+              "r",
+              encoding="utf-8"
+          ) as f:
+
+              token = f.read().strip()
+
+
+          # --------------------------------------------------------
+          # 读取 chat_id
+          # --------------------------------------------------------
+
+          with open(
+              "/tmp/feishu_chat_id",
+              "r",
+              encoding="utf-8"
+          ) as f:
+
+              chat_id = f.read().strip()
+
+
+          # --------------------------------------------------------
+          # Schema 2.0 卡片
+          #
+          # 注意：
+          # 不再使用 tag=action
+          # 按钮直接作为 body.elements
+          # --------------------------------------------------------
+
+          card = {
+
+              "schema": "2.0",
+
+              "config": {
+                  "wide_screen_mode": True
+              },
+
+              "header": {
+
+                  "title": {
+                      "tag": "plain_text",
+                      "content": "🧪 748686 飞书交互测试 V2.1"
+                  },
+
+                  "template": "blue"
+
+              },
+
+              "body": {
+
+                  "direction": "vertical",
+
+                  "padding": "12px",
+
+                  "elements": [
+
+                      {
+
+                          "tag": "markdown",
+
+                          "content": (
+                              "**测试目标**\n"
+                              "验证飞书应用卡片按钮是否能够产生 "
+                              "`card.action.trigger` 事件。\n\n"
+                              "**问题：1 + 1 = ?**"
+                          )
+
+                      },
+
+
+                      # ------------------------------------------------
+                      # A
+                      # ------------------------------------------------
+
+                      {
+
+                          "tag": "button",
+
+                          "type": "default",
+
+                          "text": {
+
+                              "tag": "plain_text",
+
+                              "content": "A. 1"
+
+                          },
+
+                          "value": {
+
+                              "question_id":
+                                  "interactive_test_001",
+
+                              "answer": "A"
+
+                          }
+
+                      },
+
+
+                      # ------------------------------------------------
+                      # B
+                      # ------------------------------------------------
+
+                      {
+
+                          "tag": "button",
+
+                          "type": "primary",
+
+                          "text": {
+
+                              "tag": "plain_text",
+
+                              "content": "B. 2"
+
+                          },
+
+                          "value": {
+
+                              "question_id":
+                                  "interactive_test_001",
+
+                              "answer": "B"
+
+                          }
+
+                      },
+
+
+                      # ------------------------------------------------
+                      # C
+                      # ------------------------------------------------
+
+                      {
+
+                          "tag": "button",
+
+                          "type": "default",
+
+                          "text": {
+
+                              "tag": "plain_text",
+
+                              "content": "C. 3"
+
+                          },
+
+                          "value": {
+
+                              "question_id":
+                                  "interactive_test_001",
+
+                              "answer": "C"
+
+                          }
+
+                      },
+
+
+                      {
+
+                          "tag": "markdown",
+
+                          "content": (
+                              "👉 **请点击 B. 2**\n\n"
+                              "点击后，保持运行中的 "
+                              "`Feishu Long Connection Test V2.0` "
+                              "应该收到 `cardAction`。"
+                          )
+
+                      }
+
+                  ]
+
+              }
+
+          }
+
+
+          # --------------------------------------------------------
+          # 发送消息
+          # --------------------------------------------------------
+
+          payload = {
+
+              "receive_id": chat_id,
+
+              "msg_type": "interactive",
+
+              "content": json.dumps(
+                  card,
+                  ensure_ascii=False
+              )
+
+          }
+
+
+          url = (
+              "https://open.feishu.cn"
+              "/open-apis/im/v1/messages"
+              "?receive_id_type=chat_id"
+          )
+
+
+          data = json.dumps(
+              payload,
+              ensure_ascii=False
+          ).encode("utf-8")
+
+
+          request = urllib.request.Request(
+
+              url,
+
+              data=data,
+
+              headers={
+
+                  "Authorization":
+                      f"Bearer {token}",
+
+                  "Content-Type":
+                      "application/json; charset=utf-8"
+
+              },
+
+              method="POST"
+
+          )
+
+
+          try:
+
+              with urllib.request.urlopen(
+                  request,
+                  timeout=30
+              ) as response:
+
+                  http_status = response.status
+
+                  body = response.read().decode(
+                      "utf-8",
+                      errors="replace"
+                  )
+
+
+          except urllib.error.HTTPError as e:
+
+              print()
+              print("❌ HTTP ERROR:", e.code)
+
+              try:
+
+                  error_body = e.read().decode(
+                      "utf-8",
+                      errors="replace"
+                  )
+
+                  print(error_body)
 
               except Exception:
                   pass
@@ -289,57 +703,139 @@ jobs:
               sys.exit(1)
 
 
-          except Exception as e:
+          print()
+          print("HTTP STATUS:", http_status)
+
+
+          try:
+
+              result = json.loads(body)
+
+          except Exception:
+
+              print()
+              print("❌ 飞书返回不是合法 JSON")
+              print(body)
+
+              sys.exit(1)
+
+
+          # --------------------------------------------------------
+          # 非常重要：
+          #
+          # HTTP 200 不代表飞书 API 成功。
+          # 必须检查 code == 0。
+          # --------------------------------------------------------
+
+          code = result.get("code")
+
+
+          if code != 0:
 
               print()
               print(
-                  "❌ REQUEST ERROR:",
-                  repr(e)
+                  "❌ 飞书 API 实际发送失败"
+              )
+
+              print(
+                  "CODE:",
+                  code
+              )
+
+              print(
+                  "MSG:",
+                  result.get("msg")
+              )
+
+              print()
+              print(
+                  "完整返回："
+              )
+
+              print(
+                  json.dumps(
+                      result,
+                      ensure_ascii=False,
+                      indent=2
+                  )
               )
 
               sys.exit(1)
 
 
+          message_id = (
+              result
+              .get("data", {})
+              .get("message_id")
+          )
+
+
           print()
-          print("============================================================")
-          print("✅ 飞书交互测试卡片发送成功")
-          print("============================================================")
+          print(
+              "FEISHU API CODE:",
+              code
+          )
+
+          print(
+              "MESSAGE ID:",
+              message_id
+          )
+
+          print()
+          print(
+              "============================================================"
+          )
+
+          print(
+              "✅ 飞书应用机器人发送交互卡片成功"
+          )
+
+          print(
+              "============================================================"
+          )
 
           PY
 
 
       # ============================================================
-      # 4. 测试说明
+      # 5. 最终提示
       # ============================================================
 
-      - name: 输出下一步
+      - name: Test Instructions
+
         run: |
 
           echo
           echo "============================================================"
-          echo "748686 FEISHU INTERACTIVE TEST V2.0"
+          echo "748686 FEISHU INTERACTIVE TEST V2.1"
           echo "============================================================"
           echo
-          echo "卡片已经发送。"
+          echo "卡片已经通过 748686知识系统 应用机器人发送。"
           echo
-          echo "现在请打开飞书："
+          echo "现在打开飞书："
           echo
           echo "748686知识系统"
           echo
           echo "找到："
-          echo "🧪 748686 飞书交互测试 V2.0"
+          echo "🧪 748686 飞书交互测试 V2.1"
           echo
           echo "然后点击："
           echo "👉 B. 2"
           echo
           echo "============================================================"
           echo
-          echo "注意："
-          echo
-          echo "与此同时必须保持："
+          echo "同时必须保持："
           echo
           echo "02_英语学习系统 - Feishu Long Connection Test V2.0"
           echo
           echo "处于 In progress 状态。"
+          echo
+          echo "点击后检查长连接日志。"
+          echo
+          echo "如果成功，应该看到："
+          echo
+          echo "748686 FEISHU CARD ACTION RECEIVED"
+          echo "question_id = interactive_test_001"
+          echo "answer = B"
           echo
           echo "============================================================"
