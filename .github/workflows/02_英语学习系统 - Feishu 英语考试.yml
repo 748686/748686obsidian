@@ -1,0 +1,168 @@
+name: 02_英语学习系统 - Feishu 英语考试
+
+on:
+
+  workflow_dispatch:
+
+
+permissions:
+  contents: write
+
+
+jobs:
+
+  feishu-english-exam:
+
+    runs-on: ubuntu-latest
+
+    timeout-minutes: 350
+
+    steps:
+
+      # ================================================================
+      # 1. Checkout
+      # ================================================================
+
+      - name: Checkout 748686obsidian
+
+        uses: actions/checkout@v4
+
+        with:
+          fetch-depth: 0
+          lfs: true
+
+
+      # ================================================================
+      # 2. Python
+      # ================================================================
+
+      - name: Setup Python
+
+        uses: actions/setup-python@v5
+
+        with:
+          python-version: "3.12"
+
+
+      # ================================================================
+      # 3. Install requirements
+      # ================================================================
+
+      - name: Install requirements
+
+        shell: bash
+
+        run: |
+
+          set -e
+
+          python -m pip install --upgrade pip
+
+          pip install -r 02_英语学习系统/requirements.txt
+
+          pip install lark-oapi requests
+
+
+      # ================================================================
+      # 4. Verify required files
+      # ================================================================
+
+      - name: Verify Feishu Exam Files
+
+        shell: bash
+
+        run: |
+
+          set -e
+
+          echo
+          echo "============================================================"
+          echo "748686 FEISHU ENGLISH EXAM FILE CHECK"
+          echo "============================================================"
+
+          test -f \
+            "02_英语学习系统/scripts/english_exam_parser.py"
+
+          test -f \
+            "02_英语学习系统/scripts/feishu_english_exam.py"
+
+          test -f \
+            "02_英语学习系统/scripts/english_exam_grader.py"
+
+          test -f \
+            "02_英语学习系统/scripts/feishu_full_english_exam_runner_v8_1.py"
+
+          test -d \
+            "02_英语学习系统/output"
+
+          echo
+          echo "✓ Parser V1.6 文件存在"
+          echo "✓ Feishu Adapter 文件存在"
+          echo "✓ Grader V1.0 文件存在"
+          echo "✓ V8.1 Runner 文件存在"
+          echo "✓ Output 目录存在"
+
+          echo
+          echo "注意："
+          echo "/tmp/748686_exam_parser_v1_6.json"
+          echo "不需要预先存在。"
+          echo "正式考试启动后由 Parser 自动生成。"
+
+          echo
+          echo "============================================================"
+
+
+      # ================================================================
+      # 5. Feishu Long Connection Exam Center
+      # ================================================================
+
+      - name: 📚 Feishu - Full English Exam Center
+
+        env:
+
+          APP_ID: ${{ secrets.APP_ID }}
+
+          APP_SECRET: ${{ secrets.APP_SECRET }}
+
+          FEISHU_CHAT_NAME: 748686知识系统
+
+          AUDIO_FORMAT: mp3
+
+        shell: bash
+
+        run: |
+
+          set -e
+
+          echo
+          echo "######################################################################"
+          echo "748686 英语学习系统"
+          echo "FEISHU FULL ENGLISH EXAM V8.1"
+          echo "######################################################################"
+
+          test -n "${APP_ID}" || {
+            echo "❌ APP_ID 未配置"
+            exit 1
+          }
+
+          test -n "${APP_SECRET}" || {
+            echo "❌ APP_SECRET 未配置"
+            exit 1
+          }
+
+          echo
+          echo "✓ APP_ID 已配置"
+          echo "✓ APP_SECRET 已配置"
+
+          echo
+          echo "============================================================"
+          echo "启动正式英语考试中心"
+          echo "============================================================"
+
+          python \
+            "02_英语学习系统/scripts/feishu_full_english_exam_runner_v8_1.py"
+
+          echo
+          echo "============================================================"
+          echo "✓ Feishu English Exam Runner 已结束"
+          echo "============================================================"
