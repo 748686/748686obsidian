@@ -1606,17 +1606,13 @@ def build_text_card(
                         },
                         {
                             "tag": "button",
-                            "action_type": "form_submit",
                             "name": submit_name,
+                            "form_action_type": "submit",
                             "text": {
                                 "tag": "plain_text",
                                 "content": "提交答案",
                             },
                             "type": "primary",
-                            "value": {
-                                "action": "submit_text",
-                                "question_id": qid,
-                            },
                         },
                     ],
                 },
@@ -2871,6 +2867,49 @@ def do_card_action_trigger(
             "",
         )
 
+        # ----------------------------------------------------
+        # Card JSON 2.0 表单提交
+        #
+        # 新版 form button 不再使用 value 携带 question_id。
+        # 我们使用：
+        #
+        # submit_translation_A_1
+        # submit_translation_B_1
+        # submit_writing_1
+        #
+        # 作为按钮 name，从 name 中恢复 question_id。
+        # ----------------------------------------------------
+
+        action_name = str(
+            action.get(
+                "name",
+                "",
+            )
+        )
+
+        if (
+            not question_id
+            and action_name.startswith(
+                "submit_"
+            )
+        ):
+
+            question_id = action_name[
+                len("submit_"):
+            ]
+
+            action["action"] = (
+                "submit_text"
+            )
+
+            action_type = (
+                "submit_text"
+            )
+
+        # ----------------------------------------------------
+        # 兼容旧版已经携带 action/question_id 的事件
+        # ----------------------------------------------------
+
         if not question_id:
 
             return make_card_callback_response(
@@ -2894,6 +2933,138 @@ def do_card_action_trigger(
         qtype = question.get(
             "type",
             "",
+        )
+
+        # ----------------------------------------------------
+        # 单选 / 完形 / 阅读 / 听力
+        # ----------------------------------------------------
+
+        if action_type == "answer":
+
+            card = handle_single_answer(
+                question_id,
+                str(answer),
+            )
+
+        # ----------------------------------------------------
+        # 多选选择
+        # ----------------------------------------------------
+
+        elif action_type == "toggle_multiple":
+
+            card = handle_multiple_toggle(
+                question_id,
+                str(answer),
+            )
+
+        # ----------------------------------------------------
+        # 多选提交
+        # ----------------------------------------------------
+
+        elif action_type == "submit_multiple":
+
+            card = handle_multiple_submit(
+                question_id,
+            )
+
+        # ----------------------------------------------------
+        # 翻译 / 写作
+        # ----------------------------------------------------
+
+        elif action_type == "submit_text":
+
+            text_answer = extract_form_answer(
+                action
+            )
+
+            if not text_answer:
+
+                card = build_error_card(
+                    "答案不能为空"
+                )
+
+            else:
+
+                card = handle_manual_submit(
+                    question_id,
+                    text_answer,
+                )
+
+        # ----------------------------------------------------
+        # 兼容部分飞书表单事件
+        # ----------------------------------------------------
+
+        elif (
+            action_name.startswith(
+                "submit_"
+            )
+            and qtype in {
+                "translation",
+                "writing",
+            }
+        ):
+
+            text_answer = extract_form_answer(
+                action
+            )
+
+            if not text_answer:
+
+                card = build_error_card(
+                    "答案不能为空"
+                )
+
+            else:
+
+                card = handle_manual_submit(
+                    question_id,
+                    text_answer,
+                )
+
+        else:
+
+            card = build_error_card(
+                "未知操作"
+            )
+
+        # ----------------------------------------------------
+        # 61 题完成后，发送最终成绩
+        # ----------------------------------------------------
+
+        if (
+            action_type
+            in {
+                "answer",
+                "submit_multiple",
+                "submit_text",
+            }
+            and all_questions_answered()
+        ):
+
+            threading.Thread(
+                target=send_final_summary_once,
+                args=(
+                    RUNTIME_TOKEN,
+                    RUNTIME_CHAT_ID,
+                ),
+                daemon=True,
+            ).start()
+
+        return make_card_callback_response(
+            card
+        )
+
+    except Exception as exc:
+
+        log(
+            "❌ 卡片回调处理异常: "
+            f"{type(exc).__name__}: {exc}"
+        )
+
+        return make_card_callback_response(
+            build_error_card(
+                "本次操作处理失败，请稍后重试"
+            )
         )
 
         # ----------------------------------------------------
