@@ -1,4 +1,4 @@
-name: 02_英语学习系统 - Feishu Callback Test V3.0
+name: 02_英语学习系统 - Feishu Callback Test V4.0
 
 on:
   workflow_dispatch:
@@ -17,29 +17,40 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install Feishu SDK
+      - name: Install latest Feishu OpenAPI SDK
         run: |
+          set -e
+
           python -m pip install --upgrade pip
-          pip install -U lark-channel-sdk
+
+          pip install --upgrade --no-cache-dir lark-oapi
 
       - name: Show SDK Version
-        env:
-          LARK_APP_ID: ${{ secrets.APP_ID }}
-          LARK_APP_SECRET: ${{ secrets.APP_SECRET }}
         run: |
           python - <<'PY'
           import importlib.metadata
 
+          print("=" * 70)
+          print("FEISHU SDK VERSION")
+          print("=" * 70)
+
+          print(
+              "lark-oapi =",
+              importlib.metadata.version("lark-oapi")
+          )
+
           try:
               print(
-                  "lark-channel-sdk version:",
-                  importlib.metadata.version("lark-channel-sdk")
+                  "websockets =",
+                  importlib.metadata.version("websockets")
               )
-          except Exception as e:
-              print("SDK version check failed:", e)
+          except Exception:
+              pass
+
+          print("=" * 70)
           PY
 
-      - name: Start Feishu Callback Receiver
+      - name: Start Low-Level Feishu WebSocket Callback Receiver
         env:
           LARK_APP_ID: ${{ secrets.APP_ID }}
           LARK_APP_SECRET: ${{ secrets.APP_SECRET }}
@@ -47,109 +58,95 @@ jobs:
           set -e
 
           python - <<'PY'
-          import asyncio
-          import json
           import os
+          import json
+          import time
           import traceback
 
-          from lark_channel import FeishuChannel
+          import lark_oapi as lark
+
+          from lark_oapi.event.callback.model.p2_card_action_trigger import (
+              P2CardActionTrigger,
+              P2CardActionTriggerResponse,
+          )
 
 
+          print()
           print("=" * 70)
-          print("748686 FEISHU CALLBACK TEST V3.0")
+          print("748686 FEISHU CALLBACK TEST V4.0")
           print("=" * 70)
-          print("Purpose:")
-          print("  ONLY test Feishu -> GitHub card callback")
-          print("  NO grading")
-          print("  NO question processing")
-          print("  NO answer storage")
+          print()
+          print("MODE:")
+          print("  LOW-LEVEL OFFICIAL WEBSOCKET CLIENT")
+          print()
+          print("PURPOSE:")
+          print("  Feishu -> WebSocket -> card.action.trigger")
+          print("  -> callback response -> Feishu")
+          print()
+          print("NO:")
+          print("  - grading")
+          print("  - parser")
+          print("  - exam")
+          print("  - answer storage")
+          print()
           print("=" * 70)
+
 
           APP_ID = os.environ["LARK_APP_ID"]
           APP_SECRET = os.environ["LARK_APP_SECRET"]
 
-          print("APP_ID: ***")
-          print("APP_SECRET: loaded")
-
 
           # ============================================================
-          # RAW EVENT SAFE SERIALIZER
+          # CARD ACTION CALLBACK
           # ============================================================
 
-          def safe_serialize(obj):
-
-              try:
-                  if obj is None:
-                      return None
-
-                  if isinstance(obj, (str, int, float, bool)):
-                      return obj
-
-                  if isinstance(obj, dict):
-                      return {
-                          str(k): safe_serialize(v)
-                          for k, v in obj.items()
-                      }
-
-                  if isinstance(obj, (list, tuple)):
-                      return [
-                          safe_serialize(v)
-                          for v in obj
-                      ]
-
-                  if hasattr(obj, "model_dump"):
-                      try:
-                          return safe_serialize(
-                              obj.model_dump()
-                          )
-                      except Exception:
-                          pass
-
-                  if hasattr(obj, "dict"):
-                      try:
-                          return safe_serialize(
-                              obj.dict()
-                          )
-                      except Exception:
-                          pass
-
-                  if hasattr(obj, "__dict__"):
-                      return {
-                          str(k): safe_serialize(v)
-                          for k, v in vars(obj).items()
-                          if not str(k).startswith("_")
-                      }
-
-                  return str(obj)
-
-              except Exception:
-                  return str(obj)
-
-
-          # ============================================================
-          # CARD ACTION
-          # ============================================================
-
-          async def on_card_action(event):
+          def do_card_action_trigger(
+              data: P2CardActionTrigger
+          ) -> P2CardActionTriggerResponse:
 
               print()
               print("=" * 70)
-              print("🔥🔥🔥 FEISHU CARD ACTION RECEIVED 🔥🔥🔥")
+              print("🔥🔥🔥 CARD ACTION RECEIVED 🔥🔥🔥")
               print("=" * 70)
 
               print()
-              print("EVENT TYPE:")
-              print(type(event))
-
-              print()
-              print("RAW EVENT:")
+              print("RAW CARD ACTION EVENT:")
 
               try:
-                  raw = safe_serialize(event)
+                  raw = lark.JSON.marshal(
+                      data,
+                      indent=2
+                  )
+
+                  print(raw)
+
+              except Exception as e:
+
+                  print(
+                      "RAW EVENT PRINT ERROR:",
+                      repr(e)
+                  )
+
+              # --------------------------------------------------------
+              # Extract action.value
+              # --------------------------------------------------------
+
+              try:
+
+                  event_data = data.event
+
+                  action_data = event_data.action
+
+                  action_value = action_data.value
+
+                  print()
+                  print("=" * 70)
+                  print("ACTION VALUE")
+                  print("=" * 70)
 
                   print(
                       json.dumps(
-                          raw,
+                          action_value,
                           ensure_ascii=False,
                           indent=2,
                       )
@@ -157,168 +154,155 @@ jobs:
 
               except Exception as e:
 
+                  print()
                   print(
-                      "RAW EVENT SERIALIZATION ERROR:",
-                      repr(e),
+                      "ACTION VALUE EXTRACTION ERROR:"
                   )
 
-              print()
-              print("=" * 70)
-              print("CALLBACK TEST RESULT")
-              print("=" * 70)
-              print("Feishu -> GitHub: SUCCESS")
-              print("GitHub -> Feishu: RETURNING TOAST")
-              print("=" * 70)
+                  print(
+                      repr(e)
+                  )
+
+                  traceback.print_exc()
 
               # --------------------------------------------------------
-              # 最关键：
-              # 直接把结果作为 cardAction callback 返回给飞书
+              # IMPORTANT:
+              # Return response directly through Feishu WebSocket
               # --------------------------------------------------------
-
-              return {
-                  "toast": {
-                      "type": "success",
-                      "content": "✅ GitHub 已收到你的选择",
-                  }
-              }
-
-
-          # ============================================================
-          # ERROR
-          # ============================================================
-
-          async def on_error(error):
 
               print()
               print("=" * 70)
-              print("❌ FEISHU CHANNEL ERROR")
+              print("RETURNING CALLBACK RESPONSE")
               print("=" * 70)
 
               print(
-                  repr(error)
+                  "toast = "
+                  "✅ GitHub 已收到飞书卡片选择"
               )
 
+              print("=" * 70)
+
+              response = {
+                  "toast": {
+                      "type": "success",
+                      "content": "✅ GitHub 已收到飞书卡片选择",
+                  }
+              }
+
+              return P2CardActionTriggerResponse(
+                  response
+              )
+
+
+          # ============================================================
+          # EVENT DISPATCHER
+          # ============================================================
+
+          event_handler = (
+              lark.EventDispatcherHandler
+              .builder(
+                  "",
+                  "",
+                  lark.LogLevel.DEBUG,
+              )
+              .register_p2_card_action_trigger(
+                  do_card_action_trigger
+              )
+              .build()
+          )
+
+
+          print()
+          print("=" * 70)
+          print("EVENT HANDLER READY")
+          print("=" * 70)
+
+          print(
+              "✓ card.action.trigger registered"
+          )
+
+          print(
+              "✓ P2CardActionTriggerResponse enabled"
+          )
+
+          print("=" * 70)
+
+
+          # ============================================================
+          # LOW LEVEL WEBSOCKET CLIENT
+          # ============================================================
+
+          print()
+          print("=" * 70)
+          print("STARTING FEISHU WEBSOCKET")
+          print("=" * 70)
+
+          print(
+              "APP_ID: ***"
+          )
+
+          print(
+              "APP_SECRET: loaded"
+          )
+
+          print()
+          print(
+              "Waiting for Feishu card action..."
+          )
+
+          print()
+          print(
+              "IMPORTANT:"
+          )
+
+          print(
+              "Keep this GitHub Action running."
+          )
+
+          print(
+              "Then click a button in Feishu."
+          )
+
+          print("=" * 70)
+
+
+          client = lark.ws.Client(
+              APP_ID,
+              APP_SECRET,
+              event_handler=event_handler,
+              log_level=lark.LogLevel.DEBUG,
+          )
+
+
+          # ============================================================
+          # START
+          # ============================================================
+
+          try:
+
+              client.start()
+
+          except KeyboardInterrupt:
+
+              print(
+                  "Interrupted."
+              )
+
+          except Exception as e:
+
               print()
+              print("=" * 70)
+              print("❌ WEBSOCKET CLIENT ERROR")
+              print("=" * 70)
+
+              print(
+                  repr(e)
+              )
 
               traceback.print_exc()
 
               print("=" * 70)
 
-
-          # ============================================================
-          # RECONNECTING
-          # ============================================================
-
-          async def on_reconnecting():
-
-              print()
-              print("=" * 70)
-              print("⚠️ FEISHU RECONNECTING")
-              print("=" * 70)
-
-
-          # ============================================================
-          # RECONNECTED
-          # ============================================================
-
-          async def on_reconnected():
-
-              print()
-              print("=" * 70)
-              print("✅ FEISHU RECONNECTED")
-              print("=" * 70)
-
-
-          # ============================================================
-          # REJECT
-          # ============================================================
-
-          async def on_reject(event):
-
-              print()
-              print("=" * 70)
-              print("⚠️ FEISHU EVENT REJECTED")
-              print("=" * 70)
-
-              try:
-                  print(
-                      json.dumps(
-                          safe_serialize(event),
-                          ensure_ascii=False,
-                          indent=2,
-                      )
-                  )
-              except Exception:
-                  print(
-                      repr(event)
-                  )
-
-              print("=" * 70)
-
-
-          # ============================================================
-          # MAIN
-          # ============================================================
-
-          async def main():
-
-              channel = FeishuChannel(
-                  app_id=APP_ID,
-                  app_secret=APP_SECRET,
-              )
-
-              # --------------------------------------------------------
-              # Card callback
-              # --------------------------------------------------------
-
-              channel.on(
-                  "cardAction",
-                  on_card_action,
-              )
-
-              # --------------------------------------------------------
-              # Diagnostics
-              # --------------------------------------------------------
-
-              channel.on(
-                  "error",
-                  on_error,
-              )
-
-              channel.on(
-                  "reconnecting",
-                  on_reconnecting,
-              )
-
-              channel.on(
-                  "reconnected",
-                  on_reconnected,
-              )
-
-              channel.on(
-                  "reject",
-                  on_reject,
-              )
-
-              print()
-              print("=" * 70)
-              print("REGISTERED EVENT HANDLERS")
-              print("=" * 70)
-
-              print("  ✓ cardAction")
-              print("  ✓ error")
-              print("  ✓ reconnecting")
-              print("  ✓ reconnected")
-              print("  ✓ reject")
-
-              print()
-              print("=" * 70)
-              print("CONNECTING TO FEISHU")
-              print("=" * 70)
-
-              await channel.connect()
-
-
-          asyncio.run(main())
+              raise
 
           PY
