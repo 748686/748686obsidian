@@ -1,10 +1,10 @@
-name: 02_英语学习系统 - Feishu E2E Test V2.0
+name: 02_英语学习系统 - Feishu Callback Test V3.0
 
 on:
   workflow_dispatch:
 
 jobs:
-  e2e:
+  callback-test:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -20,9 +20,26 @@ jobs:
       - name: Install Feishu SDK
         run: |
           python -m pip install --upgrade pip
-          pip install lark-channel-sdk
+          pip install -U lark-channel-sdk
 
-      - name: Run Feishu E2E Receiver
+      - name: Show SDK Version
+        env:
+          LARK_APP_ID: ${{ secrets.APP_ID }}
+          LARK_APP_SECRET: ${{ secrets.APP_SECRET }}
+        run: |
+          python - <<'PY'
+          import importlib.metadata
+
+          try:
+              print(
+                  "lark-channel-sdk version:",
+                  importlib.metadata.version("lark-channel-sdk")
+              )
+          except Exception as e:
+              print("SDK version check failed:", e)
+          PY
+
+      - name: Start Feishu Callback Receiver
         env:
           LARK_APP_ID: ${{ secrets.APP_ID }}
           LARK_APP_SECRET: ${{ secrets.APP_SECRET }}
@@ -33,14 +50,20 @@ jobs:
           import asyncio
           import json
           import os
-          from pathlib import Path
+          import traceback
 
           from lark_channel import FeishuChannel
 
 
-          print("=" * 60)
-          print("748686 FEISHU E2E TEST V2.0")
-          print("=" * 60)
+          print("=" * 70)
+          print("748686 FEISHU CALLBACK TEST V3.0")
+          print("=" * 70)
+          print("Purpose:")
+          print("  ONLY test Feishu -> GitHub card callback")
+          print("  NO grading")
+          print("  NO question processing")
+          print("  NO answer storage")
+          print("=" * 70)
 
           APP_ID = os.environ["LARK_APP_ID"]
           APP_SECRET = os.environ["LARK_APP_SECRET"]
@@ -48,449 +71,194 @@ jobs:
           print("APP_ID: ***")
           print("APP_SECRET: loaded")
 
+
           # ============================================================
-          # E2E TEST QUESTIONS
+          # RAW EVENT SAFE SERIALIZER
           # ============================================================
 
-          QUESTIONS = {
-              "e2e_test_001": {
-                  "question": "1 + 1 = ?",
-                  "options": {
-                      "A": "1",
-                      "B": "2",
-                      "C": "3",
-                  },
-                  "correct_answer": "B",
-              },
+          def safe_serialize(obj):
 
-              "e2e_test_002": {
-                  "question": "2 + 3 = ?",
-                  "options": {
-                      "A": "4",
-                      "B": "5",
-                      "C": "6",
-                  },
-                  "correct_answer": "B",
-              },
-
-              "e2e_test_003": {
-                  "question": "5 - 2 = ?",
-                  "options": {
-                      "A": "2",
-                      "B": "3",
-                      "C": "4",
-                  },
-                  "correct_answer": "B",
-              },
-          }
-
-          ANSWERS = {}
-          RESULTS = {}
-
-          PERSIST_DIR = Path(
-              "02_英语学习系统/feishu_e2e_test"
-          )
-
-          PERSIST_DIR.mkdir(
-              parents=True,
-              exist_ok=True,
-          )
-
-          PERSIST_FILE = (
-              PERSIST_DIR / "e2e_answers.json"
-          )
-
-          print("=" * 60)
-          print("E2E QUESTIONS")
-          print("=" * 60)
-
-          for qid, q in QUESTIONS.items():
-              print()
-              print(f"Question ID: {qid}")
-              print(q["question"])
-
-              for key, value in q["options"].items():
-                  print(f"{key}. {value}")
-
-              print(
-                  f"Correct Answer: {q['correct_answer']}"
-              )
-
-          print()
-          print("=" * 60)
-          print("Persistent file:")
-          print(PERSIST_FILE)
-          print("=" * 60)
-
-
-          def extract_action(event):
-              """
-              尽可能兼容不同 SDK 事件结构。
-              """
-
-              # lark-channel-sdk 标准结构
               try:
-                  action = event.action
+                  if obj is None:
+                      return None
 
-                  value = action.value
+                  if isinstance(obj, (str, int, float, bool)):
+                      return obj
 
-                  return action, value
+                  if isinstance(obj, dict):
+                      return {
+                          str(k): safe_serialize(v)
+                          for k, v in obj.items()
+                      }
+
+                  if isinstance(obj, (list, tuple)):
+                      return [
+                          safe_serialize(v)
+                          for v in obj
+                      ]
+
+                  if hasattr(obj, "model_dump"):
+                      try:
+                          return safe_serialize(
+                              obj.model_dump()
+                          )
+                      except Exception:
+                          pass
+
+                  if hasattr(obj, "dict"):
+                      try:
+                          return safe_serialize(
+                              obj.dict()
+                          )
+                      except Exception:
+                          pass
+
+                  if hasattr(obj, "__dict__"):
+                      return {
+                          str(k): safe_serialize(v)
+                          for k, v in vars(obj).items()
+                          if not str(k).startswith("_")
+                      }
+
+                  return str(obj)
 
               except Exception:
-                  pass
-
-              # 兼容字典结构
-              if isinstance(event, dict):
-
-                  action = event.get("action")
-
-                  if isinstance(action, dict):
-                      return action, action.get("value")
-
-                  event_data = event.get("event")
-
-                  if isinstance(event_data, dict):
-                      action = event_data.get("action")
-
-                      if isinstance(action, dict):
-                          return action, action.get("value")
-
-              return None, None
+                  return str(obj)
 
 
-          def get_value(value, key, default=None):
-
-              if isinstance(value, dict):
-                  return value.get(key, default)
-
-              return default
-
-
-          def save_results():
-
-              data = {
-                  "version": "2.0",
-                  "answers": ANSWERS,
-                  "results": RESULTS,
-                  "total": len(QUESTIONS),
-                  "answered": len(ANSWERS),
-                  "correct": sum(
-                      1
-                      for item in RESULTS.values()
-                      if item.get("correct") is True
-                  ),
-                  "wrong": sum(
-                      1
-                      for item in RESULTS.values()
-                      if item.get("correct") is False
-                  ),
-              }
-
-              PERSIST_FILE.write_text(
-                  json.dumps(
-                      data,
-                      ensure_ascii=False,
-                      indent=2,
-                  ),
-                  encoding="utf-8",
-              )
-
+          # ============================================================
+          # CARD ACTION
+          # ============================================================
 
           async def on_card_action(event):
 
               print()
-              print("=" * 60)
-              print("748686 FEISHU CARD ACTION RECEIVED")
-              print("=" * 60)
-
-              print(
-                  f"EVENT TYPE: {type(event).__name__}"
-              )
-
-              action, value = extract_action(event)
-
-              print(
-                  f"ACTION: {action}"
-              )
-
-              print(
-                  f"ACTION VALUE: {value}"
-              )
-
-              # --------------------------------------------------------
-              # Extract question_id / answer
-              # --------------------------------------------------------
-
-              question_id = get_value(
-                  value,
-                  "question_id",
-              )
-
-              answer = get_value(
-                  value,
-                  "answer",
-              )
-
-              print(
-                  f"QUESTION ID: {question_id}"
-              )
-
-              print(
-                  f"ANSWER: {answer}"
-              )
-
-              # --------------------------------------------------------
-              # Validate callback payload
-              # --------------------------------------------------------
-
-              if not question_id:
-
-                  print(
-                      "ERROR: question_id missing"
-                  )
-
-                  return {
-                      "toast": {
-                          "type": "error",
-                          "content": "未识别题目",
-                      }
-                  }
-
-              if not answer:
-
-                  print(
-                      "ERROR: answer missing"
-                  )
-
-                  return {
-                      "toast": {
-                          "type": "error",
-                          "content": "未识别答案",
-                      }
-                  }
-
-              # --------------------------------------------------------
-              # Validate question
-              # --------------------------------------------------------
-
-              if question_id not in QUESTIONS:
-
-                  print(
-                      "ERROR: unknown question"
-                  )
-
-                  return {
-                      "toast": {
-                          "type": "error",
-                          "content": "未知题目",
-                      }
-                  }
-
-              question = QUESTIONS[question_id]
-
-              correct_answer = question[
-                  "correct_answer"
-              ]
-
-              # --------------------------------------------------------
-              # Duplicate protection
-              # --------------------------------------------------------
-
-              if question_id in ANSWERS:
-
-                  old_answer = ANSWERS[
-                      question_id
-                  ]
-
-                  print(
-                      f"DUPLICATE ANSWER: "
-                      f"{question_id}"
-                  )
-
-                  print(
-                      f"Existing answer: "
-                      f"{old_answer}"
-                  )
-
-                  return {
-                      "toast": {
-                          "type": "warning",
-                          "content": "这道题已经回答过了",
-                      }
-                  }
-
-              # --------------------------------------------------------
-              # Grade
-              # --------------------------------------------------------
-
-              is_correct = (
-                  str(answer).upper()
-                  ==
-                  str(correct_answer).upper()
-              )
-
-              ANSWERS[question_id] = (
-                  str(answer).upper()
-              )
-
-              RESULTS[question_id] = {
-                  "question_id": question_id,
-                  "answer": str(answer).upper(),
-                  "correct_answer": correct_answer,
-                  "correct": is_correct,
-              }
-
-              save_results()
-
-              answered = len(ANSWERS)
-              total = len(QUESTIONS)
-
-              correct_count = sum(
-                  1
-                  for item in RESULTS.values()
-                  if item.get("correct") is True
-              )
-
-              wrong_count = sum(
-                  1
-                  for item in RESULTS.values()
-                  if item.get("correct") is False
-              )
+              print("=" * 70)
+              print("🔥🔥🔥 FEISHU CARD ACTION RECEIVED 🔥🔥🔥")
+              print("=" * 70)
 
               print()
-              print(
-                  f"CORRECT ANSWER: "
-                  f"{correct_answer}"
-              )
+              print("EVENT TYPE:")
+              print(type(event))
 
-              print(
-                  f"RESULT: "
-                  f"{'CORRECT' if is_correct else 'WRONG'}"
-              )
+              print()
+              print("RAW EVENT:")
 
-              print(
-                  f"PROGRESS: "
-                  f"{answered}/{total}"
-              )
+              try:
+                  raw = safe_serialize(event)
 
-              print(
-                  f"CORRECT: "
-                  f"{correct_count}"
-              )
+                  print(
+                      json.dumps(
+                          raw,
+                          ensure_ascii=False,
+                          indent=2,
+                      )
+                  )
 
-              print(
-                  f"WRONG: "
-                  f"{wrong_count}"
-              )
+              except Exception as e:
+
+                  print(
+                      "RAW EVENT SERIALIZATION ERROR:",
+                      repr(e),
+                  )
+
+              print()
+              print("=" * 70)
+              print("CALLBACK TEST RESULT")
+              print("=" * 70)
+              print("Feishu -> GitHub: SUCCESS")
+              print("GitHub -> Feishu: RETURNING TOAST")
+              print("=" * 70)
 
               # --------------------------------------------------------
-              # Final result
+              # 最关键：
+              # 直接把结果作为 cardAction callback 返回给飞书
               # --------------------------------------------------------
-
-              if answered >= total:
-
-                  score = round(
-                      correct_count
-                      / total
-                      * 100
-                  )
-
-                  print()
-                  print("=" * 60)
-                  print(
-                      "748686 FEISHU E2E TEST COMPLETED"
-                  )
-                  print("=" * 60)
-                  print(
-                      f"TOTAL:   {total}"
-                  )
-                  print(
-                      f"CORRECT: {correct_count}"
-                  )
-                  print(
-                      f"WRONG:   {wrong_count}"
-                  )
-                  print(
-                      f"SCORE:   {score}/100"
-                  )
-                  print("=" * 60)
-
-                  # 最后一题直接反馈最终成绩
-                  return {
-                      "toast": {
-                          "type": (
-                              "success"
-                              if correct_count == total
-                              else "info"
-                          ),
-                          "content": (
-                              f"答题完成 "
-                              f"{correct_count}/{total} "
-                              f"得分 {score}/100"
-                          ),
-                      }
-                  }
-
-              # --------------------------------------------------------
-              # Immediate Feishu feedback
-              # --------------------------------------------------------
-
-              if is_correct:
-
-                  feedback = (
-                      f"✅ 回答正确 "
-                      f"({answered}/{total})"
-                  )
-
-                  feedback_type = "success"
-
-              else:
-
-                  feedback = (
-                      f"❌ 回答错误 "
-                      f"({answered}/{total})"
-                  )
-
-                  feedback_type = "error"
-
-              print(
-                  f"FEISHU FEEDBACK: "
-                  f"{feedback}"
-              )
 
               return {
                   "toast": {
-                      "type": feedback_type,
-                      "content": feedback,
+                      "type": "success",
+                      "content": "✅ GitHub 已收到你的选择",
                   }
               }
 
+
+          # ============================================================
+          # ERROR
+          # ============================================================
 
           async def on_error(error):
 
               print()
-              print("=" * 60)
-              print("FEISHU CHANNEL ERROR")
-              print("=" * 60)
-              print(error)
-              print("=" * 60)
+              print("=" * 70)
+              print("❌ FEISHU CHANNEL ERROR")
+              print("=" * 70)
 
+              print(
+                  repr(error)
+              )
+
+              print()
+
+              traceback.print_exc()
+
+              print("=" * 70)
+
+
+          # ============================================================
+          # RECONNECTING
+          # ============================================================
 
           async def on_reconnecting():
 
               print()
-              print(
-                  "FEISHU RECONNECTING..."
-              )
+              print("=" * 70)
+              print("⚠️ FEISHU RECONNECTING")
+              print("=" * 70)
 
+
+          # ============================================================
+          # RECONNECTED
+          # ============================================================
 
           async def on_reconnected():
 
               print()
-              print(
-                  "FEISHU RECONNECTED"
-              )
+              print("=" * 70)
+              print("✅ FEISHU RECONNECTED")
+              print("=" * 70)
 
+
+          # ============================================================
+          # REJECT
+          # ============================================================
+
+          async def on_reject(event):
+
+              print()
+              print("=" * 70)
+              print("⚠️ FEISHU EVENT REJECTED")
+              print("=" * 70)
+
+              try:
+                  print(
+                      json.dumps(
+                          safe_serialize(event),
+                          ensure_ascii=False,
+                          indent=2,
+                      )
+                  )
+              except Exception:
+                  print(
+                      repr(event)
+                  )
+
+              print("=" * 70)
+
+
+          # ============================================================
+          # MAIN
+          # ============================================================
 
           async def main():
 
@@ -499,10 +267,18 @@ jobs:
                   app_secret=APP_SECRET,
               )
 
+              # --------------------------------------------------------
+              # Card callback
+              # --------------------------------------------------------
+
               channel.on(
                   "cardAction",
                   on_card_action,
               )
+
+              # --------------------------------------------------------
+              # Diagnostics
+              # --------------------------------------------------------
 
               channel.on(
                   "error",
@@ -519,25 +295,26 @@ jobs:
                   on_reconnected,
               )
 
-              print()
-              print(
-                  "Registered event handlers:"
-              )
-              print(
-                  "  - cardAction"
-              )
-              print(
-                  "  - error"
-              )
-              print(
-                  "  - reconnecting"
-              )
-              print(
-                  "  - reconnected"
+              channel.on(
+                  "reject",
+                  on_reject,
               )
 
               print()
-              print("Connecting...")
+              print("=" * 70)
+              print("REGISTERED EVENT HANDLERS")
+              print("=" * 70)
+
+              print("  ✓ cardAction")
+              print("  ✓ error")
+              print("  ✓ reconnecting")
+              print("  ✓ reconnected")
+              print("  ✓ reject")
+
+              print()
+              print("=" * 70)
+              print("CONNECTING TO FEISHU")
+              print("=" * 70)
 
               await channel.connect()
 
