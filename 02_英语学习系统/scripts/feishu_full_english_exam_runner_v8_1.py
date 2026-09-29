@@ -5,106 +5,101 @@
 748686 English Learning System
 Feishu Full English Exam Runner V8.1
 
-正式版职责
-----------
-1. 从 GitHub 工作区扫描 output/ 日期
-2. 飞书选择考试日期
-3. 飞书选择对应试卷
-4. 自动定位：
-   - 试卷 Markdown
-   - 答案与解析 Markdown
-   - Listening A/B/C
-5. 自动运行 English Exam Parser V1.6
-6. 通过 Feishu Adapter V1.0 做安全检查
-7. 发送完整 61 道考试题
-8. 接收 Feishu card.action.trigger
-9. 自动评分：
-   - listening
-   - single_choice
-   - multiple_choice
-   - cloze
-   - reading
-10. 翻译 / 写作进入人工批改
-11. 全部完成后运行 English Exam Grader V1.0
-12. 发送最终成绩卡
+职责
+----
+1. 读取 Parser V1.6.1 生成的完整考试 JSON
+2. 使用 Feishu Adapter 构建安全题目数据
+3. 向指定飞书群发送完整 61 题
+4. 支持：
+   - 单选
+   - 多选
+   - 完形
+   - 阅读
+   - 听力
+   - 翻译
+   - 写作
+5. 用户提交后立即更新题卡
+6. 61 题全部提交后调用 Grader V1.0
+7. 生成最终成绩卡
+8. 每次提交都保存答案状态
+9. 不向飞书初始题卡泄露正确答案
+10. 不在生产日志中打印正确答案
 
-重要安全原则
-------------
-- 飞书初始题卡绝不包含 correct_answer
-- 飞书初始题卡绝不包含 explanation
-- 飞书初始题卡绝不包含 reference_answer
-- GitHub Actions 日志不打印正确答案
-- Parser / Adapter / Grader 不修改
-- /tmp JSON 每次考试自动生成，不依赖旧 Runner
+原则
+----
+- Parser V1.6.1 不修改
+- Grader V1.0 不修改
+- Adapter 不修改
+- 初始题卡只使用安全题目数据
+- 正确答案只存在 Runner 内部
+- 多选必须完全匹配
+- 翻译 / 写作进入人工批改
 """
 
 from __future__ import annotations
 
-import argparse
-import copy
+import importlib.util
 import json
 import os
-import re
 import subprocess
 import sys
 import threading
 import time
-import uuid
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 
 import requests
-import lark_oapi as lark
 
-from lark_oapi.api.im.v1 import (
-    CreateMessageRequest,
-    CreateMessageRequestBody,
-)
+import lark_oapi as lark
 
 from lark_oapi.event.callback.model.p2_card_action_trigger import (
     P2CardActionTrigger,
     P2CardActionTriggerResponse,
-)
-
-from lark_oapi.api.card.v1 import (
     CallBackCard,
 )
 
+from lark_oapi.event.dispatcher_handler import EventDispatcherHandler
 
-# ======================================================================
-# 基础路径
-# ======================================================================
 
-ROOT = Path(__file__).resolve().parents[2]
+# ============================================================
+# 基础配置
+# ============================================================
 
-ENGLISH_ROOT = ROOT / "02_英语学习系统"
+BASE_DIR = Path(__file__).resolve().parent.parent
 
-SCRIPTS_DIR = ENGLISH_ROOT / "scripts"
-
-OUTPUT_DIR = ENGLISH_ROOT / "output"
-
-PARSER_PATH = SCRIPTS_DIR / "english_exam_parser.py"
+SCRIPTS_DIR = BASE_DIR / "scripts"
 
 ADAPTER_PATH = SCRIPTS_DIR / "feishu_english_exam.py"
 
 GRADER_PATH = SCRIPTS_DIR / "english_exam_grader.py"
 
-TMP_DIR = Path("/tmp")
+EXAM_JSON = Path(
+    os.environ.get(
+        "EXAM_JSON",
+        "/tmp/748686_exam_parser_v1_6.json",
+    )
+)
 
-EXAM_JSON = TMP_DIR / "748686_exam_parser_v1_6.json"
+ANSWERS_JSON = Path(
+    os.environ.get(
+        "ANSWERS_JSON",
+        "/tmp/748686_feishu_answers.json",
+    )
+)
 
-SAFE_EXAM_JSON = TMP_DIR / "748686_feishu_safe_exam.json"
+GRADER_OUTPUT = Path(
+    os.environ.get(
+        "GRADER_OUTPUT",
+        "/tmp/748686_feishu_grader_result.json",
+    )
+)
 
-ANSWERS_JSON = TMP_DIR / "748686_feishu_answers.json"
-
-GRADER_OUTPUT = TMP_DIR / "748686_feishu_grader_result.json"
-
-SESSION_JSON = TMP_DIR / "748686_feishu_exam_session.json"
-
-
-# ======================================================================
-# 环境
-# ======================================================================
+STATE_FILE = Path(
+    os.environ.get(
+        "FEISHU_STATE_FILE",
+        "/tmp/748686_feishu_exam_state.json",
+    )
+)
 
 APP_ID = os.environ.get("APP_ID", "").strip()
 APP_SECRET = os.environ.get("APP_SECRET", "").strip()
@@ -114,246 +109,30 @@ FEISHU_CHAT_NAME = os.environ.get(
     "748686知识系统",
 ).strip()
 
+EXAM_DATE = os.environ.get(
+    "EXAM_DATE",
+    "",
+).strip()
+
 AUDIO_FORMAT = os.environ.get(
     "AUDIO_FORMAT",
     "mp3",
+).strip().lower()
+
+PERSIST_GITHUB = (
+    os.environ.get(
+        "PERSIST_GITHUB",
+        "false",
+    ).lower()
+    == "true"
+)
+
+PERSIST_GITHUB_PATH = os.environ.get(
+    "PERSIST_GITHUB_PATH",
+    ".feishu_state",
 ).strip()
 
-MAX_DATES = int(
-    os.environ.get("FEISHU_MAX_EXAM_DATES", "30")
-)
-
-MAX_EXAMS = int(
-    os.environ.get("FEISHU_MAX_EXAMS", "30")
-)
-
-
-# ======================================================================
-# 全局运行状态
-# ======================================================================
-
-QUESTIONS: List[Dict[str, Any]] = []
-
-QUESTION_MAP: Dict[str, Dict[str, Any]] = {}
-
-ANSWER_STATE: Dict[str, Dict[str, Any]] = {}
-
-MULTIPLE_SELECTION: Dict[str, Set[str]] = {}
-
-AUDIO_FILE_KEYS: Dict[str, str] = {}
-
-SUMMARY_SENT = False
-
-CURRENT_DATE: Optional[str] = None
-CURRENT_EXAM_FILE: Optional[str] = None
-CURRENT_ANSWER_FILE: Optional[str] = None
-
-SESSION_ID = uuid.uuid4().hex[:16]
-
-API_CLIENT: Optional[lark.Client] = None
-
-CHAT_ID: Optional[str] = None
-
-STATE_LOCK = threading.RLock()
-
-
-# ======================================================================
-# 工具
-# ======================================================================
-
-def log(message: str = "") -> None:
-    print(message, flush=True)
-
-
-def fail(message: str) -> None:
-    print(f"❌ {message}", flush=True)
-    raise RuntimeError(message)
-
-
-def safe_filename(value: str) -> str:
-    value = str(value)
-    value = value.replace("\\", "_")
-    value = value.replace("/", "_")
-    value = value.replace("..", "_")
-    return value
-
-
-def json_dump(path: Path, data: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-
-    tmp = path.with_suffix(path.suffix + ".tmp")
-
-    with tmp.open("w", encoding="utf-8") as f:
-        json.dump(
-            data,
-            f,
-            ensure_ascii=False,
-            indent=2,
-        )
-
-    tmp.replace(path)
-
-
-def json_load(path: Path) -> Any:
-    with path.open("r", encoding="utf-8") as f:
-        return json.load(f)
-
-
-# ======================================================================
-# GitHub Output 扫描
-# ======================================================================
-
-DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-
-
-def list_exam_dates() -> List[str]:
-    if not OUTPUT_DIR.exists():
-        return []
-
-    dates = []
-
-    for item in OUTPUT_DIR.iterdir():
-        if not item.is_dir():
-            continue
-
-        if not DATE_RE.match(item.name):
-            continue
-
-        exam_dir = item / "配套试卷"
-
-        if not exam_dir.is_dir():
-            continue
-
-        dates.append(item.name)
-
-    dates.sort(reverse=True)
-
-    return dates[:MAX_DATES]
-
-
-def list_exam_files(date_value: str) -> List[Path]:
-    date_dir = OUTPUT_DIR / date_value / "配套试卷"
-
-    if not date_dir.is_dir():
-        return []
-
-    result = []
-
-    for path in sorted(date_dir.glob("*_试卷.md")):
-        if path.is_file() and path.stat().st_size > 0:
-            result.append(path)
-
-    return result[:MAX_EXAMS]
-
-
-def answer_file_for_exam(exam_file: Path) -> Optional[Path]:
-    candidates = [
-        exam_file.with_name(
-            exam_file.name.replace(
-                "_试卷.md",
-                "_答案与解析.md",
-            )
-        ),
-        exam_file.with_name(
-            exam_file.name.replace(
-                "_试卷.md",
-                "_答案解析.md",
-            )
-        ),
-    ]
-
-    for candidate in candidates:
-        if candidate.is_file() and candidate.stat().st_size > 0:
-            return candidate
-
-    return None
-
-
-def audio_path(date_value: str, part: str) -> Optional[Path]:
-    audio_dir = (
-        OUTPUT_DIR
-        / date_value
-        / "配套试卷"
-        / "听力"
-    )
-
-    if not audio_dir.is_dir():
-        return None
-
-    preferred = audio_dir / f"Listening_{part}.{AUDIO_FORMAT}"
-
-    if preferred.is_file() and preferred.stat().st_size > 0:
-        return preferred
-
-    for ext in ("mp3", "m4a", "wav"):
-        candidate = audio_dir / f"Listening_{part}.{ext}"
-
-        if candidate.is_file() and candidate.stat().st_size > 0:
-            return candidate
-
-    return None
-
-
-# ======================================================================
-# Parser V1.6
-# ======================================================================
-
-def run_parser(
-    exam_file: Path,
-    answer_file: Path,
-) -> None:
-
-    if not PARSER_PATH.is_file():
-        fail(f"Parser 不存在：{PARSER_PATH}")
-
-    if not exam_file.is_file():
-        fail(f"试卷不存在：{exam_file}")
-
-    if not answer_file.is_file():
-        fail(f"答案解析不存在：{answer_file}")
-
-    if EXAM_JSON.exists():
-        EXAM_JSON.unlink()
-
-    command = [
-        sys.executable,
-        str(PARSER_PATH),
-        "--exam",
-        str(exam_file),
-        "--answers",
-        str(answer_file),
-        "--output",
-        str(EXAM_JSON),
-    ]
-
-    log()
-    log("============================================================")
-    log("PARSER V1.6")
-    log("============================================================")
-    log(f"Exam    : {exam_file}")
-    log(f"Answers : {answer_file}")
-
-    result = subprocess.run(
-        command,
-        cwd=str(ROOT),
-        text=True,
-    )
-
-    if result.returncode != 0:
-        fail("Parser V1.6 执行失败")
-
-    if not EXAM_JSON.is_file():
-        fail(
-            "Parser 执行结束，但没有生成 "
-            f"{EXAM_JSON}"
-        )
-
-    log("✓ Parser JSON 已生成")
-
-
-# ======================================================================
-# Exam 数据验证
-# ======================================================================
+EXPECTED_TOTAL = 61
 
 EXPECTED_COUNTS = {
     "listening": 15,
@@ -366,205 +145,307 @@ EXPECTED_COUNTS = {
 }
 
 
-def validate_exam(data: Dict[str, Any]) -> None:
+# ============================================================
+# 全局状态
+# ============================================================
 
-    questions = data.get("questions")
+QUESTIONS: list[dict[str, Any]] = []
 
-    if not isinstance(questions, list):
-        fail("Parser JSON 缺少 questions")
+SAFE_QUESTIONS: list[dict[str, Any]] = []
 
-    if len(questions) != 61:
-        fail(
-            f"试卷题数错误：{len(questions)}，"
-            f"期望 61"
-        )
+QUESTION_MAP: dict[str, dict[str, Any]] = {}
 
-    counts: Dict[str, int] = {}
+SAFE_QUESTION_MAP: dict[str, dict[str, Any]] = {}
 
-    ids = set()
+ANSWER_STATE: dict[str, dict[str, Any]] = {}
 
-    for q in questions:
+MULTIPLE_SELECTION: dict[str, set[str]] = {}
 
-        qid = str(q.get("question_id", "")).strip()
+AUDIO_FILE_KEYS: dict[str, str] = {}
 
-        if not qid:
-            fail("发现空 question_id")
+SUMMARY_SENT = False
 
-        if qid in ids:
-            fail(f"重复 question_id：{qid}")
+STATE_LOCK = threading.RLock()
 
-        ids.add(qid)
-
-        qtype = str(q.get("type", "")).strip()
-
-        counts[qtype] = counts.get(qtype, 0) + 1
-
-    for key, expected in EXPECTED_COUNTS.items():
-
-        actual = counts.get(key, 0)
-
-        if actual != expected:
-            fail(
-                f"{key} 数量错误："
-                f"{actual}，期望 {expected}"
-            )
-
-    log()
-    log("✓ 61题结构验证通过")
-
-    for key in EXPECTED_COUNTS:
-        log(f"  {key:16s}: {counts.get(key, 0)}")
+WS_CLIENT = None
 
 
-# ======================================================================
-# Adapter V1.0 安全层
-# ======================================================================
+# ============================================================
+# 通用工具
+# ============================================================
 
-SAFE_FIELDS = {
-    "question_id",
-    "type",
-    "id",
-    "section",
-    "number",
-    "part",
-    "question",
-    "options",
-}
+def log(message: str) -> None:
+    print(message, flush=True)
 
 
-FORBIDDEN_FIELDS = {
-    "correct_answer",
-    "answer",
-    "explanation",
-    "reference_answer",
-}
+def fail(message: str) -> None:
+    print(f"❌ {message}", flush=True)
+    raise SystemExit(1)
 
 
-def build_safe_exam(
-    parser_data: Dict[str, Any],
-) -> Dict[str, Any]:
-
-    safe_questions = []
-
-    for source_q in parser_data["questions"]:
-
-        safe_q = {}
-
-        for key in SAFE_FIELDS:
-
-            if key not in source_q:
-                continue
-
-            value = source_q[key]
-
-            safe_q[key] = copy.deepcopy(value)
-
-        for forbidden in FORBIDDEN_FIELDS:
-
-            if forbidden in safe_q:
-                del safe_q[forbidden]
-
-        safe_questions.append(safe_q)
-
-    safe_exam = {
-        "version": "1.0",
-        "source": {
-            "exam_date": CURRENT_DATE,
-            "exam_file": (
-                str(CURRENT_EXAM_FILE)
-                if CURRENT_EXAM_FILE
-                else ""
-            ),
-        },
-        "exam": {
-            "total_questions": len(safe_questions),
-            "questions": safe_questions,
-        },
-        "security": {
-            "correct_answers_removed": True,
-            "answer_explanations_removed": True,
-            "reference_answers_removed": True,
-            "grading_hidden": True,
-        },
-    }
-
-    return safe_exam
-
-
-def validate_safe_exam(
-    safe_exam: Dict[str, Any],
+def atomic_write_json(
+    path: Path,
+    data: Any,
 ) -> None:
 
-    payload = json.dumps(
-        safe_exam,
-        ensure_ascii=False,
+    path.parent.mkdir(
+        parents=True,
+        exist_ok=True,
     )
 
-    for forbidden in FORBIDDEN_FIELDS:
-
-        if forbidden in payload:
-            fail(
-                f"安全检查失败：发现禁止字段 "
-                f"{forbidden}"
-            )
-
-    questions = safe_exam.get("exam", {}).get(
-        "questions",
-        [],
+    tmp = path.with_suffix(
+        path.suffix + ".tmp"
     )
 
-    if len(questions) != 61:
-        fail(
-            "安全考试数据题数不是 61"
+    with open(
+        tmp,
+        "w",
+        encoding="utf-8",
+    ) as f:
+
+        json.dump(
+            data,
+            f,
+            ensure_ascii=False,
+            indent=2,
         )
 
-    json_dump(
-        SAFE_EXAM_JSON,
-        safe_exam,
-    )
-
-    log("✓ Adapter 安全隔离通过")
-    log("✓ 初始答题数据不包含答案与解析")
+    tmp.replace(path)
 
 
-# ======================================================================
-# 加载完整考试数据
-# ======================================================================
+def load_json(path: Path) -> Any:
+
+    if not path.exists():
+
+        fail(
+            f"JSON 文件不存在: {path}"
+        )
+
+    with open(
+        path,
+        "r",
+        encoding="utf-8",
+    ) as f:
+
+        return json.load(f)
+
+
+# ============================================================
+# Parser JSON
+# ============================================================
 
 def load_exam() -> None:
 
     global QUESTIONS
     global QUESTION_MAP
 
-    parser_data = json_load(EXAM_JSON)
+    data = load_json(EXAM_JSON)
 
-    validate_exam(parser_data)
+    QUESTIONS = data.get(
+        "questions",
+        [],
+    )
 
-    QUESTIONS = parser_data["questions"]
+    if not isinstance(
+        QUESTIONS,
+        list,
+    ):
+        fail("Parser JSON 的 questions 不是列表")
 
     QUESTION_MAP = {
-        str(q["question_id"]): q
+        q["question_id"]: q
         for q in QUESTIONS
+        if q.get("question_id")
     }
 
-    safe_exam = build_safe_exam(parser_data)
 
-    validate_safe_exam(safe_exam)
+def validate_exam() -> None:
+
+    if len(QUESTIONS) != EXPECTED_TOTAL:
+
+        fail(
+            f"题目数量错误: "
+            f"{len(QUESTIONS)} / {EXPECTED_TOTAL}"
+        )
+
+    counts: dict[str, int] = {}
+
+    seen: set[str] = set()
+
+    for q in QUESTIONS:
+
+        qid = q.get("question_id")
+
+        if not qid:
+            fail("存在没有 question_id 的题目")
+
+        if qid in seen:
+            fail(f"重复 question_id: {qid}")
+
+        seen.add(qid)
+
+        qtype = q.get("type", "")
+
+        counts[qtype] = (
+            counts.get(qtype, 0) + 1
+        )
+
+    for qtype, expected in EXPECTED_COUNTS.items():
+
+        actual = counts.get(
+            qtype,
+            0,
+        )
+
+        if actual != expected:
+
+            fail(
+                f"{qtype} 数量错误: "
+                f"{actual} / {expected}"
+            )
+
+    log("")
+    log("=" * 70)
+    log("748686 FEISHU FULL ENGLISH EXAM V8.1")
+    log("=" * 70)
+    log(f"考试日期: {EXAM_DATE or '未指定'}")
+    log(f"总题数: {len(QUESTIONS)}")
+
+    for qtype, expected in EXPECTED_COUNTS.items():
+
+        log(
+            f"  {qtype:<16} {expected}"
+        )
+
+    log("=" * 70)
 
 
-# ======================================================================
-# 飞书 Token
-# ======================================================================
+# ============================================================
+# Adapter
+# ============================================================
+
+def load_adapter_module():
+
+    if not ADAPTER_PATH.exists():
+
+        fail(
+            f"Feishu Adapter 不存在: "
+            f"{ADAPTER_PATH}"
+        )
+
+    spec = importlib.util.spec_from_file_location(
+        "feishu_english_exam_adapter",
+        ADAPTER_PATH,
+    )
+
+    if spec is None or spec.loader is None:
+
+        fail("无法加载 Feishu Adapter")
+
+    module = importlib.util.module_from_spec(
+        spec
+    )
+
+    spec.loader.exec_module(module)
+
+    return module
+
+
+def build_safe_exam() -> None:
+
+    global SAFE_QUESTIONS
+    global SAFE_QUESTION_MAP
+
+    adapter = load_adapter_module()
+
+    builder = getattr(
+        adapter,
+        "build_feishu_exam",
+        None,
+    )
+
+    if builder is None:
+
+        builder = getattr(
+            adapter,
+            "build_exam_for_feishu",
+            None,
+        )
+
+    if builder is None:
+
+        fail(
+            "Feishu Adapter 中找不到 "
+            "build_feishu_exam / build_exam_for_feishu"
+        )
+
+    safe_exam = builder(
+        {
+            "questions": QUESTIONS,
+            "total_questions": len(QUESTIONS),
+        }
+    )
+
+    SAFE_QUESTIONS = safe_exam.get(
+        "exam",
+        {}
+    ).get(
+        "questions",
+        []
+    )
+
+    if len(SAFE_QUESTIONS) != EXPECTED_TOTAL:
+
+        fail(
+            "Adapter 安全题目数量错误: "
+            f"{len(SAFE_QUESTIONS)} / {EXPECTED_TOTAL}"
+        )
+
+    SAFE_QUESTION_MAP = {
+        q["question_id"]: q
+        for q in SAFE_QUESTIONS
+    }
+
+    forbidden = {
+        "correct_answer",
+        "answer",
+        "explanation",
+        "reference_answer",
+    }
+
+    for q in SAFE_QUESTIONS:
+
+        leaked = forbidden.intersection(
+            q.keys()
+        )
+
+        if leaked:
+
+            fail(
+                f"Adapter 安全检查失败: "
+                f"{q['question_id']} "
+                f"存在禁止字段 {sorted(leaked)}"
+            )
+
+    log(
+        "✅ Feishu Adapter 安全检查通过"
+    )
+
+
+# ============================================================
+# Feishu Token
+# ============================================================
 
 def get_tenant_access_token() -> str:
 
-    url = (
-        "https://open.feishu.cn/open-apis/"
-        "auth/v3/tenant_access_token/internal"
-    )
+    if not APP_ID or not APP_SECRET:
+
+        fail(
+            "APP_ID / APP_SECRET 未设置"
+        )
 
     response = requests.post(
-        url,
+        "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal",
         json={
             "app_id": APP_ID,
             "app_secret": APP_SECRET,
@@ -577,8 +458,9 @@ def get_tenant_access_token() -> str:
     data = response.json()
 
     if data.get("code") != 0:
+
         fail(
-            "获取 tenant_access_token 失败："
+            "获取 tenant_access_token 失败: "
             + json.dumps(
                 data,
                 ensure_ascii=False,
@@ -588,19 +470,20 @@ def get_tenant_access_token() -> str:
     return data["tenant_access_token"]
 
 
-# ======================================================================
-# 查找群
-# ======================================================================
+# ============================================================
+# Chat
+# ============================================================
 
-def find_chat_id() -> str:
-
-    token = get_tenant_access_token()
+def find_chat_id(
+    token: str,
+) -> str:
 
     headers = {
-        "Authorization": f"Bearer {token}",
+        "Authorization":
+            f"Bearer {token}",
     }
 
-    page_token = ""
+    page_token = None
 
     while True:
 
@@ -623,343 +506,358 @@ def find_chat_id() -> str:
         data = response.json()
 
         if data.get("code") != 0:
+
             fail(
-                "获取群列表失败："
+                "读取飞书群失败: "
                 + json.dumps(
                     data,
                     ensure_ascii=False,
                 )
             )
 
-        for chat in data.get("data", {}).get(
+        for chat in data.get(
+            "data",
+            {}
+        ).get(
             "items",
-            [],
+            []
         ):
 
-            if chat.get("name") == FEISHU_CHAT_NAME:
+            name = chat.get(
+                "name",
+                "",
+            )
+
+            if name == FEISHU_CHAT_NAME:
+
                 return chat["chat_id"]
 
         page_token = (
-            data.get("data", {}).get(
-                "page_token"
-            )
-            or ""
+            data.get("data", {})
+            .get("page_token")
         )
 
         if not page_token:
             break
 
     fail(
-        f"没有找到飞书群：{FEISHU_CHAT_NAME}"
+        f"没有找到飞书群: {FEISHU_CHAT_NAME}"
     )
 
     return ""
 
 
-# ======================================================================
-# 飞书发送卡片
-# ======================================================================
+# ============================================================
+# 文件上传
+# ============================================================
 
-def send_card(
-    card_data: Dict[str, Any],
+def upload_feishu_file(
+    token: str,
+    file_path: Path,
 ) -> str:
 
-    if API_CLIENT is None:
-        fail("API_CLIENT 尚未初始化")
+    if not file_path.exists():
 
-    if not CHAT_ID:
-        fail("CHAT_ID 尚未初始化")
-
-    content = json.dumps(
-        card_data,
-        ensure_ascii=False,
-    )
-
-    request = (
-        CreateMessageRequest.builder()
-        .receive_id_type("chat_id")
-        .request_body(
-            CreateMessageRequestBody.builder()
-            .receive_id(CHAT_ID)
-            .msg_type("interactive")
-            .content(content)
-            .build()
-        )
-        .build()
-    )
-
-    response = API_CLIENT.im.v1.message.create(
-        request
-    )
-
-    if not response.success():
         fail(
-            "发送飞书卡片失败："
-            + str(response)
+            f"听力文件不存在: {file_path}"
         )
 
-    data = response.data
-
-    return getattr(data, "message_id", "") or ""
-
-
-# ======================================================================
-# 选卷卡
-# ======================================================================
-
-def build_exam_selector_card(
-    dates: List[str],
-) -> Dict[str, Any]:
-
-    options = []
-
-    for date_value in dates:
-
-        options.append({
-            "text": {
-                "tag": "plain_text",
-                "content": date_value,
-            },
-            "value": date_value,
-        })
-
-    return {
-        "schema": "2.0",
-        "config": {
-            "wide_screen_mode": True,
-        },
-        "header": {
-            "title": {
-                "tag": "plain_text",
-                "content": "748686 英语考试中心",
-            },
-            "template": "blue",
-        },
-        "body": {
-            "elements": [
-                {
-                    "tag": "div",
-                    "text": {
-                        "tag": "lark_md",
-                        "content": (
-                            "### 📚 开始英语考试\n\n"
-                            "请选择你要参加的考试日期。"
-                        ),
-                    },
-                },
-                {
-                    "tag": "hr",
-                },
-                {
-                    "tag": "form",
-                    "name": "exam_selector_form",
-                    "elements": [
-                        {
-                            "tag": "select_static",
-                            "name": "exam_date",
-                            "required": True,
-                            "placeholder": {
-                                "tag": "plain_text",
-                                "content": "请选择考试日期",
-                            },
-                            "options": options,
-                        },
-                        {
-                            "tag": "button",
-                            "name": "continue_date",
-                            "action_type": "form_submit",
-                            "type": "primary",
-                            "text": {
-                                "tag": "plain_text",
-                                "content": "下一步：选择试卷",
-                            },
-                        },
-                    ],
-                },
-            ],
-        },
+    headers = {
+        "Authorization":
+            f"Bearer {token}",
     }
 
+    with open(
+        file_path,
+        "rb",
+    ) as f:
 
-def build_exam_list_card(
-    date_value: str,
-    exams: List[Path],
-) -> Dict[str, Any]:
+        files = {
+            "file": (
+                file_path.name,
+                f,
+            )
+        }
 
-    options = []
+        data = {
+            "file_type": "mp3",
+        }
 
-    for exam in exams:
+        response = requests.post(
+            "https://open.feishu.cn/open-apis/im/v1/files",
+            headers=headers,
+            files=files,
+            data=data,
+            timeout=120,
+        )
 
-        options.append({
-            "text": {
-                "tag": "plain_text",
-                "content": exam.stem,
-            },
-            "value": exam.name,
-        })
+    response.raise_for_status()
 
-    return {
-        "schema": "2.0",
-        "config": {
-            "wide_screen_mode": True,
-        },
-        "header": {
-            "title": {
-                "tag": "plain_text",
-                "content": "748686 英语考试中心",
-            },
-            "template": "blue",
-        },
-        "body": {
-            "elements": [
-                {
-                    "tag": "div",
-                    "text": {
-                        "tag": "lark_md",
-                        "content": (
-                            "### 📅 已选择考试日期\n\n"
-                            f"**{date_value}**\n\n"
-                            "请选择对应试卷。"
-                        ),
-                    },
-                },
-                {
-                    "tag": "hr",
-                },
-                {
-                    "tag": "form",
-                    "name": "exam_file_form",
-                    "elements": [
-                        {
-                            "tag": "select_static",
-                            "name": "exam_file",
-                            "required": True,
-                            "placeholder": {
-                                "tag": "plain_text",
-                                "content": "请选择试卷",
-                            },
-                            "options": options,
-                        },
-                        {
-                            "tag": "button",
-                            "name": "start_exam",
-                            "action_type": "form_submit",
-                            "type": "primary",
-                            "text": {
-                                "tag": "plain_text",
-                                "content": "🚀 开始考试",
-                            },
-                        },
-                    ],
-                },
-            ],
-        },
-    }
+    result = response.json()
+
+    if result.get("code") != 0:
+
+        fail(
+            "上传飞书文件失败: "
+            + json.dumps(
+                result,
+                ensure_ascii=False,
+            )
+        )
+
+    file_key = (
+        result.get("data", {})
+        .get("file_key")
+    )
+
+    if not file_key:
+
+        fail(
+            f"飞书文件上传成功但没有 file_key: "
+            f"{file_path.name}"
+        )
+
+    return file_key
 
 
-# ======================================================================
-# 题目卡
-# ======================================================================
+def prepare_audio(
+    token: str,
+) -> None:
 
-def build_choice_card(
-    question: Dict[str, Any],
-) -> Dict[str, Any]:
+    if not EXAM_DATE:
 
-    qid = question["question_id"]
+        log(
+            "⚠️ 未设置 EXAM_DATE，跳过听力文件准备"
+        )
 
-    qtype = question["type"]
+        return
+
+    audio_dir = (
+        BASE_DIR
+        / "output"
+        / EXAM_DATE
+        / "配套试卷"
+        / "听力"
+    )
+
+    if not audio_dir.exists():
+
+        log(
+            f"⚠️ 听力目录不存在: {audio_dir}"
+        )
+
+        return
+
+    for part in (
+        "A",
+        "B",
+        "C",
+    ):
+
+        candidates = sorted(
+            audio_dir.glob(
+                f"Listening_{part}.*"
+            )
+        )
+
+        if not candidates:
+            continue
+
+        audio_path = None
+
+        for candidate in candidates:
+
+            if candidate.suffix.lower().lstrip(
+                "."
+            ) == AUDIO_FORMAT:
+
+                audio_path = candidate
+                break
+
+        if audio_path is None:
+
+            audio_path = candidates[0]
+
+        log(
+            f"上传听力 {part}: "
+            f"{audio_path.name}"
+        )
+
+        AUDIO_FILE_KEYS[part] = (
+            upload_feishu_file(
+                token,
+                audio_path,
+            )
+        )
+
+    log(
+        f"✅ 听力文件准备完成: "
+        f"{len(AUDIO_FILE_KEYS)} 组"
+    )
+
+
+# ============================================================
+# 卡片基础
+# ============================================================
+
+def md_escape(
+    value: Any,
+) -> str:
+
+    if value is None:
+        return ""
+
+    return str(value)
+
+
+def question_header(
+    question: dict[str, Any],
+) -> str:
 
     number = question.get(
         "number",
-        "?",
-    )
-
-    question_text = question.get(
-        "question",
         "",
     )
+
+    return f"英语答题测试 · 第 {number} 题"
+
+
+def get_option_lines(
+    question: dict[str, Any],
+) -> str:
 
     options = question.get(
         "options",
         {},
     )
 
-    elements = [
-        {
-            "tag": "div",
-            "text": {
-                "tag": "lark_md",
-                "content": (
-                    f"**{question_text}**"
-                ),
-            },
-        },
-        {
-            "tag": "hr",
-        },
-    ]
+    lines = []
 
-    option_lines = []
+    for key in (
+        "A",
+        "B",
+        "C",
+        "D",
+    ):
 
-    if isinstance(options, dict):
+        if key in options:
 
-        for key, value in options.items():
-
-            option_lines.append(
-                f"**{key}.** {value}"
+            lines.append(
+                f"**{key}.** "
+                f"{md_escape(options[key])}"
             )
 
-    elif isinstance(options, list):
+    return "\n".join(lines)
 
-        for item in options:
-            option_lines.append(str(item))
 
-    if option_lines:
+# ============================================================
+# 单选 / 完形 / 阅读 / 听力
+# ============================================================
 
-        elements.append({
+def build_choice_card(
+    question: dict[str, Any],
+) -> dict[str, Any]:
+
+    qid = question["question_id"]
+
+    qtype = question.get(
+        "type",
+        "",
+    )
+
+    elements: list[dict[str, Any]] = []
+
+    question_text = (
+        f"**第 {question.get('number', '')} 题**\n\n"
+        f"**{md_escape(question.get('question', ''))}**"
+    )
+
+    elements.append(
+        {
             "tag": "div",
             "text": {
                 "tag": "lark_md",
-                "content": "\n".join(
-                    option_lines
+                "content": question_text,
+            },
+        }
+    )
+
+    if qtype == "listening":
+
+        part = question.get(
+            "part",
+            "",
+        )
+
+        file_key = AUDIO_FILE_KEYS.get(
+            part
+        )
+
+        if file_key:
+
+            elements.append(
+                {
+                    "tag": "audio",
+                    "file_key": file_key,
+                }
+            )
+
+    elements.append(
+        {
+            "tag": "div",
+            "text": {
+                "tag": "lark_md",
+                "content": get_option_lines(
+                    question
                 ),
             },
-        })
+        }
+    )
 
-        elements.append({
+    elements.append(
+        {
             "tag": "hr",
-        })
+        }
+    )
 
-    buttons = []
+    actions = []
 
-    for key in ("A", "B", "C", "D"):
+    for key in (
+        "A",
+        "B",
+        "C",
+        "D",
+    ):
 
-        if isinstance(options, dict):
-            if key not in options:
-                continue
+        if key not in question.get(
+            "options",
+            {},
+        ):
+            continue
 
-        buttons.append({
-            "tag": "button",
-            "text": {
-                "tag": "plain_text",
-                "content": key,
-            },
-            "type": "default",
-            "behaviors": [
-                {
-                    "type": "callback",
-                    "value": {
-                        "action": "answer",
-                        "question_id": qid,
-                        "answer": key,
-                    },
+        actions.append(
+            {
+                "tag": "button",
+                "text": {
+                    "tag": "plain_text",
+                    "content": key,
                 },
-            ],
-        })
+                "type": "default",
+                "behaviors": [
+                    {
+                        "type": "callback",
+                        "value": {
+                            "action": "answer",
+                            "question_id": qid,
+                            "answer": key,
+                        },
+                    }
+                ],
+            }
+        )
 
-    if buttons:
-
-        elements.append({
+    elements.append(
+        {
             "tag": "column_set",
             "flex_mode": "none",
             "columns": [
@@ -967,33 +865,29 @@ def build_choice_card(
                     "tag": "column",
                     "width": "weighted",
                     "weight": 1,
-                    "elements": [button],
-                }
-                for button in buttons
-            ],
-        })
-
-    if qtype == "listening":
-
-        part = question.get("part")
-
-        audio_key = AUDIO_FILE_KEYS.get(
-            str(part),
-            "",
-        )
-
-        if audio_key:
-
-            elements.insert(
-                1,
-                {
-                    "tag": "audio",
-                    "file_key": audio_key,
-                    "name": (
-                        f"Listening_{part}"
-                    ),
+                    "elements": [actions[0]],
                 },
-            )
+                {
+                    "tag": "column",
+                    "width": "weighted",
+                    "weight": 1,
+                    "elements": [actions[1]],
+                },
+                {
+                    "tag": "column",
+                    "width": "weighted",
+                    "weight": 1,
+                    "elements": [actions[2]],
+                },
+                {
+                    "tag": "column",
+                    "width": "weighted",
+                    "weight": 1,
+                    "elements": [actions[3]],
+                },
+            ],
+        }
+    )
 
     return {
         "schema": "2.0",
@@ -1003,8 +897,8 @@ def build_choice_card(
         "header": {
             "title": {
                 "tag": "plain_text",
-                "content": (
-                    f"英语答题测试 · 第 {number} 题"
+                "content": question_header(
+                    question
                 ),
             },
             "template": "blue",
@@ -1015,150 +909,178 @@ def build_choice_card(
     }
 
 
-# ======================================================================
-# 多选卡
-# ======================================================================
+# ============================================================
+# 多选
+# ============================================================
 
 def build_multiple_card(
-    question: Dict[str, Any],
-) -> Dict[str, Any]:
+    question: dict[str, Any],
+    selected: set[str] | None = None,
+) -> dict[str, Any]:
 
     qid = question["question_id"]
 
-    number = question.get(
-        "number",
-        "?",
-    )
+    selected = selected or set()
 
-    options = question.get(
-        "options",
-        {},
-    )
+    elements: list[dict[str, Any]] = []
 
-    selected = MULTIPLE_SELECTION.get(
-        qid,
-        set(),
-    )
-
-    elements = [
+    elements.append(
         {
             "tag": "div",
             "text": {
                 "tag": "lark_md",
                 "content": (
-                    f"**{question['question']}**"
+                    f"**第 {question.get('number', '')} 题**\n\n"
+                    f"**{md_escape(question.get('question', ''))}**"
                 ),
             },
-        },
+        }
+    )
+
+    elements.append(
+        {
+            "tag": "div",
+            "text": {
+                "tag": "lark_md",
+                "content": get_option_lines(
+                    question
+                ),
+            },
+        }
+    )
+
+    elements.append(
         {
             "tag": "hr",
-        },
-    ]
+        }
+    )
 
-    for key, value in options.items():
-
-        prefix = (
-            "☑️"
+    selected_text = (
+        "、".join(
+            key
+            for key in (
+                "A",
+                "B",
+                "C",
+                "D",
+            )
             if key in selected
-            else "⬜"
         )
+        or "未选择"
+    )
 
-        elements.append({
+    elements.append(
+        {
             "tag": "div",
             "text": {
                 "tag": "lark_md",
                 "content": (
-                    f"{prefix} **{key}.** {value}"
+                    f"**当前选择：{selected_text}**"
                 ),
             },
-        })
-
-    elements.append({
-        "tag": "hr",
-    })
-
-    current = (
-        "、".join(sorted(selected))
-        if selected
-        else "尚未选择"
+        }
     )
 
-    elements.append({
-        "tag": "div",
-        "text": {
-            "tag": "lark_md",
-            "content": (
-                f"**当前选择：{current}**"
-            ),
-        },
-    })
+    actions = []
 
-    elements.append({
-        "tag": "hr",
-    })
+    for key in (
+        "A",
+        "B",
+        "C",
+        "D",
+    ):
 
-    buttons = []
-
-    for key in ("A", "B", "C", "D"):
-
-        if key not in options:
+        if key not in question.get(
+            "options",
+            {},
+        ):
             continue
 
-        buttons.append({
+        label = (
+            f"✓ {key}"
+            if key in selected
+            else key
+        )
+
+        button_type = (
+            "primary"
+            if key in selected
+            else "default"
+        )
+
+        actions.append(
+            {
+                "tag": "button",
+                "text": {
+                    "tag": "plain_text",
+                    "content": label,
+                },
+                "type": button_type,
+                "behaviors": [
+                    {
+                        "type": "callback",
+                        "value": {
+                            "action": "toggle_multiple",
+                            "question_id": qid,
+                            "answer": key,
+                        },
+                    }
+                ],
+            }
+        )
+
+    elements.append(
+        {
+            "tag": "column_set",
+            "flex_mode": "none",
+            "columns": [
+                {
+                    "tag": "column",
+                    "width": "weighted",
+                    "weight": 1,
+                    "elements": [actions[0]],
+                },
+                {
+                    "tag": "column",
+                    "width": "weighted",
+                    "weight": 1,
+                    "elements": [actions[1]],
+                },
+                {
+                    "tag": "column",
+                    "width": "weighted",
+                    "weight": 1,
+                    "elements": [actions[2]],
+                },
+                {
+                    "tag": "column",
+                    "width": "weighted",
+                    "weight": 1,
+                    "elements": [actions[3]],
+                },
+            ],
+        }
+    )
+
+    elements.append(
+        {
             "tag": "button",
             "text": {
                 "tag": "plain_text",
-                "content": key,
+                "content": "提交多选答案",
             },
-            "type": (
-                "primary"
-                if key in selected
-                else "default"
-            ),
+            "type": "primary",
             "behaviors": [
                 {
                     "type": "callback",
                     "value": {
-                        "action": "toggle_multiple",
+                        "action": "submit_multiple",
                         "question_id": qid,
-                        "answer": key,
                     },
-                },
+                }
             ],
-        })
-
-    elements.append({
-        "tag": "column_set",
-        "flex_mode": "none",
-        "columns": [
-            {
-                "tag": "column",
-                "width": "weighted",
-                "weight": 1,
-                "elements": [button],
-            }
-            for button in buttons
-        ],
-    })
-
-    elements.append({
-        "tag": "button",
-        "name": f"submit_{qid}",
-        "type": "primary",
-        "text": {
-            "tag": "plain_text",
-            "content": "提交多选答案",
-        },
-        "behaviors": [
-            {
-                "type": "callback",
-                "value": {
-                    "action": "submit_multiple",
-                    "question_id": qid,
-                },
-            },
-        ],
-    })
+        }
+    )
 
     return {
         "schema": "2.0",
@@ -1168,8 +1090,8 @@ def build_multiple_card(
         "header": {
             "title": {
                 "tag": "plain_text",
-                "content": (
-                    f"英语答题测试 · 第 {number} 题"
+                "content": question_header(
+                    question
                 ),
             },
             "template": "blue",
@@ -1180,31 +1102,40 @@ def build_multiple_card(
     }
 
 
-# ======================================================================
-# 文本题卡
-# ======================================================================
+# ============================================================
+# 翻译 / 写作
+# ============================================================
 
 def build_text_card(
-    question: Dict[str, Any],
-) -> Dict[str, Any]:
+    question: dict[str, Any],
+) -> dict[str, Any]:
 
     qid = question["question_id"]
 
-    number = question.get(
-        "number",
-        "?",
+    qtype = question.get(
+        "type",
+        "",
     )
 
-    qtype = question["type"]
+    label = (
+        "请输入你的翻译答案"
+        if qtype == "translation"
+        else "请输入你的作文"
+    )
 
-    if qtype == "translation":
-        title = "翻译题"
-        placeholder = "请输入你的翻译答案"
-        max_length = 4000
-    else:
-        title = "写作题"
-        placeholder = "请输入你的作文"
-        max_length = 12000
+    max_length = (
+        2000
+        if qtype == "translation"
+        else 5000
+    )
+
+    form_name = (
+        f"form_{qid}"
+    )
+
+    submit_name = (
+        f"submit_{qid}"
+    )
 
     return {
         "schema": "2.0",
@@ -1214,8 +1145,8 @@ def build_text_card(
         "header": {
             "title": {
                 "tag": "plain_text",
-                "content": (
-                    f"{title} · 第 {number} 题"
+                "content": question_header(
+                    question
                 ),
             },
             "template": "blue",
@@ -1227,7 +1158,8 @@ def build_text_card(
                     "text": {
                         "tag": "lark_md",
                         "content": (
-                            f"**{question['question']}**"
+                            f"**第 {question.get('number', '')} 题**\n\n"
+                            f"**{md_escape(question.get('question', ''))}**"
                         ),
                     },
                 },
@@ -1236,27 +1168,31 @@ def build_text_card(
                 },
                 {
                     "tag": "form",
-                    "name": f"form_{qid}",
+                    "name": form_name,
                     "elements": [
                         {
                             "tag": "input",
                             "name": "answer",
-                            "required": True,
                             "input_type": "multiline_text",
                             "placeholder": {
                                 "tag": "plain_text",
-                                "content": placeholder,
+                                "content": label,
                             },
                             "max_length": max_length,
+                            "required": True,
                         },
                         {
                             "tag": "button",
-                            "name": f"submit_{qid}",
                             "action_type": "form_submit",
-                            "type": "primary",
+                            "name": submit_name,
                             "text": {
                                 "tag": "plain_text",
                                 "content": "提交答案",
+                            },
+                            "type": "primary",
+                            "value": {
+                                "action": "submit_text",
+                                "question_id": qid,
                             },
                         },
                     ],
@@ -1266,48 +1202,63 @@ def build_text_card(
     }
 
 
-# ======================================================================
-# 已回答卡片
-# ======================================================================
+# ============================================================
+# 答题结果卡
+# ============================================================
 
 def build_answered_card(
-    question: Dict[str, Any],
-    user_answer: str,
-) -> Dict[str, Any]:
+    question: dict[str, Any],
+    user_answer: Any,
+) -> dict[str, Any]:
 
     correct_answer = str(
         question.get(
             "correct_answer",
             "",
         )
-    )
+    ).strip()
+
+    user_answer_text = str(
+        user_answer
+        if user_answer is not None
+        else ""
+    ).strip()
 
     is_correct = (
-        user_answer == correct_answer
+        normalize_answer(
+            user_answer_text
+        )
+        == normalize_answer(
+            correct_answer
+        )
     )
 
     if is_correct:
 
         result_text = "✅ **回答正确**"
         template = "green"
+        title = "正确"
 
     else:
 
         result_text = "❌ **回答错误**"
         template = "red"
+        title = "错误"
 
-    elements = []
+    elements: list[dict[str, Any]] = []
 
-    elements.append({
-        "tag": "div",
-        "text": {
-            "tag": "lark_md",
-            "content": (
-                f"**第 {question['number']} 题**\n\n"
-                f"**{question['question']}**"
-            ),
-        },
-    })
+    elements.append(
+        {
+            "tag": "div",
+            "text": {
+                "tag": "lark_md",
+                "content": (
+                    f"**第 {question['number']} 题**\n\n"
+                    f"**{md_escape(question['question'])}**"
+                ),
+            },
+        }
+    )
 
     options = question.get(
         "options",
@@ -1316,16 +1267,22 @@ def build_answered_card(
 
     option_lines = []
 
-    if isinstance(options, dict):
+    for key in (
+        "A",
+        "B",
+        "C",
+        "D",
+    ):
 
-        for key, value in options.items():
+        if key in options:
+
             option_lines.append(
-                f"**{key}.** {value}"
+                f"**{key}.** "
+                f"{md_escape(options[key])}"
             )
 
-    if option_lines:
-
-        elements.append({
+    elements.append(
+        {
             "tag": "div",
             "text": {
                 "tag": "lark_md",
@@ -1333,50 +1290,68 @@ def build_answered_card(
                     option_lines
                 ),
             },
-        })
+        }
+    )
 
-    elements.append({
-        "tag": "hr",
-    })
+    elements.append(
+        {
+            "tag": "hr",
+        }
+    )
 
-    elements.append({
-        "tag": "div",
-        "text": {
-            "tag": "lark_md",
-            "content": (
-                f"**你的答案：{user_answer}**"
-            ),
-        },
-    })
+    elements.append(
+        {
+            "tag": "div",
+            "text": {
+                "tag": "lark_md",
+                "content": (
+                    f"**你的答案：{md_escape(user_answer_text)}**"
+                ),
+            },
+        }
+    )
 
-    elements.append({
-        "tag": "div",
-        "text": {
-            "tag": "lark_md",
-            "content": result_text,
-        },
-    })
+    elements.append(
+        {
+            "tag": "div",
+            "text": {
+                "tag": "lark_md",
+                "content": result_text,
+            },
+        }
+    )
 
-    elements.append({
-        "tag": "div",
-        "text": {
-            "tag": "lark_md",
-            "content": (
-                f"**正确答案：{correct_answer}**"
-            ),
-        },
-    })
+    elements.append(
+        {
+            "tag": "div",
+            "text": {
+                "tag": "lark_md",
+                "content": (
+                    f"**正确答案：{md_escape(correct_answer)}**"
+                ),
+            },
+        }
+    )
 
-    elements.append({
-        "tag": "div",
-        "text": {
-            "tag": "lark_md",
-            "content": (
-                "**解析：**\n"
-                f"{question.get('explanation', '')}"
-            ),
-        },
-    })
+    explanation = question.get(
+        "explanation",
+        "",
+    )
+
+    if explanation:
+
+        elements.append(
+            {
+                "tag": "div",
+                "text": {
+                    "tag": "lark_md",
+                    "content": (
+                        f"**解析：**\n"
+                        f"{md_escape(explanation)}"
+                    ),
+                },
+            }
+        )
 
     return {
         "schema": "2.0",
@@ -1388,11 +1363,7 @@ def build_answered_card(
                 "tag": "plain_text",
                 "content": (
                     f"第 {question['number']} 题 · "
-                    + (
-                        "正确"
-                        if is_correct
-                        else "错误"
-                    )
+                    f"{title}"
                 ),
             },
             "template": template,
@@ -1403,359 +1374,10 @@ def build_answered_card(
     }
 
 
-# ======================================================================
-# 主观题提交后
-# ======================================================================
-
 def build_manual_submitted_card(
-    question: Dict[str, Any],
-    answer: str,
-) -> Dict[str, Any]:
-
-    number = question.get(
-        "number",
-        "?",
-    )
-
-    qtype = question.get(
-        "type",
-        "",
-    )
-
-    title = (
-        "翻译题"
-        if qtype == "translation"
-        else "写作题"
-    )
-
-    return {
-        "schema": "2.0",
-        "config": {
-            "wide_screen_mode": True,
-        },
-        "header": {
-            "title": {
-                "tag": "plain_text",
-                "content": (
-                    f"{title} · 第 {number} 题"
-                    " · 已提交"
-                ),
-            },
-            "template": "orange",
-        },
-        "body": {
-            "elements": [
-                {
-                    "tag": "div",
-                    "text": {
-                        "tag": "lark_md",
-                        "content": (
-                            f"**{question['question']}**"
-                        ),
-                    },
-                },
-                {
-                    "tag": "hr",
-                },
-                {
-                    "tag": "div",
-                    "text": {
-                        "tag": "lark_md",
-                        "content": (
-                            "**你的答案：**\n"
-                            f"{answer}"
-                        ),
-                    },
-                },
-                {
-                    "tag": "hr",
-                },
-                {
-                    "tag": "div",
-                    "text": {
-                        "tag": "lark_md",
-                        "content": (
-                            "📝 **已提交，待人工批改**"
-                        ),
-                    },
-                },
-            ],
-        },
-    }
-
-
-# ======================================================================
-# 音频上传
-# ======================================================================
-
-def upload_feishu_file(
-    path: Path,
-) -> str:
-
-    token = get_tenant_access_token()
-
-    headers = {
-        "Authorization": f"Bearer {token}",
-    }
-
-    with path.open("rb") as f:
-
-        response = requests.post(
-            "https://open.feishu.cn/open-apis/im/v1/files",
-            headers=headers,
-            params={
-                "parent_type": "im",
-                "parent_node": CHAT_ID or "",
-            },
-            files={
-                "file": (
-                    path.name,
-                    f,
-                    "audio/mpeg",
-                ),
-            },
-            data={
-                "file_type": "stream",
-            },
-            timeout=120,
-        )
-
-    response.raise_for_status()
-
-    data = response.json()
-
-    if data.get("code") != 0:
-        fail(
-            "飞书音频上传失败："
-            + json.dumps(
-                data,
-                ensure_ascii=False,
-            )
-        )
-
-    file_key = (
-        data.get("data", {})
-        .get("file_key")
-    )
-
-    if not file_key:
-        fail("飞书音频上传没有返回 file_key")
-
-    return file_key
-
-
-def prepare_audio(
-    date_value: str,
-) -> None:
-
-    AUDIO_FILE_KEYS.clear()
-
-    for part in ("A", "B", "C"):
-
-        path = audio_path(
-            date_value,
-            part,
-        )
-
-        if not path:
-            log(
-                f"⚠️ Listening {part} "
-                "音频不存在，跳过上传"
-            )
-            continue
-
-        log(
-            f"上传 Listening {part}："
-            f"{path.name}"
-        )
-
-        key = upload_feishu_file(path)
-
-        AUDIO_FILE_KEYS[part] = key
-
-    log("✓ Listening 音频处理完成")
-
-
-# ======================================================================
-# Session 状态
-# ======================================================================
-
-def save_session_state() -> None:
-
-    with STATE_LOCK:
-
-        payload = {
-            "session_id": SESSION_ID,
-            "date": CURRENT_DATE,
-            "exam_file": CURRENT_EXAM_FILE,
-            "answer_state": ANSWER_STATE,
-            "multiple_selection": {
-                key: sorted(value)
-                for key, value
-                in MULTIPLE_SELECTION.items()
-            },
-            "updated_at": time.time(),
-        }
-
-        json_dump(
-            SESSION_JSON,
-            payload,
-        )
-
-
-def load_session_state() -> None:
-
-    if not SESSION_JSON.is_file():
-        return
-
-    try:
-
-        data = json_load(SESSION_JSON)
-
-        stored_session = data.get(
-            "session_id"
-        )
-
-        if stored_session != SESSION_ID:
-            return
-
-        ANSWER_STATE.update(
-            data.get(
-                "answer_state",
-                {},
-            )
-        )
-
-        for key, value in data.get(
-            "multiple_selection",
-            {},
-        ).items():
-
-            MULTIPLE_SELECTION[key] = set(
-                value
-            )
-
-    except Exception as exc:
-
-        log(
-            f"⚠️ 恢复考试状态失败：{exc}"
-        )
-
-
-# ======================================================================
-# 答案保存
-# ======================================================================
-
-def save_answers() -> None:
-
-    payload = {
-        "version": "1.0",
-        "session_id": SESSION_ID,
-        "exam_date": CURRENT_DATE,
-        "exam_file": CURRENT_EXAM_FILE,
-        "answers": ANSWER_STATE,
-    }
-
-    json_dump(
-        ANSWERS_JSON,
-        payload,
-    )
-
-    log("✓ 答案 JSON 已保存")
-
-
-# ======================================================================
-# Grader
-# ======================================================================
-
-def run_grader() -> Dict[str, Any]:
-
-    if not GRADER_PATH.is_file():
-        fail(
-            f"Grader 不存在：{GRADER_PATH}"
-        )
-
-    command = [
-        sys.executable,
-        str(GRADER_PATH),
-        "--exam-json",
-        str(EXAM_JSON),
-        "--answers-json",
-        str(ANSWERS_JSON),
-        "--output",
-        str(GRADER_OUTPUT),
-    ]
-
-    log()
-    log("============================================================")
-    log("ENGLISH EXAM GRADER V1.0")
-    log("============================================================")
-
-    result = subprocess.run(
-        command,
-        cwd=str(ROOT),
-        text=True,
-    )
-
-    if result.returncode != 0:
-        fail("Grader V1.0 执行失败")
-
-    if not GRADER_OUTPUT.is_file():
-        fail(
-            "Grader 没有生成结果文件"
-        )
-
-    data = json_load(GRADER_OUTPUT)
-
-    return data
-
-
-# ======================================================================
-# 最终成绩卡
-# ======================================================================
-
-def build_final_summary_card(
-    result: Dict[str, Any],
-) -> Dict[str, Any]:
-
-    total = result.get(
-        "total_questions",
-        61,
-    )
-
-    auto_total = result.get(
-        "auto_graded_questions",
-        0,
-    )
-
-    correct = result.get(
-        "auto_correct",
-        0,
-    )
-
-    wrong = result.get(
-        "auto_wrong",
-        0,
-    )
-
-    manual = result.get(
-        "manual_review_questions",
-        0,
-    )
-
-    accuracy = result.get(
-        "accuracy",
-        0,
-    )
-
-    if isinstance(accuracy, float):
-        accuracy_text = (
-            f"{accuracy * 100:.1f}%"
-            if accuracy <= 1
-            else f"{accuracy:.1f}%"
-        )
-    else:
-        accuracy_text = str(accuracy)
+    question: dict[str, Any],
+    user_answer: str,
+) -> dict[str, Any]:
 
     elements = [
         {
@@ -1763,11 +1385,8 @@ def build_final_summary_card(
             "text": {
                 "tag": "lark_md",
                 "content": (
-                    "## 🎉 英语考试完成\n\n"
-                    f"**考试日期：** {CURRENT_DATE}\n\n"
-                    f"**试卷：** "
-                    f"{Path(CURRENT_EXAM_FILE).stem "
-                    f"if CURRENT_EXAM_FILE else ''}"
+                    f"**第 {question['number']} 题**\n\n"
+                    f"**{md_escape(question['question'])}**"
                 ),
             },
         },
@@ -1779,26 +1398,17 @@ def build_final_summary_card(
             "text": {
                 "tag": "lark_md",
                 "content": (
-                    f"### 成绩\n\n"
-                    f"**总题数：** {total}\n\n"
-                    f"**自动评分：** {auto_total}\n\n"
-                    f"**答对：** {correct}\n\n"
-                    f"**答错：** {wrong}\n\n"
-                    f"**正确率：** {accuracy_text}\n\n"
-                    f"**人工批改：** {manual}"
+                    f"**你的答案：**\n"
+                    f"{md_escape(user_answer)}"
                 ),
             },
-        },
-        {
-            "tag": "hr",
         },
         {
             "tag": "div",
             "text": {
                 "tag": "lark_md",
                 "content": (
-                    "📝 翻译和写作已经提交，"
-                    "等待人工批改。"
+                    "🟠 **已提交，待人工批改**"
                 ),
             },
         },
@@ -1812,9 +1422,11 @@ def build_final_summary_card(
         "header": {
             "title": {
                 "tag": "plain_text",
-                "content": "748686 英语考试成绩",
+                "content": (
+                    f"第 {question['number']} 题 · 已提交"
+                ),
             },
-            "template": "green",
+            "template": "orange",
         },
         "body": {
             "elements": elements,
@@ -1822,761 +1434,157 @@ def build_final_summary_card(
     }
 
 
-# ======================================================================
-# 完成判断
-# ======================================================================
-
-def is_exam_complete() -> bool:
-
-    return len(ANSWER_STATE) >= len(QUESTIONS)
-
-
-# ======================================================================
-# 单选 / 单项客观题
-# ======================================================================
-
-def handle_single_answer(
-    question_id: str,
-    user_answer: str,
-) -> Dict[str, Any]:
-
-    question = QUESTION_MAP[question_id]
-
-    if question_id in ANSWER_STATE:
-        return build_answered_card(
-            question,
-            str(
-                ANSWER_STATE[question_id][
-                    "answer"
-                ]
-            ),
-        )
-
-    ANSWER_STATE[question_id] = {
-        "question_id": question_id,
-        "answer": user_answer,
-        "graded": True,
-        "review_required": False,
-    }
-
-    save_session_state()
-
-    # 注意：
-    # 这里不向日志输出 correct_answer。
-
-    card = build_answered_card(
-        question,
-        user_answer,
-    )
-
-    if is_exam_complete():
-        finish_exam()
-
-    return card
-
-
-# ======================================================================
-# 多选
-# ======================================================================
-
-def handle_multiple_toggle(
-    question_id: str,
-    answer: str,
-) -> Dict[str, Any]:
-
-    if question_id in ANSWER_STATE:
-        return build_multiple_card(
-            QUESTION_MAP[question_id]
-        )
-
-    selected = MULTIPLE_SELECTION.setdefault(
-        question_id,
-        set(),
-    )
-
-    if answer in selected:
-        selected.remove(answer)
-    else:
-        selected.add(answer)
-
-    save_session_state()
-
-    return build_multiple_card(
-        QUESTION_MAP[question_id]
-    )
-
-
-def normalize_answer_set(value: Any) -> Set[str]:
-
-    if isinstance(value, str):
-
-        value = value.replace(
-            "，",
-            ",",
-        )
-
-        return {
-            item.strip().upper()
-            for item in value.split(",")
-            if item.strip()
-        }
-
-    if isinstance(value, list):
-
-        return {
-            str(item).strip().upper()
-            for item in value
-            if str(item).strip()
-        }
-
-    return set()
-
-
-def handle_multiple_submit(
-    question_id: str,
-) -> Dict[str, Any]:
-
-    question = QUESTION_MAP[question_id]
-
-    if question_id in ANSWER_STATE:
-
-        return build_answered_card(
-            question,
-            str(
-                ANSWER_STATE[question_id][
-                    "answer"
-                ]
-            ),
-        )
-
-    selected = MULTIPLE_SELECTION.get(
-        question_id,
-        set(),
-    )
-
-    answer_text = ",".join(
-        sorted(selected)
-    )
-
-    ANSWER_STATE[question_id] = {
-        "question_id": question_id,
-        "answer": answer_text,
-        "graded": True,
-        "review_required": False,
-    }
-
-    save_session_state()
-
-    if is_exam_complete():
-        finish_exam()
-
-    return build_answered_card(
-        question,
-        answer_text,
-    )
-
-
-# ======================================================================
-# 翻译 / 写作
-# ======================================================================
-
-def handle_manual_submit(
-    question_id: str,
-    answer: str,
-) -> Dict[str, Any]:
-
-    question = QUESTION_MAP[question_id]
-
-    if question_id in ANSWER_STATE:
-
-        return build_manual_submitted_card(
-            question,
-            str(
-                ANSWER_STATE[question_id][
-                    "answer"
-                ]
-            ),
-        )
-
-    ANSWER_STATE[question_id] = {
-        "question_id": question_id,
-        "answer": answer,
-        "graded": False,
-        "review_required": True,
-    }
-
-    save_session_state()
-
-    if is_exam_complete():
-        finish_exam()
-
-    return build_manual_submitted_card(
-        question,
-        answer,
-    )
-
-
-# ======================================================================
-# 完成考试
-# ======================================================================
-
-def finish_exam() -> None:
-
-    global SUMMARY_SENT
-
-    with STATE_LOCK:
-
-        if SUMMARY_SENT:
-            return
-
-        if not is_exam_complete():
-            return
-
-        save_answers()
-
-        result = run_grader()
-
-        SUMMARY_SENT = True
-
-        card = build_final_summary_card(
-            result
-        )
-
-        send_card(card)
-
-        log()
-        log("============================================================")
-        log("✓ 61题考试完成")
-        log("✓ 最终成绩卡已发送")
-        log("============================================================")
-
-
-# ======================================================================
-# Form value
-# ======================================================================
-
-def get_form_values(
-    action: Any,
-) -> Dict[str, Any]:
-
-    value = getattr(
-        action,
-        "form_value",
-        None,
-    )
-
-    if value:
-        return value
-
-    try:
-
-        data = action.to_dict()
-
-        return data.get(
-            "form_value",
-            {},
-        )
-
-    except Exception:
-        return {}
-
-
-def get_action_name(
-    action: Any,
+# ============================================================
+# normalize
+# ============================================================
+
+def normalize_answer(
+    value: Any,
 ) -> str:
 
-    name = getattr(
-        action,
-        "name",
-        None,
-    )
-
-    if name:
-        return str(name)
-
-    try:
-
-        data = action.to_dict()
-
-        return str(
-            data.get(
-                "name",
-                "",
-            )
-        )
-
-    except Exception:
+    if value is None:
         return ""
 
+    if isinstance(
+        value,
+        list,
+    ):
 
-def get_action_dict(
-    action: Any,
-) -> Dict[str, Any]:
+        value = ",".join(
+            str(x)
+            for x in value
+        )
 
-    try:
-        return action.to_dict()
-    except Exception:
-        return {}
+    value = str(value).strip().upper()
 
-
-# ======================================================================
-# Card callback
-# ======================================================================
-
-def make_card_callback_response(
-    card_data: Dict[str, Any],
-) -> P2CardActionTriggerResponse:
-
-    response = P2CardActionTriggerResponse()
-
-    card = CallBackCard()
-
-    card.type = "raw"
-
-    card.data = json.dumps(
-        card_data,
-        ensure_ascii=False,
+    value = value.replace(
+        "，",
+        ",",
     )
 
-    response.card = card
-
-    return response
-
-
-def do_card_action_trigger(
-    event: P2CardActionTrigger,
-) -> P2CardActionTriggerResponse:
-
-    action = event.event.action
-
-    action_dict = get_action_dict(action)
-
-    value = getattr(
-        action,
-        "value",
-        None,
+    value = value.replace(
+        "、",
+        ",",
     )
 
-    if value is None:
-        value = action_dict.get(
-            "value",
-            {},
-        )
-
-    if not isinstance(value, dict):
-        value = {}
-
-    action_name = get_action_name(action)
-
-    form_values = get_form_values(action)
-
-    log()
-    log("============================================================")
-    log("FEISHU CARD ACTION")
-    log("============================================================")
-    log(f"action_name : {action_name}")
-    log(f"value       : {value}")
-
-    # --------------------------------------------------------------
-    # 日期选择
-    # --------------------------------------------------------------
-
-    if (
-        "exam_date" in form_values
-        and action_name == "continue_date"
-    ):
-
-        selected_date = str(
-            form_values["exam_date"]
-        ).strip()
-
-        dates = list_exam_dates()
-
-        if selected_date not in dates:
-
-            return make_card_callback_response(
-                build_exam_selector_card(
-                    dates
-                )
-            )
-
-        exams = list_exam_files(
-            selected_date
-        )
-
-        if not exams:
-
-            return make_card_callback_response(
-                {
-                    "schema": "2.0",
-                    "config": {
-                        "wide_screen_mode": True,
-                    },
-                    "header": {
-                        "title": {
-                            "tag": "plain_text",
-                            "content": "没有可用试卷",
-                        },
-                        "template": "red",
-                    },
-                    "body": {
-                        "elements": [
-                            {
-                                "tag": "div",
-                                "text": {
-                                    "tag": "lark_md",
-                                    "content": (
-                                        f"日期 **{selected_date}** "
-                                        "没有发现可用试卷。"
-                                    ),
-                                },
-                            }
-                        ],
-                    },
-                }
-            )
-
-        return make_card_callback_response(
-            build_exam_list_card(
-                selected_date,
-                exams,
-            )
-        )
-
-    # --------------------------------------------------------------
-    # 试卷选择
-    # --------------------------------------------------------------
-
-    if (
-        "exam_file" in form_values
-        and action_name == "start_exam"
-    ):
-
-        selected_file = str(
-            form_values["exam_file"]
-        ).strip()
-
-        if not CURRENT_DATE:
-            # 当前 runner 尚未建立考试日期
-            return make_card_callback_response(
-                build_exam_selector_card(
-                    list_exam_dates()
-                )
-            )
-
-        candidate = (
-            OUTPUT_DIR
-            / CURRENT_DATE
-            / "配套试卷"
-            / safe_filename(selected_file)
-        )
-
-        if not candidate.is_file():
-            return make_card_callback_response(
-                build_exam_list_card(
-                    CURRENT_DATE,
-                    list_exam_files(
-                        CURRENT_DATE
-                    ),
-                )
-            )
-
-        start_selected_exam(
-            CURRENT_DATE,
-            candidate,
-        )
-
-        # start_selected_exam 会准备题目并发送题卡。
-        # 当前选择卡片只需要更新为“考试已启动”。
-        return make_card_callback_response(
-            {
-                "schema": "2.0",
-                "config": {
-                    "wide_screen_mode": True,
-                },
-                "header": {
-                    "title": {
-                        "tag": "plain_text",
-                        "content": "考试已启动",
-                    },
-                    "template": "green",
-                },
-                "body": {
-                    "elements": [
-                        {
-                            "tag": "div",
-                            "text": {
-                                "tag": "lark_md",
-                                "content": (
-                                    "## 🚀 考试已经开始\n\n"
-                                    "试卷已经发送到群聊。\n\n"
-                                    "请按照题目顺序完成 61 道题。"
-                                ),
-                            },
-                        }
-                    ],
-                },
-            }
-        )
-
-    # --------------------------------------------------------------
-    # 普通选择题
-    # --------------------------------------------------------------
-
-    action_type = value.get(
-        "action"
+    value = value.replace(
+        ";",
+        ",",
     )
 
-    question_id = value.get(
-        "question_id"
+    value = value.replace(
+        "；",
+        ",",
     )
 
-    if (
-        action_type == "answer"
-        and question_id
-    ):
+    value = value.replace(
+        " ",
+        "",
+    )
 
-        answer = str(
-            value.get(
-                "answer",
-                "",
-            )
-        ).strip().upper()
+    if "," in value:
 
-        card = handle_single_answer(
-            str(question_id),
-            answer,
-        )
-
-        return make_card_callback_response(
-            card
-        )
-
-    # --------------------------------------------------------------
-    # 多选切换
-    # --------------------------------------------------------------
-
-    if (
-        action_type == "toggle_multiple"
-        and question_id
-    ):
-
-        answer = str(
-            value.get(
-                "answer",
-                "",
-            )
-        ).strip().upper()
-
-        card = handle_multiple_toggle(
-            str(question_id),
-            answer,
-        )
-
-        return make_card_callback_response(
-            card
-        )
-
-    # --------------------------------------------------------------
-    # 多选提交
-    # --------------------------------------------------------------
-
-    if (
-        action_type == "submit_multiple"
-        and question_id
-    ):
-
-        card = handle_multiple_submit(
-            str(question_id)
-        )
-
-        return make_card_callback_response(
-            card
-        )
-
-    # --------------------------------------------------------------
-    # 文本题
-    # --------------------------------------------------------------
-
-    if (
-        form_values
-        and action_name.startswith("submit_")
-    ):
-
-        qid = action_name[
-            len("submit_"):
+        parts = [
+            x
+            for x in value.split(",")
+            if x
         ]
 
-        answer = str(
-            form_values.get(
-                "answer",
-                "",
+        parts = sorted(
+            set(parts)
+        )
+
+        return ",".join(parts)
+
+    if (
+        len(value) > 1
+        and value.isalpha()
+    ):
+
+        return ",".join(
+            sorted(
+                set(value)
             )
-        ).strip()
+        )
 
-        if qid in QUESTION_MAP:
+    return value
 
-            card = handle_manual_submit(
-                qid,
-                answer,
+
+# ============================================================
+# 卡片发送
+# ============================================================
+
+def send_card(
+    token: str,
+    chat_id: str,
+    card_data: dict[str, Any],
+) -> str:
+
+    headers = {
+        "Authorization":
+            f"Bearer {token}",
+        "Content-Type":
+            "application/json; charset=utf-8",
+    }
+
+    payload = {
+        "receive_id": chat_id,
+        "msg_type": "interactive",
+        "content": json.dumps(
+            card_data,
+            ensure_ascii=False,
+        ),
+    }
+
+    response = requests.post(
+        "https://open.feishu.cn/open-apis/im/v1/messages",
+        headers=headers,
+        params={
+            "receive_id_type": "chat_id",
+        },
+        json=payload,
+        timeout=30,
+    )
+
+    response.raise_for_status()
+
+    result = response.json()
+
+    if result.get("code") != 0:
+
+        fail(
+            "发送飞书卡片失败: "
+            + json.dumps(
+                result,
+                ensure_ascii=False,
             )
+        )
 
-            return make_card_callback_response(
-                card
-            )
-
-    # 未识别动作
-    return make_card_callback_response(
-        {
-            "schema": "2.0",
-            "config": {
-                "wide_screen_mode": True,
-            },
-            "header": {
-                "title": {
-                    "tag": "plain_text",
-                    "content": "操作未识别",
-                },
-                "template": "orange",
-            },
-            "body": {
-                "elements": [
-                    {
-                        "tag": "div",
-                        "text": {
-                            "tag": "lark_md",
-                            "content": (
-                                "⚠️ 当前操作没有被识别。\n\n"
-                                "请重新操作。"
-                            ),
-                        },
-                    }
-                ],
-            },
-        }
+    return (
+        result.get("data", {})
+        .get("message_id", "")
     )
 
 
-# ======================================================================
-# WebSocket callback
-# ======================================================================
-
-def callback(
-    event: P2CardActionTrigger,
-) -> P2CardActionTriggerResponse:
-
-    try:
-        return do_card_action_trigger(event)
-
-    except Exception as exc:
-
-        log(
-            f"❌ Card callback error: {exc}"
-        )
-
-        return make_card_callback_response(
-            {
-                "schema": "2.0",
-                "config": {
-                    "wide_screen_mode": True,
-                },
-                "header": {
-                    "title": {
-                        "tag": "plain_text",
-                        "content": "考试系统错误",
-                    },
-                    "template": "red",
-                },
-                "body": {
-                    "elements": [
-                        {
-                            "tag": "div",
-                            "text": {
-                                "tag": "lark_md",
-                                "content": (
-                                    "❌ 当前操作处理失败。\n\n"
-                                    "请稍后重试。"
-                                ),
-                            },
-                        }
-                    ],
-                },
-            }
-        )
-
-
-# ======================================================================
-# 启动考试
-# ======================================================================
-
-def start_selected_exam(
-    date_value: str,
-    exam_file: Path,
+def send_all_questions(
+    token: str,
+    chat_id: str,
 ) -> None:
 
-    global CURRENT_DATE
-    global CURRENT_EXAM_FILE
-    global CURRENT_ANSWER_FILE
-
-    CURRENT_DATE = date_value
-
-    CURRENT_EXAM_FILE = str(
-        exam_file.relative_to(ROOT)
+    log("")
+    log(
+        "开始发送 61 道题..."
     )
-
-    answer_file = answer_file_for_exam(
-        exam_file
-    )
-
-    if not answer_file:
-        fail(
-            "没有找到对应答案解析："
-            f"{exam_file}"
-        )
-
-    CURRENT_ANSWER_FILE = str(
-        answer_file.relative_to(ROOT)
-    )
-
-    log()
-    log("============================================================")
-    log("START SELECTED ENGLISH EXAM")
-    log("============================================================")
-    log(f"DATE    : {CURRENT_DATE}")
-    log(f"EXAM    : {CURRENT_EXAM_FILE}")
-    log(f"ANSWER  : {CURRENT_ANSWER_FILE}")
-
-    run_parser(
-        exam_file,
-        answer_file,
-    )
-
-    load_exam()
-
-    prepare_audio(
-        date_value
-    )
-
-    ANSWER_STATE.clear()
-    MULTIPLE_SELECTION.clear()
-
-    save_session_state()
-
-    # --------------------------------------------------------------
-    # 发送全部 61 题
-    # --------------------------------------------------------------
-
-    log()
-    log("============================================================")
-    log("SEND 61 QUESTIONS")
-    log("============================================================")
 
     for index, question in enumerate(
-        QUESTIONS,
+        SAFE_QUESTIONS,
         start=1,
     ):
 
-        qtype = question["type"]
+        qtype = question.get(
+            "type",
+            "",
+        )
 
         if qtype == "multiple_choice":
 
@@ -2599,164 +1607,1191 @@ def start_selected_exam(
                 question
             )
 
-        send_card(card)
-
-        log(
-            f"✓ 已发送第 {index}/61 题"
+        send_card(
+            token,
+            chat_id,
+            card,
         )
+
+        if index == 1 or index % 10 == 0:
+
+            log(
+                f"  已发送 {index}/61"
+            )
 
         time.sleep(0.15)
 
-    log()
-    log("✓ 61题全部发送完成")
-
-
-# ======================================================================
-# 发送入口卡
-# ======================================================================
-
-def send_selector() -> None:
-
-    dates = list_exam_dates()
-
-    if not dates:
-        fail(
-            "Output 中没有发现可用英语试卷日期"
-        )
-
-    card = build_exam_selector_card(
-        dates
+    log(
+        "✅ 61 道题全部发送完成"
     )
 
-    send_card(card)
+
+# ============================================================
+# 状态持久化
+# ============================================================
+
+def state_payload() -> dict[str, Any]:
+
+    with STATE_LOCK:
+
+        return {
+            "version": "8.1",
+            "exam_date": EXAM_DATE,
+            "total_questions": EXPECTED_TOTAL,
+            "answers": ANSWER_STATE,
+            "updated_at": int(
+                time.time()
+            ),
+        }
+
+
+def persist_state() -> None:
+
+    payload = state_payload()
+
+    atomic_write_json(
+        STATE_FILE,
+        payload,
+    )
+
+    if not PERSIST_GITHUB:
+        return
+
+    repo_root = BASE_DIR.parent
+
+    target_dir = (
+        repo_root
+        / PERSIST_GITHUB_PATH
+    )
+
+    target_dir.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    target_file = (
+        target_dir
+        / f"{EXAM_DATE or 'unknown'}_answers.json"
+    )
+
+    atomic_write_json(
+        target_file,
+        payload,
+    )
+
+    try:
+
+        subprocess.run(
+            [
+                "git",
+                "add",
+                str(target_file),
+            ],
+            cwd=repo_root,
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+        subprocess.run(
+            [
+                "git",
+                "commit",
+                "-m",
+                (
+                    "chore(feishu): save exam "
+                    "answer state"
+                ),
+            ],
+            cwd=repo_root,
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+        subprocess.run(
+            [
+                "git",
+                "push",
+            ],
+            cwd=repo_root,
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+    except Exception as exc:
+
+        log(
+            "⚠️ GitHub 状态持久化失败，"
+            f"本地状态仍已保存: {exc}"
+        )
+
+
+def save_answers() -> None:
+
+    with STATE_LOCK:
+
+        answers = {
+            qid: state.get(
+                "user_answer",
+                "",
+            )
+            for qid, state
+            in ANSWER_STATE.items()
+        }
+
+    atomic_write_json(
+        ANSWERS_JSON,
+        answers,
+    )
+
+    persist_state()
+
+
+# ============================================================
+# Grader
+# ============================================================
+
+def run_grader() -> dict[str, Any]:
+
+    save_answers()
 
     log(
-        "✓ 飞书英语考试选择卡已发送"
+        "开始调用 Grader V1.0..."
+    )
+
+    command = [
+        sys.executable,
+        str(GRADER_PATH),
+        "--exam-json",
+        str(EXAM_JSON),
+        "--answers-json",
+        str(ANSWERS_JSON),
+        "--output",
+        str(GRADER_OUTPUT),
+    ]
+
+    result = subprocess.run(
+        command,
+        cwd=BASE_DIR,
+        text=True,
+        capture_output=True,
+    )
+
+    if result.returncode != 0:
+
+        log(
+            result.stdout
+        )
+
+        log(
+            result.stderr
+        )
+
+        fail(
+            "Grader V1.0 执行失败"
+        )
+
+    grading = load_json(
+        GRADER_OUTPUT
+    )
+
+    return grading
+
+
+# ============================================================
+# 最终成绩卡
+# ============================================================
+
+def build_final_summary_card(
+    grading: dict[str, Any],
+) -> dict[str, Any]:
+
+    total = grading.get(
+        "total_questions",
+        0,
+    )
+
+    auto_total = grading.get(
+        "auto_graded_questions",
+        0,
+    )
+
+    correct = grading.get(
+        "auto_correct",
+        0,
+    )
+
+    wrong = grading.get(
+        "auto_wrong",
+        0,
+    )
+
+    accuracy = grading.get(
+        "accuracy",
+        0,
+    )
+
+    manual = grading.get(
+        "manual_review_questions",
+        0,
+    )
+
+    elements = [
+        {
+            "tag": "div",
+            "text": {
+                "tag": "lark_md",
+                "content": (
+                    "🎉 **本次英语测试已完成**"
+                ),
+            },
+        },
+        {
+            "tag": "hr",
+        },
+        {
+            "tag": "div",
+            "text": {
+                "tag": "lark_md",
+                "content": (
+                    f"**总题数：{total}**\n\n"
+                    f"**自动评分：{auto_total} 题**\n\n"
+                    f"**答对：{correct} 题**\n\n"
+                    f"**答错：{wrong} 题**\n\n"
+                    f"**自动评分正确率：{accuracy}%**\n\n"
+                    f"**待人工批改：{manual} 题**"
+                ),
+            },
+        },
+        {
+            "tag": "hr",
+        },
+    ]
+
+    if manual:
+
+        elements.append(
+            {
+                "tag": "div",
+                "text": {
+                    "tag": "lark_md",
+                    "content": (
+                        "🟠 翻译和写作已经提交，"
+                        "等待人工批改。"
+                    ),
+                },
+            }
+        )
+
+    elements.append(
+        {
+            "tag": "div",
+            "text": {
+                "tag": "lark_md",
+                "content": (
+                    "所有 61 道题的提交状态已经记录。"
+                ),
+            },
+        }
+    )
+
+    return {
+        "schema": "2.0",
+        "config": {
+            "wide_screen_mode": True,
+        },
+        "header": {
+            "title": {
+                "tag": "plain_text",
+                "content": "📊 英语测试最终成绩",
+            },
+            "template": "blue",
+        },
+        "body": {
+            "elements": elements,
+        },
+    }
+
+
+# ============================================================
+# WebSocket 回调响应
+# ============================================================
+
+def make_card_callback_response(
+    card_data: dict[str, Any],
+) -> P2CardActionTriggerResponse:
+
+    response = (
+        P2CardActionTriggerResponse()
+    )
+
+    card = CallBackCard()
+
+    card.type = "raw"
+
+    card.data = card_data
+
+    response.card = card
+
+    return response
+
+
+# ============================================================
+# 回调数据解析
+# ============================================================
+
+def event_to_dict(
+    data: P2CardActionTrigger,
+) -> dict[str, Any]:
+
+    try:
+
+        raw = lark.JSON.marshal(
+            data
+        )
+
+        return json.loads(raw)
+
+    except Exception:
+
+        try:
+
+            return data.to_dict()
+
+        except Exception:
+
+            return {}
+
+
+def extract_action(
+    data: P2CardActionTrigger,
+) -> dict[str, Any]:
+
+    payload = event_to_dict(
+        data
+    )
+
+    event = payload.get(
+        "event",
+        {}
+    )
+
+    action = event.get(
+        "action",
+        {}
+    )
+
+    if not isinstance(
+        action,
+        dict,
+    ):
+
+        return {}
+
+    value = action.get(
+        "value",
+        {},
+    )
+
+    if isinstance(
+        value,
+        str,
+    ):
+
+        try:
+            value = json.loads(value)
+        except Exception:
+            value = {}
+
+    if not isinstance(
+        value,
+        dict,
+    ):
+
+        value = {}
+
+    merged = dict(value)
+
+    if action.get("name"):
+        merged.setdefault(
+            "name",
+            action["name"],
+        )
+
+    if action.get("form_value") is not None:
+
+        merged["form_value"] = action.get(
+            "form_value"
+        )
+
+    return merged
+
+
+def extract_form_answer(
+    action: dict[str, Any],
+) -> str:
+
+    form_value = action.get(
+        "form_value",
+        {},
+    )
+
+    if not isinstance(
+        form_value,
+        dict,
+    ):
+
+        return ""
+
+    value = form_value.get(
+        "answer",
+        "",
+    )
+
+    if isinstance(
+        value,
+        dict,
+    ):
+
+        if "value" in value:
+
+            value = value["value"]
+
+    return str(
+        value or ""
+    ).strip()
+
+
+# ============================================================
+# 单选处理
+# ============================================================
+
+def handle_single_answer(
+    question_id: str,
+    answer: str,
+) -> dict[str, Any]:
+
+    global SUMMARY_SENT
+
+    question = QUESTION_MAP.get(
+        question_id
+    )
+
+    safe_question = SAFE_QUESTION_MAP.get(
+        question_id
+    )
+
+    if not question or not safe_question:
+
+        return {
+            "schema": "2.0",
+            "config": {
+                "wide_screen_mode": True,
+            },
+            "header": {
+                "title": {
+                    "tag": "plain_text",
+                    "content": "错误",
+                },
+                "template": "red",
+            },
+            "body": {
+                "elements": [
+                    {
+                        "tag": "div",
+                        "text": {
+                            "tag": "plain_text",
+                            "content": "题目不存在",
+                        },
+                    }
+                ],
+            },
+        }
+
+    with STATE_LOCK:
+
+        existing = ANSWER_STATE.get(
+            question_id
+        )
+
+        if existing:
+
+            return build_answered_card(
+                question,
+                existing.get(
+                    "user_answer",
+                    "",
+                ),
+            )
+
+        ANSWER_STATE[
+            question_id
+        ] = {
+            "user_answer": answer,
+            "submitted_at": int(
+                time.time()
+            ),
+            "graded": True,
+        }
+
+    persist_state()
+
+    return build_answered_card(
+        question,
+        answer,
     )
 
 
-# ======================================================================
-# 主程序
-# ======================================================================
+# ============================================================
+# 多选处理
+# ============================================================
 
-def main() -> None:
+def handle_multiple_toggle(
+    question_id: str,
+    answer: str,
+) -> dict[str, Any]:
 
-    global API_CLIENT
-    global CHAT_ID
-
-    if not APP_ID:
-        fail("APP_ID 未配置")
-
-    if not APP_SECRET:
-        fail("APP_SECRET 未配置")
-
-    if not ENGLISH_ROOT.exists():
-        fail(
-            f"英语学习系统目录不存在："
-            f"{ENGLISH_ROOT}"
-        )
-
-    if not OUTPUT_DIR.exists():
-        fail(
-            f"英语 Output 不存在："
-            f"{OUTPUT_DIR}"
-        )
-
-    log()
-    log("######################################################################")
-    log("748686 英语学习系统")
-    log("Feishu Full English Exam Runner V8.1")
-    log("######################################################################")
-
-    log()
-    log(f"ROOT       : {ROOT}")
-    log(f"OUTPUT     : {OUTPUT_DIR}")
-    log(f"FEISHU CHAT: {FEISHU_CHAT_NAME}")
-    log(f"SESSION    : {SESSION_ID}")
-
-    CHAT_ID = find_chat_id()
-
-    log(f"✓ Chat ID：{CHAT_ID}")
-
-    API_CLIENT = (
-        lark.Client.builder()
-        .app_id(APP_ID)
-        .app_secret(APP_SECRET)
-        .build()
+    question = SAFE_QUESTION_MAP.get(
+        question_id
     )
 
-    # --------------------------------------------------------------
-    # 关键：
-    # WebSocket 必须先启动
-    # 再发送选择卡。
-    #
-    # 防止“卡片已经出现，但 callback 尚未监听”的竞态。
-    # --------------------------------------------------------------
+    if not question:
 
-    event_handler = (
-        lark.EventDispatcherHandler.builder(
+        return build_error_card(
+            "题目不存在"
+        )
+
+    with STATE_LOCK:
+
+        if question_id in ANSWER_STATE:
+
+            return build_error_card(
+                "本题已经提交，不能重复修改"
+            )
+
+        selected = MULTIPLE_SELECTION.setdefault(
+            question_id,
+            set(),
+        )
+
+        if answer in selected:
+
+            selected.remove(answer)
+
+        else:
+
+            selected.add(answer)
+
+        current = set(selected)
+
+    return build_multiple_card(
+        question,
+        current,
+    )
+
+
+def handle_multiple_submit(
+    question_id: str,
+) -> dict[str, Any]:
+
+    global SUMMARY_SENT
+
+    question = QUESTION_MAP.get(
+        question_id
+    )
+
+    if not question:
+
+        return build_error_card(
+            "题目不存在"
+        )
+
+    with STATE_LOCK:
+
+        if question_id in ANSWER_STATE:
+
+            existing = ANSWER_STATE[
+                question_id
+            ]
+
+            return build_answered_card(
+                question,
+                existing.get(
+                    "user_answer",
+                    "",
+                ),
+            )
+
+        selected = set(
+            MULTIPLE_SELECTION.get(
+                question_id,
+                set(),
+            )
+        )
+
+        answer = ",".join(
+            sorted(selected)
+        )
+
+        ANSWER_STATE[
+            question_id
+        ] = {
+            "user_answer": answer,
+            "submitted_at": int(
+                time.time()
+            ),
+            "graded": True,
+        }
+
+    persist_state()
+
+    return build_answered_card(
+        question,
+        answer,
+    )
+
+
+# ============================================================
+# 文本题处理
+# ============================================================
+
+def handle_manual_submit(
+    question_id: str,
+    answer: str,
+) -> dict[str, Any]:
+
+    question = QUESTION_MAP.get(
+        question_id
+    )
+
+    if not question:
+
+        return build_error_card(
+            "题目不存在"
+        )
+
+    with STATE_LOCK:
+
+        if question_id in ANSWER_STATE:
+
+            existing = ANSWER_STATE[
+                question_id
+            ]
+
+            return build_manual_submitted_card(
+                question,
+                existing.get(
+                    "user_answer",
+                    "",
+                ),
+            )
+
+        ANSWER_STATE[
+            question_id
+        ] = {
+            "user_answer": answer,
+            "submitted_at": int(
+                time.time()
+            ),
+            "graded": False,
+            "review_required": True,
+        }
+
+    persist_state()
+
+    return build_manual_submitted_card(
+        question,
+        answer,
+    )
+
+
+# ============================================================
+# 错误卡
+# ============================================================
+
+def build_error_card(
+    message: str,
+) -> dict[str, Any]:
+
+    return {
+        "schema": "2.0",
+        "config": {
+            "wide_screen_mode": True,
+        },
+        "header": {
+            "title": {
+                "tag": "plain_text",
+                "content": "操作提示",
+            },
+            "template": "red",
+        },
+        "body": {
+            "elements": [
+                {
+                    "tag": "div",
+                    "text": {
+                        "tag": "lark_md",
+                        "content": (
+                            f"⚠️ **{message}**"
+                        ),
+                    },
+                }
+            ],
+        },
+    }
+
+
+# ============================================================
+# 最终提交检测
+# ============================================================
+
+def all_questions_answered() -> bool:
+
+    with STATE_LOCK:
+
+        return (
+            len(ANSWER_STATE)
+            >= EXPECTED_TOTAL
+        )
+
+
+def send_final_summary_once(
+    token: str,
+    chat_id: str,
+) -> None:
+
+    global SUMMARY_SENT
+
+    with STATE_LOCK:
+
+        if SUMMARY_SENT:
+            return
+
+        if not all_questions_answered():
+            return
+
+        SUMMARY_SENT = True
+
+    grading = run_grader()
+
+    card = build_final_summary_card(
+        grading
+    )
+
+    send_card(
+        token,
+        chat_id,
+        card,
+    )
+
+    log(
+        "🎉 最终成绩卡已发送"
+    )
+
+
+# ============================================================
+# WebSocket callback
+# ============================================================
+
+RUNTIME_TOKEN = ""
+
+RUNTIME_CHAT_ID = ""
+
+
+def do_card_action_trigger(
+    data: P2CardActionTrigger,
+) -> P2CardActionTriggerResponse:
+
+    try:
+
+        action = extract_action(
+            data
+        )
+
+        action_type = action.get(
+            "action",
+            "",
+        )
+
+        question_id = action.get(
+            "question_id",
+            "",
+        )
+
+        answer = action.get(
+            "answer",
+            "",
+        )
+
+        if not question_id:
+
+            return make_card_callback_response(
+                build_error_card(
+                    "缺少题目 ID"
+                )
+            )
+
+        question = QUESTION_MAP.get(
+            question_id
+        )
+
+        if not question:
+
+            return make_card_callback_response(
+                build_error_card(
+                    "题目不存在"
+                )
+            )
+
+        qtype = question.get(
+            "type",
+            "",
+        )
+
+        # ----------------------------------------------------
+        # 单选 / 完形 / 阅读 / 听力
+        # ----------------------------------------------------
+
+        if action_type == "answer":
+
+            card = handle_single_answer(
+                question_id,
+                str(answer),
+            )
+
+        # ----------------------------------------------------
+        # 多选选择
+        # ----------------------------------------------------
+
+        elif action_type == "toggle_multiple":
+
+            card = handle_multiple_toggle(
+                question_id,
+                str(answer),
+            )
+
+        # ----------------------------------------------------
+        # 多选提交
+        # ----------------------------------------------------
+
+        elif action_type == "submit_multiple":
+
+            card = handle_multiple_submit(
+                question_id,
+            )
+
+        # ----------------------------------------------------
+        # 翻译 / 写作
+        # ----------------------------------------------------
+
+        elif action_type == "submit_text":
+
+            text_answer = extract_form_answer(
+                action
+            )
+
+            if not text_answer:
+
+                card = build_error_card(
+                    "答案不能为空"
+                )
+
+            else:
+
+                card = handle_manual_submit(
+                    question_id,
+                    text_answer,
+                )
+
+        # ----------------------------------------------------
+        # 兼容部分飞书表单事件
+        # ----------------------------------------------------
+
+        elif (
+            action.get("name", "")
+            .startswith("submit_")
+            and qtype in {
+                "translation",
+                "writing",
+            }
+        ):
+
+            text_answer = extract_form_answer(
+                action
+            )
+
+            if not text_answer:
+
+                card = build_error_card(
+                    "答案不能为空"
+                )
+
+            else:
+
+                card = handle_manual_submit(
+                    question_id,
+                    text_answer,
+                )
+
+        else:
+
+            card = build_error_card(
+                "未知操作"
+            )
+
+        # ----------------------------------------------------
+        # 61 题完成后，发送最终成绩
+        # ----------------------------------------------------
+
+        if (
+            action_type
+            in {
+                "answer",
+                "submit_multiple",
+                "submit_text",
+            }
+            and all_questions_answered()
+        ):
+
+            # 不阻塞当前卡片替换。
+            threading.Thread(
+                target=send_final_summary_once,
+                args=(
+                    RUNTIME_TOKEN,
+                    RUNTIME_CHAT_ID,
+                ),
+                daemon=True,
+            ).start()
+
+        return make_card_callback_response(
+            card
+        )
+
+    except Exception as exc:
+
+        log(
+            "❌ 卡片回调处理异常: "
+            f"{type(exc).__name__}: {exc}"
+        )
+
+        return make_card_callback_response(
+            build_error_card(
+                "本次操作处理失败，请稍后重试"
+            )
+        )
+
+
+def on_error(data: Any) -> None:
+
+    log(
+        f"⚠️ Feishu WebSocket error: {data}"
+    )
+
+
+def on_reconnecting(data: Any) -> None:
+
+    log(
+        "🔄 Feishu WebSocket 正在重连..."
+    )
+
+
+def on_reconnected(data: Any) -> None:
+
+    log(
+        "✅ Feishu WebSocket 已重连"
+    )
+
+
+def start_websocket() -> None:
+
+    global WS_CLIENT
+
+    handler = (
+        lark.EventDispatcherHandler
+        .builder(
             "",
             "",
         )
         .register_p2_card_action_trigger(
-            callback
+            do_card_action_trigger
         )
         .build()
     )
 
-    ws_client = lark.ws.Client(
+    WS_CLIENT = lark.ws.Client(
         APP_ID,
         APP_SECRET,
-        event_handler=event_handler,
+        event_handler=handler,
         log_level=lark.LogLevel.INFO,
     )
 
-    log()
-    log("============================================================")
-    log("START FEISHU LONG CONNECTION")
-    log("============================================================")
+    log(
+        "🔌 启动 Feishu 长连接..."
+    )
 
-    # WebSocket 放到后台线程。
+    WS_CLIENT.start()
+
+
+# ============================================================
+# 启动前状态
+# ============================================================
+
+def load_existing_state() -> None:
+
+    if not STATE_FILE.exists():
+        return
+
+    try:
+
+        data = load_json(
+            STATE_FILE
+        )
+
+        saved_date = data.get(
+            "exam_date",
+            "",
+        )
+
+        if saved_date != EXAM_DATE:
+            return
+
+        answers = data.get(
+            "answers",
+            {},
+        )
+
+        if not isinstance(
+            answers,
+            dict,
+        ):
+            return
+
+        for qid, value in answers.items():
+
+            if qid not in QUESTION_MAP:
+                continue
+
+            if isinstance(
+                value,
+                dict,
+            ):
+
+                ANSWER_STATE[qid] = value
+
+        if ANSWER_STATE:
+
+            log(
+                f"♻️ 恢复已有答题状态: "
+                f"{len(ANSWER_STATE)}/{EXPECTED_TOTAL}"
+            )
+
+    except Exception as exc:
+
+        log(
+            f"⚠️ 恢复状态失败，忽略旧状态: {exc}"
+        )
+
+
+# ============================================================
+# 主程序
+# ============================================================
+
+def main() -> None:
+
+    global RUNTIME_TOKEN
+    global RUNTIME_CHAT_ID
+
+    load_exam()
+
+    validate_exam()
+
+    build_safe_exam()
+
+    load_existing_state()
+
+    token = get_tenant_access_token()
+
+    RUNTIME_TOKEN = token
+
+    chat_id = find_chat_id(
+        token
+    )
+
+    RUNTIME_CHAT_ID = chat_id
+
+    log(
+        f"✅ 找到飞书群: {FEISHU_CHAT_NAME}"
+    )
+
+    prepare_audio(
+        token
+    )
+
+    # --------------------------------------------------------
+    # 先启动 WebSocket
+    # --------------------------------------------------------
+
     ws_thread = threading.Thread(
-        target=ws_client.start,
+        target=start_websocket,
         daemon=True,
     )
 
     ws_thread.start()
 
+    # 给长连接一点初始化时间
     time.sleep(3)
 
-    send_selector()
+    log(
+        "✅ WebSocket 监听线程已启动"
+    )
 
-    log()
-    log("============================================================")
-    log("✓ FEISHU EXAM CENTER READY")
-    log("============================================================")
-    log("等待飞书选择日期 / 试卷并开始考试……")
+    # --------------------------------------------------------
+    # 再发送 61 题
+    # --------------------------------------------------------
 
-    try:
+    send_all_questions(
+        token,
+        chat_id,
+    )
 
-        while True:
+    # --------------------------------------------------------
+    # 如果状态已经完成，则直接生成最终成绩
+    # --------------------------------------------------------
 
-            if SUMMARY_SENT:
-                log(
-                    "考试已经完成，保持 Runner "
-                    "短暂在线后退出。"
-                )
+    if all_questions_answered():
 
-                time.sleep(10)
+        send_final_summary_once(
+            token,
+            chat_id,
+        )
 
-                break
+    log("")
+    log("=" * 70)
+    log("🟢 61 题英语答题系统正在运行")
+    log("🟢 等待飞书用户提交答案")
+    log("=" * 70)
 
-            time.sleep(5)
+    # --------------------------------------------------------
+    # GitHub Actions runner 保持运行
+    # --------------------------------------------------------
 
-    except KeyboardInterrupt:
+    while True:
 
-        log("收到终止信号")
+        time.sleep(30)
 
-    finally:
+        if all_questions_answered():
 
-        save_session_state()
+            # 成绩已经发送后继续保持短时间，
+            # 防止最后一个 callback 尚未完全返回。
+            time.sleep(10)
+
+            break
+
+    log(
+        "✅ 本次 61 题答题流程完成"
+    )
 
 
 if __name__ == "__main__":
