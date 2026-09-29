@@ -1,4 +1,4 @@
-name: 02_英语学习系统 - Feishu E2E Send Test V1.0
+name: 02_英语学习系统 - Feishu E2E Send Test V1.1
 
 on:
   workflow_dispatch:
@@ -22,7 +22,7 @@ jobs:
         uses: actions/checkout@v4
 
       # ============================================================
-      # 2. Send 3 E2E Questions
+      # 2. Send E2E Questions
       # ============================================================
 
       - name: Send E2E Questions to Feishu
@@ -34,7 +34,7 @@ jobs:
           set -e
 
           echo "============================================================"
-          echo "748686 FEISHU E2E SEND TEST V1.0"
+          echo "748686 FEISHU E2E SEND TEST V1.1"
           echo "============================================================"
 
           if [ -z "$APP_ID" ]; then
@@ -53,7 +53,8 @@ jobs:
           echo
 
           # ==========================================================
-          # 1. 获取 tenant_access_token
+          # STEP 1
+          # 获取 tenant_access_token
           # ==========================================================
 
           echo "============================================================"
@@ -95,7 +96,8 @@ jobs:
           echo
 
           # ==========================================================
-          # 2. 获取群聊列表
+          # STEP 2
+          # 获取群聊
           # ==========================================================
 
           echo "============================================================"
@@ -145,7 +147,7 @@ jobs:
           echo
 
           # ==========================================================
-          # 3. 发送测试卡片函数
+          # 函数：发送一道测试题
           # ==========================================================
 
           send_question() {
@@ -162,13 +164,19 @@ jobs:
             echo "SEND QUESTION $QUESTION_NUMBER"
             echo "============================================================"
 
-            CARD_JSON=$(python - \
+            # --------------------------------------------------------
+            # 直接由 Python 生成完整的 message body JSON
+            # --------------------------------------------------------
+
+            python - \
               "$QUESTION_ID" \
               "$QUESTION_NUMBER" \
               "$QUESTION_TEXT" \
               "$OPTION_A" \
               "$OPTION_B" \
-              "$OPTION_C" <<'PY'
+              "$OPTION_C" \
+              > /tmp/feishu_message.json <<'PY'
+
           import json
           import sys
 
@@ -192,12 +200,12 @@ jobs:
 
               "body": {
                   "elements": [
-
                       {
                           "tag": "markdown",
-                          "content":
+                          "content": (
                               f"### 第 {question_number} 题\n\n"
                               f"**{question_text}**"
+                          )
                       },
 
                       {
@@ -241,46 +249,88 @@ jobs:
                               "answer": "C"
                           }
                       }
-
                   ]
               }
           }
 
-          print(
-              json.dumps(
+          message = {
+              "receive_id": "",
+              "msg_type": "interactive",
+              "content": json.dumps(
                   card,
                   ensure_ascii=False
               )
+          }
+
+          print(
+              json.dumps(
+                  message,
+                  ensure_ascii=False
+              )
           )
+
           PY
-            )
+
+            # --------------------------------------------------------
+            # 注入 receive_id
+            # --------------------------------------------------------
+
+            python - "$CHAT_ID" <<'PY'
+          import json
+          import sys
+
+          path = "/tmp/feishu_message.json"
+          chat_id = sys.argv[1]
+
+          with open(
+              path,
+              "r",
+              encoding="utf-8"
+          ) as f:
+              data = json.load(f)
+
+          data["receive_id"] = chat_id
+
+          with open(
+              path,
+              "w",
+              encoding="utf-8"
+          ) as f:
+              json.dump(
+                  data,
+                  f,
+                  ensure_ascii=False
+              )
+
+          PY
+
+            # --------------------------------------------------------
+            # 显示发送结构
+            # 不显示 token
+            # --------------------------------------------------------
+
+            echo
+            echo "MESSAGE BODY:"
+            cat /tmp/feishu_message.json | python -m json.tool
+
+            # --------------------------------------------------------
+            # 发送
+            # --------------------------------------------------------
 
             MESSAGE_RESPONSE=$(curl -sS \
               -X POST \
               "https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=chat_id" \
               -H "Authorization: Bearer $TOKEN" \
               -H "Content-Type: application/json; charset=utf-8" \
-              -d "{
-                \"receive_id\": \"$CHAT_ID\",
-                \"msg_type\": \"interactive\",
-                \"content\": $(printf '%s' "$CARD_JSON" | python -c '
-          import json
-          import sys
+              --data-binary @/tmp/feishu_message.json)
 
-          card = json.load(sys.stdin)
-
-          print(
-              json.dumps(
-                  json.dumps(
-                      card,
-                      ensure_ascii=False
-                  ),
-                  ensure_ascii=False
-              )
-          ')
-              }")
-
+            echo
+            echo "FEISHU RESPONSE:"
             echo "$MESSAGE_RESPONSE" | python -m json.tool
+
+            # --------------------------------------------------------
+            # 检查 code
+            # --------------------------------------------------------
 
             CODE=$(echo "$MESSAGE_RESPONSE" | python -c '
           import json
@@ -292,19 +342,24 @@ jobs:
           ')
 
             if [ "$CODE" != "0" ]; then
+
               echo
               echo "❌ FEISHU MESSAGE SEND FAILED"
               echo "code=$CODE"
+
               exit 1
+
             fi
 
             echo
             echo "✅ QUESTION $QUESTION_NUMBER SENT"
+
           }
 
 
           # ==========================================================
-          # 4. 发送三道测试题
+          # STEP 3
+          # 发送三道题
           # ==========================================================
 
           send_question \
@@ -315,6 +370,7 @@ jobs:
             "2" \
             "3"
 
+
           send_question \
             "e2e_test_002" \
             "2" \
@@ -322,6 +378,7 @@ jobs:
             "4" \
             "5" \
             "6"
+
 
           send_question \
             "e2e_test_003" \
@@ -333,7 +390,7 @@ jobs:
 
 
           # ==========================================================
-          # 5. 完成
+          # 完成
           # ==========================================================
 
           echo
@@ -342,16 +399,16 @@ jobs:
           echo "============================================================"
 
           echo
-          echo "请现在打开飞书：748686知识系统"
+          echo "请打开飞书：748686知识系统"
           echo
-          echo "依次回答："
+          echo "然后依次点击："
           echo
           echo "第 1 题 → B"
           echo "第 2 题 → B"
           echo "第 3 题 → B"
           echo
-          echo "然后回到："
-          echo "02_英语学习系统 - Feishu E2E Test V1.0"
+          echo "再回到："
+          echo "Feishu E2E Test V1.0"
           echo
-          echo "查看 cardAction 日志。"
+          echo "查看 CARD ACTION 日志。"
           echo
