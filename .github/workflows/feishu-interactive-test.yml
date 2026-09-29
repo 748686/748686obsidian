@@ -1,7 +1,6 @@
-name: 02_英语学习系统 - 飞书交互测试
+name: 02_英语学习系统 - 飞书交互测试 V2.0
 
 on:
-
   workflow_dispatch:
 
 permissions:
@@ -16,7 +15,7 @@ jobs:
     steps:
 
       # ============================================================
-      # 1. 基础信息
+      # 1. 测试信息
       # ============================================================
 
       - name: 显示测试信息
@@ -24,27 +23,28 @@ jobs:
           set -e
 
           echo "============================================================"
-          echo "748686 FEISHU INTERACTIVE TEST"
+          echo "748686 FEISHU INTERACTIVE TEST V2.0"
           echo "============================================================"
           echo
           echo "测试目标："
-          echo "GitHub Actions → 飞书机器人 → 交互式答题卡片"
+          echo "GitHub Actions → 飞书消息卡片 → 卡片交互"
           echo
           echo "测试问题："
           echo "1 + 1 = ?"
           echo
-          echo "正确选项：B"
+          echo "正确答案：B"
           echo
           echo "============================================================"
 
 
       # ============================================================
-      # 2. 检查 Secrets
+      # 2. 检查 Webhook
       # ============================================================
 
       - name: 检查飞书 Webhook
         env:
           FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+
         run: |
           set -e
 
@@ -57,130 +57,147 @@ jobs:
 
 
       # ============================================================
-      # 3. 发送飞书交互式测试卡片
+      # 3. 发送交互式卡片
       # ============================================================
 
       - name: 发送飞书交互测试卡片
         env:
           FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+
         run: |
           set -e
 
           echo
           echo "============================================================"
-          echo "SEND FEISHU INTERACTIVE CARD"
+          echo "SEND FEISHU INTERACTIVE CARD V2.0"
           echo "============================================================"
 
           python - <<'PY'
+
           import json
           import os
           import sys
           import urllib.request
           import urllib.error
 
+
           webhook = os.environ["FEISHU_WEBHOOK"]
 
+
+          # ========================================================
+          # 飞书消息卡片
+          # ========================================================
+
           card = {
+
               "schema": "2.0",
+
+              "config": {
+                  "wide_screen_mode": True
+              },
 
               "header": {
                   "title": {
                       "tag": "plain_text",
-                      "content": "🧪 748686 飞书交互测试"
+                      "content": "🧪 748686 飞书交互测试 V2.0"
                   },
                   "template": "blue"
               },
 
               "body": {
+
                   "direction": "vertical",
+
                   "padding": "12px",
 
                   "elements": [
+
+                      # ------------------------------------------------
+                      # 测试说明
+                      # ------------------------------------------------
 
                       {
                           "tag": "markdown",
                           "content": (
                               "**测试目标**\n"
-                              "验证飞书消息卡片按钮是否能够产生交互事件。\n\n"
+                              "验证飞书消息卡片按钮是否能够产生 "
+                              "`card.action.trigger` 交互事件。\n\n"
                               "**问题：1 + 1 = ?**"
                           )
                       },
 
+                      # ------------------------------------------------
+                      # A / B / C 按钮
+                      #
+                      # 使用 action 容器承载按钮
+                      # ------------------------------------------------
+
                       {
-                          "tag": "column_set",
-                          "flex_mode": "none",
+                          "tag": "action",
 
-                          "columns": [
+                          "actions": [
 
                               {
-                                  "tag": "column",
-                                  "width": "weighted",
+                                  "tag": "button",
 
-                                  "elements": [
-                                      {
-                                          "tag": "button",
-                                          "text": {
-                                              "tag": "plain_text",
-                                              "content": "A. 1"
-                                          },
-                                          "type": "default",
-                                          "value": {
-                                              "question_id": "interactive_test_001",
-                                              "answer": "A"
-                                          }
-                                      }
-                                  ]
+                                  "text": {
+                                      "tag": "plain_text",
+                                      "content": "A. 1"
+                                  },
+
+                                  "type": "default",
+
+                                  "value": {
+                                      "question_id": "interactive_test_001",
+                                      "answer": "A"
+                                  }
                               },
 
                               {
-                                  "tag": "column",
-                                  "width": "weighted",
+                                  "tag": "button",
 
-                                  "elements": [
-                                      {
-                                          "tag": "button",
-                                          "text": {
-                                              "tag": "plain_text",
-                                              "content": "B. 2"
-                                          },
-                                          "type": "primary",
-                                          "value": {
-                                              "question_id": "interactive_test_001",
-                                              "answer": "B"
-                                          }
-                                      }
-                                  ]
+                                  "text": {
+                                      "tag": "plain_text",
+                                      "content": "B. 2"
+                                  },
+
+                                  "type": "primary",
+
+                                  "value": {
+                                      "question_id": "interactive_test_001",
+                                      "answer": "B"
+                                  }
                               },
 
                               {
-                                  "tag": "column",
-                                  "width": "weighted",
+                                  "tag": "button",
 
-                                  "elements": [
-                                      {
-                                          "tag": "button",
-                                          "text": {
-                                              "tag": "plain_text",
-                                              "content": "C. 3"
-                                          },
-                                          "type": "default",
-                                          "value": {
-                                              "question_id": "interactive_test_001",
-                                              "answer": "C"
-                                          }
-                                      }
-                                  ]
+                                  "text": {
+                                      "tag": "plain_text",
+                                      "content": "C. 3"
+                                  },
+
+                                  "type": "default",
+
+                                  "value": {
+                                      "question_id": "interactive_test_001",
+                                      "answer": "C"
+                                  }
                               }
 
                           ]
                       },
 
+                      # ------------------------------------------------
+                      # 操作提示
+                      # ------------------------------------------------
+
                       {
                           "tag": "markdown",
                           "content": (
                               "👉 **请点击 B. 2**\n\n"
-                              "如果点击后没有任何变化，也不用担心。"
-                              "这说明下一步需要配置飞书的交互回调服务。"
+                              "点击后，GitHub Actions 中的长连接程序 "
+                              "应该收到 `cardAction` 事件。"
                           )
                       }
 
@@ -188,96 +205,141 @@ jobs:
               }
           }
 
+
           payload = {
               "msg_type": "interactive",
               "card": card
           }
+
+
+          # ========================================================
+          # HTTP POST
+          # ========================================================
 
           data = json.dumps(
               payload,
               ensure_ascii=False
           ).encode("utf-8")
 
+
           request = urllib.request.Request(
+
               webhook,
+
               data=data,
+
               headers={
                   "Content-Type": "application/json; charset=utf-8"
               },
+
               method="POST"
           )
 
+
           try:
 
-              with urllib.request.urlopen(request, timeout=30) as response:
+              with urllib.request.urlopen(
+                  request,
+                  timeout=30
+              ) as response:
 
                   status = response.status
-                  body = response.read().decode("utf-8", errors="replace")
+
+                  body = response.read().decode(
+                      "utf-8",
+                      errors="replace"
+                  )
 
                   print()
                   print("HTTP STATUS:", status)
+                  print()
                   print("FEISHU RESPONSE:")
                   print(body)
+                  print()
 
                   if status < 200 or status >= 300:
-                      print("❌ 飞书 Webhook 请求失败")
+
+                      print(
+                          "❌ 飞书 Webhook 请求失败"
+                      )
+
                       sys.exit(1)
+
 
           except urllib.error.HTTPError as e:
 
               print()
-              print("❌ HTTP ERROR:", e.code)
+              print(
+                  "❌ HTTP ERROR:",
+                  e.code
+              )
 
               try:
+
                   print(
                       e.read().decode(
                           "utf-8",
                           errors="replace"
                       )
                   )
+
               except Exception:
                   pass
 
               sys.exit(1)
 
+
           except Exception as e:
 
               print()
-              print("❌ REQUEST ERROR:", repr(e))
+              print(
+                  "❌ REQUEST ERROR:",
+                  repr(e)
+              )
+
               sys.exit(1)
+
 
           print()
           print("============================================================")
           print("✅ 飞书交互测试卡片发送成功")
           print("============================================================")
+
           PY
 
 
       # ============================================================
-      # 4. 测试结束
+      # 4. 测试说明
       # ============================================================
 
-      - name: 输出测试结果
+      - name: 输出下一步
         run: |
+
           echo
           echo "============================================================"
-          echo "748686 FEISHU INTERACTIVE TEST FINISHED"
+          echo "748686 FEISHU INTERACTIVE TEST V2.0"
           echo "============================================================"
           echo
-          echo "请打开飞书「748686知识系统」所在群。"
+          echo "卡片已经发送。"
+          echo
+          echo "现在请打开飞书："
+          echo
+          echo "748686知识系统"
           echo
           echo "找到："
-          echo "🧪 748686 飞书交互测试"
+          echo "🧪 748686 飞书交互测试 V2.0"
           echo
           echo "然后点击："
           echo "👉 B. 2"
           echo
-          echo "当前测试只验证："
-          echo "GitHub Actions → 飞书交互式卡片"
+          echo "============================================================"
           echo
-          echo "暂时不会连接："
-          echo "- English Exam Parser"
-          echo "- English Exam Grader"
-          echo "- 61题正式试卷"
+          echo "注意："
+          echo
+          echo "与此同时必须保持："
+          echo
+          echo "02_英语学习系统 - Feishu Long Connection Test V2.0"
+          echo
+          echo "处于 In progress 状态。"
           echo
           echo "============================================================"
