@@ -8,11 +8,15 @@ permissions:
 
 jobs:
   feishu-long-connection:
+
     runs-on: ubuntu-latest
 
+    # GitHub hosted runner 单 Job 最长 6 小时
+    # 我们主动设置为 5 小时 50 分钟
     timeout-minutes: 350
 
     steps:
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -46,19 +50,20 @@ jobs:
 
       - name: Start Feishu Long Connection
         env:
-             LARK_APP_ID: ${{ secrets.APP_ID }}
-             LARK_APP_SECRET: ${{ secrets.APP_SECRET }}
+          LARK_APP_ID: ${{ secrets.APP_ID }}
+          LARK_APP_SECRET: ${{ secrets.APP_SECRET }}
+
         run: |
           set -e
 
           echo "============================================================"
-          echo "748686 FEISHU LONG CONNECTION TEST"
+          echo "748686 FEISHU LONG CONNECTION TEST V2.0"
           echo "============================================================"
 
           python - <<'PY'
           import asyncio
+          import json
           import os
-          import time
 
           from lark_channel import FeishuChannel
 
@@ -66,11 +71,13 @@ jobs:
           APP_ID = os.environ.get("LARK_APP_ID")
           APP_SECRET = os.environ.get("LARK_APP_SECRET")
 
+
           if not APP_ID:
-              raise RuntimeError("Missing secret: FEISHU_APP_ID")
+              raise RuntimeError("Missing secret: APP_ID")
 
           if not APP_SECRET:
-              raise RuntimeError("Missing secret: FEISHU_APP_SECRET")
+              raise RuntimeError("Missing secret: APP_SECRET")
+
 
           print("APP_ID:", APP_ID)
           print("APP_SECRET: loaded")
@@ -79,40 +86,109 @@ jobs:
           print()
 
 
-          async def on_error(error):
+          async def on_card_action(event):
+
+              print()
+              print()
+              print("=" * 70)
+              print("748686 FEISHU CARD ACTION RECEIVED")
+              print("=" * 70)
+
+              try:
+                  print("EVENT TYPE: cardAction")
+                  print()
+
+                  print("RAW EVENT:")
+                  print(json.dumps(
+                      event,
+                      ensure_ascii=False,
+                      indent=2,
+                      default=str
+                  ))
+
+              except Exception as e:
+                  print("RAW EVENT PRINT ERROR:", repr(e))
+
               print()
               print("============================================================")
-              print("FEISHU CHANNEL ERROR")
+              print("CARD ACTION RECEIVED SUCCESSFULLY")
               print("============================================================")
+              print()
+
+              # 立即返回，避免飞书等待超时
+              return {
+                  "toast": {
+                      "type": "info",
+                      "content": "748686 已收到你的点击"
+                  }
+              }
+
+
+          async def on_error(error):
+
+              print()
+              print("=" * 70)
+              print("FEISHU CHANNEL ERROR")
+              print("=" * 70)
               print(repr(error))
               print()
 
 
           async def on_reconnecting():
+
               print()
-              print("============================================================")
+              print("=" * 70)
               print("FEISHU RECONNECTING")
-              print("============================================================")
+              print("=" * 70)
               print()
 
 
           async def on_reconnected():
+
               print()
-              print("============================================================")
+              print("=" * 70)
               print("FEISHU RECONNECTED")
-              print("============================================================")
+              print("=" * 70)
               print()
 
 
           async def main():
+
               channel = FeishuChannel(
                   app_id=APP_ID,
                   app_secret=APP_SECRET,
               )
 
-              channel.on("error", on_error)
-              channel.on("reconnecting", on_reconnecting)
-              channel.on("reconnected", on_reconnected)
+              # ------------------------------------------------
+              # 核心：监听飞书卡片按钮点击
+              # ------------------------------------------------
+
+              channel.on(
+                  "cardAction",
+                  on_card_action
+              )
+
+              channel.on(
+                  "error",
+                  on_error
+              )
+
+              channel.on(
+                  "reconnecting",
+                  on_reconnecting
+              )
+
+              channel.on(
+                  "reconnected",
+                  on_reconnected
+              )
+
+              print("Registered event handlers:")
+              print("  - cardAction")
+              print("  - error")
+              print("  - reconnecting")
+              print("  - reconnected")
+              print()
 
               print("Connecting...")
               print()
