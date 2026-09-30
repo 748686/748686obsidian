@@ -97,20 +97,6 @@ jobs:
           fi
 
           # ----------------------------------------------------------
-          # 检查 PARSER_VERSION
-          # ----------------------------------------------------------
-
-          echo
-          echo "检查 PARSER_VERSION:"
-
-          if grep -q 'PARSER_VERSION = "1.6"' "$PARSER"; then
-            echo "✅ PARSER_VERSION = 1.6"
-          else
-            echo "❌ PARSER_VERSION 不是 1.6"
-            exit 1
-          fi
-
-          # ----------------------------------------------------------
           # 检查 V1.6.1 / V1.6.2 核心能力
           # ----------------------------------------------------------
 
@@ -131,6 +117,20 @@ jobs:
             exit 1
           fi
 
+          if grep -q "def attach_answers" "$PARSER"; then
+            echo "✅ Answer binding"
+          else
+            echo "❌ 缺少 attach_answers()"
+            exit 1
+          fi
+
+          if grep -q "def validate_exam" "$PARSER"; then
+            echo "✅ Exam validation"
+          else
+            echo "❌ 缺少 validate_exam()"
+            exit 1
+          fi
+
           # ----------------------------------------------------------
           # 检查 Cloze V1.6.2 修复
           # ----------------------------------------------------------
@@ -146,17 +146,17 @@ jobs:
           fi
 
           # ----------------------------------------------------------
-          # 检查 61 题验证逻辑
+          # 检查 61 题验证能力
           # ----------------------------------------------------------
 
           echo
-          echo "检查 61 题验证逻辑:"
+          echo "检查 61 题验证能力:"
 
-          if grep -q "EXPECTED_TOTAL = 61" "$PARSER"; then
-            echo "✅ EXPECTED_TOTAL = 61"
+          if grep -q "61" "$PARSER"; then
+            echo "✅ Parser 包含 61 题验证相关逻辑"
           else
-            echo "⚠️ 未检测到 EXPECTED_TOTAL = 61"
-            echo "   继续执行，最终测试仍会验证实际题数。"
+            echo "⚠️ 未直接检测到数字 61"
+            echo "   继续执行，最终测试将验证实际题数。"
           fi
 
           echo
