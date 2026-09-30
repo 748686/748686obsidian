@@ -1,4 +1,4 @@
-name: 02_英语学习系统 - Feishu Full Exam V8.3
+name: 02_英语学习系统 - Feishu Full Exam V9.0
 
 on:
 
@@ -149,7 +149,7 @@ jobs:
 
           test -f "02_英语学习系统/scripts/feishu_english_exam.py"
 
-          test -f "02_英语学习系统/scripts/feishu_full_english_exam_runner_v8_1.py"
+          test -f "02_英语学习系统/scripts/feishu_full_english_exam_runner_v9.0.py"
 
           echo "=============================================="
           echo "English system files OK"
@@ -506,10 +506,10 @@ jobs:
 
 
       # ======================================================
-      # 11. 启动 61 题飞书答题系统 V8.3
+      # 11. 启动 61 题飞书答题系统 V9.0
       # ======================================================
 
-      - name: Start Feishu Full English Exam V8.3
+      - name: Start Feishu Full English Exam V9.0
         env:
 
           APP_ID: ${{ secrets.APP_ID }}
@@ -545,8 +545,8 @@ jobs:
 
           echo
           echo "============================================================"
-          echo "748686 FEISHU FULL ENGLISH EXAM V8.3"
+          echo "748686 FEISHU FULL ENGLISH EXAM V9.0"
           echo "============================================================"
 
           python \
-            "02_英语学习系统/scripts/feishu_full_english_exam_runner_v8_3.py"
+            "02_英语学习系统/scripts/feishu_full_english_exam_runner_v9.0.py"
