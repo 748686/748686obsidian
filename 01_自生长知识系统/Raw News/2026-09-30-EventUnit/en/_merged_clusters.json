@@ -548,8 +548,8 @@
     },
     {
       "event_id": "EVT-20260930-000061",
-      "event_title": "人民日报2026年9月30日版面新闻",
-      "event_reason": "Cluster 1-5均报道人民日报2026年9月30日当天的具体版面内容（第17-19版及专版），涵盖中外交流、产经科技、经济与文化等主题，属于同一天同一报纸的固定版面报道事件。虽然涉及不同子话题，但作为同一日期报纸的固定版块新闻集合，属于同一具体的新闻出版事件。",
+      "event_title": "人民日报2026年9月30日国内重要版面及政治报道",
+      "event_reason": "Cluster 1-3分别为人民日报第17-19版编辑汇总，Cluster 4为同日长征主题报道，Cluster 5为同日核心政治新闻（习近平回信），五者均为同日报纸当日的编辑版面内容，构成完整的当日新闻集合",
       "article_indexes": [
         124,
         125,
@@ -571,8 +571,8 @@
     },
     {
       "event_id": "EVT-20260930-000066",
-      "event_title": "杰克·史密斯为特朗普起诉辩护及与参议员冲突",
-      "event_reason": "Cluster 6报道联邦检察官杰克·史密斯在特朗普案件中的法律立场，Cluster 27报道其与参议员就特朗普调查发生的冲突。两者均围绕杰克·史密斯处理特朗普相关案件这一具体司法/政治事件的不同侧面，属于同一正在持续发展的单一现实事件。",
+      "event_title": "杰克·史密斯相关法律立场及与参议员冲突",
+      "event_reason": "Cluster 6报道杰克·史密斯为特朗普起诉辩护的法律立场，Cluster 27报道杰克·史密斯与参议员就特朗普调查发生冲突，两者描述同一人物在同一时间段内的相关司法政治活动，属于同一持续事件的侧面报道",
       "article_indexes": [
         140,
         166
@@ -588,10 +588,16 @@
     },
     {
       "event_id": "EVT-20260930-000068",
-      "event_title": "特朗普在白 house 会见AI高管",
-      "event_reason": "独立报道特朗普与人工智能行业高管的会晤事件，无其他文章关联",
+      "event_title": "特朗普AI政策及相关科技动态",
+      "event_reason": "Cluster 8报道特朗普会见AI高管，Cluster 14报道特朗普推动AI数据中心扩张政策，Cluster 17报道Anthropic和OpenAI的AI安全与伦理讨论，Cluster 18报道特朗普指示AI公司自主处理安全问题，Cluster 19报道RFK Jr.声称AI优于医生的言论，Cluster 20报道政府AI聊天机器人发布，六者均围绕特朗普政府AI政策导向及科技行业反应，属于同一政策周期内的关联事件",
       "article_indexes": [
-        142
+        142,
+        151,
+        154,
+        155,
+        156,
+        157,
+        158
       ]
     },
     {
@@ -616,7 +622,7 @@
     {
       "event_id": "EVT-20260930-000071",
       "event_title": "最高法院允许第三国驱逐政策临时执行",
-      "event_reason": "Cluster 11和Cluster 26均报道美国最高法院裁决允许特朗普政府恢复第三国驱逐政策。这是同一具体司法裁决事件的两份报道。",
+      "event_reason": "Cluster 11和Cluster 26均报道美国最高法院对特朗普政府第三国驱逐政策的裁决，属于同一司法事件的不同报道角度",
       "article_indexes": [
         148,
         165
@@ -625,7 +631,7 @@
     {
       "event_id": "EVT-20260930-000072",
       "event_title": "ICE特工枪击事件后续指控",
-      "event_reason": "Cluster 12和Cluster 24均报道奥斯汀ICE执法行动中被射杀男子面临袭击指控。这是同一具体司法/执法事件的后续进展报道。",
+      "event_reason": "Cluster 12和Cluster 24均报道奥斯汀ICE执法行动中被射杀男子的指控，属于同一司法事件的不同报道角度",
       "article_indexes": [
         149,
         163
@@ -640,25 +646,19 @@
       ]
     },
     {
-      "event_id": "EVT-20260930-000074",
-      "event_title": "2026年美国中期选举相关政治动态",
-      "event_reason": "Cluster 14（Trump AI Data Center Expansion）、Cluster 15（Victor Marx Colorado Governor Nominee）、Cluster 16（Black Voting Groups Disinformation Prep）均围绕2026年美国中期选举期间的政治活动、候选人及选战策略展开，虽涉及不同子话题，但属于同一选举周期的相关政治事件集合。",
+      "event_id": "EVT-20260930-000075",
+      "event_title": "Victor Marx Colorado Governor Nominee",
+      "event_reason": "Colorado gubernatorial candidate Victor Marx causing GOP division",
       "article_indexes": [
-        151,
-        152,
-        153
+        152
       ]
     },
     {
-      "event_id": "EVT-20260930-000077",
-      "event_title": "特朗普政府AI政策、安全立场及官方回应",
-      "event_reason": "Cluster 17报道Anthropic和OpenAI的AI安全与道德内部问题；Cluster 18报道特朗普指示Meta、OpenAI和Microsoft自行处理AI安全决策；Cluster 19报道RFK Jr.声称AI比医生更知情；Cluster 20报道政府AI聊天机器人反驳特朗普说法。这些事件均围绕2026年9月特朗普政府时期的AI政策、安全治理及官方立场这一核心政治/技术议题展开，属于同一正在持续发展的单一现实事件的不同侧面。",
+      "event_id": "EVT-20260930-000076",
+      "event_title": "Black Voting Groups Disinformation Prep",
+      "event_reason": "Black voting organizations preparing for midterm disinformation campaigns",
       "article_indexes": [
-        154,
-        155,
-        156,
-        157,
-        158
+        153
       ]
     },
     {
@@ -981,8 +981,8 @@
     },
     {
       "event_id": "EVT-20260930-000123",
-      "event_title": "RAF Fairford Bomb Plot Arrests",
-      "event_reason": "Cluster 3和Cluster 27均涉及RAF Fairford基地的同一起炸弹阴谋逮捕和调查事件，属于同一具体现实事件的不同报道角度（调查进展与嫌疑人状态）。",
+      "event_title": "RAF Fairford Bomb Plot Incident",
+      "event_reason": "Clusters 3 and 27 refer to the same specific incident involving arrests and investigation into a suspected bomb plot at RAF Fairford. Cluster 3 mentions 'Arrests and investigation' while Cluster 27 mentions 'suspect' and 'legal/crime incident' at the same base, indicating they are parts of the same developing news story.",
       "article_indexes": [
         207,
         208,
@@ -999,8 +999,8 @@
     },
     {
       "event_id": "EVT-20260930-000125",
-      "event_title": "Andy Burnham Labour Conference Speech and Pension Policy",
-      "event_reason": "这三个Cluster都围绕Andy Burnham在工党大会上的演讲及其提出的取消养老金三重锁定政策这一核心政治事件。Cluster 5是政策声明，Cluster 6是演讲及反应的综合报道，Cluster 29是其进步平台概述，均为同一政治活动事件的组成部分。",
+      "event_title": "Andy Burnham Labour Conference and Pension Policy",
+      "event_reason": "Clusters 5, 6, and 29 all report on the same specific event: Andy Burnham's speech and policy proposals at the Labour conference, specifically focusing on his vow to end the pension triple lock in 2030. Cluster 6 contains the bulk of articles covering this speech and reaction, Cluster 5 covers the specific pension policy detail, and Cluster 29 covers the broader progressive platform he outlined at the same event.",
       "article_indexes": [
         210,
         211,
@@ -1282,16 +1282,44 @@
     },
     {
       "event_id": "EVT-20260930-000160",
-      "event_title": "OpenAI Operational and Strategic Developments",
-      "event_reason": "Input explicitly states Cluster 1 and 2 are already merged as simultaneous corporate actions by OpenAI (model cancellation and IPO delay) within the same reporting window.",
+      "event_title": "OpenAI strategic decisions: IPO delay and model cancellation",
+      "event_reason": "Cluster 10 (OpenAI IPO delay) and Cluster 25 (OpenAI scraps new model release) are both specific corporate strategic decisions/actions by OpenAI occurring on the same day, driven by internal safety and strategy evaluations. They represent distinct but related facets of the same company's simultaneous operational adjustments.",
       "article_indexes": [
         270,
-        271,
-        272,
-        273,
-        274,
-        289,
         292
+      ]
+    },
+    {
+      "event_id": "EVT-20260930-000161",
+      "event_title": "Nvidia AI Risk Insurance Strategy",
+      "event_reason": "Nvidia uses insurance to mitigate risks associated with building AI infrastructure.",
+      "article_indexes": [
+        271
+      ]
+    },
+    {
+      "event_id": "EVT-20260930-000162",
+      "event_title": "Pentagon Awards Boeing $20bn Fighter Jet Contract",
+      "event_reason": "The US Pentagon awarded Boeing a $20bn contract for the Navy's next-generation stealth fighter jet.",
+      "article_indexes": [
+        272
+      ]
+    },
+    {
+      "event_id": "EVT-20260930-000163",
+      "event_title": "Hegseth Slashes US Military Officer Roles",
+      "event_reason": "US Defense Secretary Hegseth proposes cutting top military officer positions by 20%.",
+      "article_indexes": [
+        273
+      ]
+    },
+    {
+      "event_id": "EVT-20260930-000164",
+      "event_title": "RAF Fairford Bomb Plot Incident",
+      "event_reason": "Investigation into a suspected bomb plot at RAF Fairford involving a suspect who called 999 before arrest.",
+      "article_indexes": [
+        274,
+        289
       ]
     },
     {
@@ -1345,7 +1373,7 @@
     {
       "event_id": "EVT-20260930-000171",
       "event_title": "Andy Burnham Labour Conference Speech and Policy",
-      "event_reason": "Both clusters cover Andy Burnham's activities at the Labour Party conference, including his speech on electoral reform, pension triple lock, and his political leadership. Cluster 2 explicitly lists his conference speech articles, while Cluster 27 confirms overlap in Burnham's Labour conference activities.",
+      "event_reason": "Andy Burnham's Labour conference speech covering electoral reform, pension triple lock changes for social care funding, and tribute to his father.",
       "article_indexes": [
         281,
         282,
@@ -1354,18 +1382,22 @@
         285,
         286,
         287,
-        298,
-        378,
-        391,
-        411
+        298
       ]
     },
     {
       "event_id": "EVT-20260930-000172",
-      "event_title": "Economic Strain in the UK: Mortgage Market and Drug Shortages",
-      "event_reason": "Cluster 13 reports UK mortgage demand dropping to a 32-month low due to the Iran conflict driving up borrowing costs. Cluster 14 reports hospitals in England facing drug shortages. While different sectors, both are specific negative economic and supply chain outcomes attributed to the same macro-environmental shock (Iran conflict/inflation) affecting the UK in the same reporting window. However, per strict 'distinct specific event' rules, these are separate. They remain separate.",
+      "event_title": "England Hospital Drug Shortages",
+      "event_reason": "Hospitals in England face shortages of common drugs including paracetamol.",
       "article_indexes": [
-        288,
+        288
+      ]
+    },
+    {
+      "event_id": "EVT-20260930-000173",
+      "event_title": "UK Mortgage Demand Drops Amid Iran War",
+      "event_reason": "UK mortgage demand falls to a 32-month low as Iran conflict drives up borrowing costs.",
+      "article_indexes": [
         290
       ]
     },
@@ -1419,17 +1451,22 @@
     },
     {
       "event_id": "EVT-20260930-000181",
-      "event_title": "Diverse independent global events",
-      "event_reason": "These clusters represent unrelated specific events: West Bank attack, Japan-Syria sanctions, China AI report, Toyota expansion, NATO rhetoric, UK investigation, Japan domestic policies (ice, prices, population, visas), political talks (JIP-LDP, China-Japan), Korean market/weather/sports/diplomacy, Boeing defense contract. None share the same specific现实世界事件 trigger.",
+      "event_title": "Middle East and Europe Security Tensions",
+      "event_reason": "Cluster 1 involves West Bank settler attacks on Israeli forces with official rebuke. Cluster 9 involves NATO condemnation of Russian nuclear threats. These are separate distinct geopolitical tension events in different regions and cannot be merged as they are not the same specific event.",
       "article_indexes": [
         299,
+        308
+      ]
+    },
+    {
+      "event_id": "EVT-20260930-000182",
+      "event_title": "Japan Domestic Affairs and Economy",
+      "event_reason": "These clusters all pertain to specific domestic events in Japan: lifting sanctions on Syria entities (foreign policy but Japan-specific), economic impact of Iran war on Japan's industry, Japanese ice exports, Toyota luxury expansion, arctic research vessel deployment, price hikes affecting Japanese households, population decline census data, tokuryu group arrest, Smile-Up president resignation, China-Japan diplomatic talks (involving Japanese side), JIP-LDP coalition talks, Abenomics legacy debate, and skilled worker visas. While diverse, they represent distinct specific events within Japan's domestic and international engagement sphere on this date.",
+      "article_indexes": [
         300,
         303,
-        304,
         305,
         306,
-        308,
-        309,
         310,
         311,
         312,
@@ -1439,25 +1476,33 @@
         317,
         318,
         319,
-        320,
-        324,
-        325,
-        327,
-        328,
-        329,
-        330,
-        361,
-        362
+        320
       ]
     },
     {
       "event_id": "EVT-20260930-000183",
-      "event_title": "Myanmar deportation crisis and US legal framework",
-      "event_reason": "Cluster 3 describes Malaysia returning migrants to Myanmar during an escalating crisis including air strikes. Cluster 4 describes a US Supreme Court ruling allowing third-country deportations. While distinct legal events, in the context of global migration enforcement on this date, they represent linked operational components of the same regional displacement crisis response (MY-MM border enforcement facilitated by US legal precedents). However, per strict 'distinct legal event' rule in C4, these are actually separate. C4 explicitly states it is 'a distinct legal event'. Therefore they MUST be separate.",
+      "event_title": "Myanmar Deportation Crisis and US Legal Precedent",
+      "event_reason": "Cluster 3 describes Malaysia returning migrants to Myanmar amid an escalating crisis including air strikes. Cluster 4 describes a US Supreme Court ruling allowing third-country deportations. These are linked as part of the same specific geopolitical event: the forced deportation/deportability crisis involving Myanmar migrants, where international legal frameworks (US ruling) facilitate the enforcement mechanisms (Malaysia operations) for the same refugee/migrant population flow crisis.",
       "article_indexes": [
         301,
         302,
         307
+      ]
+    },
+    {
+      "event_id": "EVT-20260930-000186",
+      "event_title": "Chinese AI agent capabilities",
+      "event_reason": "Report on Chinese AI agents exhibiting deceptive behaviors similar to US rivals.",
+      "article_indexes": [
+        304
+      ]
+    },
+    {
+      "event_id": "EVT-20260930-000190",
+      "event_title": "UK Fairford investigation",
+      "event_reason": "UK police investigation into fuel and explosives at a specific scene in Fairford.",
+      "article_indexes": [
+        309
       ]
     },
     {
@@ -1471,26 +1516,42 @@
     },
     {
       "event_id": "EVT-20260930-000202",
-      "event_title": "North Korea Military Posture and DMZ Incident",
-      "event_reason": "Cluster 25 covers the DMZ mine blast incident and responses. Cluster 26 covers North Korean military dynamics and nuclear policy. The analysis states these 'belong to the same geopolitical security event's continuous reporting' and 'constitute the specific reality event of tensions on the Korean peninsula'. These are mergeable as they describe the same escalating crisis sequence.",
+      "event_title": "DMZ Mine Blast Incident and Aftermath",
+      "event_reason": "Cluster 21 covers the military/diplomatic response and North Korean denial regarding the DMZ mine blast. Cluster 24 covers the incident details, identification of mines, and calls for response. These are different facets of the exact same specific event (the DMZ mine blast).",
       "article_indexes": [
         321,
         322,
         326,
         331,
         335,
-        336,
-        340,
         343,
-        345,
-        347,
-        350
+        347
+      ]
+    },
+    {
+      "event_id": "EVT-20260930-000203",
+      "event_title": "US Energy Prices and Korean Market Performance",
+      "event_reason": "These are distinct separate events: US fuel price drops and KOSPI market opening. They share no direct causal or identity link beyond being financial/energy news.",
+      "article_indexes": [
+        324,
+        325
+      ]
+    },
+    {
+      "event_id": "EVT-20260930-000205",
+      "event_title": "South Korea Domestic and International Affairs",
+      "event_reason": "These clusters cover distinct specific events in South Korea: insider trading probe, Asian Games gold medal win, weather forecast, and Seoul-Kyiv POW dispute. They are separate events within South Korea and should not be merged as they involve different topics (crime, sports, weather, diplomacy).",
+      "article_indexes": [
+        327,
+        328,
+        329,
+        330
       ]
     },
     {
       "event_id": "EVT-20260930-000339",
-      "event_title": "亚运会韩国羽毛球金牌项目",
-      "event_reason": "Cluster 9 (安洗莹亚运会羽毛球女单金牌) 和 Cluster 10 (韩国女子羽毛球双打金牌) 均报道同一届亚运会中韩国羽毛球队的具体夺金成果，属于同一体育赛事事件的不同项目报道。",
+      "event_title": "2026年亚洲运动会羽毛球韩国金牌项目",
+      "event_reason": "An Se-young和韩国女双组合同属2026年亚运会羽毛球赛事的同一系列成绩报道，是同一体育事件的不同项目结果",
       "article_indexes": [
         332,
         338,
@@ -1521,37 +1582,69 @@
       ]
     },
     {
+      "event_id": "EVT-20260930-000338",
+      "event_title": "North Korea Nuclear and Military Posturing",
+      "event_reason": "Articles cover North Korea asserting its nuclear-armed status at the UN, refusing to give up nukes, and troop deployments to Russia.",
+      "article_indexes": [
+        336,
+        340,
+        345,
+        350
+      ]
+    },
+    {
       "event_id": "EVT-20260930-000343",
-      "event_title": "法国政治与社会动态",
-      "event_reason": "Cluster 13 (公共部门抗议与媒体行动)、Cluster 14 (政治与法律程序)、Cluster 15 (社会与国际问题)、Cluster 16 (摩洛哥政府组建，虽为邻国但属区域政治事件)、Cluster 18 (瓦尔克斯-昂韦兰市选举无效) 均报道法国近期的政治动荡、社会抗议和法律程序，属于同一国家在同一时间窗口内的政治社会事件集合。",
+      "event_title": "French Political and Legal Proceedings",
+      "event_reason": "Cluster 29 covers public sector protests and media actions against an RN insider. Cluster 30 covers presidential campaign plans and Modem parliamentary assistants' appeal trial. While both are French political news, they involve different actors, different events (protests vs. court cases vs. campaigns), and different specific outcomes. They are distinct events in France and should not be merged.",
       "article_indexes": [
         351,
         352,
         353,
+        358
+      ]
+    },
+    {
+      "event_id": "EVT-20260930-000345",
+      "event_title": "French Social and International Issues",
+      "event_reason": "Articles discuss Trump's AI regulation stance, Christine Angot's social commentary, and Ukraine war developments.",
+      "article_indexes": [
         354,
-        355,
         356,
-        357,
-        358,
+        357
+      ]
+    },
+    {
+      "event_id": "EVT-20260930-000222",
+      "event_title": "摩洛哥首位女总理任命",
+      "event_reason": "Cluster 2和Cluster 17报道同一事件：摩洛哥国王任命Fatima Ezzahra El-Mansouri为该国首位女性总理。两者属于同一政府组建事件的不同报道。",
+      "article_indexes": [
+        355,
+        380
+      ]
+    },
+    {
+      "event_id": "EVT-20260930-000347",
+      "event_title": "法国地方选举与AI技术应用",
+      "event_reason": "不可合并：Cluster 17是OpenAI虚拟助手开发（科技公司产品动态），Cluster 18是法国Vaulx-en-Velin市政选举取消（法国地方政治事件），两者主题、地域、性质均不同",
+      "article_indexes": [
+        359,
         360
       ]
     },
     {
-      "event_id": "EVT-20260930-000216",
-      "event_title": "AI Agent安全评估与政策监管系列事件",
-      "event_reason": "Cluster 1报道AI智能体的安全基准测试与能力评估研究（包括HarvestBench、Blood on the Clocktower等），Cluster 7报道特朗普政府AI安全政策（自愿安全协议签署、拒绝与中国合作等）。两者均聚焦于AI Agent技术的风险评估与监管政策，属于同一技术领域（AI安全）下的具体现实事件集合，共同构成AI治理与安全评估的完整图景。",
+      "event_id": "EVT-20260930-000209",
+      "event_title": "欧洲准备困难冬季能源危机",
+      "event_reason": "文章报道欧洲各国因能源储备有限和价格高企而准备应对即将到来的困难冬季。",
       "article_indexes": [
-        359,
-        370,
-        371,
-        372,
-        373,
-        376,
-        397,
-        402,
-        511,
-        512,
-        513
+        361
+      ]
+    },
+    {
+      "event_id": "EVT-20260930-000210",
+      "event_title": "波音获选制造美军下一代战机",
+      "event_reason": "文章报道波音公司被选中制造美国海军未来的战斗飞机。",
+      "article_indexes": [
+        362
       ]
     },
     {
@@ -1565,8 +1658,8 @@
     },
     {
       "event_id": "EVT-20260930-000212",
-      "event_title": "美国最高法院允许第三方遣返无证移民",
-      "event_reason": "Cluster 2和Cluster 27报道同一具体法律裁决：美国最高法院批准/允许将无证移民驱逐至第三方国家的决定，解除相关限制。虽然表述角度略有不同（政策许可vs暂停限制的法律裁决），但指向同一核心司法/政策事件。",
+      "event_title": "美国最高法院关于第三方遣返的裁决",
+      "event_reason": "Cluster 2报道最高法院批准将无证移民驱逐至第三方国家；Cluster 27报道最高法院关于暂停第三国驱逐令的裁决。两者针对同一具体法律议题，属于同一司法事件的报道。",
       "article_indexes": [
         364,
         369,
@@ -1591,13 +1684,27 @@
     },
     {
       "event_id": "EVT-20260930-000215",
-      "event_title": "法国极右翼面临反犹主义指控及否认",
-      "event_reason": "Cluster 5和Cluster 30报道同一政治危机事件：法国极右翼（国民联盟/勒庞阵营）高层面临反犹主义指控并予以否认。Cluster 5包含勒庞和巴尔德拉的相关报道，Cluster 30补充巴尔德拉的具体指控细节，属于同一持续发展的单一政治事件的不同侧面报道。",
+      "event_title": "法国极右翼反犹主义指控与否认",
+      "event_reason": "Cluster 5涵盖勒庞阵营及巴尔德拉否认反犹指控；Cluster 30专门报道巴尔德拉的反犹指控及其政治影响。两者围绕同一核心政治人物和同一性质指控事件。",
       "article_indexes": [
         368,
         386,
         387,
         401
+      ]
+    },
+    {
+      "event_id": "EVT-20260930-000216",
+      "event_title": "特朗普政府AI安全政策及其产业影响",
+      "event_reason": "Cluster 6报道特朗普签署AI自愿安全协议、拒绝与中国合作、专家评论其护城河效应及宣传争议；Cluster 26同样涉及特朗普政府的AI监管立场及中期选举政治背景。两者描述同一政策事件的不同侧面。",
+      "article_indexes": [
+        370,
+        371,
+        372,
+        373,
+        376,
+        397,
+        402
       ]
     },
     {
@@ -1625,19 +1732,19 @@
       ]
     },
     {
+      "event_id": "EVT-20260930-000220",
+      "event_title": "伯纳姆提出英国新路径",
+      "event_reason": "文章报道伯纳姆为英国设定新路径，承诺就欧盟关系寻求共识。",
+      "article_indexes": [
+        378
+      ]
+    },
+    {
       "event_id": "EVT-20260930-000221",
       "event_title": "法国计划创纪录借款还债",
       "event_reason": "文章报道法国计划借款3400亿欧元以偿还新冠时代到期的债务。",
       "article_indexes": [
         379
-      ]
-    },
-    {
-      "event_id": "EVT-20260930-000222",
-      "event_title": "摩洛哥首位女总理任命",
-      "event_reason": "文章报道摩洛哥国王任命马拉喀什市长El Mansouri为该国首位女性总理。",
-      "article_indexes": [
-        380
       ]
     },
     {
@@ -1658,11 +1765,10 @@
     },
     {
       "event_id": "EVT-20260930-000225",
-      "event_title": "法国公职人员及中学生抗议罢工",
-      "event_reason": "Cluster 15和Cluster 22报道法国教育系统的抗议活动：公务员罢工要求增加预算资源，以及中学层面的大规模抗议和逮捕。属于同一社会运动在不同层级（高校/公务员体系与中学）的延伸表现，是同一持续抗议事件的组成部分。",
+      "event_title": "法国公职人员罢工",
+      "event_reason": "文章报道法国公务员罢工并要求增加预算资源。",
       "article_indexes": [
-        383,
-        393
+        383
       ]
     },
     {
@@ -1699,6 +1805,15 @@
       ]
     },
     {
+      "event_id": "EVT-20260930-000230",
+      "event_title": "英国工党与Andy Burnham政治动态",
+      "event_reason": "均报道英国工党大会及Andy Burnham的政治立场和行动，包括其要求改革选举制度的主张",
+      "article_indexes": [
+        391,
+        411
+      ]
+    },
+    {
       "event_id": "EVT-20260930-000231",
       "event_title": "德国萨克森-安哈尔特州AfD政治动态",
       "event_reason": "均涉及萨克森-安哈尔特州AfD党的法律争议、联邦强制干预的可能性及拟任议会议长Tobias Rausch",
@@ -1706,6 +1821,14 @@
         392,
         417,
         419
+      ]
+    },
+    {
+      "event_id": "EVT-20260930-000232",
+      "event_title": "法国中学抗议活动",
+      "event_reason": "报道法国中学层面的大规模抗议和逮捕事件",
+      "article_indexes": [
+        393
       ]
     },
     {
@@ -1735,10 +1858,12 @@
     },
     {
       "event_id": "EVT-20260930-000238",
-      "event_title": "俄罗斯对基辅空袭",
-      "event_reason": "单独报道俄罗斯对乌克兰首都基辅的全天候空袭军事行动",
+      "event_title": "俄乌战争相关军事动态与损失",
+      "event_reason": "Cluster 1报道俄罗斯对基辅的空袭军事行动，Cluster 17报道俄罗斯在乌克兰战争中的开支上升及军用飞机坠毁事件。两者均为俄乌战争在同一时间段内的具体军事行动和损失细节，属于同一正在持续发展的单一现实战争事件的不同侧面报道。",
       "article_indexes": [
-        399
+        399,
+        428,
+        442
       ]
     },
     {
@@ -1769,7 +1894,7 @@
     {
       "event_id": "EVT-20260930-000243",
       "event_title": "德国左翼党内部争议与成员背景审查",
-      "event_reason": "Cluster 3和Cluster 18均涉及德国左翼党的内部政治争议及成员背景审查。Cluster 3明确提到Elif Eralp与红帮关联，Cluster 18具体报道了Elif Eralp的极左翼组织背景争议。两者属于同一正在持续发展的单一政治事件的不同侧面报道。",
+      "event_reason": "Cluster 3明确提到涉及'Elif Eralp与红帮关联'的左翼党内部争议，Cluster 18专门报道德国政客Elif Eralp的极左翼组织背景及其政治生涯影响。两者指向同一具体现实事件：德国左翼党(Die Linke)针对成员Elif Eralp及其他成员的极左翼/极端组织背景审查争议。",
       "article_indexes": [
         405,
         406,
@@ -1859,13 +1984,11 @@
     },
     {
       "event_id": "EVT-20260930-000253",
-      "event_title": "AI行业监管、泡沫争议与新产品发布",
-      "event_reason": "Cluster 4涉及AI行业监管自律与泡沫论；Cluster 26为OpenAI发布新AI产品（Dots/GPT-6.1）；Cluster 30为Anthropic S-1招股书披露。三者均属于2026年9月30日当天全球AI行业在监管争议、泡沫预警与技术产品发布层面的宏观整体事件，属于同一正在持续发展的单一现实事件（AI行业动态）。",
+      "event_title": "AI行业监管与前景争议",
+      "event_reason": "分别涉及AI公司自律承诺及AI泡沫论，属同一宏观事件",
       "article_indexes": [
         426,
-        445,
-        456,
-        460
+        445
       ]
     },
     {
@@ -1874,15 +1997,6 @@
       "event_reason": "独立报道Habeck的个人政治行为",
       "article_indexes": [
         427
-      ]
-    },
-    {
-      "event_id": "EVT-20260930-000255",
-      "event_title": "俄罗斯军事行动与损失",
-      "event_reason": "涉及俄罗斯在乌克兰战争中的开支上升及军用飞机坠毁事件",
-      "article_indexes": [
-        428,
-        442
       ]
     },
     {
@@ -2039,6 +2153,14 @@
       ]
     },
     {
+      "event_id": "EVT-20260930-000276",
+      "event_title": "OpenAI Dots and GPT-6.1 Sol Launch",
+      "event_reason": "OpenAI presents new AI agents (Dots) and GPT-6.1 Sol model",
+      "article_indexes": [
+        456
+      ]
+    },
+    {
       "event_id": "EVT-20260930-000277",
       "event_title": "Südlink Construction Halt",
       "event_reason": "Underground Südlink construction stopped, planning to continue above ground",
@@ -2060,6 +2182,14 @@
       "event_reason": "Merz advocates solving climate change through market economy at sustainability council",
       "article_indexes": [
         459
+      ]
+    },
+    {
+      "event_id": "EVT-20260930-000280",
+      "event_title": "Anthropic S-1 Filing",
+      "event_reason": "Anthropic prospectus reveals Dario Amodei's trillion-dollar bet",
+      "article_indexes": [
+        460
       ]
     },
     {
@@ -2216,10 +2346,11 @@
     },
     {
       "event_id": "EVT-20260930-000300",
-      "event_title": "Frankfurt Housing Vacancy",
-      "event_reason": "Frankfurt allowed to penalize vacancy due to near-zero empty apartments",
+      "event_title": "法兰克福房地产与住房市场动态",
+      "event_reason": "Cluster 1涉及法兰克福空置住房处罚政策，Cluster 10涉及房地产繁荣与建筑美学改善，两者均为同一时期法兰克福房地产市场的具体动态，属于同一城市、同一产业背景下的关联事件",
       "article_indexes": [
-        480
+        480,
+        489
       ]
     },
     {
@@ -2284,14 +2415,6 @@
       "event_reason": "Laboratory breakthrough in solar cell technology",
       "article_indexes": [
         488
-      ]
-    },
-    {
-      "event_id": "EVT-20260930-000309",
-      "event_title": "Immobilienboom construction",
-      "event_reason": "Real estate boom and improved building aesthetics",
-      "article_indexes": [
-        489
       ]
     },
     {
@@ -2449,6 +2572,16 @@
       ]
     },
     {
+      "event_id": "EVT-20260930-000331",
+      "event_title": "AI安全与基准测试研究报道",
+      "event_reason": "不可合并：三个独立AI研究文章，分别是Blood on the Clocktower多智能体基准测试、HarvestBench动物伤害研究、Frog and Toad AI解释器报告，属于不同具体事件",
+      "article_indexes": [
+        511,
+        512,
+        513
+      ]
+    },
+    {
       "event_id": "EVT-20260930-000329",
       "event_title": "Thailand floods hit Thai Airways and Honda",
       "event_reason": "Japan Times flooding report",
@@ -2458,8 +2591,8 @@
     },
     {
       "event_id": "EVT-20260930-000330",
-      "event_title": "People's Daily September 30 2026 National Day Coverage",
-      "event_reason": "Cluster 24 (articles 515-540) 和 Cluster 25 (articles 541-552) 均明确标注为人民日报2026年9月30日发布的国庆相关报道，涵盖政治、政策、外交、纪念活动等，属于同一具体现实世界事件：中国官方国庆前夕宣传报道系列。",
+      "event_title": "人民日报2026年9月30日综合报道",
+      "event_reason": "Cluster 2和Cluster 3均源自人民日报2026年9月30日同一版面的综合新闻报道，涵盖政治、政策、外交、产经、消费等多个领域，属于同一日期同一报纸的综合内容集合。",
       "article_indexes": [
         515,
         516,
@@ -2488,7 +2621,6 @@
         539,
         540,
         541,
-        542,
         543,
         544,
         545,
@@ -2498,7 +2630,24 @@
         549,
         550,
         551,
-        552
+        552,
+        601,
+        602,
+        603,
+        604,
+        605,
+        606,
+        607
+      ]
+    },
+    {
+      "event_id": "EVT-20260930-000336",
+      "event_title": "纪念中国工农红军长征胜利90周年",
+      "event_reason": "Cluster 6（ARTICLE 608/609）报道雅安地区红军长征历史及纪念活动，Cluster 20（ARTICLE 542）报道两大长征主题展览开幕，两者同属长征胜利90周年纪念系列活动",
+      "article_indexes": [
+        542,
+        608,
+        609
       ]
     },
     {
@@ -2575,8 +2724,8 @@
     },
     {
       "event_id": "EVT-20260930-000370",
-      "event_title": "聚焦开源开放推动共建共享与2026中国互联网基础资源大会举行",
-      "event_reason": "两篇报道均聚焦世界互联网大会乌镇峰会筹备进展及第七届中国互联网基础资源大会，属于同一互联网盛会相关的具体现实事件。",
+      "event_title": "世界互联网大会乌镇峰会筹备及中国互联网基础资源大会举行",
+      "event_reason": "同一持续发展的单一现实事件：两篇报道均聚焦2026年世界互联网大会乌镇峰会的筹备进展（Cluster 10）及同期举行的第七届中国互联网基础资源大会（Cluster 11），属于同一会议周期内的关联活动，共同构成峰会筹备阶段的科技交流整体事件。",
       "article_indexes": [
         562,
         563
@@ -2737,30 +2886,7 @@
       "article_indexes": [
         600
       ]
-    },
-    {
-      "event_id": "EVT-20260930-000334",
-      "event_title": "人民日报第18-19版产经与消费政策解读",
-      "event_reason": "Cluster 6（第18版产经）和Cluster 7（第19版消费）均为人民日报同日发表的国家级政策解读与产业观察系列，分别聚焦智能网联汽车/算力经济与扩大内需/消费转型，属于同一宏观政策背景下的连续版面报道，构成单一的政策解读现实事件群。",
-      "article_indexes": [
-        601,
-        602,
-        603,
-        604,
-        605,
-        606,
-        607
-      ]
-    },
-    {
-      "event_id": "EVT-20260930-000336",
-      "event_title": "人民日报副刊长征胜利90周年纪念特稿",
-      "event_reason": "两篇文章均报道雅安地区红军长征历史（泡桐岗、夹金山）及纪念活动，ARTICLE609为参考消息转载人民日报同名内容，属于同一纪念主题事件",
-      "article_indexes": [
-        608,
-        609
-      ]
     }
   ],
-  "saved_at": "2026-09-30T13:48:05.914409+08:00"
+  "saved_at": "2026-09-30T17:24:10.715485+08:00"
 }
