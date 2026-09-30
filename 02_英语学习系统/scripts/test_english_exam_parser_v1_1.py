@@ -2,50 +2,24 @@
 # -*- coding: utf-8 -*-
 
 """
-748686 ENGLISH EXAM PARSER V1.6
+748686 ENGLISH EXAM PARSER V1.6.2
 
 Purpose
 -------
 Parse the generated English exam and its answer/explanation file.
 
-V1.6
+V1.6.2
 ------
-Listening answer binding repair.
-
-Real standard-answer format:
-
-## 二、标准答案
-
-### 听力
-
-#### Part A
-
-1. B
-2. C
-3. D
-4. D
-5. A
-
-#### Part B
-
-1. B
-2. A
-3. B
-4. B
-5. C
-
-#### Part C
-
-1. A
-2. B
-3. C
-4. C
-5. D
+Cloze parsing repair.
 
 Important:
-- Exam question parsing remains compatible with V1.6.
-- JSON contract remains unchanged.
-- Listening answers are parsed independently and deterministically.
+- Listening answer binding from V1.6.1 is preserved.
+- Existing JSON contract is preserved.
+- Existing single-choice / multiple-choice / reading /
+  translation / writing parsing is preserved.
+- Cloze question options are now deterministically bound from
+  the "选择题" subsection inside the cloze section.
+- Cloze validation now requires four options per question.
 """
 
 from __future__ import annotations
@@ -58,7 +32,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 
-PARSER_VERSION = "1.6"
+PARSER_VERSION = "1.6.2"
 
 
 # ======================================================================
@@ -520,22 +494,9 @@ def base_question(
     )
 
     data: Dict[str, Any] = {
-        # ----------------------------------------------------------
-        # JSON contract
-        #
-        # Grader V1.0 expects:
-        #   question_id
-        #   type
-        #   correct_answer
-        #
-        # Keep the original fields too for backward compatibility.
-        # ----------------------------------------------------------
         "question_id": question_id,
         "type": section,
 
-        # ----------------------------------------------------------
-        # Original parser fields
-        # ----------------------------------------------------------
         "id": question_id,
         "section": section,
         "number": number,
@@ -544,27 +505,16 @@ def base_question(
         ),
         "options": options or [],
 
-        # ----------------------------------------------------------
-        # Answer / explanation
-        # ----------------------------------------------------------
         "correct_answer": None,
         "explanation": "",
         "reference_answer": None,
 
-        # ----------------------------------------------------------
-        # Grading state
-        # ----------------------------------------------------------
         "graded": False,
         "review_required": False,
     }
 
     if part is not None:
 
-        data["part"] = part
-
-    return data
-
-    if part is not None:
         data["part"] = part
 
     return data
@@ -806,7 +756,7 @@ def parse_choice_section(
 
 
 # ======================================================================
-# CLOZE PARSER
+# CLOZE PARSER V1.6.2
 # ======================================================================
 
 def extract_cloze_numbers(
@@ -842,13 +792,14 @@ def parse_inline_cloze_options(
     ] = []
 
     pattern = re.compile(
+        r"(?:^|\s)"
         r"([A-D])\s*[.．、:：]\s*"
         r"(.*?)(?=\s+[A-D]\s*[.．、:：]|$)",
         re.IGNORECASE,
     )
 
     for match in pattern.finditer(
-        line
+        normalize_text(line)
     ):
 
         result.append({
@@ -861,27 +812,187 @@ def parse_inline_cloze_options(
     return result
 
 
+def is_cloze_options_marker(
+    line: str,
+) -> bool:
+
+    text = remove_markdown_heading(
+        normalize_text(line)
+    )
+
+    text = re.sub(
+        r"\s+",
+        "",
+        text,
+    )
+
+    return text in {
+        "选择题",
+        "完形填空选择题",
+        "答案选项",
+        "选项",
+    }
+
+
+def parse_cloze_question_header(
+    line: str,
+) -> Optional[Tuple[int, str]]:
+
+    clean = normalize_text(
+        line
+    )
+
+    parsed = parse_question_header(
+        clean
+    )
+
+    if parsed:
+        return parsed
+
+    # Also support:
+    #
+    # 1. Question
+    # 1、Question
+    # 1) Question
+    #
+    # even without markdown heading.
+    match = re.match(
+        r"^\s*(\d+)\s*[.．、)]\s*(.*?)\s*$",
+        clean,
+    )
+
+    if not match:
+        return None
+
+    return (
+        int(match.group(1)),
+        normalize_text(
+            match.group(2)
+        ),
+    )
+
+
+def deduplicate_options(
+    options: List[Dict[str, str]],
+) -> List[Dict[str, str]]:
+
+    result: List[
+        Dict[str, str]
+    ] = []
+
+    seen = set()
+
+    for option in options:
+
+        key = (
+            str(
+                option.get(
+                    "key",
+                    ""
+                )
+            )
+            .strip()
+            .upper()
+        )
+
+        text = normalize_text(
+            option.get(
+                "text",
+                ""
+            )
+        )
+
+        if key not in {
+            "A",
+            "B",
+            "C",
+            "D",
+        }:
+            continue
+
+        if not text:
+            continue
+
+        if key in seen:
+            continue
+
+        seen.add(key)
+
+        result.append({
+            "key": key,
+            "text": text,
+        })
+
+    order = {
+        "A": 0,
+        "B": 1,
+        "C": 2,
+        "D": 3,
+    }
+
+    result.sort(
+        key=lambda item: order.get(
+            item["key"],
+            99,
+        )
+    )
+
+    return result
+
+
 def parse_cloze(
     text: str,
 ) -> List[Dict[str, Any]]:
+    """
+    Parse cloze passage and its separate choice subsection.
+
+    Real format:
+
+        四、完形填空
+
+        passage ... ____ (1) ____ ...
+        ...
+        ____ (10) ____
+
+        选择题
+
+        ### 1. Question
+        - A. ...
+        - B. ...
+        - C. ...
+        - D. ...
+
+        ### 2. Question
+        ...
+
+    Result:
+
+        cloze_1 -> options A/B/C/D
+        ...
+        cloze_10 -> options A/B/C/D
+    """
 
     lines = normalize_text(
         text
     ).splitlines()
 
     passage_lines: List[str] = []
-
     option_lines: List[str] = []
 
     in_options = False
 
-    for line in lines:
+    for raw_line in lines:
 
         clean = normalize_text(
-            line
+            raw_line
         )
 
-        if clean == "选择题":
+        if not clean:
+            continue
+
+        if is_cloze_options_marker(
+            clean
+        ):
 
             in_options = True
 
@@ -893,7 +1004,7 @@ def parse_cloze(
                 clean
             )
 
-        elif clean:
+        else:
 
             passage_lines.append(
                 clean
@@ -913,76 +1024,108 @@ def parse_cloze(
             range(1, 11)
         )
 
+    # --------------------------------------------------------------
+    # Parse each numbered cloze question.
+    # --------------------------------------------------------------
+
     option_map: Dict[
         int,
         List[Dict[str, str]]
     ] = {}
 
+    question_text_map: Dict[
+        int,
+        str
+    ] = {}
+
     current_number: Optional[int] = None
 
-    current_lines: List[str] = []
+    current_question_text: str = ""
 
-    def flush():
+    current_option_lines: List[str] = []
+
+    def flush_cloze_question():
 
         nonlocal current_number
-        nonlocal current_lines
+        nonlocal current_question_text
+        nonlocal current_option_lines
 
         if current_number is None:
             return
 
-        parsed = parse_options(
-            current_lines
+        # First try normal Markdown option parsing.
+        parsed_options = parse_options(
+            current_option_lines
         )
 
-        if not parsed:
+        # Fallback: options may appear on one line.
+        if len(parsed_options) < 4:
 
-            parsed = parse_inline_cloze_options(
-                " ".join(
-                    current_lines
+            inline_source = " ".join(
+                current_option_lines
+            )
+
+            inline_options = (
+                parse_inline_cloze_options(
+                    inline_source
                 )
             )
+
+            if len(inline_options) > len(
+                parsed_options
+            ):
+
+                parsed_options = (
+                    inline_options
+                )
+
+        parsed_options = deduplicate_options(
+            parsed_options
+        )
 
         option_map[
             current_number
-        ] = parsed
+        ] = parsed_options
+
+        question_text_map[
+            current_number
+        ] = normalize_text(
+            current_question_text
+        )
 
         current_number = None
-        current_lines = []
+        current_question_text = ""
+        current_option_lines = []
 
     for line in option_lines:
 
-        match = re.match(
-            r"^#{1,6}\s*(\d+)\s*[.．、)]\s*(.*)$",
-            line,
+        parsed = parse_cloze_question_header(
+            line
         )
 
-        if match:
+        if parsed:
 
-            flush()
+            flush_cloze_question()
 
-            current_number = int(
-                match.group(1)
-            )
+            number, question = parsed
 
-            rest = normalize_text(
-                match.group(2)
-            )
+            current_number = number
 
-            if rest:
-
-                current_lines.append(
-                    rest
-                )
+            current_question_text = question
 
             continue
 
         if current_number is not None:
 
-            current_lines.append(
+            current_option_lines.append(
                 line
             )
 
-    flush()
+    flush_cloze_question()
+
+    # --------------------------------------------------------------
+    # Build final questions.
+    # --------------------------------------------------------------
 
     questions: List[
         Dict[str, Any]
@@ -990,15 +1133,29 @@ def parse_cloze(
 
     for number in numbers:
 
+        options = option_map.get(
+            number,
+            [],
+        )
+
+        # Prefer the numbered question text
+        # when available. Otherwise keep the
+        # complete cloze passage for backward
+        # compatibility.
+        question_text = (
+            question_text_map.get(
+                number,
+                ""
+            )
+            or passage
+        )
+
         questions.append(
             base_question(
                 section="cloze",
                 number=number,
-                question=passage,
-                options=option_map.get(
-                    number,
-                    [],
-                ),
+                question=question_text,
+                options=options,
             )
         )
 
@@ -1486,7 +1643,6 @@ def detect_answer_section(
     if not text:
         return None
 
-    # Part A/B/C are not answer sections.
     if re.fullmatch(
         r"Part[ABC]",
         text,
@@ -1560,12 +1716,6 @@ def extract_choice_answer(
         "",
     )
 
-    # --------------------------------------------------------------
-    # 1. B
-    # 1、B
-    # 1) B
-    # --------------------------------------------------------------
-
     match = re.match(
         r"^\s*(\d+)\s*[.．、)]\s*"
         r"([A-D](?:\s*[,、，]\s*[A-D])*)"
@@ -1579,10 +1729,6 @@ def extract_choice_answer(
         return normalize_answer(
             match.group(2)
         )
-
-    # --------------------------------------------------------------
-    # 答案：B
-    # --------------------------------------------------------------
 
     match = re.search(
         r"答案\s*[:：]\s*"
@@ -1607,37 +1753,6 @@ def extract_choice_answer(
 def parse_listening_answers_v161(
     answer_text: str,
 ) -> Dict[Tuple[str, int], str]:
-    """
-    Dedicated V1.6.1 listening answer parser.
-
-    It does NOT depend on split_answer_blocks().
-
-    It scans the complete answer file and uses this state machine:
-
-        BEFORE_STANDARD
-            |
-            v
-        STANDARD_ANSWER
-            |
-            v
-        LISTENING
-            |
-            +--> PART A
-            |
-            +--> PART B
-            |
-            +--> PART C
-            |
-            v
-        NEXT_SECTION -> STOP
-
-    Expected result:
-
-        ("A", 1) -> "B"
-        ("A", 2) -> "C"
-        ...
-        ("C", 5) -> "D"
-    """
 
     lines = normalize_text(
         answer_text
@@ -1662,13 +1777,6 @@ def parse_listening_answers_v161(
         if not line:
             continue
 
-        # ----------------------------------------------------------
-        # STEP 1
-        # Find root:
-        #
-        # ## 二、标准答案
-        # ----------------------------------------------------------
-
         if not in_standard_answer:
 
             if is_standard_answer_heading(
@@ -1678,13 +1786,6 @@ def parse_listening_answers_v161(
                 in_standard_answer = True
 
             continue
-
-        # ----------------------------------------------------------
-        # STEP 2
-        # Find:
-        #
-        # ### 听力
-        # ----------------------------------------------------------
 
         if not in_listening:
 
@@ -1699,16 +1800,7 @@ def parse_listening_answers_v161(
 
                 continue
 
-            # Another section appearing before
-            # listening means this answer file does
-            # not contain listening in the expected
-            # location.
             continue
-
-        # ----------------------------------------------------------
-        # STEP 3
-        # Stop at next answer section.
-        # ----------------------------------------------------------
 
         section = detect_answer_section(
             line
@@ -1725,11 +1817,6 @@ def parse_listening_answers_v161(
 
             break
 
-        # ----------------------------------------------------------
-        # STEP 4
-        # Detect Part A/B/C.
-        # ----------------------------------------------------------
-
         part = detect_listening_part(
             line
         )
@@ -1739,14 +1826,6 @@ def parse_listening_answers_v161(
             current_part = part
 
             continue
-
-        # ----------------------------------------------------------
-        # STEP 5
-        # Parse:
-        #
-        # 1. B
-        # 2. C
-        # ----------------------------------------------------------
 
         answer = extract_choice_answer(
             line
@@ -2231,12 +2310,6 @@ def parse_reference_answers(
         "explanations": {},
     }
 
-    # ==============================================================
-    # LISTENING
-    #
-    # V1.6.1:
-    # DO NOT depend on split_answer_blocks().
-    # ==============================================================
     listening_answers = (
         parse_listening_answers_v161(
             answer_text
@@ -2246,10 +2319,6 @@ def parse_reference_answers(
     result["listening"] = (
         listening_answers
     )
-
-    # ==============================================================
-    # Other answer blocks
-    # ==============================================================
 
     blocks = split_answer_blocks(
         answer_text
@@ -2275,10 +2344,6 @@ def parse_reference_answers(
                 )
             )
 
-    # ==============================================================
-    # Translation
-    # ==============================================================
-
     translation_block = blocks.get(
         "translation",
         "",
@@ -2292,10 +2357,6 @@ def parse_reference_answers(
             )
         )
 
-    # ==============================================================
-    # Writing
-    # ==============================================================
-
     writing_block = blocks.get(
         "writing",
         "",
@@ -2308,10 +2369,6 @@ def parse_reference_answers(
                 writing_block
             )
         )
-
-    # ==============================================================
-    # Explanations
-    # ==============================================================
 
     result["explanations"] = (
         parse_explanations(
@@ -2366,14 +2423,8 @@ def attach_answers(
         )
 
         correct_answer = None
-
         reference_answer = None
-
         explanation = ""
-
-        # ==========================================================
-        # LISTENING
-        # ==========================================================
 
         if section == "listening":
 
@@ -2384,12 +2435,6 @@ def attach_answers(
                 or "A"
             )
 
-            # ------------------------------------------------------
-            # PRIMARY:
-            #
-            # ("A", 1)
-            # ------------------------------------------------------
-
             correct_answer = (
                 listening_answers.get(
                     (
@@ -2398,14 +2443,6 @@ def attach_answers(
                     )
                 )
             )
-
-            # ------------------------------------------------------
-            # SECONDARY:
-            #
-            # Derive directly from ID.
-            #
-            # listening_A_1
-            # ------------------------------------------------------
 
             if not correct_answer:
 
@@ -2440,10 +2477,6 @@ def attach_answers(
                         )
                     )
 
-            # ------------------------------------------------------
-            # Explanation.
-            # ------------------------------------------------------
-
             explanation = (
                 explanations.get(
                     (
@@ -2465,10 +2498,6 @@ def attach_answers(
                         ""
                     )
                 )
-
-        # ==========================================================
-        # OTHER AUTO-GRADED TYPES
-        # ==========================================================
 
         elif section in {
             "single_choice",
@@ -2500,10 +2529,6 @@ def attach_answers(
                 )
             )
 
-        # ==========================================================
-        # TRANSLATION
-        # ==========================================================
-
         elif section == "translation":
 
             part = (
@@ -2532,10 +2557,6 @@ def attach_answers(
                 )
             )
 
-        # ==========================================================
-        # WRITING
-        # ==========================================================
-
         elif section == "writing":
 
             reference_answer = (
@@ -2551,10 +2572,6 @@ def attach_answers(
                     ""
                 )
             )
-
-        # ==========================================================
-        # WRITE BACK
-        # ==========================================================
 
         if correct_answer is not None:
 
@@ -2577,10 +2594,6 @@ def attach_answers(
         question[
             "explanation"
         ] = explanation
-
-        # ----------------------------------------------------------
-        # Grading status
-        # ----------------------------------------------------------
 
         if section in AUTO_GRADED_TYPES:
 
@@ -2634,7 +2647,7 @@ def build_exam(
     return {
         "version": PARSER_VERSION,
         "parser": (
-            "748686 ENGLISH EXAM PARSER V1.6.1"
+            "748686 ENGLISH EXAM PARSER V1.6.2"
         ),
         "total_questions": len(
             questions
@@ -2718,7 +2731,7 @@ def validate_exam(
         )
 
     # --------------------------------------------------------------
-    # Content
+    # Content + options
     # --------------------------------------------------------------
 
     for question in questions:
@@ -2742,22 +2755,72 @@ def validate_exam(
             "section"
         )
 
+        # ----------------------------------------------------------
+        # Normal choice sections
+        # ----------------------------------------------------------
+
         if section in {
             "single_choice",
             "multiple_choice",
             "reading",
         }:
 
-            if len(
-                question.get(
-                    "options",
-                    []
-                )
-            ) < 4:
+            options = question.get(
+                "options",
+                []
+            )
+
+            if len(options) < 4:
 
                 errors.append(
                     f"{qid}: 选项不足"
                 )
+
+        # ----------------------------------------------------------
+        # Cloze MUST also have A/B/C/D.
+        # ----------------------------------------------------------
+
+        if section == "cloze":
+
+            options = question.get(
+                "options",
+                []
+            )
+
+            if len(options) != 4:
+
+                errors.append(
+                    f"{qid}: "
+                    f"完形选项不足4个"
+                )
+
+            else:
+
+                option_keys = {
+                    str(
+                        option.get(
+                            "key",
+                            ""
+                        )
+                    ).upper()
+                    for option in options
+                    if isinstance(
+                        option,
+                        dict
+                    )
+                }
+
+                if option_keys != {
+                    "A",
+                    "B",
+                    "C",
+                    "D",
+                }:
+
+                    errors.append(
+                        f"{qid}: "
+                        f"完形选项必须包含 A/B/C/D"
+                    )
 
     # --------------------------------------------------------------
     # Total
@@ -2797,6 +2860,35 @@ def validate_exam(
         errors.append(
             "listening 标准答案绑定失败: "
             f"{listening_answer_count}/15"
+        )
+
+    # --------------------------------------------------------------
+    # Cloze answers
+    # --------------------------------------------------------------
+
+    cloze = [
+        q
+        for q in questions
+        if q.get(
+            "section"
+        ) == "cloze"
+    ]
+
+    cloze_answer_count = sum(
+        1
+        for q in cloze
+        if normalize_answer(
+            q.get(
+                "correct_answer"
+            )
+        )
+    )
+
+    if cloze_answer_count != 10:
+
+        errors.append(
+            "cloze 标准答案绑定失败: "
+            f"{cloze_answer_count}/10"
         )
 
     return errors
@@ -2863,7 +2955,7 @@ def main() -> int:
 
     parser = argparse.ArgumentParser(
         description=(
-            "748686 English Exam Parser V1.6.1"
+            "748686 English Exam Parser V1.6.2"
         )
     )
 
@@ -2951,7 +3043,7 @@ def main() -> int:
         "======================================================================"
     )
     print(
-        "748686 ENGLISH EXAM PARSER V1.6.1"
+        "748686 ENGLISH EXAM PARSER V1.6.2"
     )
     print(
         "======================================================================"
@@ -3071,6 +3163,63 @@ def main() -> int:
                 f"  {question.get('id')}: "
                 f"{question.get('correct_answer')}"
             )
+
+    # --------------------------------------------------------------
+    # Cloze diagnostic
+    # --------------------------------------------------------------
+
+    cloze = [
+        q
+        for q in questions
+        if q.get(
+            "section"
+        ) == "cloze"
+    ]
+
+    print()
+    print(
+        "======================================================================"
+    )
+    print(
+        "CLOZE OPTION / ANSWER BINDING"
+    )
+    print(
+        "======================================================================"
+    )
+
+    print()
+
+    for question in cloze:
+
+        qid = question.get(
+            "id"
+        )
+
+        options = question.get(
+            "options",
+            []
+        )
+
+        option_keys = ",".join(
+            str(
+                option.get(
+                    "key",
+                    ""
+                )
+            )
+            for option in options
+            if isinstance(
+                option,
+                dict
+            )
+        )
+
+        print(
+            f"  {qid}: "
+            f"options={len(options)}/4 "
+            f"[{option_keys}] "
+            f"answer={question.get('correct_answer')}"
+        )
 
     # --------------------------------------------------------------
     # Validation
