@@ -5,7 +5,7 @@ status: active
 importance: 4
 confidence: 0.7
 created_at: 2026-09-04
-last_updated: 2026-09-23
+last_updated: 2026-09-30
 ---
 
 # OpenAI
@@ -1213,3 +1213,17 @@ OpenAI因内部安全顾虑推迟首次公开募股（IPO）并取消新模型�
 
 - [[Sam Altman]]
 - [[Anthropic]]
+
+## 知识更新｜2026-09-30
+
+OpenAI战略调整：推迟IPO并取消新模型发布，体现AI发展范式从速度优先转向安全约束。
+
+### 新增事实
+
+- 2026年9月30日，OpenAI宣布推迟首次公开募股（IPO）
+- 取消原定新模型发布
+
+### 来源 EventUnit
+
+- `EVT-20260930-000317`
+
