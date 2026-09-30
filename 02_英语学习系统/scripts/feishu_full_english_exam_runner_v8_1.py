@@ -3,7 +3,7 @@
 
 """
 748686 English Learning System
-Feishu Full English Exam Runner V8.2
+Feishu Full English Exam Runner V8.3
 
 职责
 ----
@@ -25,58 +25,21 @@ Feishu Full English Exam Runner V8.2
 9. 不向飞书初始题卡泄露正确答案
 10. 不在生产日志中打印正确答案
 
-V8.2 修复
+V8.3 修复
 ----------
-1. 修复飞书 Form Submit：
-   form_action_type="submit"
-   ->
-   action_type="form_submit"
-
-2. 修复 Parser options 数据结构：
-   Parser V1.6.2:
-       [
-           {"key": "A", "text": "..."},
-           {"key": "B", "text": "..."},
-           ...
-       ]
-
-   Runner 统一通过 normalize_options() 转成：
-       {
-           "A": "...",
-           "B": "...",
-           "C": "...",
-           "D": "..."
-       }
-
-3. 单选 / 多选 / 完形 / 阅读 / 听力 /
-   结果卡全部统一使用 normalize_options()
-
-4. 加强 Feishu HTTP 400 错误诊断
-
-5. 清理 V8.1 do_card_action_trigger 中
-   except 后面永远不会执行的重复代码
-
-听力处理
---------
-- 飞书文件上传 API 不接受 file_type=mp3
-- MP3 自动转换为 OPUS
-- 使用 file_type=opus 上传
-- 上传后取得 file_key
-- 听力题卡使用 file_key 播放
-
-原则
-----
-- Parser V1.6.2 不修改
-- Grader V1.0 不修改
-- Adapter 不修改
-- 初始题卡只使用安全题目数据
-- 正确答案只存在 Runner 内部
-- 多选必须完全匹配
-- 翻译 / 写作进入人工批改
+1. 修复 SAFE_QUESTIONS options 丢失问题
+2. Parser V1.6.2 原始 options 作为最终安全兜底
+3. normalize_options 支持多种 options 数据结构
+4. translation / writing 不再进入 options 校验
+5. 听力不再嵌入 Card audio 元素
+6. 听力 A/B/C 改为独立 audio 消息发送
+7. 保持 Parser / Adapter / Grader 不修改
+8. 保持原有 WebSocket 答题逻辑
 """
 
 from __future__ import annotations
 
+import copy
 import importlib.util
 import json
 import os
@@ -89,7 +52,6 @@ from pathlib import Path
 from typing import Any
 
 import requests
-
 import lark_oapi as lark
 
 from lark_oapi.event.callback.model.p2_card_action_trigger import (
@@ -235,7 +197,6 @@ def fail(message: str) -> None:
         f"❌ {message}",
         flush=True,
     )
-
     raise SystemExit(1)
 
 
@@ -383,18 +344,11 @@ def validate_exam() -> None:
             )
 
     log("")
-
+    log("=" * 70)
     log(
-        "=" * 70
+        "748686 FEISHU FULL ENGLISH EXAM V8.3"
     )
-
-    log(
-        "748686 FEISHU FULL ENGLISH EXAM V8.2"
-    )
-
-    log(
-        "=" * 70
-    )
+    log("=" * 70)
 
     log(
         f"考试日期: "
@@ -411,9 +365,7 @@ def validate_exam() -> None:
             f"  {qtype:<16} {expected}"
         )
 
-    log(
-        "=" * 70
-    )
+    log("=" * 70)
 
 
 # ============================================================
@@ -489,7 +441,7 @@ def build_safe_exam() -> None:
         }
     )
 
-    SAFE_QUESTIONS = (
+    raw_safe_questions = (
         safe_exam.get(
             "exam",
             {},
@@ -500,17 +452,12 @@ def build_safe_exam() -> None:
         )
     )
 
-    if len(SAFE_QUESTIONS) != EXPECTED_TOTAL:
+    if len(raw_safe_questions) != EXPECTED_TOTAL:
 
         fail(
             "Adapter 安全题目数量错误: "
-            f"{len(SAFE_QUESTIONS)} / {EXPECTED_TOTAL}"
+            f"{len(raw_safe_questions)} / {EXPECTED_TOTAL}"
         )
-
-    SAFE_QUESTION_MAP = {
-        q["question_id"]: q
-        for q in SAFE_QUESTIONS
-    }
 
     forbidden = {
         "correct_answer",
@@ -519,34 +466,223 @@ def build_safe_exam() -> None:
         "reference_answer",
     }
 
-    for q in SAFE_QUESTIONS:
+    SAFE_QUESTIONS = []
+
+    # --------------------------------------------------------
+    # V8.3 核心：
+    #
+    # Adapter 是安全层。
+    # 但是 Parser 原始题目中的：
+    #
+    #   question
+    #   options
+    #   number
+    #   part
+    #
+    # 都不是答案秘密。
+    #
+    # 如果 Adapter 丢失这些显示字段，
+    # 从 Parser 原始题目恢复。
+    #
+    # 正确答案 / explanation 永远不恢复到 SAFE_QUESTIONS。
+    # --------------------------------------------------------
+
+    for safe_q in raw_safe_questions:
+
+        qid = safe_q.get(
+            "question_id"
+        )
+
+        if not qid:
+
+            fail(
+                "Adapter 返回存在没有 question_id 的题目"
+            )
+
+        raw_q = QUESTION_MAP.get(
+            qid,
+            {},
+        )
+
+        merged = copy.deepcopy(
+            safe_q
+        )
+
+        # ----------------------------------------------------
+        # 恢复显示题干
+        # ----------------------------------------------------
+
+        if not merged.get("question"):
+
+            if raw_q.get("question"):
+
+                merged["question"] = raw_q.get(
+                    "question"
+                )
+
+        # ----------------------------------------------------
+        # 恢复题号
+        # ----------------------------------------------------
+
+        if (
+            merged.get("number")
+            in {
+                None,
+                "",
+            }
+        ):
+
+            if raw_q.get("number") is not None:
+
+                merged["number"] = raw_q.get(
+                    "number"
+                )
+
+        # ----------------------------------------------------
+        # 恢复听力 Part
+        # ----------------------------------------------------
+
+        if not merged.get("part"):
+
+            if raw_q.get("part"):
+
+                merged["part"] = raw_q.get(
+                    "part"
+                )
+
+        # ----------------------------------------------------
+        # 恢复 options
+        #
+        # 这是本次故障的核心修复。
+        # ----------------------------------------------------
+
+        current_options = normalize_options(
+            merged.get("options")
+        )
+
+        raw_options = normalize_options(
+            raw_q.get("options")
+        )
+
+        if len(current_options) < 4:
+
+            if len(raw_options) >= 4:
+
+                merged["options"] = copy.deepcopy(
+                    raw_q.get("options")
+                )
+
+                log(
+                    f"  🔧 {qid}: "
+                    f"Adapter options 不完整，"
+                    f"已从 Parser 恢复 A/B/C/D"
+                )
+
+        # ----------------------------------------------------
+        # choices 也做兼容恢复
+        # ----------------------------------------------------
+
+        if (
+            len(
+                normalize_options(
+                    merged.get("options")
+                )
+            )
+            < 4
+        ):
+
+            raw_choices = normalize_options(
+                raw_q.get("choices")
+            )
+
+            if len(raw_choices) >= 4:
+
+                merged["options"] = copy.deepcopy(
+                    raw_q.get("choices")
+                )
+
+        # ----------------------------------------------------
+        # 安全检查
+        # ----------------------------------------------------
 
         leaked = forbidden.intersection(
-            q.keys()
+            merged.keys()
         )
 
         if leaked:
 
             fail(
                 f"Adapter 安全检查失败: "
-                f"{q['question_id']} "
+                f"{qid} "
                 f"存在禁止字段 {sorted(leaked)}"
+            )
+
+        SAFE_QUESTIONS.append(
+            merged
+        )
+
+    SAFE_QUESTION_MAP = {
+        q["question_id"]: q
+        for q in SAFE_QUESTIONS
+    }
+
+    if len(SAFE_QUESTION_MAP) != EXPECTED_TOTAL:
+
+        fail(
+            "SAFE_QUESTION_MAP 数量错误"
+        )
+
+    # --------------------------------------------------------
+    # 最终安全数据诊断
+    # --------------------------------------------------------
+
+    choice_types = {
+        "listening",
+        "single_choice",
+        "multiple_choice",
+        "cloze",
+        "reading",
+    }
+
+    for q in SAFE_QUESTIONS:
+
+        qtype = q.get(
+            "type",
+            "",
+        )
+
+        if qtype not in choice_types:
+
+            continue
+
+        options = get_question_options(
+            q
+        )
+
+        if len(options) != 4:
+
+            qid = q.get(
+                "question_id",
+                "",
+            )
+
+            fail(
+                f"SAFE 题目 {qid} 最终仍缺少 4 个选项: "
+                f"{list(options.keys())}"
             )
 
     log(
         "✅ Feishu Adapter 安全检查通过"
     )
-       print()
-       print("=" * 70)
-       print("DEBUG SAFE_QUESTIONS OPTIONS")
-       print("=" * 70)
 
-    for q in SAFE_QUESTIONS[:5]:
-    print()
-    print("QUESTION:", q.get("question_id"))
-    print("TYPE:", q.get("type"))
-    print("OPTIONS TYPE:", type(q.get("options")).__name__)
-    print("OPTIONS:", repr(q.get("options")))
+    log(
+        "✅ SAFE_QUESTIONS 61 题结构检查通过"
+    )
+
+    log(
+        "✅ 所有选择题均已确认 A/B/C/D"
+    )
+
 
 # ============================================================
 # Feishu Token
@@ -1078,8 +1214,7 @@ def question_header(
 
 
 # ============================================================
-# V8.2 核心修复：
-# Parser options list/dict 统一转换
+# Options 标准化
 # ============================================================
 
 def normalize_options(
@@ -1088,14 +1223,19 @@ def normalize_options(
 
     result: dict[str, str] = {}
 
+    allowed = {
+        "A",
+        "B",
+        "C",
+        "D",
+    }
+
+    if options is None:
+
+        return result
+
     # --------------------------------------------------------
-    # 情况 1：已经是 dict
-    #
-    # {
-    #   "A": "...",
-    #   "B": "...",
-    #   ...
-    # }
+    # dict
     # --------------------------------------------------------
 
     if isinstance(
@@ -1103,39 +1243,80 @@ def normalize_options(
         dict,
     ):
 
-        for key, value in options.items():
+        for raw_key, raw_value in options.items():
 
-            normalized_key = str(
-                key
+            key = str(
+                raw_key
             ).strip().upper()
 
-            if normalized_key not in {
-                "A",
-                "B",
-                "C",
-                "D",
-            }:
+            if key not in allowed:
 
                 continue
 
-            result[
-                normalized_key
-            ] = str(
-                value
-                if value is not None
-                else ""
-            )
+            # A: "text"
+            if isinstance(
+                raw_value,
+                str,
+            ):
+
+                result[key] = raw_value
+                continue
+
+            # A: {"text": "..."}
+            if isinstance(
+                raw_value,
+                dict,
+            ):
+
+                text = raw_value.get(
+                    "text",
+                    raw_value.get(
+                        "label",
+                        raw_value.get(
+                            "value",
+                            raw_value.get(
+                                "value_text",
+                                "",
+                            ),
+                        ),
+                    ),
+                )
+
+                if isinstance(
+                    text,
+                    dict,
+                ):
+
+                    text = text.get(
+                        "text",
+                        text.get(
+                            "value",
+                            "",
+                        ),
+                    )
+
+                result[key] = str(
+                    text
+                    if text is not None
+                    else ""
+                )
+
+                continue
+
+            if raw_value is not None:
+
+                result[key] = str(
+                    raw_value
+                )
 
         return result
 
     # --------------------------------------------------------
-    # 情况 2：Parser V1.6.2 的真实格式
+    # list
     #
     # [
-    #   {"key": "A", "text": "..."},
-    #   {"key": "B", "text": "..."},
-    #   {"key": "C", "text": "..."},
-    #   {"key": "D", "text": "..."}
+    #   {"key":"A","text":"..."},
+    #   ...
     # ]
     # --------------------------------------------------------
 
@@ -1156,23 +1337,43 @@ def normalize_options(
             key = str(
                 item.get(
                     "key",
-                    "",
+                    item.get(
+                        "value",
+                        "",
+                    ),
                 )
             ).strip().upper()
 
-            if key not in {
-                "A",
-                "B",
-                "C",
-                "D",
-            }:
+            if key not in allowed:
 
                 continue
 
             text = item.get(
                 "text",
-                "",
+                item.get(
+                    "label",
+                    item.get(
+                        "value_text",
+                        item.get(
+                            "value",
+                            "",
+                        ),
+                    ),
+                ),
             )
+
+            if isinstance(
+                text,
+                dict,
+            ):
+
+                text = text.get(
+                    "text",
+                    text.get(
+                        "value",
+                        "",
+                    ),
+                )
 
             result[key] = str(
                 text
@@ -1189,12 +1390,75 @@ def get_question_options(
     question: dict[str, Any],
 ) -> dict[str, str]:
 
-    return normalize_options(
+    # --------------------------------------------------------
+    # 1. 当前题目 options
+    # --------------------------------------------------------
+
+    options = normalize_options(
         question.get(
-            "options",
-            {},
+            "options"
         )
     )
+
+    if len(options) >= 4:
+
+        return options
+
+    # --------------------------------------------------------
+    # 2. 当前题目 choices
+    # --------------------------------------------------------
+
+    choices = normalize_options(
+        question.get(
+            "choices"
+        )
+    )
+
+    if len(choices) >= 4:
+
+        return choices
+
+    # --------------------------------------------------------
+    # 3. QUESTION_MAP 原始 Parser options
+    # --------------------------------------------------------
+
+    qid = str(
+        question.get(
+            "question_id",
+            "",
+        )
+    )
+
+    original = QUESTION_MAP.get(
+        qid,
+        {},
+    )
+
+    original_options = normalize_options(
+        original.get(
+            "options"
+        )
+    )
+
+    if len(original_options) >= 4:
+
+        return original_options
+
+    # --------------------------------------------------------
+    # 4. QUESTION_MAP 原始 choices
+    # --------------------------------------------------------
+
+    original_choices = normalize_options(
+        original.get(
+            "choices"
+        )
+    )
+
+    if len(original_choices) >= 4:
+
+        return original_choices
+
+    return {}
 
 
 def get_option_lines(
@@ -1243,6 +1507,53 @@ def build_choice_card(
         question
     )
 
+    # --------------------------------------------------------
+    # 选择题必须 A/B/C/D
+    # --------------------------------------------------------
+
+    if len(options) < 4:
+
+        log("")
+        log("=" * 70)
+        log("❌ OPTIONS DEBUG")
+        log("=" * 70)
+        log(
+            f"QUESTION ID: {qid}"
+        )
+        log(
+            f"TYPE: {qtype}"
+        )
+        log(
+            f"CURRENT OPTIONS: "
+            f"{repr(question.get('options'))}"
+        )
+        log(
+            f"NORMALIZED OPTIONS: "
+            f"{repr(options)}"
+        )
+
+        original = QUESTION_MAP.get(
+            qid,
+            {},
+        )
+
+        log(
+            f"ORIGINAL OPTIONS: "
+            f"{repr(original.get('options'))}"
+        )
+
+        log(
+            f"ORIGINAL NORMALIZED: "
+            f"{repr(normalize_options(original.get('options')))}"
+        )
+
+        log("=" * 70)
+        log("")
+
+        return build_error_card(
+            f"题目 {qid} 的选项不足4个"
+        )
+
     elements: list[dict[str, Any]] = []
 
     question_text = (
@@ -1260,6 +1571,20 @@ def build_choice_card(
         }
     )
 
+    # --------------------------------------------------------
+    # V8.3：
+    # 听力音频不再放进 Card。
+    #
+    # 原来的：
+    #     {"tag":"audio", ...}
+    #
+    # 已经导致 Feishu：
+    #     audio elem don't support forward
+    #
+    # 音频现在由 send_audio_message()
+    # 作为独立消息发送。
+    # --------------------------------------------------------
+
     if qtype == "listening":
 
         part = question.get(
@@ -1267,16 +1592,18 @@ def build_choice_card(
             "",
         )
 
-        file_key = AUDIO_FILE_KEYS.get(
-            part
-        )
-
-        if file_key:
+        if AUDIO_FILE_KEYS.get(part):
 
             elements.append(
                 {
-                    "tag": "audio",
-                    "file_key": file_key,
+                    "tag": "div",
+                    "text": {
+                        "tag": "lark_md",
+                        "content": (
+                            f"🎧 **听力 {part} 音频已在本题前发送，"
+                            "请先播放后答题。**"
+                        ),
+                    },
                 }
             )
 
@@ -1321,10 +1648,6 @@ def build_choice_card(
         "D",
     ):
 
-        if key not in options:
-
-            continue
-
         actions.append(
             {
                 "tag": "button",
@@ -1344,12 +1667,6 @@ def build_choice_card(
                     }
                 ],
             }
-        )
-
-    if len(actions) < 4:
-
-        return build_error_card(
-            f"题目 {qid} 的选项不足 4 个"
         )
 
     elements.append(
@@ -1422,6 +1739,12 @@ def build_multiple_card(
         question
     )
 
+    if len(options) < 4:
+
+        return build_error_card(
+            f"题目 {qid} 的选项不足4个"
+        )
+
     elements: list[dict[str, Any]] = []
 
     elements.append(
@@ -1452,7 +1775,7 @@ def build_multiple_card(
     elements.append(
         {
             "tag": "hr",
-        },
+        }
     )
 
     selected_text = (
@@ -1490,10 +1813,6 @@ def build_multiple_card(
         "D",
     ):
 
-        if key not in options:
-
-            continue
-
         label = (
             f"✓ {key}"
             if key in selected
@@ -1525,12 +1844,6 @@ def build_multiple_card(
                     }
                 ],
             }
-        )
-
-    if len(actions) < 4:
-
-        return build_error_card(
-            f"题目 {qid} 的选项不足 4 个"
         )
 
     elements.append(
@@ -1641,19 +1954,6 @@ def build_text_card(
         f"submit_{qid}"
     )
 
-    # ========================================================
-    # 关键修复：
-    #
-    # 原 V8.1:
-    #     "form_action_type": "submit"
-    #
-    # 正确：
-    #     "action_type": "form_submit"
-    #
-    # 飞书表单提交按钮使用 action.form_value
-    # 获取 input 内容。
-    # ========================================================
-
     return {
         "schema": "2.0",
         "config": {
@@ -1749,17 +2049,13 @@ def build_answered_card(
     if is_correct:
 
         result_text = "✅ **回答正确**"
-
         template = "green"
-
         title = "正确"
 
     else:
 
         result_text = "❌ **回答错误**"
-
         template = "red"
-
         title = "错误"
 
     elements: list[dict[str, Any]] = []
@@ -1955,7 +2251,7 @@ def build_manual_submitted_card(
 
 
 # ============================================================
-# normalize
+# Answer normalize
 # ============================================================
 
 def normalize_answer(
@@ -2036,6 +2332,117 @@ def normalize_answer(
 
 
 # ============================================================
+# Feishu Audio 独立消息
+# ============================================================
+
+def send_audio_message(
+    token: str,
+    chat_id: str,
+    part: str,
+    file_key: str,
+) -> str:
+
+    """
+    V8.3
+
+    不再把 audio 元素嵌入 interactive Card。
+
+    直接通过 Feishu message API：
+        msg_type = audio
+        content = {"file_key": "..."}
+    """
+
+    headers = {
+        "Authorization":
+            f"Bearer {token}",
+        "Content-Type":
+            "application/json; charset=utf-8",
+    }
+
+    payload = {
+        "receive_id": chat_id,
+        "msg_type": "audio",
+        "content": json.dumps(
+            {
+                "file_key": file_key,
+            },
+            ensure_ascii=False,
+        ),
+    }
+
+    response = requests.post(
+        "https://open.feishu.cn/open-apis/im/v1/messages",
+        headers=headers,
+        params={
+            "receive_id_type": "chat_id",
+        },
+        json=payload,
+        timeout=30,
+    )
+
+    if not response.ok:
+
+        print()
+        print("=" * 70)
+        print("❌ 飞书听力消息发送失败")
+        print("=" * 70)
+        print("HTTP:", response.status_code)
+        print("URL:", response.url)
+        print("Part:", part)
+        print("Response:", response.text)
+        print("=" * 70)
+        print()
+
+        response.raise_for_status()
+
+    result = response.json()
+
+    if result.get("code") != 0:
+
+        print()
+        print("=" * 70)
+        print("❌ 飞书听力消息 API 返回错误")
+        print("=" * 70)
+        print("Code:", result.get("code"))
+        print("Message:", result.get("msg"))
+        print("Part:", part)
+        print(
+            "Response:",
+            json.dumps(
+                result,
+                ensure_ascii=False,
+            ),
+        )
+        print("=" * 70)
+        print()
+
+        fail(
+            "发送听力消息失败: "
+            + json.dumps(
+                result,
+                ensure_ascii=False,
+            )
+        )
+
+    message_id = (
+        result.get(
+            "data",
+            {},
+        )
+        .get(
+            "message_id",
+            "",
+        )
+    )
+
+    log(
+        f"  🎧 听力 {part} 音频消息已发送"
+    )
+
+    return message_id
+
+
+# ============================================================
 # 卡片发送
 # ============================================================
 
@@ -2070,10 +2477,6 @@ def send_card(
         json=payload,
         timeout=30,
     )
-
-    # --------------------------------------------------------
-    # V8.2：完整打印飞书 400 错误
-    # --------------------------------------------------------
 
     if not response.ok:
 
@@ -2161,16 +2564,23 @@ def send_card(
     )
 
 
+# ============================================================
+# 发送全部 61 题
+# ============================================================
+
 def send_all_questions(
     token: str,
     chat_id: str,
 ) -> None:
 
     log("")
-
     log(
         "开始发送 61 道题..."
     )
+
+    last_audio_part = ""
+
+    sent_count = 0
 
     for index, question in enumerate(
         SAFE_QUESTIONS,
@@ -2182,11 +2592,61 @@ def send_all_questions(
             "",
         )
 
+        qid = question.get(
+            "question_id",
+            "",
+        )
+
+        # ----------------------------------------------------
+        # 听力：
+        # A/B/C 每个 Part 第一次出现时发送一次独立音频
+        # ----------------------------------------------------
+
+        if qtype == "listening":
+
+            part = str(
+                question.get(
+                    "part",
+                    "",
+                )
+            ).strip().upper()
+
+            file_key = AUDIO_FILE_KEYS.get(
+                part
+            )
+
+            if (
+                part
+                and part != last_audio_part
+                and file_key
+            ):
+
+                send_audio_message(
+                    token,
+                    chat_id,
+                    part,
+                    file_key,
+                )
+
+                last_audio_part = part
+
+                time.sleep(
+                    0.2
+                )
+
+        # ----------------------------------------------------
+        # 多选
+        # ----------------------------------------------------
+
         if qtype == "multiple_choice":
 
             card = build_multiple_card(
                 question
             )
+
+        # ----------------------------------------------------
+        # 翻译 / 写作
+        # ----------------------------------------------------
 
         elif qtype in {
             "translation",
@@ -2197,11 +2657,19 @@ def send_all_questions(
                 question
             )
 
+        # ----------------------------------------------------
+        # 听力 / 单选 / 完形 / 阅读
+        # ----------------------------------------------------
+
         else:
 
             card = build_choice_card(
                 question
             )
+
+        # ----------------------------------------------------
+        # 正常发送
+        # ----------------------------------------------------
 
         send_card(
             token,
@@ -2209,19 +2677,25 @@ def send_all_questions(
             card,
         )
 
-        if (
-            index == 1
-            or index % 10 == 0
-        ):
+        sent_count += 1
 
-            log(
-                f"  已发送 {index}/61"
-            )
+        log(
+            f"  ✅ 已发送 {index}/61 "
+            f"{qid}"
+        )
 
         time.sleep(
             0.15
         )
 
+    if sent_count != EXPECTED_TOTAL:
+
+        fail(
+            f"发送题目数量异常: "
+            f"{sent_count}/{EXPECTED_TOTAL}"
+        )
+
+    log("")
     log(
         "✅ 61 道题全部发送完成"
     )
@@ -2236,7 +2710,7 @@ def state_payload() -> dict[str, Any]:
     with STATE_LOCK:
 
         return {
-            "version": "8.2",
+            "version": "8.3",
             "exam_date": EXAM_DATE,
             "total_questions": EXPECTED_TOTAL,
             "answers": ANSWER_STATE,
@@ -3035,13 +3509,6 @@ def do_card_action_trigger(
 
         # ----------------------------------------------------
         # Form Submit
-        #
-        # 表单按钮 name：
-        # submit_translation_A_1
-        # submit_translation_B_1
-        # submit_writing_1
-        #
-        # 通过 name 恢复 question_id。
         # ----------------------------------------------------
 
         if (
@@ -3088,20 +3555,12 @@ def do_card_action_trigger(
             "",
         )
 
-        # ----------------------------------------------------
-        # 单选 / 完形 / 阅读 / 听力
-        # ----------------------------------------------------
-
         if action_type == "answer":
 
             card = handle_single_answer(
                 question_id,
                 str(answer),
             )
-
-        # ----------------------------------------------------
-        # 多选选择
-        # ----------------------------------------------------
 
         elif action_type == "toggle_multiple":
 
@@ -3110,19 +3569,11 @@ def do_card_action_trigger(
                 str(answer),
             )
 
-        # ----------------------------------------------------
-        # 多选提交
-        # ----------------------------------------------------
-
         elif action_type == "submit_multiple":
 
             card = handle_multiple_submit(
                 question_id,
             )
-
-        # ----------------------------------------------------
-        # 翻译 / 写作
-        # ----------------------------------------------------
 
         elif action_type == "submit_text":
 
@@ -3142,10 +3593,6 @@ def do_card_action_trigger(
                     question_id,
                     text_answer,
                 )
-
-        # ----------------------------------------------------
-        # 兼容部分飞书表单事件
-        # ----------------------------------------------------
 
         elif (
             action_name.startswith(
@@ -3179,10 +3626,6 @@ def do_card_action_trigger(
             card = build_error_card(
                 "未知操作"
             )
-
-        # ----------------------------------------------------
-        # 61 题完成后，发送最终成绩
-        # ----------------------------------------------------
 
         if (
             action_type
@@ -3358,17 +3801,37 @@ def main() -> None:
     global RUNTIME_TOKEN
     global RUNTIME_CHAT_ID
 
+    # --------------------------------------------------------
+    # 1. Parser
+    # --------------------------------------------------------
+
     load_exam()
 
     validate_exam()
 
+    # --------------------------------------------------------
+    # 2. Adapter 安全层
+    # --------------------------------------------------------
+
     build_safe_exam()
 
+    # --------------------------------------------------------
+    # 3. 恢复历史状态
+    # --------------------------------------------------------
+
     load_existing_state()
+
+    # --------------------------------------------------------
+    # 4. Feishu Token
+    # --------------------------------------------------------
 
     token = get_tenant_access_token()
 
     RUNTIME_TOKEN = token
+
+    # --------------------------------------------------------
+    # 5. 找群
+    # --------------------------------------------------------
 
     chat_id = find_chat_id(
         token
@@ -3382,8 +3845,7 @@ def main() -> None:
     )
 
     # --------------------------------------------------------
-    # 准备听力
-    # MP3 → OPUS → Feishu file_key
+    # 6. 准备听力
     # --------------------------------------------------------
 
     prepare_audio(
@@ -3391,7 +3853,7 @@ def main() -> None:
     )
 
     # --------------------------------------------------------
-    # 先启动 WebSocket
+    # 7. 启动 WebSocket
     # --------------------------------------------------------
 
     ws_thread = threading.Thread(
@@ -3410,7 +3872,7 @@ def main() -> None:
     )
 
     # --------------------------------------------------------
-    # 再发送 61 题
+    # 8. 发送 61 题
     # --------------------------------------------------------
 
     send_all_questions(
@@ -3419,7 +3881,7 @@ def main() -> None:
     )
 
     # --------------------------------------------------------
-    # 如果状态已经完成，则直接生成最终成绩
+    # 9. 已经全部答完则生成成绩
     # --------------------------------------------------------
 
     if all_questions_answered():
@@ -3430,25 +3892,17 @@ def main() -> None:
         )
 
     log("")
-
-    log(
-        "=" * 70
-    )
-
+    log("=" * 70)
     log(
         "🟢 61 题英语答题系统正在运行"
     )
-
     log(
         "🟢 等待飞书用户提交答案"
     )
-
-    log(
-        "=" * 70
-    )
+    log("=" * 70)
 
     # --------------------------------------------------------
-    # GitHub Actions runner 保持运行
+    # 10. GitHub Actions 保持运行
     # --------------------------------------------------------
 
     while True:
