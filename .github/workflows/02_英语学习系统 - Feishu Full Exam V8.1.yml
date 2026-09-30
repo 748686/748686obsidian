@@ -1,4 +1,4 @@
-name: 02_英语学习系统 - Feishu Full Exam V8.1
+name: 02_英语学习系统 - Feishu Full Exam V8.3
 
 on:
 
@@ -149,7 +149,7 @@ jobs:
 
           test -f "02_英语学习系统/scripts/feishu_english_exam.py"
 
-          test -f "02_英语学习系统/scripts/feishu_full_english_exam_runner_v8_1.py"
+          test -f "02_英语学习系统/scripts/feishu_full_english_exam_runner_v8_3.py"
 
           echo "=============================================="
           echo "English system files OK"
@@ -328,10 +328,10 @@ jobs:
 
 
       # ======================================================
-      # 8. Parser V1.6.1
+      # 8. Parser V1.6.2
       # ======================================================
 
-      - name: Run English Exam Parser V1.6.1
+      - name: Run English Exam Parser V1.6.2
         shell: bash
         env:
           EXAM_FILE: ${{ steps.locate.outputs.exam_file }}
@@ -342,7 +342,7 @@ jobs:
 
           echo
           echo "============================================================"
-          echo "748686 ENGLISH EXAM PARSER V1.6.1"
+          echo "748686 ENGLISH EXAM PARSER V1.6.2"
           echo "============================================================"
 
           python \
@@ -436,10 +436,11 @@ jobs:
 
           print()
           print(
-              "✅ Parser V1.6.1 输出通过"
+              "✅ Parser V1.6.2 输出通过"
           )
 
           PY
+
 
       # ======================================================
       # 10. DEBUG：检查全部题目的 options 实际结构
@@ -481,9 +482,20 @@ jobs:
               print("-" * 80)
               print("QUESTION:", qid)
               print("TYPE:", qtype)
-              print("OPTIONS TYPE:", type(options).__name__)
-              print("OPTIONS LEN:", len(options) if options is not None else 0)
-              print("OPTIONS:", repr(options))
+              print(
+                  "OPTIONS TYPE:",
+                  type(options).__name__,
+              )
+              print(
+                  "OPTIONS LEN:",
+                  len(options)
+                  if options is not None
+                  else 0,
+              )
+              print(
+                  "OPTIONS:",
+                  repr(options),
+              )
 
           print()
           print("=" * 80)
@@ -491,11 +503,13 @@ jobs:
           print("=" * 80)
 
           PY
+
+
       # ======================================================
-      # 11. 启动 61 题飞书答题系统
+      # 11. 启动 61 题飞书答题系统 V8.3
       # ======================================================
 
-      - name: Start Feishu Full English Exam V8.1
+      - name: Start Feishu Full English Exam V8.3
         env:
 
           APP_ID: ${{ secrets.APP_ID }}
@@ -531,8 +545,8 @@ jobs:
 
           echo
           echo "============================================================"
-          echo "748686 FEISHU FULL ENGLISH EXAM V8.1"
+          echo "748686 FEISHU FULL ENGLISH EXAM V8.3"
           echo "============================================================"
 
           python \
-            "02_英语学习系统/scripts/feishu_full_english_exam_runner_v8_1.py"
+            "02_英语学习系统/scripts/feishu_full_english_exam_runner_v8_3.py"
