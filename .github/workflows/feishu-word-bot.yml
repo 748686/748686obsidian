@@ -123,8 +123,8 @@ jobs:
 
       - name: Start Feishu Word Bot
         env:
-          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
-          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+         FEISHU_APP_ID: ${{ secrets.APP_ID }}
+         FEISHU_APP_SECRET: ${{ secrets.APP_SECRET }}
         run: |
           set -e
 
