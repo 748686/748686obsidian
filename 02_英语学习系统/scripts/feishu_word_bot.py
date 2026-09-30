@@ -3,12 +3,26 @@
 
 """
 748686 English Learning System
-Feishu Word Image Bot V1.1
+Feishu Word Image Bot V1.2
 
 ============================================================
 功能
 ============================================================
 
+飞书机器人启动
+        ↓
+建立 WebSocket 长连接
+        ↓
+自动寻找：
+748686知识系统
+        ↓
+发送：
+🟢 飞书连接成功
+        ↓
+证明本系统已经连接到正确的飞书群
+        ↓
+等待用户发送单词图片
+        ↓
 飞书发送单词截图
         ↓
 飞书机器人接收图片
@@ -32,7 +46,7 @@ OCR：英文 + 中文
 
 
 ============================================================
-当前版本原则
+V1.2 原则
 ============================================================
 
 1. 不上传 GitHub
@@ -45,14 +59,22 @@ OCR：英文 + 中文
 8. 不生成音频
 9. 不写入 input 文件夹
 10. 只生成 Markdown 并回传飞书
+11. 启动后向「748686知识系统」发送连接成功卡片
+12. 不修改考试系统代码
+13. 不与考试系统共用 Python 程序
 
-后续 V1.2：
+
+============================================================
+后续版本
+============================================================
+
+V1.3：
     用户确认
         ↓
     写入：
     02_英语学习系统/input/YYYY-MM-DD.md
 
-后续 V2：
+V2：
     写入后
         ↓
     上传 GitHub
@@ -64,7 +86,6 @@ import os
 import re
 import sys
 import tempfile
-from datetime import datetime
 from pathlib import Path
 
 import requests
@@ -91,6 +112,17 @@ APP_SECRET = os.environ.get(
     ""
 ).strip()
 
+
+# 目标飞书群
+TARGET_CHAT_NAME = "748686知识系统"
+
+FEISHU_BASE = "https://open.feishu.cn"
+
+
+# ============================================================
+# 启动参数检查
+# ============================================================
+
 if not APP_ID:
     raise RuntimeError(
         "缺少环境变量 FEISHU_APP_ID"
@@ -102,14 +134,12 @@ if not APP_SECRET:
     )
 
 
-FEISHU_BASE = "https://open.feishu.cn"
-
-
 # ============================================================
 # 日志
 # ============================================================
 
 def log(message):
+
     print(
         f"[748686 FeishuWordBot] {message}",
         flush=True
@@ -154,7 +184,344 @@ def get_tenant_access_token():
             )
         )
 
-    return data["tenant_access_token"]
+    token = data.get(
+        "tenant_access_token"
+    )
+
+    if not token:
+
+        raise RuntimeError(
+            "飞书返回成功，但没有 "
+            "tenant_access_token。"
+        )
+
+    return token
+
+
+# ============================================================
+# 获取机器人所在群组
+# ============================================================
+
+def find_target_chat(
+    token
+):
+    """
+    获取当前机器人可以访问的群组，
+    寻找：
+
+        748686知识系统
+
+    返回：
+        chat_id
+
+    注意：
+        不使用群名直接发送消息。
+        飞书发送群消息需要 chat_id。
+    """
+
+    log(
+        f"正在寻找飞书群："
+        f"{TARGET_CHAT_NAME}"
+    )
+
+    url = (
+        f"{FEISHU_BASE}"
+        "/open-apis/im/v1/chats"
+    )
+
+    headers = {
+        "Authorization":
+            f"Bearer {token}",
+    }
+
+    params = {
+        "page_size": 100,
+    }
+
+    page_token = ""
+
+    checked = 0
+
+    while True:
+
+        current_params = dict(
+            params
+        )
+
+        if page_token:
+
+            current_params[
+                "page_token"
+            ] = page_token
+
+        response = requests.get(
+            url,
+            headers=headers,
+            params=current_params,
+            timeout=30,
+        )
+
+        if response.status_code != 200:
+
+            raise RuntimeError(
+                "获取飞书群列表失败：\n"
+                f"HTTP {response.status_code}\n"
+                f"{response.text[:2000]}"
+            )
+
+        data = response.json()
+
+        if data.get("code") != 0:
+
+            raise RuntimeError(
+                "飞书群列表 API 失败：\n"
+                + json.dumps(
+                    data,
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
+
+        chat_data = data.get(
+            "data",
+            {}
+        )
+
+        items = chat_data.get(
+            "items",
+            []
+        )
+
+        for chat in items:
+
+            checked += 1
+
+            chat_id = chat.get(
+                "chat_id"
+            )
+
+            chat_name = chat.get(
+                "name"
+            )
+
+            log(
+                f"检查群："
+                f"{chat_name or '(无名称)'}"
+            )
+
+            if (
+                chat_name
+                == TARGET_CHAT_NAME
+            ):
+
+                if not chat_id:
+
+                    raise RuntimeError(
+                        f"找到群「{TARGET_CHAT_NAME}」，"
+                        "但没有返回 chat_id。"
+                    )
+
+                log(
+                    "================================"
+                )
+
+                log(
+                    "目标飞书群找到："
+                    f"{chat_name}"
+                )
+
+                log(
+                    f"chat_id = {chat_id}"
+                )
+
+                log(
+                    "================================"
+                )
+
+                return chat_id
+
+        has_more = chat_data.get(
+            "has_more",
+            False
+        )
+
+        page_token = chat_data.get(
+            "page_token",
+            ""
+        )
+
+        if not has_more or not page_token:
+
+            break
+
+    raise RuntimeError(
+        "没有找到目标飞书群：\n"
+        f"{TARGET_CHAT_NAME}\n\n"
+        f"本次检查了 {checked} 个群。\n\n"
+        "请确认：\n"
+        "1. 飞书机器人已经加入该群\n"
+        "2. 群名称确实是「748686知识系统」\n"
+        "3. APP_ID / APP_SECRET 对应的是正确的飞书应用\n"
+        "4. 应用拥有读取群信息的权限\n"
+    )
+
+
+# ============================================================
+# 发送连接成功卡片
+# ============================================================
+
+def send_connection_card(
+    token,
+    chat_id,
+):
+    """
+    启动成功后：
+
+        GitHub Actions
+            ↓
+        WebSocket
+            ↓
+        飞书 API
+            ↓
+        748686知识系统
+            ↓
+        发送连接成功卡片
+    """
+
+    url = (
+        f"{FEISHU_BASE}"
+        "/open-apis/im/v1/messages"
+    )
+
+    headers = {
+        "Authorization":
+            f"Bearer {token}",
+
+        "Content-Type":
+            "application/json; charset=utf-8",
+    }
+
+    card = {
+        "config": {
+            "wide_screen_mode": True
+        },
+
+        "header": {
+            "template": "green",
+
+            "title": {
+                "tag": "plain_text",
+                "content":
+                    "🟢 748686 英语单词识别系统"
+            }
+        },
+
+        "elements": [
+
+            {
+                "tag": "div",
+
+                "text": {
+                    "tag": "lark_md",
+
+                    "content":
+                        "**飞书连接成功**\n\n"
+                        "📷 现在可以直接发送英语单词图片。\n\n"
+                        "系统会自动：\n"
+                        "• 识别英文单词\n"
+                        "• 识别中文释义\n"
+                        "• 生成 `# 今日新词`\n"
+                        "• 将 Markdown 返回本群"
+                }
+            },
+
+            {
+                "tag": "hr"
+            },
+
+            {
+                "tag": "div",
+
+                "text": {
+                    "tag": "lark_md",
+
+                    "content":
+                        "**当前模式**\n"
+                        "图片 → OCR → Markdown → 飞书\n\n"
+                        "**GitHub 写入：** 关闭\n"
+                        "**input 文件写入：** 关闭\n"
+                        "**考试系统：** 独立运行，不受影响"
+                }
+            },
+
+            {
+                "tag": "note",
+
+                "elements": [
+
+                    {
+                        "tag": "plain_text",
+
+                        "content":
+                            "目标群：748686知识系统"
+                    }
+                ]
+            }
+        ]
+    }
+
+    payload = {
+
+        "receive_id": chat_id,
+
+        "msg_type": "interactive",
+
+        "content": json.dumps(
+            card,
+            ensure_ascii=False,
+        )
+    }
+
+    log(
+        "正在向目标飞书群发送"
+        "「连接成功」卡片..."
+    )
+
+    response = requests.post(
+        url,
+        headers=headers,
+        params={
+            "receive_id_type": "chat_id"
+        },
+        json=payload,
+        timeout=30,
+    )
+
+    if response.status_code != 200:
+
+        raise RuntimeError(
+            "发送连接成功卡片失败：\n"
+            f"HTTP {response.status_code}\n"
+            f"{response.text[:3000]}"
+        )
+
+    data = response.json()
+
+    if data.get("code") != 0:
+
+        raise RuntimeError(
+            "飞书连接成功卡片 API 失败：\n"
+            + json.dumps(
+                data,
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+
+    log(
+        "🟢 连接成功卡片已经发送到："
+        f"{TARGET_CHAT_NAME}"
+    )
 
 
 # ============================================================
@@ -184,14 +551,17 @@ def download_message_image(
     )
 
     headers = {
-        "Authorization": f"Bearer {token}",
+        "Authorization":
+            f"Bearer {token}",
     }
 
     params = {
         "type": "image",
     }
 
-    log("正在下载飞书图片...")
+    log(
+        "正在下载飞书图片..."
+    )
 
     response = requests.get(
         url,
@@ -208,7 +578,9 @@ def download_message_image(
             f"{response.text[:2000]}"
         )
 
-    Path(output_path).write_bytes(
+    Path(
+        output_path
+    ).write_bytes(
         response.content
     )
 
@@ -228,7 +600,9 @@ def download_message_image(
 # 图片预处理
 # ============================================================
 
-def preprocess_image(image_path):
+def preprocess_image(
+    image_path
+):
 
     image = Image.open(
         image_path
@@ -240,7 +614,10 @@ def preprocess_image(image_path):
     )
 
     if image.mode != "RGB":
-        image = image.convert("RGB")
+
+        image = image.convert(
+            "RGB"
+        )
 
     # 放大两倍
     image = image.resize(
@@ -251,7 +628,9 @@ def preprocess_image(image_path):
     )
 
     # 灰度
-    image = image.convert("L")
+    image = image.convert(
+        "L"
+    )
 
     # 增强对比度
     image = ImageEnhance.Contrast(
@@ -270,9 +649,13 @@ def preprocess_image(image_path):
 # OCR
 # ============================================================
 
-def run_ocr(image_path):
+def run_ocr(
+    image_path
+):
 
-    log("开始 OCR...")
+    log(
+        "开始 OCR..."
+    )
 
     image = preprocess_image(
         image_path
@@ -307,16 +690,24 @@ def run_ocr(image_path):
         "\n"
     )
 
-    log("OCR 完成")
+    log(
+        "OCR 完成"
+    )
 
     print()
+
     print(
         "================ OCR 原始结果 ================"
     )
-    print(text)
+
+    print(
+        text
+    )
+
     print(
         "================================================"
     )
+
     print()
 
     return text
@@ -326,11 +717,14 @@ def run_ocr(image_path):
 # 清洗 OCR 行
 # ============================================================
 
-def clean_line(line):
+def clean_line(
+    line
+):
 
     line = line.strip()
 
     if not line:
+
         return ""
 
     # 删除 OCR 常见项目符号噪声
@@ -354,7 +748,9 @@ def clean_line(line):
 # 判断中文
 # ============================================================
 
-def has_chinese(text):
+def has_chinese(
+    text
+):
 
     return bool(
         re.search(
@@ -368,7 +764,9 @@ def has_chinese(text):
 # 判断英文
 # ============================================================
 
-def has_english(text):
+def has_english(
+    text
+):
 
     return bool(
         re.search(
@@ -382,9 +780,14 @@ def has_english(text):
 # 判断是否像英语单词 / 英语短语
 # ============================================================
 
-def looks_like_english(text):
+def looks_like_english(
+    text
+):
 
-    if not has_english(text):
+    if not has_english(
+        text
+    ):
+
         return False
 
     # 去掉英语允许字符
@@ -410,10 +813,12 @@ def looks_like_english(text):
     )
 
     if chinese_count > english_count:
+
         return False
 
     # OCR 噪声过多
     if len(remaining) > 3:
+
         return False
 
     return True
@@ -423,7 +828,9 @@ def looks_like_english(text):
 # 清理英语
 # ============================================================
 
-def clean_english(text):
+def clean_english(
+    text
+):
 
     text = text.strip()
 
@@ -448,7 +855,9 @@ def clean_english(text):
 # 清理中文
 # ============================================================
 
-def clean_chinese(text):
+def clean_chinese(
+    text
+):
 
     text = text.strip()
 
@@ -470,14 +879,23 @@ def clean_chinese(text):
 # beautiful：美丽的
 # ============================================================
 
-def parse_inline_pair(line):
+def parse_inline_pair(
+    line
+):
 
     patterns = [
-        r"^([A-Za-z][A-Za-z0-9\s'\-./]+?)\s*[—–−-]\s*([\u4e00-\u9fff].*)$",
 
-        r"^([A-Za-z][A-Za-z0-9\s'\-./]+?)\s*[：:]\s*([\u4e00-\u9fff].*)$",
+        r"^([A-Za-z][A-Za-z0-9\s'\-./]+?)"
+        r"\s*[—–−-]\s*"
+        r"([\u4e00-\u9fff].*)$",
 
-        r"^([A-Za-z][A-Za-z0-9\s'\-./]+?)\s+([\u4e00-\u9fff].*)$",
+        r"^([A-Za-z][A-Za-z0-9\s'\-./]+?)"
+        r"\s*[：:]\s*"
+        r"([\u4e00-\u9fff].*)$",
+
+        r"^([A-Za-z][A-Za-z0-9\s'\-./]+?)"
+        r"\s+"
+        r"([\u4e00-\u9fff].*)$",
     ]
 
     for pattern in patterns:
@@ -488,6 +906,7 @@ def parse_inline_pair(line):
         )
 
         if not match:
+
             continue
 
         english = clean_english(
@@ -499,9 +918,11 @@ def parse_inline_pair(line):
         )
 
         if not english:
+
             continue
 
         if not chinese:
+
             continue
 
         return {
@@ -516,7 +937,9 @@ def parse_inline_pair(line):
 # 解析 OCR
 # ============================================================
 
-def parse_word_pairs(raw_text):
+def parse_word_pairs(
+    raw_text
+):
 
     raw_lines = raw_text.splitlines()
 
@@ -529,7 +952,10 @@ def parse_word_pairs(raw_text):
         )
 
         if line:
-            lines.append(line)
+
+            lines.append(
+                line
+            )
 
     entries = []
 
@@ -556,6 +982,7 @@ def parse_word_pairs(raw_text):
             )
 
             i += 1
+
             continue
 
         # ----------------------------------------------------
@@ -586,6 +1013,7 @@ def parse_word_pairs(raw_text):
                 if looks_like_english(
                     next_line
                 ):
+
                     break
 
                 if has_chinese(
@@ -599,6 +1027,7 @@ def parse_word_pairs(raw_text):
                     )
 
                     j += 1
+
                     continue
 
                 # 忽略词性
@@ -610,6 +1039,7 @@ def parse_word_pairs(raw_text):
                 ):
 
                     j += 1
+
                     continue
 
                 break
@@ -622,12 +1052,16 @@ def parse_word_pairs(raw_text):
 
                 entries.append(
                     {
-                        "english": english,
-                        "chinese": chinese,
+                        "english":
+                            english,
+
+                        "chinese":
+                            chinese,
                     }
                 )
 
                 i = j
+
                 continue
 
         i += 1
@@ -662,22 +1096,30 @@ def deduplicate_entries(
         )
 
         if not english:
+
             continue
 
         if not chinese:
+
             continue
 
         key = english.lower()
 
         if key in seen:
+
             continue
 
-        seen.add(key)
+        seen.add(
+            key
+        )
 
         result.append(
             {
-                "english": english,
-                "chinese": chinese,
+                "english":
+                    english,
+
+                "chinese":
+                    chinese,
             }
         )
 
@@ -693,6 +1135,7 @@ def build_markdown(
 ):
 
     if not entries:
+
         return None
 
     md = []
@@ -701,7 +1144,9 @@ def build_markdown(
         "# 今日新词"
     )
 
-    md.append("")
+    md.append(
+        ""
+    )
 
     for index, item in enumerate(
         entries,
@@ -721,7 +1166,9 @@ def build_markdown(
             f"{english} — {chinese}"
         )
 
-    md.append("")
+    md.append(
+        ""
+    )
 
     return "\n".join(
         md
@@ -742,7 +1189,9 @@ def build_fallback_markdown(
         "# 今日新词"
     )
 
-    md.append("")
+    md.append(
+        ""
+    )
 
     index = 1
 
@@ -753,6 +1202,7 @@ def build_fallback_markdown(
         )
 
         if not line:
+
             continue
 
         # 去掉原 OCR 编号
@@ -768,7 +1218,9 @@ def build_fallback_markdown(
 
         index += 1
 
-    md.append("")
+    md.append(
+        ""
+    )
 
     return "\n".join(
         md
@@ -785,6 +1237,7 @@ def split_message(
 ):
 
     if len(text) <= max_chars:
+
         return [text]
 
     chunks = []
@@ -811,6 +1264,7 @@ def split_message(
                 )
 
             current = []
+
             length = 0
 
         current.append(
@@ -855,7 +1309,9 @@ def reply_message(
     }
 
     payload = {
+
         "msg_type": "text",
+
         "content": json.dumps(
             {
                 "text": text
@@ -918,9 +1374,19 @@ def process_image_message(
     )
 
     log("=" * 70)
-    log("收到飞书消息")
-    log(f"message_id = {message_id}")
-    log(f"message_type = {message_type}")
+
+    log(
+        "收到飞书消息"
+    )
+
+    log(
+        f"message_id = {message_id}"
+    )
+
+    log(
+        f"message_type = {message_type}"
+    )
+
     log("=" * 70)
 
     # --------------------------------------------------------
@@ -1053,20 +1519,28 @@ def process_image_message(
         # ----------------------------------------------------
 
         print()
+
         print(
             "================ 生成 MD ================"
         )
-        print(markdown)
+
+        print(
+            markdown
+        )
+
         print(
             "=========================================="
         )
+
         print()
 
         # ----------------------------------------------------
         # 先回复处理结果
         # ----------------------------------------------------
 
-        count = len(entries)
+        count = len(
+            entries
+        )
 
         if count > 0:
 
@@ -1188,9 +1662,11 @@ def handle_message(
 def main():
 
     log("=" * 70)
+
     log(
-        "748686 飞书新学单词机器人 V1.1"
+        "748686 飞书新学单词机器人 V1.2"
     )
+
     log("=" * 70)
 
     log(
@@ -1207,8 +1683,56 @@ def main():
     )
 
     log(
+        f"目标飞书群："
+        f"{TARGET_CHAT_NAME}"
+    )
+
+    log(
         "FEISHU_APP_ID 已读取。"
     )
+
+    # ========================================================
+    # 第一步
+    # 获取 Token
+    # ========================================================
+
+    log(
+        "正在获取飞书访问凭证..."
+    )
+
+    token = (
+        get_tenant_access_token()
+    )
+
+    log(
+        "tenant_access_token 获取成功。"
+    )
+
+    # ========================================================
+    # 第二步
+    # 找到目标群
+    # ========================================================
+
+    chat_id = (
+        find_target_chat(
+            token
+        )
+    )
+
+    # ========================================================
+    # 第三步
+    # 发送连接成功卡片
+    # ========================================================
+
+    send_connection_card(
+        token=token,
+        chat_id=chat_id,
+    )
+
+    # ========================================================
+    # 第四步
+    # 建立飞书长连接
+    # ========================================================
 
     log(
         "正在建立飞书长连接..."
@@ -1243,16 +1767,29 @@ def main():
     )
 
     log("=" * 70)
+
     log(
-        "机器人启动成功。"
+        "🟢 机器人启动成功。"
     )
+
     log(
-        "现在可以在飞书向机器人发送单词截图。"
+        f"🟢 已连接目标群："
+        f"{TARGET_CHAT_NAME}"
     )
+
+    log(
+        "📷 现在可以在飞书发送单词截图。"
+    )
+
     log(
         "按 Ctrl+C 停止。"
     )
+
     log("=" * 70)
+
+    # ========================================================
+    # 正式启动 WebSocket
+    # ========================================================
 
     ws_client.start()
 
