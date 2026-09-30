@@ -3,6 +3,18 @@ name: 02_英语学习系统 - Grader V1.0 测试
 on:
   workflow_dispatch:
 
+    inputs:
+
+      # =========================================================
+      # 选择考试日期
+      # =========================================================
+
+      exam_date:
+        description: "选择要解析和测试的考试日期，例如 2026-09-28"
+        required: true
+        default: "2026-09-28"
+        type: string
+
 permissions:
   contents: read
 
@@ -30,28 +42,43 @@ jobs:
           python-version: "3.12"
 
       # =========================================================
-      # 3. 确定 UTC 日期
+      # 3. 确定选择的考试日期
       # =========================================================
 
-      - name: Determine UTC test dates
+      - name: Determine selected exam date
         id: dates
         shell: bash
         run: |
           set -e
 
-          TODAY="$(date -u +%Y-%m-%d)"
-          YESTERDAY="$(date -u -d '1 day ago' +%Y-%m-%d)"
+          DATE="${{ inputs.exam_date }}"
 
           echo "============================================================"
           echo "748686 ENGLISH LEARNING SYSTEM"
           echo "GRADER V1.0 TEST"
           echo "============================================================"
           echo
-          echo "UTC TODAY     : $TODAY"
-          echo "UTC YESTERDAY : $YESTERDAY"
+          echo "选择的考试日期:"
+          echo "  $DATE"
+          echo
 
-          echo "today=$TODAY" >> "$GITHUB_OUTPUT"
-          echo "yesterday=$YESTERDAY" >> "$GITHUB_OUTPUT"
+          # -------------------------------------------------------
+          # 日期格式检查
+          # -------------------------------------------------------
+
+          if ! [[ "$DATE" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+            echo
+            echo "❌ 日期格式错误"
+            echo
+            echo "正确格式:"
+            echo "  YYYY-MM-DD"
+            echo
+            echo "例如:"
+            echo "  2026-09-28"
+            exit 1
+          fi
+
+          echo "date=$DATE" >> "$GITHUB_OUTPUT"
 
       # =========================================================
       # 4. 检查 Parser / Grader / Test 文件
@@ -92,28 +119,24 @@ jobs:
           echo "✅ test_english_exam_grader_v1_0.py"
 
       # =========================================================
-      # 5. 寻找真实考试 Markdown
+      # 5. 根据选择的日期寻找真实考试 Markdown
       #
-      # 正确数据链：
+      # 用户选择：
+      #   2026-09-28
       #
-      # 真实试卷 Markdown
-      #       ↓
-      # 真实答案与解析 Markdown
-      #       ↓
-      # Parser V1.6
-      #       ↓
-      # 临时 exam.json
-      #       ↓
-      # Grader V1.0
+      # 自动读取：
       #
-      # 只检查 UTC 今天 / UTC 昨天
+      # 02_英语学习系统/output/2026-09-28/配套试卷/
+      #
+      #   *_试卷.md
+      #   *_答案与解析.md
+      #
       # =========================================================
 
       - name: Locate real exam Markdown
         id: locate_exam
         env:
-          TODAY: ${{ steps.dates.outputs.today }}
-          YESTERDAY: ${{ steps.dates.outputs.yesterday }}
+          EXAM_DATE: ${{ steps.dates.outputs.date }}
         shell: bash
         run: |
           set -e
@@ -123,87 +146,114 @@ jobs:
           echo "LOCATE REAL EXAM MARKDOWN"
           echo "============================================================"
 
-          FOUND_DATE=""
-          EXAM=""
-          ANSWERS=""
+          DATE="$EXAM_DATE"
 
-          for DATE in "$TODAY" "$YESTERDAY"; do
+          DIR="02_英语学习系统/output/$DATE/配套试卷"
 
-            DIR="02_英语学习系统/output/$DATE/配套试卷"
+          echo
+          echo "选择日期:"
+          echo "  $DATE"
+          echo
+          echo "检查目录:"
+          echo "  $DIR"
+          echo
 
+          # -------------------------------------------------------
+          # 检查目录
+          # -------------------------------------------------------
+
+          if [ ! -d "$DIR" ]; then
+
+            echo "❌ 配套试卷目录不存在"
             echo
-            echo "检查日期:"
-            echo "  $DATE"
-            echo "检查目录:"
+            echo "期望目录:"
             echo "  $DIR"
-
-            if [ ! -d "$DIR" ]; then
-              echo "  ⚠️ 配套试卷目录不存在"
-              continue
-            fi
-
-            CANDIDATE="$(find "$DIR" \
-              -maxdepth 1 \
-              -type f \
-              -name "*_试卷.md" \
-              | sort \
-              | head -n 1)"
-
-            if [ -z "$CANDIDATE" ]; then
-              echo "  ⚠️ 未找到 *_试卷.md"
-              continue
-            fi
-
-            BASENAME="$(basename "$CANDIDATE" "_试卷.md")"
-            CANDIDATE_ANSWERS="$DIR/${BASENAME}_答案与解析.md"
-
             echo
-            echo "发现试卷:"
-            echo "  $CANDIDATE"
-
-            echo
-            echo "寻找答案与解析:"
-            echo "  $CANDIDATE_ANSWERS"
-
-            if [ ! -f "$CANDIDATE_ANSWERS" ]; then
-              echo "  ⚠️ 对应答案与解析不存在"
-              continue
-            fi
-
-            FOUND_DATE="$DATE"
-            EXAM="$CANDIDATE"
-            ANSWERS="$CANDIDATE_ANSWERS"
-
-            break
-          done
-
-          if [ -z "$EXAM" ]; then
-            echo
-            echo "❌ 未找到当前日期范围内的真实考试 Markdown"
-            echo
-            echo "搜索范围:"
-            echo "  UTC 今天    : $TODAY"
-            echo "  UTC 昨天    : $YESTERDAY"
-            echo
-            echo "期望结构:"
-            echo "  02_英语学习系统/output/YYYY-MM-DD/配套试卷/"
-            echo "    *_试卷.md"
-            echo "    *_答案与解析.md"
-            echo
-            echo "现有 output 日期目录:"
+            echo "当前已有 output 日期目录:"
 
             if [ -d "02_英语学习系统/output" ]; then
+
               find "02_英语学习系统/output" \
                 -maxdepth 1 \
                 -mindepth 1 \
                 -type d \
                 | sort
+
             else
+
               echo "  output 目录不存在"
+
             fi
 
             exit 1
           fi
+
+          # -------------------------------------------------------
+          # 找真实试卷
+          # -------------------------------------------------------
+
+          CANDIDATE="$(find "$DIR" \
+            -maxdepth 1 \
+            -type f \
+            -name "*_试卷.md" \
+            | sort \
+            | head -n 1)"
+
+          if [ -z "$CANDIDATE" ]; then
+
+            echo
+            echo "❌ 未找到 *_试卷.md"
+            echo
+            echo "检查目录:"
+            echo "  $DIR"
+            echo
+            echo "目录实际内容:"
+            ls -lah "$DIR"
+
+            exit 1
+          fi
+
+          # -------------------------------------------------------
+          # 根据试卷文件名寻找对应答案与解析
+          #
+          # 例如：
+          #
+          # 1星_议论文_试卷.md
+          #
+          # 对应：
+          #
+          # 1星_议论文_答案与解析.md
+          # -------------------------------------------------------
+
+          BASENAME="$(basename "$CANDIDATE" "_试卷.md")"
+
+          CANDIDATE_ANSWERS="$DIR/${BASENAME}_答案与解析.md"
+
+          echo
+          echo "发现试卷:"
+          echo "  $CANDIDATE"
+
+          echo
+          echo "寻找答案与解析:"
+          echo "  $CANDIDATE_ANSWERS"
+
+          if [ ! -f "$CANDIDATE_ANSWERS" ]; then
+
+            echo
+            echo "❌ 对应答案与解析不存在"
+            echo
+            echo "期望文件:"
+            echo "  $CANDIDATE_ANSWERS"
+            echo
+            echo "目录实际内容:"
+            ls -lah "$DIR"
+
+            exit 1
+          fi
+
+          # -------------------------------------------------------
+          # 最终确认
+          # -------------------------------------------------------
 
           echo
           echo "============================================================"
@@ -211,20 +261,20 @@ jobs:
           echo "============================================================"
           echo
           echo "考试日期:"
-          echo "  $FOUND_DATE"
+          echo "  $DATE"
           echo
           echo "试卷:"
-          echo "  $EXAM"
+          echo "  $CANDIDATE"
           echo
           echo "答案与解析:"
-          echo "  $ANSWERS"
+          echo "  $CANDIDATE_ANSWERS"
 
-          echo "date=$FOUND_DATE" >> "$GITHUB_OUTPUT"
-          echo "exam=$EXAM" >> "$GITHUB_OUTPUT"
-          echo "answers=$ANSWERS" >> "$GITHUB_OUTPUT"
+          echo "date=$DATE" >> "$GITHUB_OUTPUT"
+          echo "exam=$CANDIDATE" >> "$GITHUB_OUTPUT"
+          echo "answers=$CANDIDATE_ANSWERS" >> "$GITHUB_OUTPUT"
 
       # =========================================================
-      # 6. Parser V1.6
+      # 6. Parser V1.6.2
       #
       # 将真实 Markdown 临时转换成 exam.json
       #
@@ -233,7 +283,7 @@ jobs:
       # 不写回仓库
       # =========================================================
 
-      - name: Run Parser V1.6 and create temporary exam JSON
+      - name: Run Parser V1.6.2 and create temporary exam JSON
         env:
           EXAM: ${{ steps.locate_exam.outputs.exam }}
           ANSWERS: ${{ steps.locate_exam.outputs.answers }}
@@ -243,7 +293,7 @@ jobs:
 
           echo
           echo "============================================================"
-          echo "RUN ENGLISH EXAM PARSER V1.6"
+          echo "RUN ENGLISH EXAM PARSER V1.6.2"
           echo "============================================================"
           echo
           echo "真实试卷:"
@@ -266,19 +316,19 @@ jobs:
 
           if [ ! -s "$JSON" ]; then
             echo
-            echo "❌ Parser V1.6 没有生成有效 JSON"
+            echo "❌ Parser V1.6.2 没有生成有效 JSON"
             exit 1
           fi
 
           echo
           echo "============================================================"
-          echo "✅ PARSER V1.6 PASSED"
+          echo "✅ PARSER V1.6.2 PASSED"
           echo "============================================================"
           echo
           echo "临时 JSON:"
           echo "  $JSON"
           echo
-          echo "Parser V1.6 已成功将真实试卷转换为 Grader 输入。"
+          echo "Parser V1.6.2 已成功将真实试卷转换为 Grader 输入。"
 
       # =========================================================
       # 7. 验证 Parser 生成的临时 JSON
@@ -317,9 +367,9 @@ jobs:
           echo "Parser JSON version:"
           echo "  $VERSION"
 
-          if [ "$VERSION" != "1.6" ]; then
+          if [ "$VERSION" != "1.6.2" ]; then
             echo
-            echo "❌ Parser JSON version 不是 1.6"
+            echo "❌ Parser JSON version 不是 1.6.2"
             exit 1
           fi
 
@@ -351,9 +401,10 @@ jobs:
           fi
 
           echo
-          echo "✅ Parser V1.6 version = 1.6"
-          echo "✅ Parser V1.6 输出 61 道题"
+          echo "✅ Parser V1.6.2 version = 1.6.2"
+          echo "✅ Parser V1.6.2 输出 61 道题"
           echo "✅ 临时 exam.json 结构正常"
+
       # =========================================================
       # 8. DEBUG | 检查 Parser 输出中的听力结构
       # =========================================================
@@ -443,6 +494,7 @@ jobs:
           print("DEBUG COMPLETE")
           print("============================================================")
           PY
+
       # =========================================================
       # 9. Grader V1.0 完整自动测试
       # =========================================================
@@ -482,17 +534,20 @@ jobs:
           echo "🎉 GRADER V1.0 FULL TEST PASSED"
           echo "============================================================"
           echo
+          echo "本次选择考试日期:"
+          echo "  ${{ steps.dates.outputs.date }}"
+          echo
           echo "真实数据链:"
           echo "  真实考试 Markdown"
           echo "        ↓"
-          echo "  Parser V1.6"
+          echo "  Parser V1.6.2"
           echo "        ↓"
           echo "  临时 exam.json"
           echo "        ↓"
           echo "  Grader V1.0"
           echo
           echo "已验证:"
-          echo "  ✅ Parser JSON version = 1.6"
+          echo "  ✅ Parser JSON version = 1.6.2"
           echo "  ✅ 61 道题结构"
           echo "  ✅ 50 道自动评分题"
           echo "  ✅ 11 道人工/语义处理题"
@@ -508,7 +563,7 @@ jobs:
           echo "  ✅ 写作人工复核"
           echo "  ✅ 提交结果卡"
           echo
-          echo "Parser V1.6：正常"
+          echo "Parser V1.6.2：正常"
           echo "Grader V1.0：未修改"
           echo "测试脚本：V1.0"
           echo
