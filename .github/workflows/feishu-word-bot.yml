@@ -83,7 +83,7 @@ jobs:
           python -m pip install --upgrade pip
 
           pip install \
-            lark-oapi \
+            "lark-oapi==1.7.3" \
             requests \
             Pillow \
             pytesseract
@@ -123,20 +123,35 @@ jobs:
 
       - name: Start Feishu Word Bot
         env:
-         FEISHU_APP_ID: ${{ secrets.APP_ID }}
-         FEISHU_APP_SECRET: ${{ secrets.APP_SECRET }}
+          FEISHU_APP_ID: ${{ secrets.APP_ID }}
+          FEISHU_APP_SECRET: ${{ secrets.APP_SECRET }}
+
         run: |
           set -e
 
           echo
           echo "======================================================================"
-          echo "748686 FEISHU WORD BOT"
+          echo "748686 FEISHU WORD BOT V1.2"
           echo "======================================================================"
+          echo
+          echo "目标飞书群："
+          echo "  748686知识系统"
+          echo
+          echo "启动后："
+          echo "  GitHub Actions"
+          echo "      ↓"
+          echo "  飞书长连接"
+          echo "      ↓"
+          echo "  748686知识系统"
+          echo "      ↓"
+          echo "  🟢 连接成功卡片"
           echo
           echo "功能："
           echo "  飞书图片"
           echo "      ↓"
           echo "  OCR"
+          echo "      ↓"
+          echo "  英文 + 中文配对"
           echo "      ↓"
           echo "  生成 Markdown"
           echo "      ↓"
@@ -145,6 +160,7 @@ jobs:
           echo "当前版本："
           echo "  不写 GitHub"
           echo "  不修改 input/"
+          echo "  不修改英语考试系统"
           echo
           echo "======================================================================"
           echo "STARTING..."
