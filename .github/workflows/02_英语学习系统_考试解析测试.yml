@@ -1,4 +1,4 @@
-name: 02_英语学习系统 - 考试解析 V1.2 测试
+name: 02_英语学习系统 - 考试解析 V1.6.2 测试
 
 on:
   workflow_dispatch:
@@ -15,7 +15,7 @@ permissions:
 jobs:
   parser-test:
 
-    name: English Exam Parser V1.2 Full Test
+    name: English Exam Parser V1.6.2 Full Test
 
     runs-on: ubuntu-latest
 
@@ -47,17 +47,25 @@ jobs:
           set -e
 
           echo "=========================================="
-          echo "检查 English Exam Parser V1.2"
+          echo "检查 English Exam Parser V1.6.2"
           echo "=========================================="
 
           PARSER="02_英语学习系统/scripts/english_exam_parser.py"
           TEST="02_英语学习系统/scripts/test_english_exam_parser_v1_1.py"
+
+          # ----------------------------------------------------------
+          # 检查 Parser
+          # ----------------------------------------------------------
 
           if [ ! -f "$PARSER" ]; then
             echo "❌ Parser 不存在:"
             echo "   $PARSER"
             exit 1
           fi
+
+          # ----------------------------------------------------------
+          # 检查测试脚本
+          # ----------------------------------------------------------
 
           if [ ! -f "$TEST" ]; then
             echo "❌ 测试脚本不存在:"
@@ -71,28 +79,90 @@ jobs:
           echo "✅ Test:"
           echo "   $TEST"
 
+          # ----------------------------------------------------------
+          # 检查 Parser 主版本
+          # ----------------------------------------------------------
+
           echo
           echo "检查 Parser 版本:"
 
-          if grep -q 'English Exam Parser V1.2' "$PARSER"; then
-            echo "✅ 已检测到 Parser V1.2"
+          if grep -q 'ENGLISH EXAM PARSER V1.6.2' "$PARSER"; then
+            echo "✅ 已检测到 Parser V1.6.2"
           else
-            echo "❌ 当前 Parser 不是 V1.2"
+            echo "❌ 当前 Parser 不是 V1.6.2"
             echo
             echo "Parser 文件开头:"
-            head -n 25 "$PARSER"
+            head -n 30 "$PARSER"
             exit 1
+          fi
+
+          # ----------------------------------------------------------
+          # 检查 PARSER_VERSION
+          # ----------------------------------------------------------
+
+          echo
+          echo "检查 PARSER_VERSION:"
+
+          if grep -q 'PARSER_VERSION = "1.6"' "$PARSER"; then
+            echo "✅ PARSER_VERSION = 1.6"
+          else
+            echo "❌ PARSER_VERSION 不是 1.6"
+            exit 1
+          fi
+
+          # ----------------------------------------------------------
+          # 检查 V1.6.1 / V1.6.2 核心能力
+          # ----------------------------------------------------------
+
+          echo
+          echo "检查 Parser 核心函数:"
+
+          if grep -q "def parse_listening_answers_v161" "$PARSER"; then
+            echo "✅ Listening V1.6.1 deterministic binding"
+          else
+            echo "❌ 缺少 parse_listening_answers_v161()"
+            exit 1
+          fi
+
+          if grep -q "def parse_cloze" "$PARSER"; then
+            echo "✅ Cloze parser"
+          else
+            echo "❌ 缺少 parse_cloze()"
+            exit 1
+          fi
+
+          # ----------------------------------------------------------
+          # 检查 Cloze V1.6.2 修复
+          # ----------------------------------------------------------
+
+          echo
+          echo "检查 Cloze V1.6.2 修复:"
+
+          if grep -q "选择题" "$PARSER"; then
+            echo "✅ 已包含 Cloze「选择题」解析逻辑"
+          else
+            echo "❌ 未检测到 Cloze「选择题」解析逻辑"
+            exit 1
+          fi
+
+          # ----------------------------------------------------------
+          # 检查 61 题验证逻辑
+          # ----------------------------------------------------------
+
+          echo
+          echo "检查 61 题验证逻辑:"
+
+          if grep -q "EXPECTED_TOTAL = 61" "$PARSER"; then
+            echo "✅ EXPECTED_TOTAL = 61"
+          else
+            echo "⚠️ 未检测到 EXPECTED_TOTAL = 61"
+            echo "   继续执行，最终测试仍会验证实际题数。"
           fi
 
           echo
-          echo "检查 build_exam() 版本:"
-
-          if grep -q '"version": "1.2"' "$PARSER"; then
-            echo "✅ build_exam() version = 1.2"
-          else
-            echo "❌ build_exam() version 不是 1.2"
-            exit 1
-          fi
+          echo "=========================================="
+          echo "✅ Parser 基础版本检查通过"
+          echo "=========================================="
 
       # ============================================================
       # 4. 检查 output 并确定测试文件
@@ -179,8 +249,13 @@ jobs:
           echo "配套试卷目录:"
           echo "   $EXAM_DIR"
 
+          # ----------------------------------------------------------
+          # 显示目录内容
+          # ----------------------------------------------------------
+
           echo
           echo "目录内容:"
+
           find "$OUTPUT_DIR" \
             -maxdepth 3 \
             -type f \
@@ -254,17 +329,17 @@ jobs:
           echo "   $ANSWER_FILE"
 
       # ============================================================
-      # 5. 执行 Parser V1.2 全量测试
+      # 5. 执行 Parser V1.6.2 全量测试
       # ============================================================
 
-      - name: 🧪 Parser V1.2 - 61题全量测试
+      - name: 🧪 Parser V1.6.2 - 61题全量测试
         shell: bash
         run: |
           set -e
 
           echo
           echo "======================================================================"
-          echo "748686 ENGLISH EXAM PARSER V1.2"
+          echo "748686 ENGLISH EXAM PARSER V1.6.2"
           echo "FULL AUTOMATIC TEST"
           echo "======================================================================"
           echo
@@ -300,7 +375,7 @@ jobs:
         run: |
           echo
           echo "======================================================================"
-          echo "✅ ENGLISH EXAM PARSER V1.2 TEST PASSED"
+          echo "✅ ENGLISH EXAM PARSER V1.6.2 TEST PASSED"
           echo "======================================================================"
           echo
           echo "61 / 61 questions"
@@ -308,7 +383,13 @@ jobs:
           echo "10 / 10 translation references"
           echo "1 / 1 writing reference"
           echo
-          echo "Parser V1.2 可以进入 Grader 测试阶段。"
+          echo "Cloze options:"
+          echo "10 / 10 questions × 4 options"
+          echo
+          echo "Listening:"
+          echo "15 / 15 answers bound"
+          echo
+          echo "Parser V1.6.2 可以进入 Grader 测试阶段。"
           echo "======================================================================"
 
       # ============================================================
@@ -320,10 +401,18 @@ jobs:
         run: |
           echo
           echo "======================================================================"
-          echo "❌ ENGLISH EXAM PARSER V1.2 TEST FAILED"
+          echo "❌ ENGLISH EXAM PARSER V1.6.2 TEST FAILED"
           echo "======================================================================"
           echo
           echo "请查看上方具体 FAIL 项目。"
           echo
           echo "当前阶段不要进入 Feishu 交互测试。"
+          echo
+          echo "重点检查:"
+          echo "1. Parser V1.6.2"
+          echo "2. Cloze 10题选项"
+          echo "3. Listening 15题答案绑定"
+          echo "4. 61题总数"
+          echo "5. Translation 10题 reference_answer"
+          echo "6. Writing 1题 reference_answer"
           echo "======================================================================"
