@@ -3,11 +3,11 @@
 
 """
 748686 English Learning System
-Feishu Full English Exam Runner V8.1
+Feishu Full English Exam Runner V8.2
 
 职责
 ----
-1. 读取 Parser V1.6.1 生成的完整考试 JSON
+1. 读取 Parser V1.6.2 生成的完整考试 JSON
 2. 使用 Feishu Adapter 构建安全题目数据
 3. 向指定飞书群发送完整 61 题
 4. 支持：
@@ -25,6 +25,37 @@ Feishu Full English Exam Runner V8.1
 9. 不向飞书初始题卡泄露正确答案
 10. 不在生产日志中打印正确答案
 
+V8.2 修复
+----------
+1. 修复飞书 Form Submit：
+   form_action_type="submit"
+   ->
+   action_type="form_submit"
+
+2. 修复 Parser options 数据结构：
+   Parser V1.6.2:
+       [
+           {"key": "A", "text": "..."},
+           {"key": "B", "text": "..."},
+           ...
+       ]
+
+   Runner 统一通过 normalize_options() 转成：
+       {
+           "A": "...",
+           "B": "...",
+           "C": "...",
+           "D": "..."
+       }
+
+3. 单选 / 多选 / 完形 / 阅读 / 听力 /
+   结果卡全部统一使用 normalize_options()
+
+4. 加强 Feishu HTTP 400 错误诊断
+
+5. 清理 V8.1 do_card_action_trigger 中
+   except 后面永远不会执行的重复代码
+
 听力处理
 --------
 - 飞书文件上传 API 不接受 file_type=mp3
@@ -35,7 +66,7 @@ Feishu Full English Exam Runner V8.1
 
 原则
 ----
-- Parser V1.6.1 不修改
+- Parser V1.6.2 不修改
 - Grader V1.0 不修改
 - Adapter 不修改
 - 初始题卡只使用安全题目数据
@@ -193,7 +224,6 @@ RUNTIME_CHAT_ID = ""
 # ============================================================
 
 def log(message: str) -> None:
-
     print(
         message,
         flush=True,
@@ -201,7 +231,6 @@ def log(message: str) -> None:
 
 
 def fail(message: str) -> None:
-
     print(
         f"❌ {message}",
         flush=True,
@@ -360,7 +389,7 @@ def validate_exam() -> None:
     )
 
     log(
-        "748686 FEISHU FULL ENGLISH EXAM V8.1"
+        "748686 FEISHU FULL ENGLISH EXAM V8.2"
     )
 
     log(
@@ -530,7 +559,13 @@ def get_tenant_access_token() -> str:
         timeout=30,
     )
 
-    response.raise_for_status()
+    if not response.ok:
+
+        fail(
+            "获取 tenant_access_token HTTP 失败: "
+            f"{response.status_code} "
+            f"{response.text}"
+        )
 
     data = response.json()
 
@@ -579,7 +614,13 @@ def find_chat_id(
             timeout=30,
         )
 
-        response.raise_for_status()
+        if not response.ok:
+
+            fail(
+                "读取飞书群 HTTP 失败: "
+                f"{response.status_code} "
+                f"{response.text}"
+            )
 
         data = response.json()
 
@@ -697,10 +738,6 @@ def convert_audio_to_opus(
         / f"{source_path.stem}.opus"
     )
 
-    # --------------------------------------------------------
-    # 每次重新生成，避免旧 OPUS 与新 MP3 不一致
-    # --------------------------------------------------------
-
     if output_path.exists():
 
         try:
@@ -794,12 +831,6 @@ def upload_feishu_file(
             f"听力文件为空: {file_path}"
         )
 
-    # --------------------------------------------------------
-    # 飞书音频上传：
-    # file_type 必须使用 opus
-    # file_name 必须包含 .opus 后缀
-    # --------------------------------------------------------
-
     if (
         file_path.suffix
         .lower()
@@ -842,104 +873,35 @@ def upload_feishu_file(
             timeout=120,
         )
 
-    # --------------------------------------------------------
-    # HTTP 错误诊断
-    # --------------------------------------------------------
-
     if not response.ok:
 
         print()
-
-        print(
-            "=" * 70
-        )
-
-        print(
-            "❌ 飞书文件上传失败"
-        )
-
-        print(
-            "=" * 70
-        )
-
-        print(
-            "HTTP:",
-            response.status_code,
-        )
-
-        print(
-            "URL:",
-            response.url,
-        )
-
-        print(
-            "File:",
-            file_path.name,
-        )
-
-        print(
-            "File Type: opus"
-        )
-
-        print(
-            "Response:",
-            response.text,
-        )
-
-        print(
-            "=" * 70
-        )
-
+        print("=" * 70)
+        print("❌ 飞书文件上传失败")
+        print("=" * 70)
+        print("HTTP:", response.status_code)
+        print("URL:", response.url)
+        print("File:", file_path.name)
+        print("File Type: opus")
+        print("Response:", response.text)
+        print("=" * 70)
         print()
 
         response.raise_for_status()
 
     result = response.json()
 
-    # --------------------------------------------------------
-    # Feishu API code 检查
-    # --------------------------------------------------------
-
     if result.get("code") != 0:
 
         print()
-
-        print(
-            "=" * 70
-        )
-
-        print(
-            "❌ 飞书文件上传 API 返回错误"
-        )
-
-        print(
-            "=" * 70
-        )
-
-        print(
-            "Code:",
-            result.get("code"),
-        )
-
-        print(
-            "Message:",
-            result.get("msg"),
-        )
-
-        print(
-            "File:",
-            file_path.name,
-        )
-
-        print(
-            "Response:",
-            response.text,
-        )
-
-        print(
-            "=" * 70
-        )
-
+        print("=" * 70)
+        print("❌ 飞书文件上传 API 返回错误")
+        print("=" * 70)
+        print("Code:", result.get("code"))
+        print("Message:", result.get("msg"))
+        print("File:", file_path.name)
+        print("Response:", response.text)
+        print("=" * 70)
         print()
 
         raise RuntimeError(
@@ -1020,10 +982,6 @@ def prepare_audio(
 
         audio_path = None
 
-        # ----------------------------------------------------
-        # 优先使用指定 AUDIO_FORMAT
-        # ----------------------------------------------------
-
         for candidate in candidates:
 
             if (
@@ -1037,10 +995,6 @@ def prepare_audio(
 
                 break
 
-        # ----------------------------------------------------
-        # 找不到指定格式时使用第一个
-        # ----------------------------------------------------
-
         if audio_path is None:
 
             audio_path = candidates[0]
@@ -1049,10 +1003,6 @@ def prepare_audio(
             f"准备听力 {part}: "
             f"{audio_path.name}"
         )
-
-        # ----------------------------------------------------
-        # 转 OPUS
-        # ----------------------------------------------------
 
         opus_path = convert_audio_to_opus(
             audio_path
@@ -1117,13 +1067,132 @@ def question_header(
     )
 
 
+# ============================================================
+# V8.2 核心修复：
+# Parser options list/dict 统一转换
+# ============================================================
+
+def normalize_options(
+    options: Any,
+) -> dict[str, str]:
+
+    result: dict[str, str] = {}
+
+    # --------------------------------------------------------
+    # 情况 1：已经是 dict
+    #
+    # {
+    #   "A": "...",
+    #   "B": "...",
+    #   ...
+    # }
+    # --------------------------------------------------------
+
+    if isinstance(
+        options,
+        dict,
+    ):
+
+        for key, value in options.items():
+
+            normalized_key = str(
+                key
+            ).strip().upper()
+
+            if normalized_key not in {
+                "A",
+                "B",
+                "C",
+                "D",
+            }:
+
+                continue
+
+            result[
+                normalized_key
+            ] = str(
+                value
+                if value is not None
+                else ""
+            )
+
+        return result
+
+    # --------------------------------------------------------
+    # 情况 2：Parser V1.6.2 的真实格式
+    #
+    # [
+    #   {"key": "A", "text": "..."},
+    #   {"key": "B", "text": "..."},
+    #   {"key": "C", "text": "..."},
+    #   {"key": "D", "text": "..."}
+    # ]
+    # --------------------------------------------------------
+
+    if isinstance(
+        options,
+        list,
+    ):
+
+        for item in options:
+
+            if not isinstance(
+                item,
+                dict,
+            ):
+
+                continue
+
+            key = str(
+                item.get(
+                    "key",
+                    "",
+                )
+            ).strip().upper()
+
+            if key not in {
+                "A",
+                "B",
+                "C",
+                "D",
+            }:
+
+                continue
+
+            text = item.get(
+                "text",
+                "",
+            )
+
+            result[key] = str(
+                text
+                if text is not None
+                else ""
+            )
+
+        return result
+
+    return {}
+
+
+def get_question_options(
+    question: dict[str, Any],
+) -> dict[str, str]:
+
+    return normalize_options(
+        question.get(
+            "options",
+            {},
+        )
+    )
+
+
 def get_option_lines(
     question: dict[str, Any],
 ) -> str:
 
-    options = question.get(
-        "options",
-        {},
+    options = get_question_options(
+        question
     )
 
     lines = []
@@ -1158,6 +1227,10 @@ def build_choice_card(
     qtype = question.get(
         "type",
         "",
+    )
+
+    options = get_question_options(
+        question
     )
 
     elements: list[dict[str, Any]] = []
@@ -1238,10 +1311,7 @@ def build_choice_card(
         "D",
     ):
 
-        if key not in question.get(
-            "options",
-            {},
-        ):
+        if key not in options:
 
             continue
 
@@ -1338,6 +1408,10 @@ def build_multiple_card(
 
     selected = selected or set()
 
+    options = get_question_options(
+        question
+    )
+
     elements: list[dict[str, Any]] = []
 
     elements.append(
@@ -1406,10 +1480,7 @@ def build_multiple_card(
         "D",
     ):
 
-        if key not in question.get(
-            "options",
-            {},
-        ):
+        if key not in options:
 
             continue
 
@@ -1560,6 +1631,19 @@ def build_text_card(
         f"submit_{qid}"
     )
 
+    # ========================================================
+    # 关键修复：
+    #
+    # 原 V8.1:
+    #     "form_action_type": "submit"
+    #
+    # 正确：
+    #     "action_type": "form_submit"
+    #
+    # 飞书表单提交按钮使用 action.form_value
+    # 获取 input 内容。
+    # ========================================================
+
     return {
         "schema": "2.0",
         "config": {
@@ -1607,7 +1691,7 @@ def build_text_card(
                         {
                             "tag": "button",
                             "name": submit_name,
-                            "form_action_type": "submit",
+                            "action_type": "form_submit",
                             "text": {
                                 "tag": "plain_text",
                                 "content": "提交答案",
@@ -1683,9 +1767,8 @@ def build_answered_card(
         }
     )
 
-    options = question.get(
-        "options",
-        {},
+    options = get_question_options(
+        question
     )
 
     option_lines = []
@@ -1704,17 +1787,19 @@ def build_answered_card(
                 f"{md_escape(options[key])}"
             )
 
-    elements.append(
-        {
-            "tag": "div",
-            "text": {
-                "tag": "lark_md",
-                "content": "\n".join(
-                    option_lines
-                ),
-            },
-        }
-    )
+    if option_lines:
+
+        elements.append(
+            {
+                "tag": "div",
+                "text": {
+                    "tag": "lark_md",
+                    "content": "\n".join(
+                        option_lines
+                    ),
+                },
+            }
+        )
 
     elements.append(
         {
@@ -1976,11 +2061,75 @@ def send_card(
         timeout=30,
     )
 
-    response.raise_for_status()
+    # --------------------------------------------------------
+    # V8.2：完整打印飞书 400 错误
+    # --------------------------------------------------------
+
+    if not response.ok:
+
+        header = (
+            card_data.get(
+                "header",
+                {},
+            )
+        )
+
+        title_obj = (
+            header.get(
+                "title",
+                {},
+            )
+            if isinstance(
+                header,
+                dict,
+            )
+            else {}
+        )
+
+        title = (
+            title_obj.get(
+                "content",
+                "",
+            )
+            if isinstance(
+                title_obj,
+                dict,
+            )
+            else ""
+        )
+
+        print()
+        print("=" * 70)
+        print("❌ 飞书卡片发送失败")
+        print("=" * 70)
+        print("HTTP:", response.status_code)
+        print("URL:", response.url)
+        print("Card Header:", title)
+        print("Response:", response.text)
+        print("=" * 70)
+        print()
+
+        response.raise_for_status()
 
     result = response.json()
 
     if result.get("code") != 0:
+
+        print()
+        print("=" * 70)
+        print("❌ 飞书卡片 API 返回错误")
+        print("=" * 70)
+        print("Code:", result.get("code"))
+        print("Message:", result.get("msg"))
+        print(
+            "Response:",
+            json.dumps(
+                result,
+                ensure_ascii=False,
+            ),
+        )
+        print("=" * 70)
+        print()
 
         fail(
             "发送飞书卡片失败: "
@@ -2077,7 +2226,7 @@ def state_payload() -> dict[str, Any]:
     with STATE_LOCK:
 
         return {
-            "version": "8.1",
+            "version": "8.2",
             "exam_date": EXAM_DATE,
             "total_questions": EXPECTED_TOTAL,
             "answers": ANSWER_STATE,
@@ -2867,25 +3016,23 @@ def do_card_action_trigger(
             "",
         )
 
-        # ----------------------------------------------------
-        # Card JSON 2.0 表单提交
-        #
-        # 新版 form button 不再使用 value 携带 question_id。
-        # 我们使用：
-        #
-        # submit_translation_A_1
-        # submit_translation_B_1
-        # submit_writing_1
-        #
-        # 作为按钮 name，从 name 中恢复 question_id。
-        # ----------------------------------------------------
-
         action_name = str(
             action.get(
                 "name",
                 "",
             )
         )
+
+        # ----------------------------------------------------
+        # Form Submit
+        #
+        # 表单按钮 name：
+        # submit_translation_A_1
+        # submit_translation_B_1
+        # submit_writing_1
+        #
+        # 通过 name 恢复 question_id。
+        # ----------------------------------------------------
 
         if (
             not question_id
@@ -2905,10 +3052,6 @@ def do_card_action_trigger(
             action_type = (
                 "submit_text"
             )
-
-        # ----------------------------------------------------
-        # 兼容旧版已经携带 action/question_id 的事件
-        # ----------------------------------------------------
 
         if not question_id:
 
@@ -3067,139 +3210,10 @@ def do_card_action_trigger(
             )
         )
 
-        # ----------------------------------------------------
-        # 单选 / 完形 / 阅读 / 听力
-        # ----------------------------------------------------
 
-        if action_type == "answer":
-
-            card = handle_single_answer(
-                question_id,
-                str(answer),
-            )
-
-        # ----------------------------------------------------
-        # 多选选择
-        # ----------------------------------------------------
-
-        elif action_type == "toggle_multiple":
-
-            card = handle_multiple_toggle(
-                question_id,
-                str(answer),
-            )
-
-        # ----------------------------------------------------
-        # 多选提交
-        # ----------------------------------------------------
-
-        elif action_type == "submit_multiple":
-
-            card = handle_multiple_submit(
-                question_id,
-            )
-
-        # ----------------------------------------------------
-        # 翻译 / 写作
-        # ----------------------------------------------------
-
-        elif action_type == "submit_text":
-
-            text_answer = extract_form_answer(
-                action
-            )
-
-            if not text_answer:
-
-                card = build_error_card(
-                    "答案不能为空"
-                )
-
-            else:
-
-                card = handle_manual_submit(
-                    question_id,
-                    text_answer,
-                )
-
-        # ----------------------------------------------------
-        # 兼容部分飞书表单事件
-        # ----------------------------------------------------
-
-        elif (
-            action.get(
-                "name",
-                "",
-            ).startswith("submit_")
-            and qtype in {
-                "translation",
-                "writing",
-            }
-        ):
-
-            text_answer = extract_form_answer(
-                action
-            )
-
-            if not text_answer:
-
-                card = build_error_card(
-                    "答案不能为空"
-                )
-
-            else:
-
-                card = handle_manual_submit(
-                    question_id,
-                    text_answer,
-                )
-
-        else:
-
-            card = build_error_card(
-                "未知操作"
-            )
-
-        # ----------------------------------------------------
-        # 61 题完成后，发送最终成绩
-        # ----------------------------------------------------
-
-        if (
-            action_type
-            in {
-                "answer",
-                "submit_multiple",
-                "submit_text",
-            }
-            and all_questions_answered()
-        ):
-
-            threading.Thread(
-                target=send_final_summary_once,
-                args=(
-                    RUNTIME_TOKEN,
-                    RUNTIME_CHAT_ID,
-                ),
-                daemon=True,
-            ).start()
-
-        return make_card_callback_response(
-            card
-        )
-
-    except Exception as exc:
-
-        log(
-            "❌ 卡片回调处理异常: "
-            f"{type(exc).__name__}: {exc}"
-        )
-
-        return make_card_callback_response(
-            build_error_card(
-                "本次操作处理失败，请稍后重试"
-            )
-        )
-
+# ============================================================
+# WebSocket 生命周期
+# ============================================================
 
 def on_error(
     data: Any,
@@ -3376,8 +3390,6 @@ def main() -> None:
     )
 
     ws_thread.start()
-
-    # 给长连接一点初始化时间
 
     time.sleep(
         3
