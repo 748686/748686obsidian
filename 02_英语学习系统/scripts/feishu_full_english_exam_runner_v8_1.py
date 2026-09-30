@@ -536,7 +536,17 @@ def build_safe_exam() -> None:
     log(
         "✅ Feishu Adapter 安全检查通过"
     )
+       print()
+       print("=" * 70)
+       print("DEBUG SAFE_QUESTIONS OPTIONS")
+       print("=" * 70)
 
+    for q in SAFE_QUESTIONS[:5]:
+    print()
+    print("QUESTION:", q.get("question_id"))
+    print("TYPE:", q.get("type"))
+    print("OPTIONS TYPE:", type(q.get("options")).__name__)
+    print("OPTIONS:", repr(q.get("options")))
 
 # ============================================================
 # Feishu Token
