@@ -1,0 +1,163 @@
+name: 748686 飞书新学单词识别
+
+on:
+
+  workflow_dispatch:
+
+jobs:
+
+  feishu-word-bot:
+
+    runs-on: ubuntu-latest
+
+    timeout-minutes: 360
+
+    permissions:
+      contents: read
+
+    steps:
+
+      # =====================================================
+      # 1. Checkout
+      # =====================================================
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # =====================================================
+      # 2. Python
+      # =====================================================
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # =====================================================
+      # 3. 安装 Tesseract OCR
+      # =====================================================
+
+      - name: Install Tesseract OCR
+        run: |
+          set -e
+
+          echo
+          echo "============================================================"
+          echo "INSTALL TESSERACT OCR"
+          echo "============================================================"
+
+          sudo apt-get update
+
+          sudo apt-get install -y \
+            tesseract-ocr \
+            tesseract-ocr-eng \
+            tesseract-ocr-chi-sim
+
+          echo
+          echo "============================================================"
+          echo "TESSERACT VERSION"
+          echo "============================================================"
+
+          tesseract --version
+
+          echo
+          echo "============================================================"
+          echo "TESSERACT LANGUAGES"
+          echo "============================================================"
+
+          tesseract --list-langs
+
+      # =====================================================
+      # 4. 安装 Python 依赖
+      # =====================================================
+
+      - name: Install Python dependencies
+        run: |
+          set -e
+
+          echo
+          echo "============================================================"
+          echo "INSTALL PYTHON DEPENDENCIES"
+          echo "============================================================"
+
+          python -m pip install --upgrade pip
+
+          pip install \
+            lark-oapi \
+            requests \
+            Pillow \
+            pytesseract
+
+      # =====================================================
+      # 5. 检查脚本
+      # =====================================================
+
+      - name: Check Feishu Word Bot
+        run: |
+          set -e
+
+          SCRIPT="02_英语学习系统/scripts/feishu_word_bot.py"
+
+          echo
+          echo "============================================================"
+          echo "CHECK SCRIPT"
+          echo "============================================================"
+
+          if [ ! -f "$SCRIPT" ]; then
+            echo "ERROR: script not found"
+            echo "$SCRIPT"
+            exit 1
+          fi
+
+          echo "Found:"
+          echo "$SCRIPT"
+
+          python -m py_compile "$SCRIPT"
+
+          echo
+          echo "Python syntax check: OK"
+
+      # =====================================================
+      # 6. 启动飞书长连接机器人
+      # =====================================================
+
+      - name: Start Feishu Word Bot
+        env:
+          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
+          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+        run: |
+          set -e
+
+          echo
+          echo "======================================================================"
+          echo "748686 FEISHU WORD BOT"
+          echo "======================================================================"
+          echo
+          echo "功能："
+          echo "  飞书图片"
+          echo "      ↓"
+          echo "  OCR"
+          echo "      ↓"
+          echo "  生成 Markdown"
+          echo "      ↓"
+          echo "  回传飞书"
+          echo
+          echo "当前版本："
+          echo "  不写 GitHub"
+          echo "  不修改 input/"
+          echo
+          echo "======================================================================"
+          echo "STARTING..."
+          echo "======================================================================"
+
+          if [ -z "$FEISHU_APP_ID" ]; then
+            echo "ERROR: FEISHU_APP_ID is empty"
+            exit 1
+          fi
+
+          if [ -z "$FEISHU_APP_SECRET" ]; then
+            echo "ERROR: FEISHU_APP_SECRET is empty"
+            exit 1
+          fi
+
+          python "02_英语学习系统/scripts/feishu_word_bot.py"
