@@ -62,3 +62,12 @@ OpenAI首席技术官兼联合创始人。2026年10月撤回对AI超级政治行
 
 - [[OpenAI]]
 - [[Super PAC]]
+
+## 知识更新｜2026-10-01
+
+OpenAI高管Greg Brockman撤回了对AI Super PAC的第二笔2500万美元捐赠，这反映了科技巨头政治游说策略的调整及内部对政治介入的审慎态度。
+
+### 新增事实
+
+- Greg Brockman撤回对AI Super PAC的2500万美元第二笔捐赠。
+

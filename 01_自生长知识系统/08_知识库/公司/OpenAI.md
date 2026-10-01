@@ -5,7 +5,7 @@ status: active
 importance: 4
 confidence: 0.7
 created_at: 2026-09-04
-last_updated: 2026-09-30
+last_updated: 2026-10-01
 ---
 
 # OpenAI
@@ -1359,3 +1359,18 @@ OpenAI在2026年9月30日发布的报告中详细阐述了挫败针对受保护�
 
 - [[AI安全]]
 - [[模型蒸馏]]
+
+## 知识更新｜2026-10-01
+
+OpenAI在2026年10月面临反垄断调查扩大、挫败AI模型蒸馏攻击、Greg Brockman撤回第二笔2500万美元捐赠等多重动态，显示行业进入强竞争与强监管并存阶段。
+
+### 新增事实
+
+- 美国扩大对OpenAI的反垄断调查
+- OpenAI披露挫败协调性AI模型蒸馏攻击
+- 高管Greg Brockman撤回对AI Super PAC的2500万美元第二笔捐赠
+
+### 来源 EventUnit
+
+- `EVT-20261001-000125`
+
