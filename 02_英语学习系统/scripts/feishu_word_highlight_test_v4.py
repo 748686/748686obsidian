@@ -3,18 +3,21 @@
 
 """
 748686 English Learning System
-Feishu Word Highlight Test V3
+Feishu Word Highlight Test V4
 
-本次测试：
-- 使用飞书卡片原生 markdown / rich text 能力
-- 不使用 HTML
-- 不使用 <span>
-- 不使用 <font>
-- 不使用 <b>
+目的：
+只测试飞书 lark_md 中可能实现“单词背景/标签效果”的写法。
+
+目标视觉：
+
+浅蓝色背景
+深蓝色粗体
+expand
+
+注意：
 - 不修改生产 Renderer
-
-目标：
-确认飞书原生卡片富文本到底支持哪些文字样式。
+- 不读取真实文章
+- 不修改任何生产文件
 """
 
 import os
@@ -84,63 +87,74 @@ def send_card(webhook, card):
 def build_card():
 
     content = (
-        "## 748686｜原生富文本测试 V3\n\n"
+        "## 748686｜单词背景效果测试 V4\n\n"
 
-        "正常文字：expand\n\n"
-
-        "---\n\n"
-
-        "### 测试 1｜Markdown 粗体\n"
-        "**expand**\n\n"
-
-        "### 测试 2｜Markdown 斜体\n"
-        "*expand*\n\n"
-
-        "### 测试 3｜Markdown 删除线\n"
-        "~~expand~~\n\n"
-
-        "### 测试 4｜颜色语法\n"
-        "<font color='red'>expand</font>\n\n"
-
-        "### 测试 5｜粗体 + 颜色\n"
-        "**<font color='red'>expand</font>**\n\n"
+        "下面每一行都是独立测试。\n\n"
 
         "---\n\n"
 
-        "### 第二个单词\n\n"
-
-        "**significant**\n\n"
-
-        "*significant*\n\n"
-
-        "~~significant~~\n\n"
-
-        "<font color='red'>significant</font>\n\n"
-
-        "**<font color='red'>significant</font>**\n\n"
+        "### A｜已经确认可用：蓝色 + 粗体\n\n"
+        "**<font color='blue'>expand</font>**\n\n"
 
         "---\n\n"
 
-        "如果只有 Markdown 粗体生效，"
-        "说明当前卡片文本解析器只接受 Markdown。\n\n"
+        "### B｜测试：blue 标签\n\n"
+        "<font color='blue'>[expand]</font>\n\n"
 
-        "如果颜色也生效，"
-        "我们再继续测试背景效果。"
+        "---\n\n"
+
+        "### C｜测试：蓝色粗体 + 方括号\n\n"
+        "**<font color='blue'>[expand]</font>**\n\n"
+
+        "---\n\n"
+
+        "### D｜测试：代码样式\n\n"
+        "`expand`\n\n"
+
+        "---\n\n"
+
+        "### E｜测试：代码样式 + 蓝色粗体\n\n"
+        "**<font color='blue'>`expand`</font>**\n\n"
+
+        "---\n\n"
+
+        "### F｜测试：HTML 背景（对照组）\n\n"
+        "<span style='background-color:#DCEEFF;color:#0B3B82;font-weight:bold;'>expand</span>\n\n"
+
+        "---\n\n"
+
+        "### G｜测试：背景色 + 蓝色粗体（对照组）\n\n"
+        "<span style='background:#DCEEFF;'><font color='blue'><b>expand</b></font></span>\n\n"
+
+        "---\n\n"
+
+        "### H｜目标效果参考\n\n"
+        "🟦 **<font color='blue'>expand</font>**\n\n"
+
+        "注意：H 只是视觉参考，不是最终方案。\n\n"
+
+        "---\n\n"
+
+        "第二个单词：\n\n"
+
+        "**<font color='blue'>significant</font>**\n\n"
+
+        "`significant`\n\n"
+
+        "<span style='background-color:#DCEEFF;color:#0B3B82;font-weight:bold;'>significant</span>"
     )
 
     return {
         "config": {
             "wide_screen_mode": True
         },
-
         "header": {
             "template": "blue",
             "title": {
                 "tag": "plain_text",
-                "content": "748686｜原生富文本测试 V3"
+                "content": "748686｜单词背景效果测试 V4"
             }
         },
-
         "elements": [
             {
                 "tag": "div",
@@ -161,7 +175,7 @@ def main():
 
     print()
     print("=" * 60)
-    print("748686 FEISHU WORD HIGHLIGHT TEST V3")
+    print("748686 FEISHU WORD HIGHLIGHT TEST V4")
     print("=" * 60)
 
     if not webhook:
@@ -185,24 +199,24 @@ def main():
 
     get_tenant_access_token(
         app_id,
-        app_secret,
+        app_secret
     )
 
     print("✓ 飞书应用凭证正常")
 
     print()
-    print("发送原生富文本测试卡片...")
+    print("发送 V4 测试卡片...")
 
     card = build_card()
 
     send_card(
         webhook,
-        card,
+        card
     )
 
     print()
     print("=" * 60)
-    print("✓ FEISHU WORD HIGHLIGHT TEST V3 SENT")
+    print("✓ FEISHU WORD HIGHLIGHT TEST V4 SENT")
     print("=" * 60)
 
 
