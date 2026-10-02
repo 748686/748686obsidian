@@ -1,0 +1,213 @@
+name: 748686 飞书新学单词识别 V3.1
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: feishu-word-bot-v3
+  cancel-in-progress: false
+
+jobs:
+  feishu-word-bot:
+    runs-on: ubuntu-latest
+
+    # Python 自己控制：
+    # 连续 3 分钟没有新消息 -> 自动关闭 WebSocket -> 正常结束。
+    #
+    # 这里保留 GitHub Actions 的最大运行时间，
+    # 不作为正常退出机制。
+    timeout-minutes: 360
+
+    steps:
+
+      # =====================================================
+      # 1. Checkout
+      # =====================================================
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      # =====================================================
+      # 2. Python
+      # =====================================================
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # =====================================================
+      # 3. 安装 OCR
+      # =====================================================
+
+      - name: Install Tesseract OCR
+        run: |
+          set -e
+
+          sudo apt-get update
+
+          sudo apt-get install -y \
+            tesseract-ocr \
+            tesseract-ocr-eng \
+            tesseract-ocr-chi-sim
+
+          echo "===== Tesseract version ====="
+          tesseract --version
+
+          echo "===== Tesseract languages ====="
+          tesseract --list-langs
+
+      # =====================================================
+      # 4. Python 依赖
+      # =====================================================
+
+      - name: Install Python dependencies
+        run: |
+          set -e
+
+          python -m pip install --upgrade pip
+
+          pip install \
+            "lark-oapi==1.7.3" \
+            requests \
+            Pillow \
+            pytesseract
+
+      # =====================================================
+      # 5. 检查环境与代码
+      # =====================================================
+
+      - name: Validate environment
+        env:
+          FEISHU_APP_ID: ${{ secrets.APP_ID }}
+          FEISHU_APP_SECRET: ${{ secrets.APP_SECRET }}
+          GH_REPOSITORY: ${{ github.repository }}
+          GH_BRANCH: ${{ github.ref_name }}
+
+        run: |
+          set -e
+
+          SCRIPT="02_英语学习系统/scripts/feishu_word_bot.py"
+
+          echo "=========================================="
+          echo "CHECK ENVIRONMENT"
+          echo "=========================================="
+
+          test -f "$SCRIPT"
+
+          python -m py_compile "$SCRIPT"
+
+          python - <<'PY'
+          import os
+          import sys
+
+          required = [
+              "FEISHU_APP_ID",
+              "FEISHU_APP_SECRET",
+              "GH_REPOSITORY",
+              "GH_BRANCH",
+          ]
+
+          failed = [
+              key
+              for key in required
+              if not os.environ.get(
+                  key,
+                  ""
+              ).strip()
+          ]
+
+          if failed:
+              print(
+                  "Missing environment variables:",
+                  ", ".join(failed),
+              )
+              sys.exit(1)
+
+          print(
+              "Required environment variables: OK"
+          )
+
+          print(
+              "Repository:",
+              os.environ["GH_REPOSITORY"],
+          )
+
+          print(
+              "Branch:",
+              os.environ["GH_BRANCH"],
+          )
+          PY
+
+          echo "Python syntax: OK"
+
+          echo "=========================================="
+          echo "CHECK INPUT DIRECTORY"
+          echo "=========================================="
+
+          mkdir -p "02_英语学习系统/input"
+
+      # =====================================================
+      # 6. 启动飞书长连接
+      # =====================================================
+
+      - name: Start Feishu Word Bot V3.1
+        env:
+          FEISHU_APP_ID: ${{ secrets.APP_ID }}
+          FEISHU_APP_SECRET: ${{ secrets.APP_SECRET }}
+
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_WORKSPACE: ${{ github.workspace }}
+
+          PYTHONUNBUFFERED: "1"
+
+        run: |
+          set -e
+
+          echo "============================================================"
+          echo "748686 FEISHU WORD BOT V3.1"
+          echo "============================================================"
+
+          echo "目标群：748686知识系统"
+          echo
+
+          echo "处理流程："
+          echo "  飞书文字 / 图片"
+          echo "      ↓"
+          echo "  立即回复收到"
+          echo "      ↓"
+          echo "  文字直接解析 / 图片 OCR"
+          echo "      ↓"
+          echo "  合并当天 MD"
+          echo "      ↓"
+          echo "  Git commit / push"
+          echo "      ↓"
+          echo "  飞书确认录入结果"
+          echo
+          echo "自动退出："
+          echo "  连续 3 分钟没有新消息"
+          echo "      ↓"
+          echo "  关闭 WebSocket"
+          echo "      ↓"
+          echo "  Python 正常结束"
+          echo
+          echo "写入目录："
+          echo "  02_英语学习系统/input/"
+          echo
+          echo "注意："
+          echo "  仅修改当天的新词 Markdown"
+          echo "  不修改旧考试系统代码"
+          echo "  只有 push 成功才报告录入成功"
+          echo
+          echo "============================================================"
+
+          python -u \
+            "02_英语学习系统/scripts/feishu_word_bot.py"
