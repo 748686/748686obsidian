@@ -1,4 +1,4 @@
-name: 748686 飞书单词效果测试 V2
+name: 748686 飞书单词效果测试 V3
 
 on:
   workflow_dispatch:
@@ -7,11 +7,12 @@ permissions:
   contents: read
 
 jobs:
-  feishu-word-highlight-test-v2:
+  feishu-word-highlight-test-v3:
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
     steps:
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -31,11 +32,11 @@ jobs:
         run: |
           set -e
 
-          SCRIPT="02_英语学习系统/scripts/feishu_word_highlight_test_v2.py"
+          SCRIPT="02_英语学习系统/scripts/feishu_word_highlight_test_v3.py"
 
           echo
           echo "============================================================"
-          echo "CHECK FEISHU WORD HIGHLIGHT TEST V2"
+          echo "CHECK FEISHU WORD HIGHLIGHT TEST V3"
           echo "============================================================"
 
           if [ ! -f "$SCRIPT" ]; then
@@ -58,13 +59,13 @@ jobs:
 
           echo
           echo "============================================================"
-          echo "748686 FEISHU WORD HIGHLIGHT TEST V2"
+          echo "748686 FEISHU WORD HIGHLIGHT TEST V3"
           echo "============================================================"
 
           python \
-            "02_英语学习系统/scripts/feishu_word_highlight_test_v2.py"
+            "02_英语学习系统/scripts/feishu_word_highlight_test_v3.py"
 
           echo
           echo "============================================================"
-          echo "✓ FEISHU WORD HIGHLIGHT TEST V2 FINISHED"
+          echo "✓ FEISHU WORD HIGHLIGHT TEST V3 FINISHED"
           echo "============================================================"
