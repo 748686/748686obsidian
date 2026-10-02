@@ -1,4 +1,4 @@
-name: 748686 飞书单词蓝底效果测试
+name: 748686 飞书单词效果测试 V2
 
 on:
   workflow_dispatch:
@@ -7,51 +7,35 @@ permissions:
   contents: read
 
 jobs:
-  feishu-word-highlight-test:
+  feishu-word-highlight-test-v2:
     runs-on: ubuntu-latest
-
     timeout-minutes: 5
 
     steps:
-
-      # ======================================================
-      # 1. Checkout
-      # ======================================================
-
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      # ======================================================
-      # 2. Python
-      # ======================================================
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      # ======================================================
-      # 3. 安装依赖
-      # ======================================================
-
       - name: Install requests
         run: |
+          set -e
+
           python -m pip install --upgrade pip
           pip install requests
-
-      # ======================================================
-      # 4. 检查测试文件
-      # ======================================================
 
       - name: Check test script
         run: |
           set -e
 
-          SCRIPT="02_英语学习系统/scripts/feishu_word_highlight_test.py"
+          SCRIPT="02_英语学习系统/scripts/feishu_word_highlight_test_v2.py"
 
           echo
           echo "============================================================"
-          echo "CHECK FEISHU WORD HIGHLIGHT TEST"
+          echo "CHECK FEISHU WORD HIGHLIGHT TEST V2"
           echo "============================================================"
 
           if [ ! -f "$SCRIPT" ]; then
@@ -63,27 +47,24 @@ jobs:
           echo "✓ 测试文件存在："
           echo "$SCRIPT"
 
-      # ======================================================
-      # 5. 执行飞书测试
-      # ======================================================
-
-      - name: Send Feishu word highlight test
+      - name: Send Feishu test
         env:
           FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
           APP_ID: ${{ secrets.APP_ID }}
           APP_SECRET: ${{ secrets.APP_SECRET }}
+
         run: |
           set -e
 
           echo
           echo "============================================================"
-          echo "748686 FEISHU WORD HIGHLIGHT TEST"
+          echo "748686 FEISHU WORD HIGHLIGHT TEST V2"
           echo "============================================================"
 
           python \
-            "02_英语学习系统/scripts/feishu_word_highlight_test.py"
+            "02_英语学习系统/scripts/feishu_word_highlight_test_v2.py"
 
           echo
           echo "============================================================"
-          echo "✓ FEISHU WORD HIGHLIGHT TEST FINISHED"
+          echo "✓ FEISHU WORD HIGHLIGHT TEST V2 FINISHED"
           echo "============================================================"
