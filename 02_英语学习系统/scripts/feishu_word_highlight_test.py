@@ -2,76 +2,39 @@
 # -*- coding: utf-8 -*-
 
 """
-748686 Feishu Word Highlight Test V1.0
+748686 English Learning System
+Feishu Word Highlight Test V2
 
-用途：
-------------------------------------------------------------
-独立测试飞书卡片中：
-
-    浅蓝色背景
-    +
-    深蓝色粗体文字
-
-是否能够真正包住单词本身。
+目的：
+- 独立测试飞书 lark_md 对颜色和粗体的支持
+- 不修改生产 Renderer
+- 不读取真实英语学习数据
+- 不修改任何生产文件
 
 测试单词：
-    expand
-    significant
+expand
+significant
 
-注意：
-------------------------------------------------------------
-本脚本完全独立：
-- 不读取英语学习系统
-- 不修改任何 Markdown
-- 不修改 main.py
-- 不修改 Feishu Renderer V2.1
-- 只发送一张测试卡片
+测试方式：
+1. Markdown 粗体
+2. <font color>
+3. <font color> + <b>
+4. Markdown 粗体 + <font color>
 """
 
-from __future__ import annotations
-
-import json
 import os
 import sys
-
 import requests
 
 
-# ============================================================
-# Feishu
-# ============================================================
-
 FEISHU_BASE = "https://open.feishu.cn"
 
-TOKEN_URL = (
-    f"{FEISHU_BASE}/open-apis/auth/v3/"
-    "tenant_access_token/internal"
-)
 
-
-# ============================================================
-# 日志
-# ============================================================
-
-def log(message: str = "") -> None:
-    print(message, flush=True)
-
-
-def fail(message: str) -> None:
-    raise RuntimeError(message)
-
-
-# ============================================================
-# 获取 Token
-# ============================================================
-
-def get_tenant_access_token(
-    app_id: str,
-    app_secret: str,
-) -> str:
+def get_tenant_access_token(app_id: str, app_secret: str) -> str:
+    url = f"{FEISHU_BASE}/open-apis/auth/v3/tenant_access_token/internal"
 
     response = requests.post(
-        TOKEN_URL,
+        url,
         json={
             "app_id": app_id,
             "app_secret": app_secret,
@@ -84,304 +47,156 @@ def get_tenant_access_token(
     data = response.json()
 
     if data.get("code") != 0:
-        fail(
-            "获取 Feishu Token 失败：\n"
-            + json.dumps(
-                data,
-                ensure_ascii=False,
-                indent=2,
-            )
+        raise RuntimeError(
+            f"获取 tenant_access_token 失败：{data}"
         )
 
-    token = data.get(
-        "tenant_access_token"
-    )
+    token = data.get("tenant_access_token")
 
     if not token:
-        fail(
-            "Feishu 返回结果没有 "
-            "tenant_access_token"
+        raise RuntimeError(
+            f"响应中没有 tenant_access_token：{data}"
         )
 
     return token
 
 
-# ============================================================
-# 测试卡片
-# ============================================================
-
-def make_test_card() -> dict:
-
-    # --------------------------------------------------------
-    # 这里就是我们要测试的重点
-    #
-    # 方案：
-    # 让单词本身拥有浅蓝色背景 + 深蓝色粗体
-    #
-    # 如果飞书 lark_md 不支持 background，
-    # 飞书会直接显示实际解析效果。
-    # --------------------------------------------------------
-
-    test_word_1 = (
-        "<span style="
-        "\"background-color:#DCEEFF;"
-        "color:#0B3B82;"
-        "font-weight:bold;"
-        "padding:2px 5px;\""
-        ">expand</span>"
-    )
-
-    test_word_2 = (
-        "<span style="
-        "\"background-color:#DCEEFF;"
-        "color:#0B3B82;"
-        "font-weight:bold;"
-        "padding:2px 5px;\""
-        ">significant</span>"
-    )
-
-    paragraph = (
-        "The company decided to "
-        f"{test_word_1} "
-        "its business because the market "
-        "showed "
-        f"{test_word_2} "
-        "growth."
-    )
-
-    return {
-
-        "config": {
-            "wide_screen_mode": True,
-            "enable_forward": True,
-        },
-
-        "header": {
-            "template": "blue",
-            "title": {
-                "tag": "plain_text",
-                "content": (
-                    "🧪 飞书单词高亮测试"
-                ),
-            },
-        },
-
-        "elements": [
-
-            {
-                "tag": "div",
-                "text": {
-                    "tag": "lark_md",
-                    "content": (
-                        "# English Word Highlight Test\n\n"
-                        "测试目标："
-                        "浅蓝色背景 + 深蓝色粗体\n\n"
-                    ),
-                },
-            },
-
-            {
-                "tag": "hr",
-            },
-
-            {
-                "tag": "div",
-                "text": {
-                    "tag": "lark_md",
-                    "content": paragraph,
-                },
-            },
-
-            {
-                "tag": "hr",
-            },
-
-            {
-                "tag": "div",
-                "text": {
-                    "tag": "lark_md",
-                    "content": (
-                        "**测试单词**\n\n"
-                        f"{test_word_1}　expand = 扩大；扩展\n\n"
-                        f"{test_word_2}　significant = "
-                        "重要的；显著的"
-                    ),
-                },
-            },
-
-            {
-                "tag": "hr",
-            },
-
-            {
-                "tag": "div",
-                "text": {
-                    "tag": "lark_md",
-                    "content": (
-                        "如果上面的两个单词显示为：\n\n"
-                        "浅蓝色底 + 深蓝色粗体\n\n"
-                        "说明这种方式可以继续接入你的 "
-                        "English Renderer。"
-                    ),
-                },
-            },
-        ],
+def send_card(webhook: str, card: dict):
+    payload = {
+        "msg_type": "interactive",
+        "card": card,
     }
-
-
-# ============================================================
-# 发送
-# ============================================================
-
-def send_card(
-    webhook: str,
-    card: dict,
-) -> dict:
 
     response = requests.post(
         webhook,
-        headers={
-            "Content-Type":
-                "application/json; charset=utf-8"
-        },
-        json={
-            "msg_type": "interactive",
-            "card": card,
-        },
-        timeout=60,
+        json=payload,
+        timeout=30,
     )
+
+    print("HTTP 状态码：", response.status_code)
+    print("响应：", response.text)
 
     response.raise_for_status()
 
     data = response.json()
 
-    if data.get("code") != 0:
-        fail(
-            "Feishu Webhook 发送失败：\n"
-            + json.dumps(
-                data,
-                ensure_ascii=False,
-                indent=2,
-            )
+    if data.get("code", 0) != 0:
+        raise RuntimeError(
+            f"飞书发送失败：{data}"
         )
 
     return data
 
 
-# ============================================================
-# Main
-# ============================================================
+def build_card():
+    return {
+        "config": {
+            "wide_screen_mode": True
+        },
+        "header": {
+            "template": "blue",
+            "title": {
+                "tag": "plain_text",
+                "content": "748686｜飞书文字效果测试 V2"
+            }
+        },
+        "elements": [
+            {
+                "tag": "div",
+                "text": {
+                    "tag": "lark_md",
+                    "content": (
+                        "## 测试文章\n\n"
+                        "The company decided to expand its business because "
+                        "the market showed significant growth.\n\n"
+                        "---\n\n"
 
-def main() -> None:
+                        "### 测试 1｜Markdown 粗体\n"
+                        "**expand**\n\n"
 
-    webhook = os.getenv(
-        "FEISHU_WEBHOOK",
-        "",
-    ).strip()
+                        "### 测试 2｜font 颜色\n"
+                        "<font color='blue'>expand</font>\n\n"
 
-    app_id = os.getenv(
-        "APP_ID",
-        "",
-    ).strip()
+                        "### 测试 3｜font + b\n"
+                        "<font color='blue'><b>expand</b></font>\n\n"
 
-    app_secret = os.getenv(
-        "APP_SECRET",
-        "",
-    ).strip()
+                        "### 测试 4｜Markdown + font\n"
+                        "**<font color='blue'>expand</font>**\n\n"
+
+                        "---\n\n"
+
+                        "### 第二个单词\n"
+                        "**significant**\n\n"
+                        "<font color='blue'>significant</font>\n\n"
+                        "<font color='blue'><b>significant</b></font>\n\n"
+                        "**<font color='blue'>significant</font>**\n\n"
+
+                        "---\n\n"
+                        "请观察：\n"
+                        "- 哪一种会变粗？\n"
+                        "- 哪一种会变蓝？\n"
+                        "- 哪一种仍然是黑色普通字体？"
+                    )
+                }
+            }
+        ]
+    }
+
+
+def main():
+    webhook = os.getenv("FEISHU_WEBHOOK", "").strip()
+    app_id = os.getenv("APP_ID", "").strip()
+    app_secret = os.getenv("APP_SECRET", "").strip()
+
+    print()
+    print("=" * 60)
+    print("748686 FEISHU WORD HIGHLIGHT TEST V2")
+    print("=" * 60)
 
     if not webhook:
-        fail(
-            "缺少环境变量 FEISHU_WEBHOOK"
-        )
+        print("❌ FEISHU_WEBHOOK 未设置")
+        sys.exit(1)
 
     if not app_id:
-        fail(
-            "缺少环境变量 APP_ID"
-        )
+        print("❌ APP_ID 未设置")
+        sys.exit(1)
 
     if not app_secret:
-        fail(
-            "缺少环境变量 APP_SECRET"
-        )
+        print("❌ APP_SECRET 未设置")
+        sys.exit(1)
 
-    log()
-    log("=" * 70)
-    log("748686 Feishu Word Highlight Test V1.0")
-    log("=" * 70)
+    print("✓ FEISHU_WEBHOOK 已设置")
+    print("✓ APP_ID 已设置")
+    print("✓ APP_SECRET 已设置")
 
-    log()
-    log("测试单词：")
-    log("  expand")
-    log("  significant")
-
-    log()
-    log("目标效果：")
-    log("  浅蓝色背景")
-    log("  深蓝色文字")
-    log("  粗体")
-    log("  背景直接包住单词本身")
-
-    log()
-    log("→ 获取 Feishu Token")
+    print()
+    print("检查飞书应用凭证...")
 
     token = get_tenant_access_token(
         app_id,
         app_secret,
     )
 
-    log("✓ Token 获取成功")
+    if token:
+        print("✓ 飞书应用凭证正常")
 
-    # Token 在这里主要用于确认 APP_ID / APP_SECRET 正常。
-    # 实际发送仍然使用现有 Webhook。
+    print()
+    print("准备发送测试卡片...")
 
-    _ = token
+    card = build_card()
 
-    log()
-    log("→ 创建测试卡片")
-
-    card = make_test_card()
-
-    log("✓ 测试卡片创建完成")
-
-    log()
-    log("→ 发送到飞书")
-
-    result = send_card(
+    send_card(
         webhook,
         card,
     )
 
-    log("✓ 飞书发送成功")
-
-    log()
-    log(
-        json.dumps(
-            result,
-            ensure_ascii=False,
-            indent=2,
-        )
-    )
-
-    log()
-    log("=" * 70)
-    log("✓ 测试完成")
-    log("=" * 70)
+    print()
+    print("=" * 60)
+    print("✓ FEISHU WORD HIGHLIGHT TEST V2 SENT")
+    print("=" * 60)
+    print()
+    print("请打开飞书查看测试卡片。")
 
 
 if __name__ == "__main__":
-
-    try:
-        main()
-
-    except KeyboardInterrupt:
-        log("用户中断")
-        sys.exit(130)
-
-    except Exception as exc:
-
-        log()
-        log("=" * 70)
-        log("❌ 测试失败")
-        log("=" * 70)
-        log(str(exc))
-        sys.exit(1)
+    main()
