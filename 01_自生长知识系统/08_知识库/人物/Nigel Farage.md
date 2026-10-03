@@ -5,7 +5,7 @@ status: active
 importance: 2
 confidence: 0.8
 created_at: 2026-09-05
-last_updated: 2026-09-05
+last_updated: 2026-10-03
 ---
 
 # Nigel Farage
@@ -164,3 +164,17 @@ Reform UK领袖，面临党内关于7200万英镑捐款计划的争议及移民�
 
 - [[ANN Widdecombe]]
 - [[英国警方]]
+
+## 知识更新｜2026-10-03
+
+英国政治人物。2026年10月3日，英国警方提起恐怖主义相关起诉，一名涉嫌谋杀保守派活动家Ann Widdecombe的嫌疑人被指控计划袭击Nigel Farage。这反映了英国本土安全威胁的具体化及政治极化背景下的针对人物恐怖策划风险。
+
+### 新增事实
+
+- Nigel Farage成为英国境内一起独立恐怖策划案件的袭击目标
+- 嫌疑人具有谋杀Ann Widdecombe的嫌疑背景
+
+### 来源 EventUnit
+
+- `EVT-20261003-000343`
+
