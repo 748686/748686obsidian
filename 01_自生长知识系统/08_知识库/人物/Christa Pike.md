@@ -5,7 +5,7 @@ status: active
 importance: 2
 confidence: 0.4
 created_at: 2026-10-01
-last_updated: 2026-10-02
+last_updated: 2026-10-04
 ---
 
 # Christa Pike
@@ -347,3 +347,17 @@ last_updated: 2026-10-02
 ### 相关知识
 
 - [[Tennessee Prison System]]
+
+## 知识更新｜2026-10-04
+
+美国田纳西州死刑执行事故的关键人物，注射死刑后存活并依赖呼吸机，导致州监狱系统最高官员辞职，引发全美关于死刑制度缺陷及程序改革的辩论。
+
+### 新增事实
+
+- Christa Pike在田纳西州死刑执行后处于昏迷状态并依赖呼吸机
+- 该事故导致田纳西州监狱系统最高官员辞职
+
+### 来源 EventUnit
+
+- `EVT-20261004-000001`
+
