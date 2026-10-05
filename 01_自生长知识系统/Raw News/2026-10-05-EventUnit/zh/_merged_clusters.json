@@ -1,0 +1,1840 @@
+{
+  "version": "6.5.3",
+  "date": "2026-10-05",
+  "language": "zh",
+  "clusters": [
+    {
+      "event_id": "EVT-20261005-000288",
+      "event_title": "巴西总统选举两轮投票及博尔索纳罗相关动态",
+      "event_reason": "Cluster 1(EVT-20261005-000288)报道美军B-1轰炸机撤离英国基地，明确判断指出该撤离与胡塞武装袭击、伊朗经济危机同属中东地缘政治发展；Cluster 24(EVT-20261005-000342)报道巴西选举两轮投票。这两者之间没有直接的现实世界事件关联。但是，我注意到Cluster 24的内部描述提到了Flávio Bolsonaro和Lula，这是巴西国内政治事件，与中东局势无关。因此，这两个Cluster不应该合并。让我重新审视所有Cluster。",
+      "article_indexes": [
+        1,
+        23,
+        27,
+        74,
+        75,
+        76,
+        77,
+        84,
+        132,
+        145
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000289",
+      "event_title": "特朗普政府人事任命与白宫争议",
+      "event_reason": "Cluster 2是涵盖特朗普任命AI沙皇Jay Clayton和白宫记者助理穿反拜登T恤争议的综合报道，而Cluster 5和Cluster 6分别是这两个子事件的详细报道文章。三者报道的是特朗普政府执政初期的同一批政治人事与内部争议事件，属于同一新闻周期内的具体现实事件链。",
+      "article_indexes": [
+        2,
+        5,
+        6,
+        7,
+        8,
+        9,
+        24,
+        26
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000294",
+      "event_title": "Creating Rogue AI Sanctuaries Has Major Issues from Ecological Perspective",
+      "event_reason": "Tech blog article arguing rogue AI sanctuaries would create harmful selection effects.",
+      "article_indexes": [
+        3
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000295",
+      "event_title": "Do LLMs Feel Pain?",
+      "event_reason": "AI philosophy article exploring whether large language models experience pain.",
+      "article_indexes": [
+        4
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000303",
+      "event_title": "Will You Be Sad If You Don't Have Kids? Evidence Check Before Window Closes",
+      "event_reason": "Personal essay reviewing mixed evidence on whether having children affects happiness.",
+      "article_indexes": [
+        10
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000304",
+      "event_title": "人民日报编辑内容系列报道",
+      "event_reason": "Cluster 6和Cluster 10均来自人民日报，虽然内容不同（葡萄酒文化、节日供应等），但都是同一媒体机构在国庆期间的编辑内容系列。然而，根据严格事件标准，它们是不同的编辑作品，不属于同一具体现实事件。应分开处理。",
+      "article_indexes": [
+        11,
+        15,
+        16,
+        17,
+        18
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000298",
+      "event_title": "UK Social Media Scams Rise 400% as Scammers Hijack Accounts",
+      "event_reason": "Article about dramatic increase in money stolen by scammers hijacking UK social media accounts.",
+      "article_indexes": [
+        12
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000299",
+      "event_title": "North Sea Oil Workers' Strikes Could Severely Disrupt UK Fuel Supplies",
+      "event_reason": "Article about potential severe disruption to UK fuel supplies due to strikes by North Sea oil workers.",
+      "article_indexes": [
+        13
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000300",
+      "event_title": "Government Quietly Dropped Plan to Prepare England for Wildfires",
+      "event_reason": "Article revealing government quietly dropped plans to prepare England for wildfires.",
+      "article_indexes": [
+        14
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000309",
+      "event_title": "Linus Torvalds Git Commit Activity",
+      "event_reason": "Cluster 13和14均报道Linus Torvalds在2026年10月5日向不同仓库（linux和GuitarPedal）推送0 commits，这是同一用户在同一天的系统活动通知，属于同一具体现实事件。",
+      "article_indexes": [
+        19,
+        20,
+        21,
+        22
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000313",
+      "event_title": "German Universities' Excellence Strategy Fails to Meet Claims",
+      "event_reason": "German-language article criticizing universities' excellence strategy for failing to meet its aspirations.",
+      "article_indexes": [
+        25
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000314",
+      "event_title": "Funding Secured for Climate Researchers in Hesse",
+      "event_reason": "German-language article about secured financing for climate research projects in Hesse region.",
+      "article_indexes": [
+        28
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000315",
+      "event_title": "Deadly Paper Mill Explosion in Washington State Impacts House Race",
+      "event_reason": "Article about Washington state congressional race after paper mill explosion that killed 11 workers.",
+      "article_indexes": [
+        29
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000316",
+      "event_title": "Pain is Unavoidable, But Suffering is Optional",
+      "event_reason": "LessWrong philosophy essay on pain and suffering distinction.",
+      "article_indexes": [
+        30
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000318",
+      "event_title": "2026年国庆假期综合报道",
+      "event_reason": "Cluster 1报道亚运会（与中国国庆同期），Cluster 2、7、8、9、10、11、12、13、14、15、16、17均直接涉及中国国庆节、红色文化、秋季出游、版面编辑署名及《大地风华》等国庆期间系列专题，属于同一时间段内的国内综合新闻事件。",
+      "article_indexes": [
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        55,
+        56,
+        57,
+        58,
+        59,
+        60,
+        61,
+        62,
+        63,
+        64,
+        65,
+        66,
+        67,
+        68,
+        69,
+        70,
+        71,
+        72,
+        73
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000320",
+      "event_title": "美国儿童图书多样性研究",
+      "event_reason": "关于黑人主角儿童图书比例下降的研究报道",
+      "article_indexes": [
+        38
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000321",
+      "event_title": "德国与法国社会政治动态",
+      "event_reason": "分别涉及德国对乌克兰政策及法国社会暴力问题的报道",
+      "article_indexes": [
+        39,
+        40
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000322",
+      "event_title": "MATS × CG Pitch Week活动",
+      "event_reason": "关于MATS与CG合作路演周的活动总结",
+      "article_indexes": [
+        41
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000323",
+      "event_title": "AI安全领域生态与招聘",
+      "event_reason": "涵盖AI安全训练营介绍及AI安全领域雇佣情况",
+      "article_indexes": [
+        42,
+        43
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000338",
+      "event_title": "美国2026年中期选举政治活动",
+      "event_reason": "Cluster 20报道州长选举民调和特朗普竞选集会，Cluster 21报道最高法院受理的气候变化诉讼案件。两者均属于美国2026年政治周期中的不同事件，但根据严格事件标准，选举政治与司法案件不属于同一具体现实事件。然而重新审视：Cluster 20的原始成员包含EVT-20261005-000338至000341，Cluster 21是EVT-20261005-000343。它们是不同的具体事件（选举vs司法），不应合并。保持分开。",
+      "article_indexes": [
+        78,
+        79,
+        80,
+        81,
+        82,
+        83,
+        85
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000344",
+      "event_title": "波斯尼亚塞族领导人逝世",
+      "event_reason": "文章单独报道比利亚娜·普拉维亚茨的去世，属于国际政治人物逝世新闻。",
+      "article_indexes": [
+        86
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000345",
+      "event_title": "阿米什社区麻疹疫情",
+      "event_reason": "文章单独报道阿米什社区的麻疹爆发及疫苗反思，属于美国公共卫生事件。",
+      "article_indexes": [
+        87
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000346",
+      "event_title": "临终患者面临健康谣言",
+      "event_reason": "文章单独探讨临终患者被健康 misinformation 困扰的现象，属于医疗健康社会议题。",
+      "article_indexes": [
+        88
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000347",
+      "event_title": "费城平行停车比赛",
+      "event_reason": "文章单独报道费城举办的平行停车比赛活动，属于本地趣味体育赛事。",
+      "article_indexes": [
+        89
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000348",
+      "event_title": "Christa Pike Execution Case",
+      "event_reason": "两个Cluster均报道Christa Pike死刑执行相关事件。Cluster 1回顾案件，Cluster 2报道执行失败后的预后情况，属于同一具体现实事件的连续报道。",
+      "article_indexes": [
+        90,
+        136
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000349",
+      "event_title": "Met Gala Bob Mackie Comments",
+      "event_reason": "Bob Mackie discussing the state of the Met Gala.",
+      "article_indexes": [
+        91
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000350",
+      "event_title": "Missing Medical Plane Search Off",
+      "event_reason": "Search for a missing medical plane near Nantucket has been called off.",
+      "article_indexes": [
+        92
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000351",
+      "event_title": "Various Independent News Events",
+      "event_reason": "Articles cover distinct, unrelated events including botched execution, political rallies, Supreme Court cases, agricultural issues, murders, obituaries, drug policy, flu shots, wrestling, elections, public health, sports, diplomacy, and dating trends.",
+      "article_indexes": [
+        93,
+        94,
+        95,
+        96,
+        97,
+        98,
+        99,
+        100,
+        101,
+        102,
+        103,
+        104,
+        105,
+        106,
+        107,
+        108,
+        109,
+        110,
+        111,
+        112,
+        113,
+        114,
+        115,
+        116,
+        117,
+        118,
+        119,
+        120
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000359",
+      "event_title": "Padres controversial home run ruling",
+      "event_reason": "Only article about the San Diego Padres and a controversial ninth-inning home run ruling.",
+      "article_indexes": [
+        121
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000360",
+      "event_title": "Thune warns Schumer about socialists",
+      "event_reason": "Only article about Majority Leader Thune's warning regarding Chuck Schumer and socialists in the Democratic Party.",
+      "article_indexes": [
+        122
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000361",
+      "event_title": "Odell Beckham Jr Giants return",
+      "event_reason": "Only article about Odell Beckham Jr lamenting his short-lived return to the New York Giants.",
+      "article_indexes": [
+        123
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000362",
+      "event_title": "Ja'Marr Chase concussion",
+      "event_reason": "Only article about Bengals' Ja'Marr Chase suffering a concussion.",
+      "article_indexes": [
+        124
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000363",
+      "event_title": "Ella Langley hunting wish",
+      "event_reason": "Only article about country star Ella Langley wanting a whitetail buck.",
+      "article_indexes": [
+        125
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000364",
+      "event_title": "Cruz-Vance rivalry",
+      "event_reason": "Only article about the heated rivalry between Ted Cruz and JD Vance.",
+      "article_indexes": [
+        126
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000352",
+      "event_title": "California October heat wave",
+      "event_reason": "Only article reporting on the October heat wave breaking temperature records in California.",
+      "article_indexes": [
+        127
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000353",
+      "event_title": "US Marine arrested for murder in Japan",
+      "event_reason": "Both articles report on the arrest of a US Marine on suspicion of murdering a woman in Japan (Okinawa).",
+      "article_indexes": [
+        128,
+        147
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000354",
+      "event_title": "12-year-old girl fatally shot in US",
+      "event_reason": "Both articles describe the fatal shooting of a 12-year-old girl in the US, one in a park during a football game and another during a parking dispute.",
+      "article_indexes": [
+        129,
+        141
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000365",
+      "event_title": "FTC Khan dismisses AI constitution",
+      "event_reason": "Only article about Former FTC Chair Khan dismissing the AI leaders' self-policing constitution.",
+      "article_indexes": [
+        130
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000366",
+      "event_title": "US removes bombers from RAF Fairford",
+      "event_reason": "Only article about the US removing all bombers from RAF Fairford base.",
+      "article_indexes": [
+        131
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000367",
+      "event_title": "Polanski banned from Israel",
+      "event_reason": "Only article about Roman Polanski being banned from Israel due to a party's motion.",
+      "article_indexes": [
+        133
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000356",
+      "event_title": "UK Conservative Party Policy and Kemi Badenoch",
+      "event_reason": "Cluster 9报道英国移民抗议和保守党税收/监管计划，Cluster 21报道Kemi Badenoch作为老派保守党人及其'绿色法律焚烧'计划。两者均涉及同一时期英国保守党政府的国内政策动向。",
+      "article_indexes": [
+        134,
+        138,
+        139,
+        144
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000369",
+      "event_title": "Yemen government war against Houthis",
+      "event_reason": "Only article about Yemen's government announcing all-out war to reclaim land from Houthis.",
+      "article_indexes": [
+        135
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000371",
+      "event_title": "British Museum Bayeux Tapestry changes",
+      "event_reason": "Only article about the British Museum announcing changes to ease queues for the Bayeux Tapestry.",
+      "article_indexes": [
+        137
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000357",
+      "event_title": "France school closures over protests",
+      "event_reason": "Only article reporting on France closing schools due to student protests.",
+      "article_indexes": [
+        140
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000358",
+      "event_title": "Russian Strike on Kyiv Bridge During German Chancellor Visit",
+      "event_reason": "Cluster 11报道俄罗斯对基辅桥梁的袭击，Cluster 30详细报道同一事件并补充德国总理访问背景。两者描述的是同一具体袭击事件。",
+      "article_indexes": [
+        142,
+        152,
+        172
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000372",
+      "event_title": "NFL London series debate",
+      "event_reason": "Only article discussing whether the NFL London series is a money-grab or celebration.",
+      "article_indexes": [
+        143
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000373",
+      "event_title": "Glastonbury 2027 tickets sell out",
+      "event_reason": "Only article about Glastonbury 2027 tickets selling out in 42 minutes.",
+      "article_indexes": [
+        146
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000374",
+      "event_title": "UK courts backlog minister statement",
+      "event_reason": "Only article about the minister stating courts backlog will fall despite scrapping jury trial plan.",
+      "article_indexes": [
+        148
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000375",
+      "event_title": "Elfyn Evans wins World Rally Championship",
+      "event_reason": "Only article about Wales' Elfyn Evans winning his first World Rally Championship.",
+      "article_indexes": [
+        149
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000376",
+      "event_title": "Murdered MP's daughter warns politicians",
+      "event_reason": "Only article about the daughter of a murdered MP telling BBC politicians are still at risk.",
+      "article_indexes": [
+        150
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000380",
+      "event_title": "Australia investigating Flydubai co-pilot",
+      "event_reason": "Standalone article about Australia investigating a Flydubai co-pilot's links to the country.",
+      "article_indexes": [
+        151
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000381",
+      "event_title": "Hamilton F1 glitch Lego race",
+      "event_reason": "Standalone sports article about Hamilton's reaction to an F1 technical glitch.",
+      "article_indexes": [
+        153
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000382",
+      "event_title": "Israel intimidation of Irish amid spitting row",
+      "event_reason": "Standalone sports article about Israel accusing Ireland of intimidation in a spitting incident.",
+      "article_indexes": [
+        154
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000383",
+      "event_title": "Humphries wins Grand Prix",
+      "event_reason": "Standalone sports article about Humphries winning a Grand Prix.",
+      "article_indexes": [
+        155
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000384",
+      "event_title": "Bellamy bemoans schedule after Denmark loss",
+      "event_reason": "Standalone sports article about Bellamy criticizing the schedule after a Denmark loss.",
+      "article_indexes": [
+        156
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000385",
+      "event_title": "Arsenal WSL position Slegers job risk",
+      "event_reason": "Standalone sports article about Arsenal's position in the WSL and potential risk to manager Slegers.",
+      "article_indexes": [
+        157
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000386",
+      "event_title": "Egyptian journalist terrorism charges",
+      "event_reason": "Standalone article about an Egyptian journalist facing terrorism charges after newsroom detention.",
+      "article_indexes": [
+        158
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000378",
+      "event_title": "Brazil 2026 presidential election first round results",
+      "event_reason": "Cluster 1 and Cluster 26 both report on the same specific event: the first round results of the Brazil 2026 presidential election. Cluster 1 covers live results sending the race to a second round, while Cluster 26 details Flávio Bolsonaro leading and progressing to the runoff. These are complementary reports of the identical real-world occurrence.",
+      "article_indexes": [
+        159,
+        160,
+        162,
+        183,
+        196
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000387",
+      "event_title": "Australia migration policy and living standards",
+      "event_reason": "Standalone article discussing Australia's migration policy and its economic impact, with Canada as a reference.",
+      "article_indexes": [
+        161
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000388",
+      "event_title": "US Coast Guard finds air ambulance debris",
+      "event_reason": "Standalone article about the US Coast Guard finding debris of a missing air ambulance off Massachusetts.",
+      "article_indexes": [
+        163
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000389",
+      "event_title": "US marine arrested in Japan for killing",
+      "event_reason": "Standalone article about a US marine arrested in Japan on suspicion of killing a woman.",
+      "article_indexes": [
+        164
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000390",
+      "event_title": "UK car industry trade-off Chinese and EU markets",
+      "event_reason": "Standalone article about the UK car industry facing challenges between Chinese and EU markets.",
+      "article_indexes": [
+        165
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000391",
+      "event_title": "Man shot dead after crashing car NSW police",
+      "event_reason": "Standalone article about a man shot dead in New South Wales after crashing a car and allegedly pointing a gun at police.",
+      "article_indexes": [
+        166
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000392",
+      "event_title": "One Nation headquarters Brisbane office",
+      "event_reason": "Standalone article about the One Nation party establishing its headquarters in a Brisbane office previously bought by Gina Rinehart.",
+      "article_indexes": [
+        167
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000393",
+      "event_title": "Sam Wood domestic violence charges",
+      "event_reason": "Standalone article about former Bachelor star Sam Wood being charged with domestic violence.",
+      "article_indexes": [
+        168
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000394",
+      "event_title": "Newcastle crash no bail P-plater",
+      "event_reason": "Standalone article about a P-plater denied bail after a Newcastle crash injuring five-year-old and NRL fans.",
+      "article_indexes": [
+        169
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000395",
+      "event_title": "Australia Turkey climate conference coal criticism",
+      "event_reason": "Standalone article about Australia and Turkey being criticized for hosting a UN climate conference while embracing coal.",
+      "article_indexes": [
+        170
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000396",
+      "event_title": "Dodik party victory Bosnia election",
+      "event_reason": "Standalone article about Bosnian Serb nationalist Dodik declaring party victory in Bosnia election.",
+      "article_indexes": [
+        171
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000379",
+      "event_title": "France school closures due to student protests",
+      "event_reason": "Both articles report on the same event: widespread school closures in France (400-500 schools) on Monday due to student protests.",
+      "article_indexes": [
+        173,
+        174
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000397",
+      "event_title": "Rees-Mogg accuses Tucker Carlson defending Hitler",
+      "event_reason": "Standalone article about Jacob Rees-Mogg accusing Tucker Carlson of verging on defending Hitler.",
+      "article_indexes": [
+        175
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000398",
+      "event_title": "Yemen Saudi-backed government Houthi offensive",
+      "event_reason": "Standalone article about Yemen's Saudi-backed government launching a military drive to retake Houthi-held territory.",
+      "article_indexes": [
+        176
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000399",
+      "event_title": "Mass shootings Georgia and Baltimore",
+      "event_reason": "Standalone article about mass shootings leaving two dead in Georgia and a 12-year-old girl dead in Baltimore.",
+      "article_indexes": [
+        177
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000400",
+      "event_title": "JD Vance Maha connections 2028 election",
+      "event_reason": "Standalone article about JD Vance leveraging his Maha connections as he eyes the 2028 election.",
+      "article_indexes": [
+        178
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000401",
+      "event_title": "US recalls B-1 bombers from UK terror plot",
+      "event_reason": "Standalone article about the US recalling B-1 bombers from a UK air base following an alleged terror plot.",
+      "article_indexes": [
+        179
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000402",
+      "event_title": "OpenAI hacks legal risks Altman",
+      "event_reason": "Standalone article about legal risks piling up for OpenAI's Altman as the company uncovers dozens of hacks.",
+      "article_indexes": [
+        180
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000415",
+      "event_title": "美国社会经济状况类比意大利",
+      "event_reason": "评论美国社会经济状况日益类似意大利，独立社会评论事件。",
+      "article_indexes": [
+        181
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000416",
+      "event_title": "老板与员工沟通方式",
+      "event_reason": "探讨管理者如何与员工沟通，独立职场管理事件。",
+      "article_indexes": [
+        182
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000404",
+      "event_title": "并购市场动态：Schneider Electric收购PTC及M&A放缓趋势",
+      "event_reason": "均涉及企业并购活动，一篇为具体大额收购案例，另一篇为并购市场整体放缓趋势分析。",
+      "article_indexes": [
+        184,
+        185
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000417",
+      "event_title": "华尔街IPO市场降温",
+      "event_reason": "IPO需求疲软和估值担忧导致上市热情冷却，独立金融市场事件。",
+      "article_indexes": [
+        186
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000405",
+      "event_title": "日本股市牛市风险预警",
+      "event_reason": "报道日本最大交易商CEO警告股市牛市面临风险，独立事件。",
+      "article_indexes": [
+        187
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000406",
+      "event_title": "英国国内政治与社会议题",
+      "event_reason": "涵盖保守党环境政策、移民船只性侵指控、绿党反犹太主义、刑罚释放、Farage捐款调查、Gaza家庭团聚诉讼及Glasgow工人裁员，均属英国国内政治社会事件。",
+      "article_indexes": [
+        188,
+        189,
+        190,
+        191,
+        192,
+        193,
+        194,
+        195
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000407",
+      "event_title": "日本熊本流感疫情",
+      "event_reason": "地震灾区熊本县流感早期爆发，独立公共卫生事件。",
+      "article_indexes": [
+        197
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000408",
+      "event_title": "Flydubai副驾驶极端主义背景",
+      "event_reason": "报道阿联酋Flydubai副驾驶曾因极端主义行为失去工作，独立航空安全事件。",
+      "article_indexes": [
+        198
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000409",
+      "event_title": "梅西告别阿根廷国家队",
+      "event_reason": "阿根廷准备为足球巨星梅西举行告别仪式，独立体育事件。",
+      "article_indexes": [
+        199
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000410",
+      "event_title": "Mrs. Green Apple音乐风格",
+      "event_reason": "关于日本乐队Mrs. Green Apple的音乐报道，独立文化事件。",
+      "article_indexes": [
+        200
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000411",
+      "event_title": "日本社会、人口与能源议题",
+      "event_reason": "涵盖日本亲子死亡表述语言变化、越南裔群体受误导信息影响、便利店服装销售、亚运会后勤、风能发展、海底电缆保护及LNG亚洲市场，均属日本相关社会民生议题。",
+      "article_indexes": [
+        201,
+        204,
+        206,
+        207,
+        208,
+        209,
+        210
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000412",
+      "event_title": "俄罗斯对基辅袭击威胁",
+      "event_reason": "俄罗斯发誓加强袭击并警告外交官避开基辅，独立俄乌战争事件。",
+      "article_indexes": [
+        202
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000413",
+      "event_title": "法国极右翼明星反犹太主义争议",
+      "event_reason": "法国极右翼政治人物因反犹太主义指控面临未来不确定性，独立欧洲政治事件。",
+      "article_indexes": [
+        203
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000414",
+      "event_title": "康奈尔大学性侵指控调查",
+      "event_reason": "康奈尔大学校长承诺调查学生集体性侵指控，独立美国教育司法事件。",
+      "article_indexes": [
+        205
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000418",
+      "event_title": "Rybakina loses as world No. 1",
+      "event_reason": "Elena Rybakina's first defeat while ranked world No. 1 in tennis.",
+      "article_indexes": [
+        211
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000419",
+      "event_title": "England defeats Croatia",
+      "event_reason": "England's football victory over Croatia aimed at moving past World Cup heartbreak.",
+      "article_indexes": [
+        212
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000420",
+      "event_title": "Crepe update",
+      "event_reason": "News regarding the business or product Crepe entering a new phase.",
+      "article_indexes": [
+        213
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000421",
+      "event_title": "Japan-US Security Dynamics: Trump's Iran Threat and Japanese Missile System Display",
+      "event_reason": "如Cluster 4原始研判所示，这两个Cluster描述了日本安全环境的两个密切相关的方面，属于同一安全政策背景下的具体事件。",
+      "article_indexes": [
+        214,
+        215,
+        216
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000424",
+      "event_title": "Latvian election results",
+      "event_reason": "Prime Minister Andris Kulbergs winning the Latvian election under the shadow of the Ukraine war.",
+      "article_indexes": [
+        217
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000425",
+      "event_title": "Komeito new leadership",
+      "event_reason": "Japanese political party Komeito launching a new leadership team under Okamoto.",
+      "article_indexes": [
+        218
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000426",
+      "event_title": "Anime event in New Delhi",
+      "event_reason": "Japanese anime event opening in New Delhi attracting India's youth.",
+      "article_indexes": [
+        219
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000427",
+      "event_title": "Japan protests US marine arrest",
+      "event_reason": "Japan delivering a strong protest to the US after a marine was arrested in an Okinawa robbery-murder.",
+      "article_indexes": [
+        220
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000428",
+      "event_title": "Trump tariffs impact on industry",
+      "event_reason": "这两个Cluster涉及特朗普关税政策的两个方面：对汽车行业的影響分析(Cluster 11)以及对不在美国建厂的企業威胁高达300%关税(Cluster 15)。两者都是同一关税政策的具体影响和威胁表现。",
+      "article_indexes": [
+        221,
+        225
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000429",
+      "event_title": "巴西总统选举第二轮投票",
+      "event_reason": "Cluster 10和Cluster 27均描述巴西总统选举事件。Cluster 10报道Lula与Bolsonaro及其子Flavio的激烈选情，Cluster 27明确指出其包含的article 253属于巴西选举，应与Cluster 10合并为同一具体事件'Brazil presidential election runoff'。",
+      "article_indexes": [
+        222,
+        232,
+        245,
+        248,
+        253,
+        255,
+        260,
+        265,
+        266,
+        267,
+        271,
+        276,
+        283,
+        295
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000430",
+      "event_title": "2026年爱知·名古屋亚运会韩国代表团夺金战况及闭幕总结",
+      "event_reason": "Cluster 30（第39号）报道韩国在亚运会决赛前连夺6金，Cluster 25（第30号）报道亚运会闭幕及韩国奖牌榜第三的总结。两者描述同一场赛事（2026 Asian Games）在同一时间段内的连续进展和最终结果，属于同一正在持续发展的单一现实事件。",
+      "article_indexes": [
+        223,
+        228
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000431",
+      "event_title": "Weather forecast",
+      "event_reason": "Forecast for rain through Monday morning and falling temperatures.",
+      "article_indexes": [
+        224
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000433",
+      "event_title": "PPP rallies against Lee government",
+      "event_reason": "PPP slandering the Lee government at a large rally in Seoul.",
+      "article_indexes": [
+        226
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000434",
+      "event_title": "Data breaches regulatory response",
+      "event_reason": "Spreading data breaches prompting an emergency regulatory meeting.",
+      "article_indexes": [
+        227
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000436",
+      "event_title": "North Korea Hypersonic Missile Launch and Diplomatic Aftermath",
+      "event_reason": "Clusters 1, 2, and 3 describe the same specific geopolitical incident: North Korea's hypersonic missile test (Cluster 3), the claim that neighbors failed to track it (Cluster 2), and Trump's reaction referencing nuclear capabilities and his relationship with Kim (Cluster 1). These are immediate reactions to the same military event.",
+      "article_indexes": [
+        229,
+        230,
+        231
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000439",
+      "event_title": "French Education Crisis: School Blockades, Closures, and Exam Controversy",
+      "event_reason": "Clusters 4, 21, and 22 are all parts of the same ongoing crisis in the French education system: high school blockades requiring government intervention (Cluster 4), widespread school closures due to student protests (Cluster 22), and the controversy over medical internship oral exams (Cluster 21). These represent different facets of the same systemic unrest in French schools.",
+      "article_indexes": [
+        233,
+        251,
+        252,
+        264
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000440",
+      "event_title": "French left primary debate",
+      "event_reason": "The final debate between candidates in the French left-wing presidential primary.",
+      "article_indexes": [
+        234
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000441",
+      "event_title": "Trump and 2026 Midterms",
+      "event_reason": "Trump taking control of the Republican campaign for the 2026 midterms.",
+      "article_indexes": [
+        235
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000442",
+      "event_title": "German Chancellor Merz visits Kyiv and encounters air raid alert",
+      "event_reason": "Cluster 1 reports Chancellor Merz's visit to Kyiv with Russian attacks as background; Cluster 27 reports the Chancellor encountering an air raid alert during train travel. These are同一具体外交访问事件的不同方面，发生在同一行程中。",
+      "article_indexes": [
+        236,
+        256,
+        270,
+        280
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000443",
+      "event_title": "Rohan Rane trial opens",
+      "event_reason": "Trial opening in Paris for Rohan Rane, accused of torturing minors.",
+      "article_indexes": [
+        237
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000444",
+      "event_title": "Human-made content certification",
+      "event_reason": "Discussion on the possibility of '100% human' labeling in a world saturated with AI.",
+      "article_indexes": [
+        238
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000445",
+      "event_title": "Weekend news recap",
+      "event_reason": "Summary of key news events from the weekend of October 3-4.",
+      "article_indexes": [
+        239
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000446",
+      "event_title": "Netanyahu orders security review",
+      "event_reason": "Benyamin Netanyahu ordering a review of security measures for international flights to Israel after a Flydubai incident.",
+      "article_indexes": [
+        240
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000447",
+      "event_title": "也门胡塞武装包围塔伊兹及政府反攻",
+      "event_reason": "如Cluster 25原始研判所示，这两个Cluster描述同一具体军事事件，且文章明确指向同一事件。",
+      "article_indexes": [
+        241,
+        243,
+        261,
+        285
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000451",
+      "event_title": "科西嘉宗教雕像被破坏事件",
+      "event_reason": "单独报道科西嘉宗教雕像被破坏，两名嫌疑人面临民众愤怒",
+      "article_indexes": [
+        242
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000448",
+      "event_title": "US military deployment adjustment and UK base security response",
+      "event_reason": "Cluster 9 reports US withdrawal of B-1 bombers from RAF Fairford due to incident; Cluster 23 explicitly states it covers the same RAF Fairford evacuation event plus Israel's security review discussion. Both describe同一军事部署调整事件。",
+      "article_indexes": [
+        244,
+        250,
+        273,
+        305,
+        316
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000453",
+      "event_title": "中国电动汽车市场挑战",
+      "event_reason": "单独报道中国电动汽车品牌 ephemeral 诅咒及市场分析",
+      "article_indexes": [
+        246
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000454",
+      "event_title": "Ethiopian federal forces advance and regional rivals meet",
+      "event_reason": "同一具体军事行动事件：联邦军队控制提格雷首都，地区对手在埃及会晤为背景关联",
+      "article_indexes": [
+        247,
+        269
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000455",
+      "event_title": "太平洋岛国呼吁气候行动",
+      "event_reason": "单独报道太平洋领导人在联合国COP前会议在斐济举行期间呼吁气候行动",
+      "article_indexes": [
+        249
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000458",
+      "event_title": "Evenepoel获欧洲公路自行车赛冠军",
+      "event_reason": "单独报道自行车赛事结果",
+      "article_indexes": [
+        254
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000460",
+      "event_title": "伊朗称无军事解决方案且和平谈判停滞",
+      "event_reason": "单独报道伊朗关于战争无军事解决方案的表态及美伊和平谈判停滞",
+      "article_indexes": [
+        257
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000461",
+      "event_title": "AI运动参与者退出",
+      "event_reason": "单独报道某人退出塑造AI运动的个人经历",
+      "article_indexes": [
+        258
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000462",
+      "event_title": "一周图片精选",
+      "event_reason": "单独报道Flydubai航班险情、法国学校抗议及曼谷洪水的图片精选",
+      "article_indexes": [
+        259
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000463",
+      "event_title": "卢旺达种族灭绝嫌疑人'猎人'Dafroza Gauthier去世",
+      "event_reason": "单独报道72岁卢旺达种族灭绝嫌疑人兼猎人去世",
+      "article_indexes": [
+        262
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000464",
+      "event_title": "约旦河西岸巴勒斯坦人遭定居者无人机骚扰",
+      "event_reason": "单独报道定居者日益使用无人机骚扰巴勒斯坦人",
+      "article_indexes": [
+        263
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000465",
+      "event_title": "以色列准备纪念10月7日事件",
+      "event_reason": "单独报道以色列准备纪念10月7日恐怖袭击",
+      "article_indexes": [
+        268
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000468",
+      "event_title": "德国国家队在欧国联的表现（Klopp执教初期）",
+      "event_reason": "Cluster 12的研判已明确指出其与Cluster 22描述的是同一具体体育事件，即德国国家队在Klopp执教下参加欧国联的持续发展事件。",
+      "article_indexes": [
+        272,
+        274,
+        275,
+        279,
+        289,
+        292,
+        302,
+        303,
+        304
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000471",
+      "event_title": "康奈尔大学Jane Doe遭威胁",
+      "event_reason": "律师报告康奈尔大学Jane Doe收到威胁",
+      "article_indexes": [
+        277
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000472",
+      "event_title": "Palantir CEO购买瑞典森林",
+      "event_reason": "Alexander Karp购买瑞典15000公顷森林",
+      "article_indexes": [
+        278
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000474",
+      "event_title": "Bad Neuenahr-Ahrweiler汽车被划伤事件",
+      "event_reason": "不明人士划伤汽车并留下女性号码",
+      "article_indexes": [
+        281
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000475",
+      "event_title": "黑森州AfD委员会席位争议",
+      "event_reason": "Boris Rhein就AfD品牌墙与委员会职位发表意见",
+      "article_indexes": [
+        282
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000476",
+      "event_title": "大英博物馆巴约挂毯展览优化",
+      "event_reason": "采取措施减少巴约挂毯观展排队时间",
+      "article_indexes": [
+        284
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000478",
+      "event_title": "德约科维奇阻挡兹维列夫登顶",
+      "event_reason": "网球赛事中德约科维奇击败兹维列夫影响排名争夺",
+      "article_indexes": [
+        286
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000479",
+      "event_title": "Tatort路德维希港新集评价",
+      "event_reason": "电视警匪片Tatort新剧集快速评论",
+      "article_indexes": [
+        287
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000480",
+      "event_title": "A2高速公路婚礼车队拥堵",
+      "event_reason": "下萨克森州A2高速因婚礼车队造成交通延误",
+      "article_indexes": [
+        288
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000482",
+      "event_title": "F1马来西亚站软件问题与维斯塔潘",
+      "event_reason": "F1马来西亚站车手批评软件问题及维斯塔潘在比赛混乱中获胜",
+      "article_indexes": [
+        290,
+        298
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000483",
+      "event_title": "挪威狩猎事故致父子身亡",
+      "event_reason": "挪威狩猎团体遭枪击导致一父一子死亡",
+      "article_indexes": [
+        291
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000484",
+      "event_title": "心理障碍诊断争议",
+      "event_reason": "探讨对心理疾病诊断的不满情绪",
+      "article_indexes": [
+        293
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000485",
+      "event_title": "海尔德布隆小型飞机坠毁",
+      "event_reason": "巴登-符腾堡州小型飞机坠毁致两人死亡",
+      "article_indexes": [
+        294
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000486",
+      "event_title": "慕尼黑啤酒节事件",
+      "event_reason": "啤酒节创参观人数纪录及船舶秋千工作人员受伤事件",
+      "article_indexes": [
+        296,
+        299
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000487",
+      "event_title": "佐治亚州初选中AI泄露投票信息",
+      "event_reason": "人工智能技术疑似暴露选民投票行为",
+      "article_indexes": [
+        297
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000488",
+      "event_title": "Christa Pike死刑暂停",
+      "event_reason": "Cluster 12 (EVT-20261005-000484) 描述美国死刑犯Christa Pike捐赠最后餐食，Cluster 26 (EVT-20261005-000505) 描述她放弃最后一餐后死刑被暂停。两者指向同一具体法律/人道事件的不同阶段和侧面，属于同一正在持续发展的单一现实事件。",
+      "article_indexes": [
+        300,
+        319
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000493",
+      "event_title": "Bildungsfabrik德国教育项目",
+      "event_reason": "关于为考试准备提供年薪的教育工厂项目",
+      "article_indexes": [
+        301
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000494",
+      "event_title": "德国柴油价格与竞争政策",
+      "event_reason": "德国高柴油价格引发的竞争政策问题",
+      "article_indexes": [
+        306
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000495",
+      "event_title": "德国卓越战略大学资金",
+      "event_reason": "德国大学卓越战略增加大学数量但未增加资金",
+      "article_indexes": [
+        307
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000496",
+      "event_title": "Heiligendamm波罗的海度假胜地",
+      "event_reason": "关于Heiligendamm东海岸度假胜地的长期承诺问题",
+      "article_indexes": [
+        308
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000497",
+      "event_title": "2026年书展以色列作者抵制",
+      "event_reason": "2026年书展上以色列作者被抵制的情况",
+      "article_indexes": [
+        309
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000498",
+      "event_title": "好莱坞及影视圈中老年演员职业突破现象",
+      "event_reason": "Cluster 1描述Christoph Waltz五十岁后成为世界明星的案例，Cluster 9描述好莱坞庆祝晚年成名的演员职业生涯趋势。两者指向同一文化/行业现象：中老年演员大器晚成的趋势和具体案例，属于同一具体现实事件的不同侧面报道。",
+      "article_indexes": [
+        310,
+        320,
+        321
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000499",
+      "event_title": "德国奥林匹克体育联合会(DOSB)权力斗争与领导层变动",
+      "event_reason": "Cluster 2描述DOSB内部的权力斗争，Cluster 28描述DOSB新领导层选举中关于Mronz担任主席的争议。两者涉及同一组织的同一场权力斗争事件，是同一具体现实事件的不同报道角度。",
+      "article_indexes": [
+        311,
+        346
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000500",
+      "event_title": "德国统一纪念日",
+      "event_reason": "德国统一纪念日的庆祝活动及相关的政治讨论",
+      "article_indexes": [
+        312,
+        328
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000491",
+      "event_title": "巴西总统选举",
+      "event_reason": "Lula与Bolsonaro之子Flávio之间的巴西总统大选",
+      "article_indexes": [
+        313,
+        330
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000501",
+      "event_title": "德国绿红红联盟政治主张",
+      "event_reason": "Dröge在德国层面倡导绿红红联盟的政治立场",
+      "article_indexes": [
+        314
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000502",
+      "event_title": "针对老年人的诈骗电话",
+      "event_reason": "针对老年人的震惊电话诈骗成为大规模现象",
+      "article_indexes": [
+        315
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000503",
+      "event_title": "特朗普与参议员手机风波",
+      "event_reason": "特朗普与参议员发生争执并公开其手机号码",
+      "article_indexes": [
+        317
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000504",
+      "event_title": "康奈尔大学集体强奸指控",
+      "event_reason": "康奈尔大学校长对疑似集体强奸事件的评论",
+      "article_indexes": [
+        318
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000508",
+      "event_title": "长期关系50年纪念",
+      "event_reason": "一对夫妇庆祝长达50年的关系",
+      "article_indexes": [
+        322
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000509",
+      "event_title": "女性力量训练",
+      "event_reason": "关于女性参与力量训练如硬拉的主题",
+      "article_indexes": [
+        323
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000492",
+      "event_title": "德国反对党领袖Merz访问乌克兰基辅",
+      "event_reason": "Cluster 16和Cluster 17描述同一具体现实事件：德国政治人物Merz访问基辅并承诺对乌克兰的援助，是同一外交行程的不同报道角度。",
+      "article_indexes": [
+        324,
+        325,
+        326,
+        338
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000511",
+      "event_title": "捷克犯罪小说 podcast",
+      "event_reason": "关于捷克共和国犯罪小说缺乏的书籍播客讨论",
+      "article_indexes": [
+        327
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000512",
+      "event_title": "拉脱维亚选举",
+      "event_reason": "拉脱维亚选举中亲乌克兰候选人击败亲特朗普候选人",
+      "article_indexes": [
+        329
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000513",
+      "event_title": "英国绿党被认定为反锡安主义政党",
+      "event_reason": "德国绿党内部关于英国绿党反锡安主义立场的政治争议事件",
+      "article_indexes": [
+        331
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000514",
+      "event_title": "德国工会与工业界劳资关系动向",
+      "event_reason": "涉及BASF、Evonik工会领导层诉求及Xing创始人商业动向的德国劳动市场议题",
+      "article_indexes": [
+        332,
+        333
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000515",
+      "event_title": "监控技术与 surveillance",
+      "event_reason": "AI视频监控识别与海洋监视技术Spy设备的监控技术应用报道",
+      "article_indexes": [
+        334,
+        337
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000516",
+      "event_title": "Apple AI数据安全预警功能",
+      "event_reason": "苹果计划在新Mac设备上增加AI代理数据处理警告功能",
+      "article_indexes": [
+        335
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000517",
+      "event_title": "美因茨守门员培养体系成功",
+      "event_reason": "美因茨俱乐部培养出Dahmen、Karius、Zentner等优秀门将的体育人才培养案例",
+      "article_indexes": [
+        336
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000519",
+      "event_title": "德国养老护理保险与机构困境",
+      "event_reason": "涉及养老院破产导致护理位缺失及护理补充保险问题的社会民生议题",
+      "article_indexes": [
+        339,
+        340
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000520",
+      "event_title": "法兰克福书展奖与宪法保护争议",
+      "event_reason": "Bookhandelspreis颁奖仪式上关于沉默是否利于保护宪法的讨论",
+      "article_indexes": [
+        341
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000521",
+      "event_title": "路德维希港Tatort刑侦剧评论",
+      "event_reason": "对德国犯罪电视剧Tatort路德维希港系列的人物与剧情评论",
+      "article_indexes": [
+        342
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000522",
+      "event_title": "回归自然专栏评论",
+      "event_reason": "关于生命感知快乐的自然主题专栏文章",
+      "article_indexes": [
+        343
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000523",
+      "event_title": "Frankfurter Anthologie文学推荐",
+      "event_reason": "Ludvík Kundera文学作品在法兰克福选集中的推荐",
+      "article_indexes": [
+        344
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000524",
+      "event_title": "法兰克福学生宿舍改造计划",
+      "event_reason": "原办公室建筑改造为学生和学徒宿舍的城市规划项目",
+      "article_indexes": [
+        345
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000526",
+      "event_title": "德国足球赛事结果与评论（塞尔维亚vs德国、法兰克福女足vs拜仁）",
+      "event_reason": "这两个Cluster均报道了2026年10月5日德国层面的足球比赛结果。Cluster 1为男足塞尔维亚对阵德国，Cluster 3为女足法兰克福对阵拜仁慕尼黑。虽然涉及不同球队和性别组别，但均为当日德国足球界的体育新闻报道，且都属于同一时间段内的具体体育事件报道。然而，根据严格的事件归并原则，男足和女足比赛是**不同的具体现实事件**（不同的比赛、不同的球队、不同的联赛体系），不应合并。",
+      "article_indexes": [
+        347,
+        349
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000527",
+      "event_title": "北京ATP网球赛兹维列夫负于德约科维奇",
+      "event_reason": "ATP北京站比赛中兹维列夫输给德约科维奇的网球赛事结果",
+      "article_indexes": [
+        348
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000529",
+      "event_title": "Holocaust幸存者Irene Butter逝世",
+      "event_reason": "95岁大屠杀幸存者Irene Butter去世的讣告新闻",
+      "article_indexes": [
+        350
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000530",
+      "event_title": "时尚趋势：胸衣成为主角",
+      "event_reason": "时尚界胸衣元素成为本季主要设计亮点的趋势报道",
+      "article_indexes": [
+        351
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000531",
+      "event_title": "慕尼黑Oktoberfest参观人数创纪录",
+      "event_reason": "Oktoberfest迎来740万游客创下历史新高",
+      "article_indexes": [
+        352
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000532",
+      "event_title": "Heilbronn小型飞机坠毁事故",
+      "event_reason": "Heilbronn县葡萄园小型飞机坠毁造成两人死亡的航空事故",
+      "article_indexes": [
+        353
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000533",
+      "event_title": "Frankfurt气候友好型区域供热规划",
+      "event_reason": "法兰克福市推进城市气候友好型供热规划的环境政策",
+      "article_indexes": [
+        354
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000534",
+      "event_title": "Wiesbaden State Theater演出评论",
+      "event_reason": "对Wiesbaden国家剧院演出的艺术评论",
+      "article_indexes": [
+        355
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000535",
+      "event_title": "狼袭击导致牧羊业危机",
+      "event_reason": "狼攻击绵羊致使Schafzüchter面临破产风险的生态保护冲突",
+      "article_indexes": [
+        356
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000536",
+      "event_title": "Frankfurt少年毒品交易袭警事件",
+      "event_reason": "14岁少年在毒品交易时被抓获并袭击警察的刑事案件",
+      "article_indexes": [
+        357
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000537",
+      "event_title": "Lexus ES新车评测",
+      "event_reason": "对Lexus ES高端车型的首次驾驶评测报告",
+      "article_indexes": [
+        358
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000538",
+      "event_title": "市场力量分析评论",
+      "event_reason": "关于市场力量影响经济的专栏评论文章",
+      "article_indexes": [
+        359
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000539",
+      "event_title": "美国1976与2026周年纪念反思",
+      "event_reason": "对美国建国250周年纪念与历史回顾的深度评论文章",
+      "article_indexes": [
+        360
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000540",
+      "event_title": "德国汽车网络谜题技术文章",
+      "event_reason": "关于汽车解剖的技术科普文章，无其他同类事件。",
+      "article_indexes": [
+        361
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000541",
+      "event_title": "美国犹他州旅行",
+      "event_reason": "关于美国犹他州旅行的文章，无其他同类事件。",
+      "article_indexes": [
+        362
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000542",
+      "event_title": "红菜苔烩饭食谱",
+      "event_reason": "关于健康食谱的文章，无其他同类事件。",
+      "article_indexes": [
+        363
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000543",
+      "event_title": "俄乌冲突相关动态：军事行动、援助政策及舆论讨论",
+      "event_reason": "Cluster 2报道俄罗斯击落无人机及德国政客对乌援助言论，Cluster 6报道瑞士举报与乌克兰相关的电话中心诈骗案件增加（涉及乌克兰战争背景下的欺诈行为），Cluster 7报道波兰前总理就乌克兰局势发表评论。三者均为俄乌冲突这一正在持续发展的单一现实事件的不同侧面（军事行动、外交/援助政策、地缘政治舆论及衍生犯罪）。",
+      "article_indexes": [
+        364,
+        365,
+        369,
+        370
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000545",
+      "event_title": "Flydubai航班副驾驶供词",
+      "event_reason": "关于Flydubai航班副驾驶在审讯中的供述。",
+      "article_indexes": [
+        366
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000546",
+      "event_title": "塞尔维亚领导人多迪克宣布胜利",
+      "event_reason": "塞族共和国领导人多迪克宣布选举胜利。",
+      "article_indexes": [
+        367
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000547",
+      "event_title": "莫斯科地铁站烟雾事件",
+      "event_reason": "莫斯科Чистые пруды地铁站烟雾事件。",
+      "article_indexes": [
+        368
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000550",
+      "event_title": "巴西总统选举第二轮",
+      "event_reason": "两篇文章均报道巴西总统选举第二轮结果，弗拉维奥·博尔索纳罗和卢拉达席尔瓦进入第二轮。",
+      "article_indexes": [
+        371,
+        373
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000551",
+      "event_title": "抗过敏药物年龄限制",
+      "event_reason": "关于抗过敏药物Аллергарда在老年患者中使用的年龄限制。",
+      "article_indexes": [
+        372
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000552",
+      "event_title": "俄罗斯缩短工作日",
+      "event_reason": "俄罗斯2026年最后一个缩短工作日是11月3日。",
+      "article_indexes": [
+        374
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000553",
+      "event_title": "熊出现在克孜勒公园",
+      "event_reason": "图瓦共和国克孜勒公园出现熊的事件。",
+      "article_indexes": [
+        375
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000554",
+      "event_title": "俄罗斯教师高薪",
+      "event_reason": "莫斯科为教师提供最高薪资，近95,000卢布。",
+      "article_indexes": [
+        376
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000555",
+      "event_title": "瑞士斯蒂本瀑布",
+      "event_reason": "关于瑞士斯蒂本瀑布的文章，无其他同类事件。",
+      "article_indexes": [
+        377
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000556",
+      "event_title": "阿联酋最恐怖水上滑梯",
+      "event_reason": "关于阿联酋最恐怖水上滑梯的文章，无其他同类事件。",
+      "article_indexes": [
+        378
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000557",
+      "event_title": "伊ttygran岛鲸鱼巷",
+      "event_reason": "关于伊ttygran岛鲸鱼巷爱斯基摩避难所的文章，无其他同类事件。",
+      "article_indexes": [
+        379
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000558",
+      "event_title": "雕鸮与 affection",
+      "event_reason": "关于雕鸮喜爱affection的文章，无其他同类事件。",
+      "article_indexes": [
+        380
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000559",
+      "event_title": "大冠山雀筑巢材料",
+      "event_reason": "关于大冠山雀筑巢材料的文章，无其他同类事件。",
+      "article_indexes": [
+        381
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000560",
+      "event_title": "不寻常的朋友",
+      "event_reason": "关于不寻常朋友的文章，无其他同类事件。",
+      "article_indexes": [
+        382
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000561",
+      "event_title": "亚运会与科技新闻",
+      "event_reason": "于子迪当选亚运会MVP，包含多项科技、政治新闻。",
+      "article_indexes": [
+        383
+      ]
+    },
+    {
+      "event_id": "EVT-20261005-000562",
+      "event_title": "2026年中国国庆假期综合报道",
+      "event_reason": "Cluster 20报道中国国庆假期活动及亚运会闭幕；Cluster 21、22、23、24、25、26均为人民日报2026年10月5日的版面内容，涵盖要闻、假日生活、工业旅游、人物故事等，共同构成国庆假期当天的综合性新闻报道事件。",
+      "article_indexes": [
+        384,
+        385,
+        386,
+        387,
+        388,
+        389,
+        390,
+        391,
+        392,
+        393,
+        394,
+        395,
+        396,
+        397,
+        398,
+        399,
+        400,
+        401,
+        402,
+        403,
+        404,
+        405,
+        406,
+        407,
+        408,
+        409,
+        410,
+        411
+      ]
+    }
+  ],
+  "saved_at": "2026-10-05T14:29:45.364440+08:00"
+}
