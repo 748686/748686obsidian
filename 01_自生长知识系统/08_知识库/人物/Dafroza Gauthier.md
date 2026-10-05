@@ -5,7 +5,7 @@ status: active
 importance: 2
 confidence: 0.9
 created_at: 2026-10-04
-last_updated: 2026-10-04
+last_updated: 2026-10-05
 ---
 
 # Dafroza Gauthier
@@ -60,3 +60,17 @@ last_updated: 2026-10-04
 
 - [[Rwandan génocidaires]]
 - [[France]]
+
+## 知识更新｜2026-10-05
+
+Dafroza Gauthier，绰号“猎人”（Hunter），72岁，被指认为卢旺达种族灭绝嫌疑人。据2026年10月5日报道，其已去世。目前缺乏独立新闻原文及多源交叉验证，法律地位（是否已被起诉或定罪）尚不明确。
+
+### 新增事实
+
+- Dafroza Gauthier，绰号“猎人”，是卢旺达种族灭绝嫌疑人，2026年10月5日媒体报道其去世，享年72岁。
+- 该信息目前仅基于单一来源描述，缺乏独立新闻原文及多源交叉验证，其具体法律地位尚不明确。
+
+### 来源 EventUnit
+
+- `EVT-20261005-000463`
+
