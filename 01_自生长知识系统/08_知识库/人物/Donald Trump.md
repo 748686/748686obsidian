@@ -457,3 +457,30 @@ last_updated: 2026-09-14
 
 - [[中期选举]]
 - [[调查]]
+
+
+---
+
+## 知识更新 · 2026-10-07
+
+- 来源事件：EVT-20261007-000129
+- 置信度：0.4
+- 重要性：2
+
+### 本次变化
+
+前总统，据报道正在考虑暂停联邦汽油税，此举引发了Jim Clyburn的政治警告。
+
+### 新增事实
+
+- 据报道（source_status: unresolved），Donald Trump正在考虑暂停联邦汽油税（suspending federal petrol tax）。
+
+### 变化
+
+- 新增一项未被独立核实的经济政策主张（暂停联邦汽油税）与其相关的政治争议记录。
+
+### 相关知识
+
+- [[Jim Clyburn]]
+- [[Black voters]]
+- [[Federal petrol tax]]
