@@ -5,7 +5,7 @@ status: active
 importance: 4
 confidence: 0.85
 created_at: 2026-09-07
-last_updated: 2026-09-07
+last_updated: 2026-10-07
 ---
 
 # 德国选择党 (AfD)
@@ -40,3 +40,16 @@ last_updated: 2026-09-07
 
 - 来源事件：EVT-20260907-000490
 - 本次动作：CREATE
+
+## 知识更新｜2026-10-07
+
+在德国萨克森-安哈尔特州议会选举后，获得议长(Rausch)和副议长(Tillschneider)职位，标志'防火墙'政策松动。
+
+### 新增事实
+
+- 德国选择党(AfD)在萨克森-安哈尔特州议会选举后，获得议长(Rausch)和副议长(Tillschneider)职位。
+
+### 来源 EventUnit
+
+- `EVT-20261007-000355`
+
