@@ -2,32 +2,34 @@
   "date": "2026-10-10",
   "total_batches": 50,
   "completed_batches": 50,
-  "successful_batches": 22,
+  "successful_batches": 20,
   "failed_batches": [
+    1,
     2,
     4,
     5,
     7,
-    9,
+    8,
+    10,
     11,
-    12,
-    14,
-    16,
+    13,
+    15,
+    17,
     18,
-    19,
-    21,
+    20,
     23,
-    24,
-    26,
+    25,
+    27,
     28,
     30,
-    32,
+    31,
+    33,
     34,
-    35,
-    37,
+    36,
+    38,
     39,
     41,
-    42,
+    43,
     44,
     46,
     47,
@@ -36,7 +38,7 @@
   "batches": [
     {
       "batch": 1,
-      "status": "success",
+      "status": "failed",
       "events": 9,
       "event_ids": [
         "EVT-20261010-000001",
@@ -49,7 +51,9 @@
         "EVT-20261010-000016",
         "EVT-20261010-000017"
       ],
-      "finished_at": "2026-10-10T13:56:43.311648+00:00"
+      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:32:45 后重试。 (request id: 20261010143223370795584xyBGtCUS)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
+      "started_at": "2026-10-10T14:32:02.925989+00:00",
+      "finished_at": "2026-10-10T14:32:23.555916+00:00"
     },
     {
       "batch": 2,
@@ -63,9 +67,9 @@
         "EVT-20261010-000022",
         "EVT-20261010-000023"
       ],
-      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 21:57:24 后重试。 (request id: 202610101357046803819104paGZWms)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
-      "started_at": "2026-10-10T13:56:44.812237+00:00",
-      "finished_at": "2026-10-10T13:57:05.260513+00:00"
+      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:32:45 后重试。 (request id: 20261010143244257869019W8pRLiKo)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
+      "started_at": "2026-10-10T14:32:25.056964+00:00",
+      "finished_at": "2026-10-10T14:32:44.458938+00:00"
     },
     {
       "batch": 3,
@@ -83,7 +87,7 @@
         "EVT-20261010-000032",
         "EVT-20261010-000033"
       ],
-      "finished_at": "2026-10-10T13:57:35.653675+00:00"
+      "finished_at": "2026-10-10T14:32:51.212253+00:00"
     },
     {
       "batch": 4,
@@ -101,9 +105,9 @@
         "EVT-20261010-000044",
         "EVT-20261010-000045"
       ],
-      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 21:58:26 后重试。 (request id: 20261010135756884237600KN5XRywj)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
-      "started_at": "2026-10-10T13:57:37.154542+00:00",
-      "finished_at": "2026-10-10T13:57:57.067349+00:00"
+      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:33:46 后重试。 (request id: 20261010143311871513779y5RKvAUx)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
+      "started_at": "2026-10-10T14:32:52.713201+00:00",
+      "finished_at": "2026-10-10T14:33:12.078997+00:00"
     },
     {
       "batch": 5,
@@ -117,9 +121,9 @@
         "EVT-20261010-000050",
         "EVT-20261010-000051"
       ],
-      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 21:58:26 后重试。 (request id: 20261010135817779183930OHCtyZJi)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
-      "started_at": "2026-10-10T13:57:58.568239+00:00",
-      "finished_at": "2026-10-10T13:58:17.953827+00:00"
+      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:33:46 后重试。 (request id: 20261010143333514859073b8v5mbP1)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
+      "started_at": "2026-10-10T14:33:13.580740+00:00",
+      "finished_at": "2026-10-10T14:33:33.663470+00:00"
     },
     {
       "batch": 6,
@@ -137,7 +141,7 @@
         "EVT-20261010-000061",
         "EVT-20261010-000062"
       ],
-      "finished_at": "2026-10-10T13:58:53.156273+00:00"
+      "finished_at": "2026-10-10T14:34:04.134579+00:00"
     },
     {
       "batch": 7,
@@ -155,13 +159,13 @@
         "EVT-20261010-000071",
         "EVT-20261010-000072"
       ],
-      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 21:59:31 后重试。 (request id: 20261010135919601669340EIUky1Qk)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
-      "started_at": "2026-10-10T13:58:54.657120+00:00",
-      "finished_at": "2026-10-10T13:59:19.802435+00:00"
+      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:34:47 后重试。 (request id: 20261010143426149031208fely3EZ8)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
+      "started_at": "2026-10-10T14:34:05.635728+00:00",
+      "finished_at": "2026-10-10T14:34:26.313141+00:00"
     },
     {
       "batch": 8,
-      "status": "success",
+      "status": "failed",
       "events": 6,
       "event_ids": [
         "EVT-20261010-000073",
@@ -171,11 +175,13 @@
         "EVT-20261010-000077",
         "EVT-20261010-000078"
       ],
-      "finished_at": "2026-10-10T13:59:51.077843+00:00"
+      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:34:47 后重试。 (request id: 20261010143446913360246qfKW6VVr)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
+      "started_at": "2026-10-10T14:34:27.814212+00:00",
+      "finished_at": "2026-10-10T14:34:47.057267+00:00"
     },
     {
       "batch": 9,
-      "status": "failed",
+      "status": "success",
       "events": 6,
       "event_ids": [
         "EVT-20261010-000079",
@@ -185,13 +191,11 @@
         "EVT-20261010-000083",
         "EVT-20261010-000084"
       ],
-      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:00:31 后重试。 (request id: 20261010140011622090632a8iVsr7q)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
-      "started_at": "2026-10-10T13:59:52.578868+00:00",
-      "finished_at": "2026-10-10T14:00:11.807610+00:00"
+      "finished_at": "2026-10-10T14:34:59.521880+00:00"
     },
     {
       "batch": 10,
-      "status": "success",
+      "status": "failed",
       "events": 10,
       "event_ids": [
         "EVT-20261010-000085",
@@ -205,7 +209,9 @@
         "EVT-20261010-000094",
         "EVT-20261010-000095"
       ],
-      "finished_at": "2026-10-10T14:00:47.054658+00:00"
+      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:35:48 后重试。 (request id: 20261010143524467871073ZiORRfV8)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
+      "started_at": "2026-10-10T14:35:01.023274+00:00",
+      "finished_at": "2026-10-10T14:35:24.687070+00:00"
     },
     {
       "batch": 11,
@@ -223,13 +229,13 @@
         "EVT-20261010-000110",
         "EVT-20261010-000112"
       ],
-      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:01:32 后重试。 (request id: 20261010140109338020774TTQnh0No)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
-      "started_at": "2026-10-10T14:00:48.555744+00:00",
-      "finished_at": "2026-10-10T14:01:09.487703+00:00"
+      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:35:48 后重试。 (request id: 20261010143547847573853JhqMwlEm)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
+      "started_at": "2026-10-10T14:35:26.188443+00:00",
+      "finished_at": "2026-10-10T14:35:47.988842+00:00"
     },
     {
       "batch": 12,
-      "status": "failed",
+      "status": "success",
       "events": 10,
       "event_ids": [
         "EVT-20261010-000113",
@@ -243,13 +249,11 @@
         "EVT-20261010-000137",
         "EVT-20261010-000138"
       ],
-      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:01:32 后重试。 (request id: 20261010140131847019771z7P1JL2I)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
-      "started_at": "2026-10-10T14:01:10.988862+00:00",
-      "finished_at": "2026-10-10T14:01:32.027539+00:00"
+      "finished_at": "2026-10-10T14:36:16.395013+00:00"
     },
     {
       "batch": 13,
-      "status": "success",
+      "status": "failed",
       "events": 10,
       "event_ids": [
         "EVT-20261010-000139",
@@ -263,11 +267,13 @@
         "EVT-20261010-000148",
         "EVT-20261010-000149"
       ],
-      "finished_at": "2026-10-10T14:01:48.378197+00:00"
+      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:36:49 后重试。 (request id: 20261010143637371411317KhKRusBR)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
+      "started_at": "2026-10-10T14:36:17.896220+00:00",
+      "finished_at": "2026-10-10T14:36:37.574703+00:00"
     },
     {
       "batch": 14,
-      "status": "failed",
+      "status": "success",
       "events": 10,
       "event_ids": [
         "EVT-20261010-000150",
@@ -281,13 +287,11 @@
         "EVT-20261010-000187",
         "EVT-20261010-000188"
       ],
-      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:02:33 后重试。 (request id: 20261010140210993402146yBfMdxsG)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
-      "started_at": "2026-10-10T14:01:49.879257+00:00",
-      "finished_at": "2026-10-10T14:02:11.410350+00:00"
+      "finished_at": "2026-10-10T14:37:09.700403+00:00"
     },
     {
       "batch": 15,
-      "status": "success",
+      "status": "failed",
       "events": 10,
       "event_ids": [
         "EVT-20261010-000189",
@@ -301,11 +305,13 @@
         "EVT-20261010-000202",
         "EVT-20261010-000203"
       ],
-      "finished_at": "2026-10-10T14:02:53.219178+00:00"
+      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:37:50 后重试。 (request id: 20261010143730410809315dKFeLqSZ)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
+      "started_at": "2026-10-10T14:37:11.201978+00:00",
+      "finished_at": "2026-10-10T14:37:30.616747+00:00"
     },
     {
       "batch": 16,
-      "status": "failed",
+      "status": "success",
       "events": 10,
       "event_ids": [
         "EVT-20261010-000204",
@@ -319,13 +325,11 @@
         "EVT-20261010-000213",
         "EVT-20261010-000214"
       ],
-      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:03:34 后重试。 (request id: 2026101014031746970182nNk29mCs)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
-      "started_at": "2026-10-10T14:02:54.720199+00:00",
-      "finished_at": "2026-10-10T14:03:17.500978+00:00"
+      "finished_at": "2026-10-10T14:38:03.554623+00:00"
     },
     {
       "batch": 17,
-      "status": "success",
+      "status": "failed",
       "events": 10,
       "event_ids": [
         "EVT-20261010-000215",
@@ -339,7 +343,9 @@
         "EVT-20261010-000223",
         "EVT-20261010-000225"
       ],
-      "finished_at": "2026-10-10T14:03:46.709577+00:00"
+      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:38:51 后重试。 (request id: 202610101438248229376615XjA3G5E)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
+      "started_at": "2026-10-10T14:38:05.055926+00:00",
+      "finished_at": "2026-10-10T14:38:25.748483+00:00"
     },
     {
       "batch": 18,
@@ -357,13 +363,13 @@
         "EVT-20261010-000234",
         "EVT-20261010-000235"
       ],
-      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:04:38 后重试。 (request id: 20261010140409132235135bgg3EphD)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
-      "started_at": "2026-10-10T14:03:48.210726+00:00",
-      "finished_at": "2026-10-10T14:04:09.342675+00:00"
+      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:38:51 后重试。 (request id: 20261010143847502576509nCJs2gdz)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
+      "started_at": "2026-10-10T14:38:27.249928+00:00",
+      "finished_at": "2026-10-10T14:38:47.659882+00:00"
     },
     {
       "batch": 19,
-      "status": "failed",
+      "status": "success",
       "events": 9,
       "event_ids": [
         "EVT-20261010-000236",
@@ -376,13 +382,11 @@
         "EVT-20261010-000246",
         "EVT-20261010-000247"
       ],
-      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:04:38 后重试。 (request id: 20261010140431182937463Yn1Q8bRu)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
-      "started_at": "2026-10-10T14:04:10.844152+00:00",
-      "finished_at": "2026-10-10T14:04:31.364469+00:00"
+      "finished_at": "2026-10-10T14:39:26.363869+00:00"
     },
     {
       "batch": 20,
-      "status": "success",
+      "status": "failed",
       "events": 10,
       "event_ids": [
         "EVT-20261010-000248",
@@ -396,11 +400,13 @@
         "EVT-20261010-000288",
         "EVT-20261010-000289"
       ],
-      "finished_at": "2026-10-10T14:05:04.764388+00:00"
+      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:39:53 后重试。 (request id: 202610101439471249599534CcUZTFQ)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
+      "started_at": "2026-10-10T14:39:27.865311+00:00",
+      "finished_at": "2026-10-10T14:39:47.354749+00:00"
     },
     {
       "batch": 21,
-      "status": "failed",
+      "status": "success",
       "events": 8,
       "event_ids": [
         "EVT-20261010-000290",
@@ -412,9 +418,7 @@
         "EVT-20261010-000296",
         "EVT-20261010-000297"
       ],
-      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:05:41 后重试。 (request id: 2026101014053344778946010GK39AF)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
-      "started_at": "2026-10-10T14:05:06.265337+00:00",
-      "finished_at": "2026-10-10T14:05:33.647844+00:00"
+      "finished_at": "2026-10-10T14:40:57.933305+00:00"
     },
     {
       "batch": 22,
@@ -432,7 +436,7 @@
         "EVT-20261010-000306",
         "EVT-20261010-000307"
       ],
-      "finished_at": "2026-10-10T14:06:00.984351+00:00"
+      "finished_at": "2026-10-10T14:41:24.478651+00:00"
     },
     {
       "batch": 23,
@@ -450,13 +454,13 @@
         "EVT-20261010-000317",
         "EVT-20261010-000318"
       ],
-      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:06:44 后重试。 (request id: 20261010140621446120583FnU17CjI)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
-      "started_at": "2026-10-10T14:06:02.485504+00:00",
-      "finished_at": "2026-10-10T14:06:21.607254+00:00"
+      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:42:03 后重试。 (request id: 202610101441468322732428uaragvJ)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
+      "started_at": "2026-10-10T14:41:25.979947+00:00",
+      "finished_at": "2026-10-10T14:41:47.227679+00:00"
     },
     {
       "batch": 24,
-      "status": "failed",
+      "status": "success",
       "events": 9,
       "event_ids": [
         "EVT-20261010-000319",
@@ -469,13 +473,11 @@
         "EVT-20261010-000326",
         "EVT-20261010-000327"
       ],
-      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:06:44 后重试。 (request id: 20261010140642864964463UOwywZvD)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
-      "started_at": "2026-10-10T14:06:23.108541+00:00",
-      "finished_at": "2026-10-10T14:06:43.059292+00:00"
+      "finished_at": "2026-10-10T14:42:25.049182+00:00"
     },
     {
       "batch": 25,
-      "status": "success",
+      "status": "failed",
       "events": 10,
       "event_ids": [
         "EVT-20261010-000328",
@@ -489,11 +491,13 @@
         "EVT-20261010-000337",
         "EVT-20261010-000338"
       ],
-      "finished_at": "2026-10-10T14:07:11.057867+00:00"
+      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:43:06 后重试。 (request id: 20261010144246945942151O1P9gROM)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
+      "started_at": "2026-10-10T14:42:26.550474+00:00",
+      "finished_at": "2026-10-10T14:42:47.151232+00:00"
     },
     {
       "batch": 26,
-      "status": "failed",
+      "status": "success",
       "events": 9,
       "event_ids": [
         "EVT-20261010-000339",
@@ -506,13 +510,11 @@
         "EVT-20261010-000346",
         "EVT-20261010-000347"
       ],
-      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:07:44 后重试。 (request id: 20261010140734507930066ikybFp10)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
-      "started_at": "2026-10-10T14:07:12.558925+00:00",
-      "finished_at": "2026-10-10T14:07:35.231638+00:00"
+      "finished_at": "2026-10-10T14:43:18.225988+00:00"
     },
     {
       "batch": 27,
-      "status": "success",
+      "status": "failed",
       "events": 8,
       "event_ids": [
         "EVT-20261010-000348",
@@ -524,7 +526,9 @@
         "EVT-20261010-000354",
         "EVT-20261010-000355"
       ],
-      "finished_at": "2026-10-10T14:08:17.923904+00:00"
+      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:44:08 后重试。 (request id: 20261010144338887892459wrksWBFM)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
+      "started_at": "2026-10-10T14:43:19.727336+00:00",
+      "finished_at": "2026-10-10T14:43:39.130355+00:00"
     },
     {
       "batch": 28,
@@ -542,9 +546,9 @@
         "EVT-20261010-000364",
         "EVT-20261010-000365"
       ],
-      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:08:47 后重试。 (request id: 20261010140839523944994eXpeYgnQ)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
-      "started_at": "2026-10-10T14:08:19.425201+00:00",
-      "finished_at": "2026-10-10T14:08:39.742277+00:00"
+      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:44:08 后重试。 (request id: 20261010144401227989861Q7NMXRSS)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
+      "started_at": "2026-10-10T14:43:40.632132+00:00",
+      "finished_at": "2026-10-10T14:44:01.427516+00:00"
     },
     {
       "batch": 29,
@@ -562,7 +566,7 @@
         "EVT-20261010-000374",
         "EVT-20261010-000375"
       ],
-      "finished_at": "2026-10-10T14:09:09.852343+00:00"
+      "finished_at": "2026-10-10T14:44:29.402121+00:00"
     },
     {
       "batch": 30,
@@ -579,13 +583,13 @@
         "EVT-20261010-000383",
         "EVT-20261010-000384"
       ],
-      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:09:50 后重试。 (request id: 20261010140934130369437eXb3MQEZ)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
-      "started_at": "2026-10-10T14:09:11.353415+00:00",
-      "finished_at": "2026-10-10T14:09:34.345282+00:00"
+      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:45:13 后重试。 (request id: 20261010144449954412037K82qS9DQ)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
+      "started_at": "2026-10-10T14:44:30.903570+00:00",
+      "finished_at": "2026-10-10T14:44:50.167085+00:00"
     },
     {
       "batch": 31,
-      "status": "success",
+      "status": "failed",
       "events": 10,
       "event_ids": [
         "EVT-20261010-000385",
@@ -599,11 +603,13 @@
         "EVT-20261010-000393",
         "EVT-20261010-000394"
       ],
-      "finished_at": "2026-10-10T14:10:01.429231+00:00"
+      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:45:13 后重试。 (request id: 20261010144510768397370NHTIUOVz)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
+      "started_at": "2026-10-10T14:44:51.669025+00:00",
+      "finished_at": "2026-10-10T14:45:10.941104+00:00"
     },
     {
       "batch": 32,
-      "status": "failed",
+      "status": "success",
       "events": 9,
       "event_ids": [
         "EVT-20261010-000395",
@@ -616,13 +622,11 @@
         "EVT-20261010-000403",
         "EVT-20261010-000404"
       ],
-      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:10:50 后重试。 (request id: 20261010141024484987771DA9yD8ot)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
-      "started_at": "2026-10-10T14:10:02.930621+00:00",
-      "finished_at": "2026-10-10T14:10:24.711355+00:00"
+      "finished_at": "2026-10-10T14:45:25.524484+00:00"
     },
     {
       "batch": 33,
-      "status": "success",
+      "status": "failed",
       "events": 10,
       "event_ids": [
         "EVT-20261010-000405",
@@ -636,7 +640,9 @@
         "EVT-20261010-000414",
         "EVT-20261010-000415"
       ],
-      "finished_at": "2026-10-10T14:11:03.112963+00:00"
+      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:46:16 后重试。 (request id: 20261010144546191698039B3Qy6AgN)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
+      "started_at": "2026-10-10T14:45:27.026045+00:00",
+      "finished_at": "2026-10-10T14:45:46.568751+00:00"
     },
     {
       "batch": 34,
@@ -654,13 +660,13 @@
         "EVT-20261010-000424",
         "EVT-20261010-000425"
       ],
-      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:11:50 后重试。 (request id: 202610101411241365711262Ez3RGDf)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
-      "started_at": "2026-10-10T14:11:04.614186+00:00",
-      "finished_at": "2026-10-10T14:11:24.352334+00:00"
+      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:46:16 后重试。 (request id: 20261010144607217172385kEoA0yKo)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
+      "started_at": "2026-10-10T14:45:48.070693+00:00",
+      "finished_at": "2026-10-10T14:46:08.190701+00:00"
     },
     {
       "batch": 35,
-      "status": "failed",
+      "status": "success",
       "events": 10,
       "event_ids": [
         "EVT-20261010-000426",
@@ -674,13 +680,11 @@
         "EVT-20261010-000434",
         "EVT-20261010-000435"
       ],
-      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:11:50 后重试。 (request id: 20261010141145285045751fTqijpDz)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
-      "started_at": "2026-10-10T14:11:25.853779+00:00",
-      "finished_at": "2026-10-10T14:11:45.513352+00:00"
+      "finished_at": "2026-10-10T14:46:39.726799+00:00"
     },
     {
       "batch": 36,
-      "status": "success",
+      "status": "failed",
       "events": 10,
       "event_ids": [
         "EVT-20261010-000436",
@@ -694,11 +698,13 @@
         "EVT-20261010-000452",
         "EVT-20261010-000453"
       ],
-      "finished_at": "2026-10-10T14:12:13.062610+00:00"
+      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:47:19 后重试。 (request id: 20261010144700842048645lXCH6PCK)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
+      "started_at": "2026-10-10T14:46:41.228122+00:00",
+      "finished_at": "2026-10-10T14:47:01.061446+00:00"
     },
     {
       "batch": 37,
-      "status": "failed",
+      "status": "success",
       "events": 10,
       "event_ids": [
         "EVT-20261010-000454",
@@ -712,13 +718,11 @@
         "EVT-20261010-000465",
         "EVT-20261010-000466"
       ],
-      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:12:50 后重试。 (request id: 20261010141235994363520nEe2YdXZ)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
-      "started_at": "2026-10-10T14:12:14.564101+00:00",
-      "finished_at": "2026-10-10T14:12:36.398879+00:00"
+      "finished_at": "2026-10-10T14:47:27.715339+00:00"
     },
     {
       "batch": 38,
-      "status": "success",
+      "status": "failed",
       "events": 10,
       "event_ids": [
         "EVT-20261010-000467",
@@ -732,7 +736,9 @@
         "EVT-20261010-000475",
         "EVT-20261010-000476"
       ],
-      "finished_at": "2026-10-10T14:13:10.905607+00:00"
+      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:48:21 后重试。 (request id: 20261010144749792992779T7lFL0Oh)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
+      "started_at": "2026-10-10T14:47:29.216783+00:00",
+      "finished_at": "2026-10-10T14:47:50.163169+00:00"
     },
     {
       "batch": 39,
@@ -750,9 +756,9 @@
         "EVT-20261010-000486",
         "EVT-20261010-000487"
       ],
-      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:13:52 后重试。 (request id: 20261010141332533521714gEyLO9Vx)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
-      "started_at": "2026-10-10T14:13:12.406979+00:00",
-      "finished_at": "2026-10-10T14:13:32.719446+00:00"
+      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:48:21 后重试。 (request id: 20261010144810946677647GzIb2y27)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
+      "started_at": "2026-10-10T14:47:51.664698+00:00",
+      "finished_at": "2026-10-10T14:48:11.544322+00:00"
     },
     {
       "batch": 40,
@@ -770,7 +776,7 @@
         "EVT-20261010-000496",
         "EVT-20261010-000497"
       ],
-      "finished_at": "2026-10-10T14:14:09.434986+00:00"
+      "finished_at": "2026-10-10T14:48:46.806740+00:00"
     },
     {
       "batch": 41,
@@ -788,13 +794,13 @@
         "EVT-20261010-000507",
         "EVT-20261010-000508"
       ],
-      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:14:54 后重试。 (request id: 202610101414305517793647BWjH6WP)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
-      "started_at": "2026-10-10T14:14:10.936240+00:00",
-      "finished_at": "2026-10-10T14:14:30.728925+00:00"
+      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:49:22 后重试。 (request id: 20261010144907416199499XbjzXx5d)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
+      "started_at": "2026-10-10T14:48:48.308212+00:00",
+      "finished_at": "2026-10-10T14:49:07.609752+00:00"
     },
     {
       "batch": 42,
-      "status": "failed",
+      "status": "success",
       "events": 10,
       "event_ids": [
         "EVT-20261010-000509",
@@ -808,13 +814,11 @@
         "EVT-20261010-000518",
         "EVT-20261010-000519"
       ],
-      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:14:54 后重试。 (request id: 202610101414512710554860lA2jszz)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
-      "started_at": "2026-10-10T14:14:32.230294+00:00",
-      "finished_at": "2026-10-10T14:14:51.442405+00:00"
+      "finished_at": "2026-10-10T14:49:33.358235+00:00"
     },
     {
       "batch": 43,
-      "status": "success",
+      "status": "failed",
       "events": 10,
       "event_ids": [
         "EVT-20261010-000521",
@@ -828,7 +832,9 @@
         "EVT-20261010-000529",
         "EVT-20261010-000530"
       ],
-      "finished_at": "2026-10-10T14:15:31.805942+00:00"
+      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:50:23 后重试。 (request id: 20261010144954103603507rfpYFs3d)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
+      "started_at": "2026-10-10T14:49:34.859834+00:00",
+      "finished_at": "2026-10-10T14:49:54.286206+00:00"
     },
     {
       "batch": 44,
@@ -846,9 +852,9 @@
         "EVT-20261010-000541",
         "EVT-20261010-000542"
       ],
-      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:16:00 后重试。 (request id: 202610101415523392559586xp8bCEp)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
-      "started_at": "2026-10-10T14:15:33.307302+00:00",
-      "finished_at": "2026-10-10T14:15:52.524460+00:00"
+      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:50:23 后重试。 (request id: 2026101014501517886696zGla8nUY)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
+      "started_at": "2026-10-10T14:49:55.787646+00:00",
+      "finished_at": "2026-10-10T14:50:15.407071+00:00"
     },
     {
       "batch": 45,
@@ -866,7 +872,7 @@
         "EVT-20261010-000552",
         "EVT-20261010-000553"
       ],
-      "finished_at": "2026-10-10T14:16:15.379604+00:00"
+      "finished_at": "2026-10-10T14:50:35.856008+00:00"
     },
     {
       "batch": 46,
@@ -883,9 +889,9 @@
         "EVT-20261010-000561",
         "EVT-20261010-000562"
       ],
-      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:17:02 后重试。 (request id: 20261010141636403412585KsK7g279)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
-      "started_at": "2026-10-10T14:16:16.881073+00:00",
-      "finished_at": "2026-10-10T14:16:36.626718+00:00"
+      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:51:25 后重试。 (request id: 20261010145056412401521IOBxLraE)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
+      "started_at": "2026-10-10T14:50:37.357504+00:00",
+      "finished_at": "2026-10-10T14:50:56.619392+00:00"
     },
     {
       "batch": 47,
@@ -903,9 +909,9 @@
         "EVT-20261010-000571",
         "EVT-20261010-000574"
       ],
-      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:17:02 后重试。 (request id: 20261010141701674666662QlFL67lR)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
-      "started_at": "2026-10-10T14:16:38.128594+00:00",
-      "finished_at": "2026-10-10T14:17:02.082933+00:00"
+      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:51:25 后重试。 (request id: 202610101451203104846938jGaCjAD)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
+      "started_at": "2026-10-10T14:50:58.121308+00:00",
+      "finished_at": "2026-10-10T14:51:20.470408+00:00"
     },
     {
       "batch": 48,
@@ -923,7 +929,7 @@
         "EVT-20261010-000584",
         "EVT-20261010-000585"
       ],
-      "finished_at": "2026-10-10T14:17:24.107445+00:00"
+      "finished_at": "2026-10-10T14:51:45.371126+00:00"
     },
     {
       "batch": 49,
@@ -941,9 +947,9 @@
         "EVT-20261010-000594",
         "EVT-20261010-000595"
       ],
-      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:18:04 后重试。 (request id: 20261010141744793887922Pzbls2XO)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
-      "started_at": "2026-10-10T14:17:25.608825+00:00",
-      "finished_at": "2026-10-10T14:17:44.981868+00:00"
+      "error": "AI 请求失败: HTTP Error 429: Too Many Requests | {\"error\":{\"message\":\"今日文本额度已用完，当前处于限速模式：每 1 分钟可请求 1 次，请于 22:52:26 后重试。 (request id: 20261010145210558994135yWSVRZJb)\",\"type\":\"AgnesAI_error\",\"param\":\"\",\"code\":\"rate_limit_exceeded\"}}",
+      "started_at": "2026-10-10T14:51:46.872655+00:00",
+      "finished_at": "2026-10-10T14:52:10.696828+00:00"
     },
     {
       "batch": 50,
@@ -959,7 +965,7 @@
         "EVT-20261010-000602",
         "EVT-20261010-000603"
       ],
-      "finished_at": "2026-10-10T14:18:22.330856+00:00"
+      "finished_at": "2026-10-10T14:52:43.642649+00:00"
     }
   ]
 }
