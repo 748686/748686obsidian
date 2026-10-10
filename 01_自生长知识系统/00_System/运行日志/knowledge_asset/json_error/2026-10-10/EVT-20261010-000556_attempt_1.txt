@@ -1,0 +1,36 @@
+748686 Knowledge Asset JSON Diagnostic
+
+date:
+2026-10-10
+
+event_id:
+EVT-20261010-000556
+
+attempt:
+1
+
+error_type:
+ValueError
+
+error:
+无法解析 AI JSON | JSONDecodeError line=9 column=28 pos=255: Expecting ',' delimiter
+
+======================================================================
+AI RAW RESPONSE
+======================================================================
+
+{
+  "event_id": "EVT-20261010-000556",
+  "long_term_value": 1,
+  "summary": "该事件单元存在严重的源-题不匹配问题：标题宣称网红在体育领域欺诈，但唯一关联来源为俄罗斯罗斯托夫州袭击新闻，证据链断裂，无法提取长期事实知识。",
+  "knowledge_assets": [],
+  "relationships": [],
+  "knowledge_gaps": [
+    {
+      "question": "是否存在真实的"Influencerin betrügt im Sport"事件？",
+      "reason": "当前事件单元标题与来源完全不匹配，疑似数据录入或合并错误，需寻找独立可信来源验证。",
+      "importance": 2
+    }
+  ],
+  "contradictions": []
+}
