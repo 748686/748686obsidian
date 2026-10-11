@@ -5,7 +5,7 @@ status: active
 importance: 2
 confidence: 0.4
 created_at: 2026-10-07
-last_updated: 2026-10-07
+last_updated: 2026-10-11
 ---
 
 # Eva Marie Saint
@@ -40,3 +40,16 @@ last_updated: 2026-10-07
 
 - 来源事件：EVT-20261007-000376
 - 本次动作：CREATE
+
+## 知识更新｜2026-10-11
+
+好莱坞传奇演员Eva Marie Saint逝世，享年102岁。
+
+### 新增事实
+
+- 好莱坞传奇演员Eva Marie Saint逝世，享年102岁。
+
+### 来源 EventUnit
+
+- `EVT-20261011-000125`
+

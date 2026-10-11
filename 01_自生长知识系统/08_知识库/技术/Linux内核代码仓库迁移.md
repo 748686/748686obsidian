@@ -39,3 +39,14 @@ last_updated: 2026-10-10
 
 - 来源事件：EVT-20261010-000327
 - 本次动作：CREATE
+
+## 知识更新｜2026-10-10
+
+Linux内核代码仓库于2026年10月10日正式从传统Git服务器迁移至GitLab平台，由Linus Torvalds执行最终推送。这标志着大型开源项目运维模式向SaaS化转折的重要里程碑。未来计划迁移至基于Rust的Lagoa平台。
+
+### 新增事实
+
+- Linux内核代码仓库迁移至GitLab平台
+- Linus Torvalds执行最终推送
+- 未来计划迁移至基于Rust的Lagoa平台
+
