@@ -1,0 +1,50 @@
+---
+title: "[Coastal erosion in England has claimed at least 183 homes in past 16 years](#item-tech-news-286) ⭐️ ?/10"
+date: 2026-10-14
+type: "news"
+source: "news.google.com"
+source_url: "https://news.google.com/rss/articles/CBMilwFBVV95cUxQb1NxdS1wdnNBeHg3bXlrdTJxZ1JkR0NLZ2JyREpfUHdUaXR1MlZDT0ZMMGhUY2RTTUZiaUpJNHR5ckNVT3lhOXhrcDVLeEZHeTdKUWtUQ3N3NHZJU0JJb3RTT0VOMlVlcW84enBZaTN2SnE2UVB2RnpOYU9pUHREVjhSWTVGbkt6Z3Y1bjNiV2xnOFlCclZZ?oc=5&hl=en-US&gl=US&ceid=US:en"
+language: "zh"
+horizon_score: null
+source_status: "fetched"
+content_status: "partial"
+search_method: "rss"
+match_score: 0.8125
+ai_status: "pending"
+original_title: "Google News"
+author: ""
+---
+
+# [Coastal erosion in England has claimed at least 183 homes in past 16 years](#item-tech-news-286) ⭐️ ?/10
+
+## Horizon 摘要
+
+# [Coastal erosion in England has claimed at least 183 homes in past 16 years](#item-tech-news-286) ⭐️ ?/10
+
+## Horizon 摘要
+
+Horizon 日报中未提供该条目的完整正文。
+
+## 原文信息
+
+- Source: Unknown
+- Original URL: 未从 Horizon 日报中找到
+
+## AI处理状态
+
+等待后续 AI 二次处理及 27 Skills 分析。
+
+## 原文信息
+
+- Source: news.google.com
+- Original URL: https://news.google.com/rss/articles/CBMilwFBVV95cUxQb1NxdS1wdnNBeHg3bXlrdTJxZ1JkR0NLZ2JyREpfUHdUaXR1MlZDT0ZMMGhUY2RTTUZiaUpJNHR5ckNVT3lhOXhrcDVLeEZHeTdKUWtUQ3N3NHZJU0JJb3RTT0VOMlVlcW84enBZaTN2SnE2UVB2RnpOYU9pUHREVjhSWTVGbkt6Z3Y1bjNiV2xnOFlCclZZ?oc=5&hl=en-US&gl=US&ceid=US:en
+- Original Title: Google News
+- Description: Comprehensive up-to-date news coverage, aggregated from sources all over the world by Google News.
+
+## 原文正文
+
+Google News
+
+## AI 处理状态
+
+等待 27 Skills 进行后续处理。
