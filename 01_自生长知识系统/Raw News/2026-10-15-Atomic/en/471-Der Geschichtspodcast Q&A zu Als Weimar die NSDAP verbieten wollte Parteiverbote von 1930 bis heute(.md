@@ -1,0 +1,26 @@
+---
+title: "[Der Geschichtspodcast: Q&A zu Als Weimar die NSDAP verbieten wollte: Parteiverbote von 1930 bis heute](#item-finance-news-46) ⭐️ ?/10"
+date: 2026-10-15
+type: "新闻"
+source: "AP"
+language: "en"
+horizon_score: null
+original_source: "Horizon"
+original_url: ""
+status: "待AI处理"
+---
+
+# [Der Geschichtspodcast: Q&A zu Als Weimar die NSDAP verbieten wollte: Parteiverbote von 1930 bis heute](#item-finance-news-46) ⭐️ ?/10
+
+## Horizon Summary
+
+The Horizon digest did not provide a full body for this item.
+
+## 原文信息
+
+- Source: AP
+- Original URL: 未从 Horizon 日报中找到
+
+## AI处理状态
+
+等待后续 AI 二次处理及 27 Skills 分析。
