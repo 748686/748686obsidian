@@ -1,0 +1,26 @@
+---
+title: "[США не одобрили поставки Украине снарядов для Patriot, пишет The Washington Post](#item-tech-news-21) ⭐️"
+date: 2026-10-20
+type: "新闻"
+source: "The Washington Post"
+language: "en"
+horizon_score: 1.0
+original_source: "Horizon"
+original_url: ""
+status: "待AI处理"
+---
+
+# [США не одобрили поставки Украине снарядов для Patriot, пишет The Washington Post](#item-tech-news-21) ⭐️
+
+## Horizon Summary
+
+The Horizon digest did not provide a full body for this item.
+
+## 原文信息
+
+- Source: The Washington Post
+- Original URL: 未从 Horizon 日报中找到
+
+## AI处理状态
+
+等待后续 AI 二次处理及 27 Skills 分析。
