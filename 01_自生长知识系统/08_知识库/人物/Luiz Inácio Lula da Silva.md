@@ -1,0 +1,39 @@
+---
+type: 人物
+name: Luiz Inácio Lula da Silva
+status: active
+importance: 3
+confidence: 0.9
+created_at: 2026-10-17
+last_updated: 2026-10-17
+---
+
+# Luiz Inácio Lula da Silva
+
+## 核心定义
+
+巴西总统。在青少年犯罪治理议题上，公开支持降低刑事责任年龄至16岁，显示其立场可能从既往的人权友好型向更强硬的法律秩序型转变，或出于特定政治/社会压力考量。
+
+## 新增事实
+
+- 2026年10月17日，卢拉公开支持将巴西刑事责任年龄从18岁降至16岁的提案。
+
+## 与其他知识的关系
+
+- [[Brazil]]
+- [[Luiz Inácio Lula da Silva]]
+
+## 来源事件
+
+- EVT-20261017-000134
+
+## 来源文件
+
+- Task 4 Event Analysis
+
+## 更新记录
+
+### 2026-10-17
+
+- 来源事件：EVT-20261017-000134
+- 本次动作：CREATE
