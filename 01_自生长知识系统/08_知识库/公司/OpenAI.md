@@ -5,7 +5,7 @@ status: active
 importance: 4
 confidence: 0.7
 created_at: 2026-09-04
-last_updated: 2026-10-01
+last_updated: 2026-10-21
 ---
 
 # OpenAI
@@ -1506,3 +1506,19 @@ AI技术提供商，其Codex产品在企业开发领域有明确的商业化落�
 
 - [[Codex]]
 - [[LegalOn]]
+
+## 知识更新｜2026-10-21
+
+2026年10月20日，OpenAI发布Terminal X评估智能体，集成GPT-6.1模型，专注于金融垂直领域。官方数据显示其在匹配资深投资者判断方面准确率达到88.6%，具备检测基金授权偏离偏差的能力。
+
+### 新增事实
+
+- OpenAI于2026年10月20日发布Terminal X评估智能体，集成GPT-6.1模型。
+- Terminal X在金融垂直领域的资深投资者判断匹配准确率达到88.6%。
+- Terminal X具备检测基金授权（fund mandates）偏离偏差的能力。
+- 同日发布ChatGPT Work应用案例：将加盟商现金对账时间减少94%。
+
+### 来源 EventUnit
+
+- `EVT-20261021-000788`
+
