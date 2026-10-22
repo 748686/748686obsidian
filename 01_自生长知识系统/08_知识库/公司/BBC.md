@@ -88,3 +88,22 @@ last_updated: 2026-09-13
 - [[Suits]]
 - [[Schitt's Creek]]
 - [[UK Parliament]]
+
+
+---
+
+## 知识更新 · 2026-10-21
+
+- 来源事件：EVT-20261021-000533
+- 置信度：0.8
+- 重要性：2
+
+### 本次变化
+
+BBC宣布关闭BBC Three、BBC Scotland及Radio 4 Extra等广播频道，反映英国国内媒体政策调整，但具体关闭时间及替代数字战略尚不明确。
+
+### 新增事实
+
+- BBC宣布将关闭BBC Three频道
+- BBC宣布将关闭BBC Scotland频道
+- BBC宣布将关闭Radio 4 Extra频道
