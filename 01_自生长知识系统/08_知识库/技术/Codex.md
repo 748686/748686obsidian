@@ -38,3 +38,31 @@ OpenAI提供的AI编程辅助技术，已在企业级开发中验证降低成本
 
 - 来源事件：EVT-20261009-000521
 - 本次动作：CREATE
+
+
+---
+
+## 知识更新 · 2026-10-22
+
+- 来源事件：EVT-20261022-000743
+- 置信度：0.9
+- 重要性：4
+
+### 本次变化
+
+OpenAI 的 AI 编程代理工作流，现可通过 Google Cloud 企业客户访问。
+
+### 新增事实
+
+- Codex Agentic 工作流将通过 Google Cloud Gemini Model Garden 向企业开放
+- 全面可用性计划在未来几周内推出
+
+### 变化
+
+- 访问渠道扩展：从原有渠道增加 Google Cloud 企业客户访问路径
+
+### 相关知识
+
+- [[OpenAI]]
+- [[Google Cloud]]
+- [[Gemini Model Garden]]
