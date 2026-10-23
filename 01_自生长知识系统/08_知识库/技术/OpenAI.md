@@ -5,7 +5,7 @@ status: active
 importance: 4
 confidence: 0.85
 created_at: 2026-09-26
-last_updated: 2026-09-26
+last_updated: 2026-10-22
 ---
 
 # OpenAI
@@ -62,3 +62,17 @@ OpenAI在2026年10月发布的新成果对数学界产生了巨大冲击，引�
 
 - [[数学界]]
 - [[千禧年大奖难题]]
+
+## 知识更新｜2026-10-22
+
+OpenAI完成重大商业化与基础设施绑定突破。一方面，其模型正式接入Google Cloud平台（Gemini Model Garden），企业客户可利用现有云承诺额度支付费用，打破了此前与微软Azure的独家云伙伴关系格局，标志AI多云生态初现。另一方面，其ChatGPT Ads广告平台注册用户突破10万并扩展至26个新国家；AT&T开始利用其技术辅助内部法律工作。
+
+### 新增事实
+
+- OpenAI模型正式接入Google Cloud Gemini Model Garden，打破微软Azure独家云伙伴格局
+- ChatGPT Ads广告平台注册用户超10万，扩展至26个新国家
+
+### 来源 EventUnit
+
+- `EVT-20261022-000001`
+

@@ -44,3 +44,19 @@ OpenAI模型正式接入Google Cloud平台（Gemini Model Garden），企业客�
 
 - 来源事件：EVT-20261022-000564
 - 本次动作：CREATE
+
+## 知识更新｜2026-10-22
+
+OpenAI模型正式接入Google Cloud平台（Gemini Model Garden），打破了此前微软Azure的独家云伙伴格局，允许企业客户利用现有云承诺额度支付费用，标志着AI商业化基础设施的多云化趋势。
+
+### 新增事实
+
+- OpenAI模型接入Google Cloud Gemini Model Garden
+- 企业可利用现有云承诺额度支付OpenAI费用
+- ChatGPT Ads平台注册用户突破10万
+- ChatGPT Ads扩展至26个新国家
+
+### 来源 EventUnit
+
+- `EVT-20261022-000442`
+

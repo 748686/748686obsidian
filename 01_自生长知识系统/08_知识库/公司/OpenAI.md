@@ -5,7 +5,7 @@ status: active
 importance: 4
 confidence: 0.7
 created_at: 2026-09-04
-last_updated: 2026-10-21
+last_updated: 2026-10-22
 ---
 
 # OpenAI
@@ -1963,3 +1963,19 @@ OpenAI在2026年10月22日宣布其模型正式接入Google Cloud平台（Gemini
 
 - [[Google Cloud]]
 - [[Microsoft Azure]]
+
+## 知识更新｜2026-10-22
+
+OpenAI商业化取得重大突破：模型正式接入Google Cloud平台(Gemini Model Garden)，打破微软Azure独家云伙伴格局；ChatGPT Ads广告平台注册用户超10万并扩展至26个新国家；AT&T开始利用OpenAI技术辅助内部法律工作。
+
+### 新增事实
+
+- OpenAI模型正式接入Google Cloud Gemini Model Garden平台
+- 打破微软Azure对OpenAI云的独家垄断格局
+- ChatGPT Ads广告平台注册用户超过10万
+- 广告平台扩展至26个新国家
+
+### 来源 EventUnit
+
+- `EVT-20261022-000097`
+
