@@ -5,7 +5,7 @@ status: active
 importance: 3
 confidence: 0.8
 created_at: 2026-09-24
-last_updated: 2026-09-24
+last_updated: 2026-10-23
 ---
 
 # Bernie Sanders
@@ -107,3 +107,17 @@ last_updated: 2026-09-24
 
 - [[Greg Casar]]
 - [[美国参议院]]
+
+## 知识更新｜2026-10-23
+
+美国参议员伯尼·桑德斯向杰克·埃尔-萨耶德（Jack El-Sayed）的竞选活动捐赠100万美元，旨在对抗AIPAC在密歇根州的政治影响力。该行为反映了美国进步派势力对亲以色列游说集团的反制。由于源文章仅存摘要且存在元数据错配，事实确认度为中高。
+
+### 新增事实
+
+- 2026年10月23日，Bernie Sanders向Jack El-Sayed竞选活动捐赠100万美元
+- 捐赠目的是抵消AIPAC在密歇根州的影响力
+
+### 来源 EventUnit
+
+- `EVT-20261023-000105`
+

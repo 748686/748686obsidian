@@ -5,7 +5,7 @@ status: active
 importance: 4
 confidence: 0.7
 created_at: 2026-09-04
-last_updated: 2026-10-22
+last_updated: 2026-10-23
 ---
 
 # OpenAI
@@ -2270,3 +2270,16 @@ OpenAI在2026年10月将估值目标从1.4万亿美元下调至1.25万亿美元�
 
 - [[Meta]]
 - [[SoftBank]]
+
+## 知识更新｜2026-10-23
+
+OpenAI估值从1.4万亿美元下调至1.25万亿美元，反映顶级估值下的融资挑战，引发市场对AI投入产出比的重新评估。
+
+### 新增事实
+
+- OpenAI目标估值从1.4万亿美元下调至1.25万亿美元
+
+### 来源 EventUnit
+
+- `EVT-20261023-000484`
+
