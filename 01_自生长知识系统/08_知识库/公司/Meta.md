@@ -169,3 +169,30 @@ Meta宣布计划融资数千亿美元用于AI支出，引发纳斯达克指数�
 
 - [[纳斯达克指数]]
 - [[国债收益率]]
+
+
+---
+
+## 知识更新 · 2026-10-24
+
+- 来源事件：EVT-20261024-000283
+- 置信度：0.75
+- 重要性：3
+
+### 本次变化
+
+Meta is pursuing a major AI strategic investment, but faces internal leadership stability risks linked to CEO Mark Zuckerberg's financial interests and departure threats.
+
+### 新增事实
+
+- Meta is making significant AI-related strategic investments.
+- These investments have created tension between corporate strategy and founder Mark Zuckerberg's personal interests.
+
+### 变化
+
+- Added context regarding leadership stability risks and internal strategic tensions.
+
+### 相关知识
+
+- [[Mark Zuckerberg]]
+- [[AI Investment]]

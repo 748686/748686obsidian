@@ -551,3 +551,26 @@ last_updated: 2026-10-23
 
 - `EVT-20261023-000105`
 
+
+
+---
+
+## 知识更新 · 2026-10-24
+
+- 来源事件：EVT-20261024-000001
+- 置信度：0.6
+- 重要性：2
+
+### 本次变化
+
+前美国总统。据事件合并层（Global Merge）主张，其关于伊朗军舰的言论可能触发了鲁比奥关于古巴的政治表态，但这一因果联系尚未得到独立事实确认。
+
+### 新增事实
+
+- Donald Trump is a former President of the United States.
+- Donald Trump made statements regarding Iranian warships around October 2026.
+
+### 相关知识
+
+- [[Marco Rubio]]
+- [[Iran]]
