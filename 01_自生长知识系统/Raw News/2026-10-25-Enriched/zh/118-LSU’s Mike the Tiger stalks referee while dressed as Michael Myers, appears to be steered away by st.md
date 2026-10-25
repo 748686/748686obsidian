@@ -1,0 +1,50 @@
+---
+title: "[LSU’s Mike the Tiger stalks referee while dressed as Michael Myers, appears to be steered away by staffer](#item-tech-news-102) ⭐️ ?/10"
+date: 2026-10-25
+type: "news"
+source: "news.google.com"
+source_url: "https://news.google.com/rss/articles/CBMisAFBVV95cUxQUWl0Tm40NVoyTDItOHZLVm5xSFVGSXZVQXMzTUVsWmRYbGRzUnE3WGdtbng1Q1JhRE5iTFZtTkJNVzJONS1xZXhfN2lVeG1Na1ltS21XODBpTGxXTGxhWVVydGtvN3QtZFB5WnE4TzdsdnhSR24tNUlxb0dNdVBYMFB5SWJaSjdhVGxRQUxibVRRS2xJLXFMbUpDeDk4Sy1HN1FYVV9fQ2RRSUVfQU5KVg?oc=5&hl=en-US&gl=US&ceid=US:en"
+language: "zh"
+horizon_score: null
+source_status: "fetched"
+content_status: "partial"
+search_method: "rss"
+match_score: 0.8636
+ai_status: "pending"
+original_title: "Google News"
+author: ""
+---
+
+# [LSU’s Mike the Tiger stalks referee while dressed as Michael Myers, appears to be steered away by staffer](#item-tech-news-102) ⭐️ ?/10
+
+## Horizon 摘要
+
+# [LSU’s Mike the Tiger stalks referee while dressed as Michael Myers, appears to be steered away by staffer](#item-tech-news-102) ⭐️ ?/10
+
+## Horizon 摘要
+
+Horizon 日报中未提供该条目的完整正文。
+
+## 原文信息
+
+- Source: AP
+- Original URL: 未从 Horizon 日报中找到
+
+## AI处理状态
+
+等待后续 AI 二次处理及 27 Skills 分析。
+
+## 原文信息
+
+- Source: news.google.com
+- Original URL: https://news.google.com/rss/articles/CBMisAFBVV95cUxQUWl0Tm40NVoyTDItOHZLVm5xSFVGSXZVQXMzTUVsWmRYbGRzUnE3WGdtbng1Q1JhRE5iTFZtTkJNVzJONS1xZXhfN2lVeG1Na1ltS21XODBpTGxXTGxhWVVydGtvN3QtZFB5WnE4TzdsdnhSR24tNUlxb0dNdVBYMFB5SWJaSjdhVGxRQUxibVRRS2xJLXFMbUpDeDk4Sy1HN1FYVV9fQ2RRSUVfQU5KVg?oc=5&hl=en-US&gl=US&ceid=US:en
+- Original Title: Google News
+- Description: Comprehensive up-to-date news coverage, aggregated from sources all over the world by Google News.
+
+## 原文正文
+
+Google News
+
+## AI 处理状态
+
+等待 27 Skills 进行后续处理。
