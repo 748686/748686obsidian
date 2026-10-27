@@ -1,0 +1,26 @@
+---
+title: "[L’entreprise Les Forges de Tarbes, qui fournit des corps d’obus pour l’Ukraine, placée en redressement judiciaire](#item-tech-news-350) ⭐️ ?/10"
+date: 2026-10-27
+type: "新闻"
+source: "Unknown"
+language: "en"
+horizon_score: null
+original_source: "Horizon"
+original_url: ""
+status: "待AI处理"
+---
+
+# [L’entreprise Les Forges de Tarbes, qui fournit des corps d’obus pour l’Ukraine, placée en redressement judiciaire](#item-tech-news-350) ⭐️ ?/10
+
+## Horizon Summary
+
+The Horizon digest did not provide a full body for this item.
+
+## 原文信息
+
+- Source: Unknown
+- Original URL: 未从 Horizon 日报中找到
+
+## AI处理状态
+
+等待后续 AI 二次处理及 27 Skills 分析。
