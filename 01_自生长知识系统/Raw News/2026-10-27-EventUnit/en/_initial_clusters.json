@@ -1,0 +1,6337 @@
+{
+  "version": "6.5.3",
+  "date": "2026-10-27",
+  "language": "en",
+  "clusters": [
+    {
+      "cluster_id": "EVT-20261027-000001",
+      "local_cluster_id": "C001",
+      "event_title": "Tech News Digest",
+      "event_reason": "Articles sourced from GitHub, Japan Times, and FAZ covering Ollama releases, Apple foldable issues, Anthropic IPO, and German economic policy",
+      "article_indexes": [
+        1,
+        4,
+        7,
+        8,
+        9,
+        10
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261027-000001"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261027-000002",
+      "local_cluster_id": "C002",
+      "event_title": "Qishi Journal Political Digest",
+      "event_reason": "A collection of Chinese political news and international reports from the Qiushi Journal RSS feed",
+      "article_indexes": [
+        2
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261027-000002"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261027-000003",
+      "local_cluster_id": "C003",
+      "event_title": "KBS World News Digest",
+      "event_reason": "A collection of international and French news items from the KBS RSS feed",
+      "article_indexes": [
+        3
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261027-000003"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261027-000004",
+      "local_cluster_id": "C004",
+      "event_title": "Academic Communities AI Collaboration",
+      "event_reason": "Standalone article regarding building scientific understanding with academic communities",
+      "article_indexes": [
+        5
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261027-000004"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261027-000005",
+      "local_cluster_id": "C005",
+      "event_title": "GPT-6.1 Sol Security",
+      "event_reason": "Standalone article about GPT-6.1 Sol helping CodeRabbit strengthen security",
+      "article_indexes": [
+        6
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261027-000005"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261027-000006",
+      "local_cluster_id": "C006",
+      "event_title": "Boxing in Riyadh",
+      "event_reason": "Standalone article about greed prevailing over reason in Riyadh boxing",
+      "article_indexes": [
+        11
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261027-000006"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261027-000007",
+      "local_cluster_id": "C007",
+      "event_title": "Venezuela Opposition Machado",
+      "event_reason": "Articles about Maria Corina Machado's return to Venezuela and her political tightrope",
+      "article_indexes": [
+        12,
+        16
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261027-000007"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261027-000008",
+      "local_cluster_id": "C008",
+      "event_title": "California Hikers Rescue",
+      "event_reason": "Standalone article about stranded hikers rescued in California",
+      "article_indexes": [
+        13
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261027-000008"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261027-000009",
+      "local_cluster_id": "C009",
+      "event_title": "Angel Reese WNBA Shirt",
+      "event_reason": "Standalone article about Angel Reese's T-shirt at the WNBA Finals",
+      "article_indexes": [
+        14
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261027-000009"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261027-000010",
+      "local_cluster_id": "C010",
+      "event_title": "Gretchen Whitmer Xenophobia Comments",
+      "event_reason": "Standalone article about Gretchen Whitmer's comments on hidden xenophobia",
+      "article_indexes": [
+        15
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261027-000010"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261027-000011",
+      "local_cluster_id": "C011",
+      "event_title": "Ballon d'Or 2026",
+      "event_reason": "Standalone article about Harry Kane and Alexia Putellas winning the Ballon d'Or",
+      "article_indexes": [
+        17
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261027-000011"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261027-000012",
+      "local_cluster_id": "C012",
+      "event_title": "Iberian General Strike Protest",
+      "event_reason": "Standalone article about protest movements and potential general strikes in Iberia",
+      "article_indexes": [
+        18
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261027-000012"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261027-000013",
+      "local_cluster_id": "C013",
+      "event_title": "Brazil Anti-Trump Election",
+      "event_reason": "Standalone article about Brazil's presidential election staying on an anti-Trump course",
+      "article_indexes": [
+        19
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261027-000013"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261027-000014",
+      "local_cluster_id": "C014",
+      "event_title": "Linus Torvalds Linux Commit",
+      "event_reason": "Standalone article about a commit pushed to the Linux kernel",
+      "article_indexes": [
+        20
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261027-000014"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261027-000015",
+      "local_cluster_id": "C015",
+      "event_title": "Brooke Hogan Hulk Home Sale",
+      "event_reason": "Standalone article about Brooke Hogan criticizing people after Hulk's Florida home sale",
+      "article_indexes": [
+        21
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261027-000015"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261027-000016",
+      "local_cluster_id": "C016",
+      "event_title": "Chris Brown Suspended Sentence",
+      "event_reason": "Standalone article about Chris Brown receiving a suspended sentence for a bottle attack",
+      "article_indexes": [
+        22
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261027-000016"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261027-000017",
+      "local_cluster_id": "C017",
+      "event_title": "NPB Fans Beer Vendors",
+      "event_reason": "Standalone article about inside the world of NPB fans and their beer vendors",
+      "article_indexes": [
+        23
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261027-000017"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261027-000018",
+      "local_cluster_id": "C018",
+      "event_title": "Serbia Democratic Experiment",
+      "event_reason": "Standalone article about Vučić's defeat and Serbia beginning a democratic experiment",
+      "article_indexes": [
+        24
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261027-000018"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261027-000019",
+      "local_cluster_id": "C019",
+      "event_title": "University Frankfurt Earthquake",
+      "event_reason": "Standalone article about an induced earthquake at the University of Frankfurt",
+      "article_indexes": [
+        25
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261027-000019"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261027-000020",
+      "local_cluster_id": "C020",
+      "event_title": "E-Cigarette Limit Values",
+      "event_reason": "Standalone article about a turn towards reason regarding limit values for e-cigarettes",
+      "article_indexes": [
+        26
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261027-000020"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261027-000021",
+      "local_cluster_id": "C021",
+      "event_title": "FAZ Reader Education Help",
+      "event_reason": "Standalone article about FAZ readers helping to open the gate to education",
+      "article_indexes": [
+        27
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261027-000021"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261027-000022",
+      "local_cluster_id": "C022",
+      "event_title": "Greptile Bug Detection",
+      "event_reason": "Standalone article about Greptile taking bug detection beyond code review with GPT-6 Astra",
+      "article_indexes": [
+        28
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261027-000022"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261027-000023",
+      "local_cluster_id": "C023",
+      "event_title": "Ultrafast OpenAI Investigation",
+      "event_reason": "Standalone article about how Ultrafast cut incident investigation time at OpenAI",
+      "article_indexes": [
+        29
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261027-000023"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261027-000024",
+      "local_cluster_id": "C024",
+      "event_title": "Propensity Entanglement Case Study",
+      "event_reason": "Standalone article providing a big case study of propensity entanglement",
+      "article_indexes": [
+        30
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261027-000024"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261027-000025",
+      "local_cluster_id": "C001",
+      "event_title": "Sparks远程 embalming 与遗体保存运输",
+      "event_reason": "关于Sparks技术的脑或全身保存与运输，单独技术议题。",
+      "article_indexes": [
+        31
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261027-000025"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261027-000026",
+      "local_cluster_id": "C002",
+      "event_title": "AI代理开放端R&D任务能力评估",
+      "event_reason": "针对AI R&D任务的代理能力测量研究，单独方法学事件。",
+      "article_indexes": [
+        32
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261027-000026"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261027-000027",
+      "local_cluster_id": "C003",
+      "event_title": "情感即感知理论",
+      "event_reason": "情感感知理论文章，与其他无共同具体事件。",
+      "article_indexes": [
+        33
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261027-000027"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261027-000028",
+      "local_cluster_id": "C004",
+      "event_title": "Persona特征一致性研究",
+      "event_reason": "关于Persona特性的分析，单独研究主题。",
+      "article_indexes": [
+        34
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261027-000028"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261027-000029",
+      "local_cluster_id": "C005",
+      "event_title": "LLM图灵测试讨论",
+      "event_reason": "LLM通过图灵测试的探讨，独立测试评估事件。",
+      "article_indexes": [
+        35
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261027-000029"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261027-000030",
+      "local_cluster_id": "C006",
+      "event_title": "注意力架构无关定义",
+      "event_reason": "注意力机制的理论定义研究，单独NLP概念分析。",
+      "article_indexes": [
+        36
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261027-000030"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261027-000031",
+      "local_cluster_id": "C007",
+      "event_title": "Kevin Roose Vox访谈AGI社会学",
+      "event_reason": "Kevin Roose关于AGI社会学的访谈，特定媒体活动。",
+      "article_indexes": [
+        37
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261027-000031"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261027-000032",
+      "local_cluster_id": "C008",
+      "event_title": "研究者关联性小群体",
+      "event_reason": "研究人员相关群体分析，独立研究话题。",
+      "article_indexes": [
+        38
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261027-000032"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261027-000033",
+      "local_cluster_id": "C009",
+      "event_title": "AlgZoo可解释性挑战进展",
+      "event_reason": "针对特定AI模型的暴力破解可解释性挑战，具体研究事件。",
+      "article_indexes": [
+        39
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261027-000033"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261027-000034",
+      "local_cluster_id": "C010",
+      "event_title": "Head of Legal职位招聘",
+      "event_reason": "法律总监职位招聘广告，独立招聘事件。",
+      "article_indexes": [
+        40
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261027-000034"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261027-000035",
+      "local_cluster_id": "C011",
+      "event_title": "AI公司规则专家问答",
+      "event_reason": "AI公司监管规则的专家意见征集，具体媒体活动。",
+      "article_indexes": [
+        41
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261027-000035"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261027-000036",
+      "local_cluster_id": "C012",
+      "event_title": "习近平讲话出版与中央巡视新闻",
+      "event_reason": "中国日报头版综合新闻，包括讲话出版、巡视进驻、思想专题等政治内容，同一版面来源。",
+      "article_indexes": [
+        42,
+        43,
+        44,
+        45,
+        46,
+        47
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261027-000036"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261027-000037",
+      "local_cluster_id": "C013",
+      "event_title": "中国稻米新品种与种业创新",
+      "event_reason": "丰收时节稻香新品种及种业创新报道，属于同一次农业报道活动。",
+      "article_indexes": [
+        48,
+        49
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261027-000037"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261027-000038",
+      "local_cluster_id": "C014",
+      "event_title": "陪诊服务规范建议",
+      "event_reason": "关于陪诊服务保障与边界的讨论，独立民生服务议题。",
+      "article_indexes": [
+        50
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261027-000038"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261027-000039",
+      "local_cluster_id": "C015",
+      "event_title": "中国产业规划与数字家庭建设",
+      "event_reason": "《产业基础能力提升“十五五”规划》印发与六城市数字家庭建设，均为国家发改委相关政策发布事件。",
+      "article_indexes": [
+        51,
+        52
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261027-000039"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261027-000040",
+      "local_cluster_id": "C016",
+      "event_title": "中国市场共同成长国际合作",
+      "event_reason": "与国际市场合作成长的报道，独立国际合作新闻。",
+      "article_indexes": [
+        53
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261027-000040"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261027-000041",
+      "local_cluster_id": "C017",
+      "event_title": "长征精神与中国发展智慧纪念",
+      "event_reason": "从长征足迹解读中国发展智慧及走近长征感悟精神力量，属于长征胜利90周年纪念系列报道。",
+      "article_indexes": [
+        54,
+        57
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261027-000041"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261027-000042",
+      "local_cluster_id": "C018",
+      "event_title": "德国总统施泰因迈尔访华",
+      "event_reason": "德国总统对华国事访问，独立外交事件。",
+      "article_indexes": [
+        55
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261027-000042"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261027-000043",
+      "local_cluster_id": "C019",
+      "event_title": "2026全球治理论坛雄安发布愿景文件",
+      "event_reason": "全球治理论坛在雄安发布文件，特定国际论坛事件。",
+      "article_indexes": [
+        56
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261027-000043"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261027-000044",
+      "local_cluster_id": "C020",
+      "event_title": "冰岛外交部长访华",
+      "event_reason": "冰岛外长对华访问，独立外交事件。",
+      "article_indexes": [
+        58
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261027-000044"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261027-000045",
+      "local_cluster_id": "C021",
+      "event_title": "中朝抗美援朝76周年纪念活动",
+      "event_reason": "中朝共同举行抗美援朝出国作战纪念，特定历史纪念事件。",
+      "article_indexes": [
+        59
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261027-000045"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261027-000046",
+      "local_cluster_id": "C022",
+      "event_title": "2026中国—东盟青年文化周开幕",
+      "event_reason": "中国与东盟青年文化周在北京开幕，独立文化交流事件。",
+      "article_indexes": [
+        60
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261027-000046"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261027-000047",
+      "local_cluster_id": "C001",
+      "event_title": "外交部外空合作表态",
+      "event_reason": "外交部宣布携手各方让外空发展成果惠及全人类",
+      "article_indexes": [
+        61
+      ],
+      "batch_identifier": 3,
+      "member_cluster_ids": [
+        "EVT-20261027-000047"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 3"
+    },
+    {
+      "cluster_id": "EVT-20261027-000048",
+      "local_cluster_id": "C002",
+      "event_title": "西藏巴青县救灾与民生响应",
+      "event_reason": "转移安置受灾群众、护好伤员、迅速响应及办好民生实事",
+      "article_indexes": [
+        62,
+        64,
+        65,
+        66
+      ],
+      "batch_identifier": 3,
+      "member_cluster_ids": [
+        "EVT-20261027-000048"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 3"
+    },
+    {
+      "cluster_id": "EVT-20261027-000049",
+      "local_cluster_id": "C003",
+      "event_title": "邵奇惠逝世及报纸编务信息",
+      "event_reason": "邵奇惠同志逝世消息及相关版次责编名单",
+      "article_indexes": [
+        63,
+        67,
+        68,
+        69
+      ],
+      "batch_identifier": 3,
+      "member_cluster_ids": [
+        "EVT-20261027-000049"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 3"
+    },
+    {
+      "cluster_id": "EVT-20261027-000050",
+      "local_cluster_id": "C004",
+      "event_title": "生态文明思想评论",
+      "event_reason": "一江碧水悟思想评论员观察",
+      "article_indexes": [
+        70
+      ],
+      "batch_identifier": 3,
+      "member_cluster_ids": [
+        "EVT-20261027-000050"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 3"
+    },
+    {
+      "cluster_id": "EVT-20261027-000051",
+      "local_cluster_id": "C005",
+      "event_title": "内蒙古草原保护模式",
+      "event_reason": "内蒙古草原保护作为民族团结和绿色增长典范",
+      "article_indexes": [
+        71
+      ],
+      "batch_identifier": 3,
+      "member_cluster_ids": [
+        "EVT-20261027-000051"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 3"
+    },
+    {
+      "cluster_id": "EVT-20261027-000052",
+      "local_cluster_id": "C006",
+      "event_title": "中国文化遗产保护框架",
+      "event_reason": "中国遗产'Grand Protection'框架形成",
+      "article_indexes": [
+        72
+      ],
+      "batch_identifier": 3,
+      "member_cluster_ids": [
+        "EVT-20261027-000052"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 3"
+    },
+    {
+      "cluster_id": "EVT-20261027-000053",
+      "local_cluster_id": "C007",
+      "event_title": "黄河治理80周年",
+      "event_reason": "庆祝黄河治理80周年",
+      "article_indexes": [
+        73
+      ],
+      "batch_identifier": 3,
+      "member_cluster_ids": [
+        "EVT-20261027-000053"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 3"
+    },
+    {
+      "cluster_id": "EVT-20261027-000054",
+      "local_cluster_id": "C008",
+      "event_title": "长征精神教育与版务",
+      "event_reason": "读懂课本里的长征及本版责编信息",
+      "article_indexes": [
+        74,
+        75,
+        76
+      ],
+      "batch_identifier": 3,
+      "member_cluster_ids": [
+        "EVT-20261027-000054"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 3"
+    },
+    {
+      "cluster_id": "EVT-20261027-000055",
+      "local_cluster_id": "C009",
+      "event_title": "海南自由贸易港法治建设",
+      "event_reason": "法治护航海南自由贸易港建设",
+      "article_indexes": [
+        77
+      ],
+      "batch_identifier": 3,
+      "member_cluster_ids": [
+        "EVT-20261027-000055"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 3"
+    },
+    {
+      "cluster_id": "EVT-20261027-000056",
+      "local_cluster_id": "C010",
+      "event_title": "央行设立债市互换便利",
+      "event_reason": "央行设立债市非银大额赎回互换便利",
+      "article_indexes": [
+        78
+      ],
+      "batch_identifier": 3,
+      "member_cluster_ids": [
+        "EVT-20261027-000056"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 3"
+    },
+    {
+      "cluster_id": "EVT-20261027-000057",
+      "local_cluster_id": "C011",
+      "event_title": "生态环境与空气质量改善",
+      "event_reason": "图片报道及前三季度全国PM2.5平均浓度同比下降3.9%",
+      "article_indexes": [
+        79,
+        80
+      ],
+      "batch_identifier": 3,
+      "member_cluster_ids": [
+        "EVT-20261027-000057"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 3"
+    },
+    {
+      "cluster_id": "EVT-20261027-000058",
+      "local_cluster_id": "C012",
+      "event_title": "长三角高铁里程扩展",
+      "event_reason": "长三角高铁里程将超8500公里",
+      "article_indexes": [
+        81
+      ],
+      "batch_identifier": 3,
+      "member_cluster_ids": [
+        "EVT-20261027-000058"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 3"
+    },
+    {
+      "cluster_id": "EVT-20261027-000059",
+      "local_cluster_id": "C013",
+      "event_title": "北京落叶缓扫政策",
+      "event_reason": "北京推动落叶缓扫拉长市民赏秋周期",
+      "article_indexes": [
+        82
+      ],
+      "batch_identifier": 3,
+      "member_cluster_ids": [
+        "EVT-20261027-000059"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 3"
+    },
+    {
+      "cluster_id": "EVT-20261027-000060",
+      "local_cluster_id": "C014",
+      "event_title": "版务信息",
+      "event_reason": "本版责编名单",
+      "article_indexes": [
+        83
+      ],
+      "batch_identifier": 3,
+      "member_cluster_ids": [
+        "EVT-20261027-000060"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 3"
+    },
+    {
+      "cluster_id": "EVT-20261027-000061",
+      "local_cluster_id": "C015",
+      "event_title": "东北虎豹国家公园保护",
+      "event_reason": "保护东北虎豹共护绿水青山",
+      "article_indexes": [
+        84
+      ],
+      "batch_identifier": 3,
+      "member_cluster_ids": [
+        "EVT-20261027-000061"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 3"
+    },
+    {
+      "cluster_id": "EVT-20261027-000062",
+      "local_cluster_id": "C016",
+      "event_title": "一带一路绿色创新大会2026",
+      "event_reason": "一带一路绿色创新大会2026在香港举行",
+      "article_indexes": [
+        85
+      ],
+      "batch_identifier": 3,
+      "member_cluster_ids": [
+        "EVT-20261027-000062"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 3"
+    },
+    {
+      "cluster_id": "EVT-20261027-000063",
+      "local_cluster_id": "C017",
+      "event_title": "老旧街区厂区改造",
+      "event_reason": "改造提升1500个老旧街区厂区",
+      "article_indexes": [
+        86
+      ],
+      "batch_identifier": 3,
+      "member_cluster_ids": [
+        "EVT-20261027-000063"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 3"
+    },
+    {
+      "cluster_id": "EVT-20261027-000064",
+      "local_cluster_id": "C018",
+      "event_title": "前三季度快递业务量",
+      "event_reason": "前三季度快递业务量累计完成1513亿件",
+      "article_indexes": [
+        87
+      ],
+      "batch_identifier": 3,
+      "member_cluster_ids": [
+        "EVT-20261027-000064"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 3"
+    },
+    {
+      "cluster_id": "EVT-20261027-000065",
+      "local_cluster_id": "C019",
+      "event_title": "市井生活与版务信息",
+      "event_reason": "桂花市集探访、图片报道及版务信息",
+      "article_indexes": [
+        88,
+        89,
+        90
+      ],
+      "batch_identifier": 3,
+      "member_cluster_ids": [
+        "EVT-20261027-000065"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 3"
+    },
+    {
+      "cluster_id": "EVT-20261027-000066",
+      "local_cluster_id": "C001",
+      "event_title": "新疆雪场开板迎新雪季",
+      "event_reason": "新疆地区滑雪场陆续开板，标志新雪季开始。",
+      "article_indexes": [
+        91
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261027-000066"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261027-000067",
+      "local_cluster_id": "C002",
+      "event_title": "南方区域电力市场正式运行",
+      "event_reason": "南方区域电力市场启动运行，打造全国统一电力市场样板。",
+      "article_indexes": [
+        94
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261027-000067"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261027-000068",
+      "local_cluster_id": "C003",
+      "event_title": "全面从严治党向纵深推进",
+      "event_reason": "强调深入学习习近平新时代中国特色社会主义思想，推进全面从严治党。",
+      "article_indexes": [
+        95
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261027-000068"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261027-000069",
+      "local_cluster_id": "C004",
+      "event_title": "古代中国城市治理智慧",
+      "event_reason": "探讨古代中国城市治理的当代价值与智慧借鉴。",
+      "article_indexes": [
+        96
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261027-000069"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261027-000070",
+      "local_cluster_id": "C005",
+      "event_title": "促进农业生态价值转化",
+      "event_reason": "专题深思文章，探讨农业生态价值的转化路径。",
+      "article_indexes": [
+        97
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261027-000070"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261027-000071",
+      "local_cluster_id": "C006",
+      "event_title": "闽宁对口帮扶协作五周年回顾",
+      "event_reason": "厦门援宁干部回顾五年工作经历，以及福建与宁夏对口协作发展的专题报道。",
+      "article_indexes": [
+        98,
+        99
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261027-000071"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261027-000072",
+      "local_cluster_id": "C007",
+      "event_title": "广交会外国买家热衷采购",
+      "event_reason": "外国买家在广交会上大量采购中国产品。",
+      "article_indexes": [
+        100
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261027-000072"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261027-000073",
+      "local_cluster_id": "C008",
+      "event_title": "综合交通枢纽规划及前三季度经济运行数据",
+      "event_reason": "《综合交通枢纽发展“十五五”规划》印发，配合前三季度工业企业销售收入增长及农村快递全覆盖等经济运行数据报道。",
+      "article_indexes": [
+        101,
+        102,
+        103,
+        104,
+        105
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261027-000073"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261027-000074",
+      "local_cluster_id": "C009",
+      "event_title": "本版责编署名",
+      "event_reason": "报纸版面责任编辑署名信息。",
+      "article_indexes": [
+        106
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261027-000074"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261027-000075",
+      "local_cluster_id": "C010",
+      "event_title": "干部作风建设、基层民生与地方监管动态",
+      "event_reason": "涵盖干部作风转变、反对形式主义、甘肃消防安全部署、广西网络交易监管及地方发展难题解决等基层治理相关报道。",
+      "article_indexes": [
+        107,
+        108,
+        109,
+        110,
+        111,
+        112,
+        113,
+        114
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261027-000075"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261027-000076",
+      "local_cluster_id": "C011",
+      "event_title": "武汉东西湖打造产城融合“中国网谷”",
+      "event_reason": "武汉东西湖区加快建设中网谷，推动产城融合发展。",
+      "article_indexes": [
+        115
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261027-000076"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261027-000077",
+      "local_cluster_id": "C012",
+      "event_title": "乡村文艺建设与教育文化实践活动",
+      "event_reason": "涵盖文艺赋美乡村、编辑手记、校馆教育以及工程院学习“两弹一星”精神等文化教育活动。",
+      "article_indexes": [
+        116,
+        117,
+        118,
+        119
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261027-000077"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261027-000078",
+      "local_cluster_id": "C013",
+      "event_title": "二氧化碳固定和生物转化国际联盟成立",
+      "event_reason": "国际学术组织成立，聚焦二氧化碳固定与生物转化领域。",
+      "article_indexes": [
+        120
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261027-000078"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261027-000079",
+      "local_cluster_id": "C014",
+      "event_title": "打造亮丽紫色名片",
+      "event_reason": "关于特定品牌形象或产业名片的宣传报道（原文缺失，单独成类）。",
+      "article_indexes": [
+        92
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261027-000079"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261027-000080",
+      "local_cluster_id": "C015",
+      "event_title": "本版责编署名",
+      "event_reason": "报纸版面责任编辑署名信息。",
+      "article_indexes": [
+        93
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261027-000080"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261027-000081",
+      "local_cluster_id": "C001",
+      "event_title": "兵马俑制作者构成新研究",
+      "event_reason": "关于秦始皇兵马俑制作者可能包含女性和青年的考古学研究",
+      "article_indexes": [
+        121
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261027-000081"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261027-000082",
+      "local_cluster_id": "C002",
+      "event_title": "淮南旅游服务优化",
+      "event_reason": "淮南市通过精细化服务保留旅游流量的城市发展举措",
+      "article_indexes": [
+        122
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261027-000082"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261027-000083",
+      "local_cluster_id": "C003",
+      "event_title": "人民日报第14版编辑内容",
+      "event_reason": "人民日报第14版的事业单位登记管理条例及编辑团队信息",
+      "article_indexes": [
+        123,
+        124,
+        125,
+        126,
+        127
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261027-000083"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261027-000084",
+      "local_cluster_id": "C004",
+      "event_title": "人民日报第15版体育与健身",
+      "event_reason": "人民日报第15版的竞技体育、健身知识和游泳纪录报道",
+      "article_indexes": [
+        128,
+        129,
+        130
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261027-000084"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261027-000085",
+      "local_cluster_id": "C005",
+      "event_title": "人民日报第15版浙江水利与编辑团队",
+      "event_reason": "浙江防洪工程报道及该版编辑团队信息",
+      "article_indexes": [
+        131,
+        132
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261027-000085"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261027-000086",
+      "local_cluster_id": "C006",
+      "event_title": "重庆梁平低空经济发展",
+      "event_reason": "重庆梁平区发展低空经济打造西部低空之城的产业政策",
+      "article_indexes": [
+        133
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261027-000086"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261027-000087",
+      "local_cluster_id": "C007",
+      "event_title": "西非经济增长态势",
+      "event_reason": "西非地区整体经济呈现良好增长势头的国际经济报道",
+      "article_indexes": [
+        134
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261027-000087"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261027-000088",
+      "local_cluster_id": "C008",
+      "event_title": "中国乡村振兴女性成就获联合国认可",
+      "event_reason": "中国乡村振兴中的女性力量在联合国获奖的国际认可事件",
+      "article_indexes": [
+        135
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261027-000088"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261027-000089",
+      "local_cluster_id": "C009",
+      "event_title": "澜湄青年足球竞技",
+      "event_reason": "澜沧江-湄公河区域青年足球体育赛事活动",
+      "article_indexes": [
+        136
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261027-000089"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261027-000090",
+      "local_cluster_id": "C010",
+      "event_title": "日本前首相福田康夫逝世",
+      "event_reason": "日本前首相福田康夫去世及中国外交部的哀悼表态",
+      "article_indexes": [
+        137
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261027-000090"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261027-000091",
+      "local_cluster_id": "C011",
+      "event_title": "卢拉连任巴西总统",
+      "event_reason": "巴西总统卢拉成功连任的政治事件",
+      "article_indexes": [
+        138
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261027-000091"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261027-000092",
+      "local_cluster_id": "C012",
+      "event_title": "津巴布韦要求解除西方制裁",
+      "event_reason": "津巴布韦总统呼吁西方国家无条件解除制裁的外交事件",
+      "article_indexes": [
+        139
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261027-000092"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261027-000093",
+      "local_cluster_id": "C013",
+      "event_title": "德国能源转型新阶段",
+      "event_reason": "德国能源政策转型进入新发展阶段的国际能源事件",
+      "article_indexes": [
+        140
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261027-000093"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261027-000094",
+      "local_cluster_id": "C014",
+      "event_title": "人民日报第17版编辑团队",
+      "event_reason": "人民日报第17版的编辑人员信息",
+      "article_indexes": [
+        141
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261027-000094"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261027-000095",
+      "local_cluster_id": "C015",
+      "event_title": "中共二十届五中全会召开",
+      "event_reason": "中国共产党第二十届中央委员会第五次全体会议在北京举行的重大政治事件",
+      "article_indexes": [
+        142
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261027-000095"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261027-000096",
+      "local_cluster_id": "C016",
+      "event_title": "内塔尼亚胡推动对伊朗军事行动",
+      "event_reason": "以色列总理内塔尼亚胡在选举前推动对伊朗发动攻击的政治军事事件",
+      "article_indexes": [
+        143
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261027-000096"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261027-000097",
+      "local_cluster_id": "C017",
+      "event_title": "联合国指控以色列在加沙犯种族灭绝行为",
+      "event_reason": "联合国人权面板指控以色列在停火后仍在加沙实施种族灭绝行为的国际法事件",
+      "article_indexes": [
+        144
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261027-000097"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261027-000098",
+      "local_cluster_id": "C018",
+      "event_title": "科米被追加泄露机密指控",
+      "event_reason": "美国司法部对前FBI局长科米追加泄露机密信息的刑事指控",
+      "article_indexes": [
+        145
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261027-000098"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261027-000099",
+      "local_cluster_id": "C019",
+      "event_title": "肯·帕克斯顿州资金私人飞行受审查",
+      "event_reason": "德州总检察长肯·帕克斯顿使用州资金私人飞机出行引发的竞选监督事件",
+      "article_indexes": [
+        146
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261027-000099"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261027-000100",
+      "local_cluster_id": "C020",
+      "event_title": "特朗普集会骚乱事件回顾",
+      "event_reason": "特朗普竞选集会中的肢体冲突事件与其过往集会历史的关联性分析",
+      "article_indexes": [
+        147
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261027-000100"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261027-000101",
+      "local_cluster_id": "C021",
+      "event_title": "加州选票诉讼上诉法院裁决",
+      "event_reason": "美国上诉法院拒绝干预加利福尼亚州选票相关诉讼的法律程序事件",
+      "article_indexes": [
+        148
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261027-000101"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261027-000102",
+      "local_cluster_id": "C022",
+      "event_title": "Anthropic财务披露",
+      "event_reason": "AI公司Anthropic公布快速增长的收入和更快的支出披露的企业财务事件",
+      "article_indexes": [
+        149
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261027-000102"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261027-000103",
+      "local_cluster_id": "C023",
+      "event_title": "伍德沃德回忆录批评贝佐斯",
+      "event_reason": "著名记者鲍勃·伍德沃德在新回忆录中批评杰夫·贝佐斯的出版事件",
+      "article_indexes": [
+        150
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261027-000103"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261027-000104",
+      "local_cluster_id": "C001",
+      "event_title": "Neanderthals disappearance",
+      "event_reason": "Science article on Neanderthal extinction",
+      "article_indexes": [
+        151
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261027-000104"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261027-000105",
+      "local_cluster_id": "C002",
+      "event_title": "Anthropic IPO S-1",
+      "event_reason": "Anthropic's IPO filing disclosure",
+      "article_indexes": [
+        152
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261027-000105"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261027-000106",
+      "local_cluster_id": "C003",
+      "event_title": "Book review Princes and Thieves",
+      "event_reason": "Literary book review",
+      "article_indexes": [
+        153
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261027-000106"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261027-000107",
+      "local_cluster_id": "C004",
+      "event_title": "East Potomac Park court block",
+      "event_reason": "Court order blocking alterations to DC park",
+      "article_indexes": [
+        154
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261027-000107"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261027-000108",
+      "local_cluster_id": "C005",
+      "event_title": "Marissa Mayer AI gender diversity",
+      "event_reason": "Article about Marissa Mayer addressing gender issues in AI",
+      "article_indexes": [
+        155
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261027-000108"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261027-000109",
+      "local_cluster_id": "C006",
+      "event_title": "Lula Brazil election social media",
+      "event_reason": "Analysis of Lula's social media campaign in Brazil election",
+      "article_indexes": [
+        156
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261027-000109"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261027-000110",
+      "local_cluster_id": "C007",
+      "event_title": "Flávio Bolsonaro passport seizure",
+      "event_reason": "Brazil Supreme Court order regarding Flávio Bolsonaro",
+      "article_indexes": [
+        157
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261027-000110"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261027-000111",
+      "local_cluster_id": "C008",
+      "event_title": "Walter Koenig death",
+      "event_reason": "Obituary for Star Trek actor Walter Koenig",
+      "article_indexes": [
+        158
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261027-000111"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261027-000112",
+      "local_cluster_id": "C009",
+      "event_title": "India travel reflection",
+      "event_reason": "Personal travel essay about India",
+      "article_indexes": [
+        159
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261027-000112"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261027-000113",
+      "local_cluster_id": "C010",
+      "event_title": "White House Trump prayer defense",
+      "event_reason": "White House defending Trump's prayer event before midterms",
+      "article_indexes": [
+        160
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261027-000113"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261027-000114",
+      "local_cluster_id": "C011",
+      "event_title": "Portland women's sports policy",
+      "event_reason": "Portland officials denying policy approval for sports controversy",
+      "article_indexes": [
+        161
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261027-000114"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261027-000115",
+      "local_cluster_id": "C012",
+      "event_title": "DHS China visa suspension",
+      "event_reason": "US DHS suspending visa-free travel for Chinese nationals",
+      "article_indexes": [
+        162
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261027-000115"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261027-000116",
+      "local_cluster_id": "C013",
+      "event_title": "West Virginia child abuse case",
+      "event_reason": "Couple charged in severe child neglect case",
+      "article_indexes": [
+        163
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261027-000116"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261027-000117",
+      "local_cluster_id": "C014",
+      "event_title": "Ilhan Omar removal analysis",
+      "event_reason": "Political analysis on removing Rep. Ilhan Omar from Congress",
+      "article_indexes": [
+        164
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261027-000117"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261027-000118",
+      "local_cluster_id": "C015",
+      "event_title": "El-Sayed guaranteed income voters",
+      "event_reason": "Voter reactions to progressive candidate's guaranteed income stance",
+      "article_indexes": [
+        165
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261027-000118"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261027-000119",
+      "local_cluster_id": "C016",
+      "event_title": "Thunder NBA injuries",
+      "event_reason": "Oklahoma City Thunder players Jalen Williams and Cason Wallace season-ending injuries",
+      "article_indexes": [
+        166
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261027-000119"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261027-000120",
+      "local_cluster_id": "C017",
+      "event_title": "Epstein donor Democratic ads",
+      "event_reason": "Billionaire with Epstein ties funding anti-Trump ads",
+      "article_indexes": [
+        167
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261027-000120"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261027-000121",
+      "local_cluster_id": "C018",
+      "event_title": "CNN town hall detransitioner",
+      "event_reason": "Detransitioner denied speaking opportunity at CNN event with Talarico",
+      "article_indexes": [
+        168
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261027-000121"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261027-000122",
+      "local_cluster_id": "C019",
+      "event_title": "Raiders Kirk Cousins QB",
+      "event_reason": "Raiders coach keeping Kirk Cousins as starting quarterback",
+      "article_indexes": [
+        169
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261027-000122"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261027-000123",
+      "local_cluster_id": "C020",
+      "event_title": "Illegal alien Border Patrol kidnapping",
+      "event_reason": "Individual pleading guilty to fake kidnapping of Border Patrol agents",
+      "article_indexes": [
+        170
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261027-000123"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261027-000124",
+      "local_cluster_id": "C021",
+      "event_title": "Jon Gosselin family estrangement",
+      "event_reason": "Jon Gosselin claiming estrangement from his six children",
+      "article_indexes": [
+        171
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261027-000124"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261027-000125",
+      "local_cluster_id": "C022",
+      "event_title": "Travel warnings 13 countries",
+      "event_reason": "Updated deadly security travel warnings for 13 countries",
+      "article_indexes": [
+        172
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261027-000125"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261027-000126",
+      "local_cluster_id": "C023",
+      "event_title": "Trump supporters MAGA voting",
+      "event_reason": "Analysis of Trump supporter voting behavior despite economic and war concerns",
+      "article_indexes": [
+        173
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261027-000126"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261027-000127",
+      "local_cluster_id": "C024",
+      "event_title": "RG3 Baylor coaching interest",
+      "event_reason": "Robert Griffin III expressing interest in Baylor football coach position",
+      "article_indexes": [
+        174
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261027-000127"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261027-000128",
+      "local_cluster_id": "C025",
+      "event_title": "Oregon Ducks Dan Lanning hot seat",
+      "event_reason": "Oregon football coach Dan Lanning facing pressure after loss to Illinois",
+      "article_indexes": [
+        175
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261027-000128"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261027-000129",
+      "local_cluster_id": "C026",
+      "event_title": "James Comey DOJ case",
+      "event_reason": "Former FBI Director James Comey facing new DOJ charges over national defense disclosure",
+      "article_indexes": [
+        176
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261027-000129"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261027-000130",
+      "local_cluster_id": "C027",
+      "event_title": "Natalie Portman childhood sexualization",
+      "event_reason": "Natalie Portman discussing impact of childhood sexualization in entertainment industry",
+      "article_indexes": [
+        177
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261027-000130"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261027-000131",
+      "local_cluster_id": "C028",
+      "event_title": "Prostate cancer new test",
+      "event_reason": "New medical test for aggressive prostate cancer treatment identification",
+      "article_indexes": [
+        178
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261027-000131"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261027-000132",
+      "local_cluster_id": "C029",
+      "event_title": "Former Colombian president abuse allegations",
+      "event_reason": "Former Colombian president accused of exploiting women for presidential parties",
+      "article_indexes": [
+        179
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261027-000132"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261027-000133",
+      "local_cluster_id": "C030",
+      "event_title": "California voting case appeals court",
+      "event_reason": "Appeals court declining to intervene in Trump administration's California voting lawsuit",
+      "article_indexes": [
+        180
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261027-000133"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261027-000134",
+      "local_cluster_id": "C001",
+      "event_title": "ABC News Live 直播",
+      "event_reason": "单独的电视直播新闻源，无其他关联文章",
+      "article_indexes": [
+        181
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261027-000134"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261027-000135",
+      "local_cluster_id": "C002",
+      "event_title": "Jay-Z 超级碗中场秀演出",
+      "event_reason": "两篇文章均报道Jay-Z被宣布为超级碗LXI中场秀表演嘉宾，为同一事件的不同报道",
+      "article_indexes": [
+        182,
+        203
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261027-000135"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261027-000136",
+      "local_cluster_id": "C003",
+      "event_title": "青少年肇事逃逸案",
+      "event_reason": "单独的一起刑事案件报道，无其他关联文章",
+      "article_indexes": [
+        183
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261027-000136"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261027-000137",
+      "local_cluster_id": "C004",
+      "event_title": "帕丽斯·希尔顿ADHD诊断",
+      "event_reason": "单独的明星健康话题报道，无其他关联文章",
+      "article_indexes": [
+        184
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261027-000137"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261027-000138",
+      "local_cluster_id": "C005",
+      "event_title": "纽约马拉松选手",
+      "event_reason": "单独的体育赛事报道，无其他关联文章",
+      "article_indexes": [
+        185
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261027-000138"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261027-000139",
+      "local_cluster_id": "C006",
+      "event_title": "学校管理员荣誉仪式",
+      "event_reason": "单独的社会新闻事件，无其他关联文章",
+      "article_indexes": [
+        186
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261027-000139"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261027-000140",
+      "local_cluster_id": "C007",
+      "event_title": "万圣节装饰展示",
+      "event_reason": "单独的节日文化话题报道，无其他关联文章",
+      "article_indexes": [
+        187
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261027-000140"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261027-000141",
+      "local_cluster_id": "C008",
+      "event_title": "AI公司使用猫王歌曲被诉",
+      "event_reason": "单独的法律科技新闻，无其他关联文章",
+      "article_indexes": [
+        188
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261027-000141"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261027-000142",
+      "local_cluster_id": "C009",
+      "event_title": "片场附近男子被捕",
+      "event_reason": "单独的治安事件报道，无其他关联文章",
+      "article_indexes": [
+        189
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261027-000142"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261027-000143",
+      "local_cluster_id": "C010",
+      "event_title": "特朗普政府非法解雇考米之女",
+      "event_reason": "两篇文章均报道法官裁定特朗普司法部非法解雇詹姆斯·考米女儿Maurene Comey，为同一司法案件的不同报道",
+      "article_indexes": [
+        190,
+        201
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261027-000143"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261027-000144",
+      "local_cluster_id": "C011",
+      "event_title": "关键州提前投票创纪录",
+      "event_reason": "单独的美国选举新闻报道，特朗普和奥巴马竞选活动，无其他关联文章",
+      "article_indexes": [
+        191
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261027-000144"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261027-000145",
+      "local_cluster_id": "C012",
+      "event_title": "胡塞武装袭击利雅得机场",
+      "event_reason": "单独的中东军事冲突事件报道，无其他关联文章",
+      "article_indexes": [
+        192
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261027-000145"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261027-000146",
+      "local_cluster_id": "C013",
+      "event_title": "乔治亚州选举安全讨论",
+      "event_reason": "单独的选举安全新闻报道，无其他关联文章",
+      "article_indexes": [
+        193
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261027-000146"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261027-000147",
+      "local_cluster_id": "C014",
+      "event_title": "选举日观察员部署",
+      "event_reason": "单独的选举监督机制报道，无其他关联文章",
+      "article_indexes": [
+        194
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261027-000147"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261027-000148",
+      "local_cluster_id": "C015",
+      "event_title": "特朗普指示司法部干预阿拉斯加参议院选举",
+      "event_reason": "单独的政治干预选举报道，无其他关联文章",
+      "article_indexes": [
+        195
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261027-000148"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261027-000149",
+      "local_cluster_id": "C016",
+      "event_title": "特朗普通胀政策影响中期选举",
+      "event_reason": "单独的经济政治分析报道，无其他关联文章",
+      "article_indexes": [
+        196
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261027-000149"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261027-000150",
+      "local_cluster_id": "C017",
+      "event_title": "凯恩获金球奖",
+      "event_reason": "单独的足球奖项报道，无其他关联文章",
+      "article_indexes": [
+        197
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261027-000150"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261027-000151",
+      "local_cluster_id": "C018",
+      "event_title": "英国财政预算与减税政策",
+      "event_reason": "三篇文章均围绕英国 Chancellor 即将发布的预算政策，包括削减日用品关税和民众对预算的期望，属于同一财政政策事件",
+      "article_indexes": [
+        198,
+        199,
+        209
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261027-000151"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261027-000152",
+      "local_cluster_id": "C019",
+      "event_title": "以色列与美国选举全球影响",
+      "event_reason": "单独的地缘政治分析报道，无其他关联文章",
+      "article_indexes": [
+        200
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261027-000152"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261027-000153",
+      "local_cluster_id": "C020",
+      "event_title": "乌克兰停火协议",
+      "event_reason": "单独的战争停火事件报道，无其他关联文章",
+      "article_indexes": [
+        202
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261027-000153"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261027-000154",
+      "local_cluster_id": "C021",
+      "event_title": "风暴 Boelo 导致断电",
+      "event_reason": "单独的气象灾害事件报道，无其他关联文章",
+      "article_indexes": [
+        204
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261027-000154"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261027-000155",
+      "local_cluster_id": "C022",
+      "event_title": "约旦报复性打击叙利亚",
+      "event_reason": "单独的中东军事行动报道，无其他关联文章",
+      "article_indexes": [
+        205
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261027-000155"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261027-000156",
+      "local_cluster_id": "C023",
+      "event_title": "Busted成员肾脏捐赠故事",
+      "event_reason": "单独的名人健康故事报道，无其他关联文章",
+      "article_indexes": [
+        206
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261027-000156"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261027-000157",
+      "local_cluster_id": "C024",
+      "event_title": "Macklemore 巴勒斯坦巡演",
+      "event_reason": "单独的音乐人社会活动报道，无其他关联文章",
+      "article_indexes": [
+        207
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261027-000157"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261027-000158",
+      "local_cluster_id": "C025",
+      "event_title": "英国单亲母亲生活成本",
+      "event_reason": "单独的社会民生报道，无其他关联文章",
+      "article_indexes": [
+        208
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261027-000158"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261027-000159",
+      "local_cluster_id": "C026",
+      "event_title": "苹果公司更换问题iPhone Duo",
+      "event_reason": "单独的消费科技产品 recalls 报道，无其他关联文章",
+      "article_indexes": [
+        210
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261027-000159"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261027-000160",
+      "local_cluster_id": "C001",
+      "event_title": "公众对梅根看法变化",
+      "event_reason": "英国王室相关话题，无其他文章涉及",
+      "article_indexes": [
+        211
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261027-000160"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261027-000161",
+      "local_cluster_id": "C002",
+      "event_title": "马查多返委内瑞拉",
+      "event_reason": "委内瑞拉政治事件，无其他文章涉及",
+      "article_indexes": [
+        212
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261027-000161"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261027-000162",
+      "local_cluster_id": "C003",
+      "event_title": "凯恩获金球奖",
+      "event_reason": "均涉及哈里·凯恩获得金球奖及其相关内容",
+      "article_indexes": [
+        213,
+        224
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261027-000162"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261027-000163",
+      "local_cluster_id": "C004",
+      "event_title": "巴西总统大选 Lula 胜选",
+      "event_reason": "均涉及巴西总统大选及 Lula 历史性胜利相关内容",
+      "article_indexes": [
+        214,
+        233,
+        234,
+        235,
+        236,
+        237
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261027-000163"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261027-000164",
+      "local_cluster_id": "C005",
+      "event_title": "悉尼新机场交通问题",
+      "event_reason": "澳大利亚基础设施新闻，无其他文章涉及",
+      "article_indexes": [
+        215
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261027-000164"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261027-000165",
+      "local_cluster_id": "C006",
+      "event_title": "Henry Nowak 谋杀案审查",
+      "event_reason": "英国刑事案件，无其他文章涉及",
+      "article_indexes": [
+        216
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261027-000165"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261027-000166",
+      "local_cluster_id": "C007",
+      "event_title": "Storm Boelo 致命事故",
+      "event_reason": "英国恶劣天气事件，无其他文章涉及",
+      "article_indexes": [
+        217
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261027-000166"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261027-000167",
+      "local_cluster_id": "C008",
+      "event_title": "BBC 反犹太主义赔偿",
+      "event_reason": "英国媒体与伦敦政治相关事件，无其他文章涉及",
+      "article_indexes": [
+        218
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261027-000167"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261027-000168",
+      "local_cluster_id": "C009",
+      "event_title": "英国自由流动公投退步",
+      "event_reason": "英国政治政策争议，无其他文章涉及",
+      "article_indexes": [
+        219
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261027-000168"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261027-000169",
+      "local_cluster_id": "C010",
+      "event_title": "天主教主教为特朗普会议道歉",
+      "event_reason": "宗教与政治事件，无其他文章涉及",
+      "article_indexes": [
+        220
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261027-000169"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261027-000170",
+      "local_cluster_id": "C011",
+      "event_title": "Anthropic IPO 前风险警告",
+      "event_reason": "AI 公司上市与安全风险，无其他文章涉及",
+      "article_indexes": [
+        221
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261027-000170"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261027-000171",
+      "local_cluster_id": "C012",
+      "event_title": "Dictionary.com 年度词汇 Maxxing",
+      "event_reason": "语言文化事件，无其他文章涉及",
+      "article_indexes": [
+        222
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261027-000171"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261027-000172",
+      "local_cluster_id": "C013",
+      "event_title": "Putellas 获金球奖",
+      "event_reason": "女子足球奖项，虽同属金球奖但不同赛事类别，分开更稳妥",
+      "article_indexes": [
+        223
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261027-000172"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261027-000173",
+      "local_cluster_id": "C014",
+      "event_title": "Lancashire板球告别赛",
+      "event_reason": "英国板球新闻，无其他文章涉及",
+      "article_indexes": [
+        225
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261027-000173"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261027-000174",
+      "local_cluster_id": "C015",
+      "event_title": "曼联换帅传闻",
+      "event_reason": "曼联足球俱乐部管理层变动，无其他文章涉及",
+      "article_indexes": [
+        226
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261027-000174"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261027-000175",
+      "local_cluster_id": "C016",
+      "event_title": "Saracens 教练变动球员转会",
+      "event_reason": "橄榄球俱乐部人事变动，无其他文章涉及",
+      "article_indexes": [
+        227
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261027-000175"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261027-000176",
+      "local_cluster_id": "C017",
+      "event_title": "高尔夫选手退出 LIV",
+      "event_reason": "高尔夫职业巡回赛变动，无其他文章涉及",
+      "article_indexes": [
+        228
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261027-000176"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261027-000177",
+      "local_cluster_id": "C018",
+      "event_title": "苏丹冲突与人道危机",
+      "event_reason": "苏丹军事冲突、制裁及人道危机相关事件",
+      "article_indexes": [
+        229,
+        230,
+        231
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261027-000177"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261027-000178",
+      "local_cluster_id": "C019",
+      "event_title": "英国援助预算未达标",
+      "event_reason": "英国财政政策新闻，无其他文章涉及",
+      "article_indexes": [
+        232
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261027-000178"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261027-000179",
+      "local_cluster_id": "C020",
+      "event_title": "美国禁止比亚迪车辆进入日本基地",
+      "event_reason": "中美日地缘政治与贸易安全事件，无其他文章涉及",
+      "article_indexes": [
+        238
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261027-000179"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261027-000180",
+      "local_cluster_id": "C021",
+      "event_title": "美军 Marine 在日本被捕",
+      "event_reason": "驻日美军犯罪案件，无其他文章涉及",
+      "article_indexes": [
+        239
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261027-000180"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261027-000181",
+      "local_cluster_id": "C022",
+      "event_title": "中国年轻人零能量陪伴潮流",
+      "event_reason": "中国社会文化现象，无其他文章涉及",
+      "article_indexes": [
+        240
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261027-000181"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261027-000182",
+      "local_cluster_id": "C001",
+      "event_title": "Serbia student-led movement ousts Vučić",
+      "event_reason": "Same political upheaval in Serbia involving the Student List and ousting of President Vučić",
+      "article_indexes": [
+        248,
+        249
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261027-000182"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261027-000183",
+      "local_cluster_id": "C002",
+      "event_title": "US midterm election controversies",
+      "event_reason": "Trump midterm campaign activities and US election-related legal/political disputes including ballot litigation",
+      "article_indexes": [
+        255,
+        256,
+        257
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261027-000183"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261027-000184",
+      "local_cluster_id": "C003",
+      "event_title": "Brazil Lula election victory aftermath",
+      "event_reason": "Lula's election win, currency impact, Bolsonaro party response, and fiscal analysis",
+      "article_indexes": [
+        260,
+        261,
+        262,
+        266,
+        267,
+        268
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261027-000184"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261027-000185",
+      "local_cluster_id": "C004",
+      "event_title": "Israel-Gaza-West Bank tensions and Middle East conflicts",
+      "event_reason": "Netanyahu-Iran escalation, Hebron displacements, West Bank entry bans, regional retaliatory attacks, Trump-Netanyahu politics, and AI industry context",
+      "article_indexes": [
+        252,
+        253,
+        254,
+        258,
+        259,
+        264,
+        265,
+        269,
+        270
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261027-000185"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261027-000186",
+      "local_cluster_id": "C005",
+      "event_title": "Australian politics: Albanese duress alarms for MPs",
+      "event_reason": "Standalone Australian domestic political policy proposal",
+      "article_indexes": [
+        241
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261027-000186"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261027-000187",
+      "local_cluster_id": "C006",
+      "event_title": "Beau Lamarre-Condon trial testimony",
+      "event_reason": "Standalone Australian criminal trial proceedings",
+      "article_indexes": [
+        242
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261027-000187"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261027-000188",
+      "local_cluster_id": "C007",
+      "event_title": "France chaos as warning for Australia spending",
+      "event_reason": "Standalone opinion piece linking French protests to Australian fiscal policy",
+      "article_indexes": [
+        243
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261027-000188"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261027-000189",
+      "local_cluster_id": "C008",
+      "event_title": "Queensland floods death of former councillor",
+      "event_reason": "Standalone Australian natural disaster fatality report",
+      "article_indexes": [
+        244
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261027-000189"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261027-000190",
+      "local_cluster_id": "C009",
+      "event_title": "iPhone Duo foldable handset cracks reported",
+      "event_reason": "Standalone consumer technology product defect report",
+      "article_indexes": [
+        245
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261027-000190"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261027-000191",
+      "local_cluster_id": "C010",
+      "event_title": "French pupil school barricade protests",
+      "event_reason": "Standalone French domestic protest activity",
+      "article_indexes": [
+        246
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261027-000191"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261027-000192",
+      "local_cluster_id": "C011",
+      "event_title": "UK No 10 clarifies Andy Burnham freedom of movement stance",
+      "event_reason": "Standalone UK domestic political clarification",
+      "article_indexes": [
+        247
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261027-000192"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261027-000193",
+      "local_cluster_id": "C012",
+      "event_title": "Audi boss criticized for Trump rally appearance",
+      "event_reason": "Standalone German corporate-political controversy",
+      "article_indexes": [
+        250
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261027-000193"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261027-000194",
+      "local_cluster_id": "C013",
+      "event_title": "UK shop price inflation highest since 2024",
+      "event_reason": "Standalone UK economic indicator report",
+      "article_indexes": [
+        251
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261027-000194"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261027-000195",
+      "local_cluster_id": "C014",
+      "event_title": "Anthropic IPO filing analysis",
+      "event_reason": "Standalone AI company financial disclosure report",
+      "article_indexes": [
+        263
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261027-000195"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261027-000196",
+      "local_cluster_id": "C001",
+      "event_title": "Serbia election results and implications",
+      "event_reason": "Both articles concern the Serbian election outcome, with one focusing on the student/governing perspective and the other on Moscow's reaction to Vucic's defeat",
+      "article_indexes": [
+        271,
+        299
+      ],
+      "batch_identifier": 10,
+      "member_cluster_ids": [
+        "EVT-20261027-000196"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 10"
+    },
+    {
+      "cluster_id": "EVT-20261027-000197",
+      "local_cluster_id": "C002",
+      "event_title": "Trump legal and political controversies",
+      "event_reason": "Articles cover Trump's alleged manipulation of Catholic bishops, charges against James Comey, the ruling on Maurene Comey's firing, and Trump's election fraud reward offer",
+      "article_indexes": [
+        272,
+        275,
+        276,
+        277
+      ],
+      "batch_identifier": 10,
+      "member_cluster_ids": [
+        "EVT-20261027-000197"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 10"
+    },
+    {
+      "cluster_id": "EVT-20261027-000198",
+      "local_cluster_id": "C003",
+      "event_title": "Tech company AI and workforce changes",
+      "event_reason": "Microsoft staff buyouts, Meta's $95bn AI stock offering, and RAF chief's AI drone-powered future vision",
+      "article_indexes": [
+        273,
+        274,
+        278
+      ],
+      "batch_identifier": 10,
+      "member_cluster_ids": [
+        "EVT-20261027-000198"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 10"
+    },
+    {
+      "cluster_id": "EVT-20261027-000199",
+      "local_cluster_id": "C004",
+      "event_title": "UK domestic affairs and policy",
+      "event_reason": "NHS strikes, Liz Truss commentary, murder review, UK-EU single market, rough sleepers, pensioner taxes, pedestrianisation, Thames Water, Visa lawsuit, EV incentives, and gas prices",
+      "article_indexes": [
+        279,
+        280,
+        281,
+        282,
+        283,
+        284,
+        285,
+        286,
+        287,
+        288,
+        289,
+        290
+      ],
+      "batch_identifier": 10,
+      "member_cluster_ids": [
+        "EVT-20261027-000199"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 10"
+    },
+    {
+      "cluster_id": "EVT-20261027-000200",
+      "local_cluster_id": "C005",
+      "event_title": "UK cultural tourism and Japanese politics",
+      "event_reason": "Bayeux tapestry ticket sales driven by young British visitors and LDP proposing gradual fuel subsidy reduction",
+      "article_indexes": [
+        291,
+        292
+      ],
+      "batch_identifier": 10,
+      "member_cluster_ids": [
+        "EVT-20261027-000200"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 10"
+    },
+    {
+      "cluster_id": "EVT-20261027-000201",
+      "local_cluster_id": "C006",
+      "event_title": "Japan domestic and security issues",
+      "event_reason": "GMO hacker threat, US Marine involvement in Okinawa murder-robbery, El Nino cloud-seeding challenges, and US-Canada tariff deal",
+      "article_indexes": [
+        293,
+        294,
+        295,
+        296
+      ],
+      "batch_identifier": 10,
+      "member_cluster_ids": [
+        "EVT-20261027-000201"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 10"
+    },
+    {
+      "cluster_id": "EVT-20261027-000202",
+      "local_cluster_id": "C007",
+      "event_title": "Brazil election and Trump comments",
+      "event_reason": "Trump's criticism of Brazil election as 'rigged' alongside Bolsonaro's party recognizing Lula's win, and Netanyahu touting Trump endorsement before Israeli vote",
+      "article_indexes": [
+        297,
+        298
+      ],
+      "batch_identifier": 10,
+      "member_cluster_ids": [
+        "EVT-20261027-000202"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 10"
+    },
+    {
+      "cluster_id": "EVT-20261027-000203",
+      "local_cluster_id": "C008",
+      "event_title": "Brazil Lula's final term",
+      "event_reason": "Analysis of Lula's continued presidency and challenges ahead in his final term",
+      "article_indexes": [
+        300
+      ],
+      "batch_identifier": 10,
+      "member_cluster_ids": [
+        "EVT-20261027-000203"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 10"
+    },
+    {
+      "cluster_id": "EVT-20261027-000204",
+      "local_cluster_id": "C001",
+      "event_title": "China synthetic diamond AI cooling applications",
+      "event_reason": "China's synthetic diamond industry exploring high-margin cooling solutions for AI data centers",
+      "article_indexes": [
+        301
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261027-000204"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261027-000205",
+      "local_cluster_id": "C002",
+      "event_title": "Untapped talent as business force",
+      "event_reason": "Article on leveraging underutilized human talent for business growth",
+      "article_indexes": [
+        302
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261027-000205"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261027-000206",
+      "local_cluster_id": "C003",
+      "event_title": "Meiji Yasuda acquires Man Group stake",
+      "event_reason": "Meiji Yasuda insurance purchasing Man Group stake in asset management expansion",
+      "article_indexes": [
+        303
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261027-000206"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261027-000207",
+      "local_cluster_id": "C004",
+      "event_title": "Japan Digital Agency AI agent integration",
+      "event_reason": "Japan's Digital Agency adding AI agent to Gennai government platform",
+      "article_indexes": [
+        304
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261027-000207"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261027-000208",
+      "local_cluster_id": "C005",
+      "event_title": "Driverless trucks AI safety",
+      "event_reason": "Autonomous truck technology as example of keeping AI safe and beneficial",
+      "article_indexes": [
+        305
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261027-000208"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261027-000209",
+      "local_cluster_id": "C006",
+      "event_title": "Government cybersecurity breach response",
+      "event_reason": "Urgent government meeting convened following recent data breaches",
+      "article_indexes": [
+        306
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261027-000209"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261027-000210",
+      "local_cluster_id": "C007",
+      "event_title": "India-Pakistan tensions",
+      "event_reason": "Escalating cold war-style diplomatic and strategic tensions between India and Pakistan",
+      "article_indexes": [
+        307
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261027-000210"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261027-000211",
+      "local_cluster_id": "C008",
+      "event_title": "Yasuo Fukuda death",
+      "event_reason": "Former Japanese Prime Minister Yasuo Fukuda died at age 90",
+      "article_indexes": [
+        308
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261027-000211"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261027-000212",
+      "local_cluster_id": "C009",
+      "event_title": "Argentina economic crisis",
+      "event_reason": "Severe economic turmoil and policy upheaval in Argentina",
+      "article_indexes": [
+        309
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261027-000212"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261027-000213",
+      "local_cluster_id": "C010",
+      "event_title": "Japan shipbuilding investment expansion",
+      "event_reason": "Japanese shipbuilders increasing investment to double production output",
+      "article_indexes": [
+        310
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261027-000213"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261027-000214",
+      "local_cluster_id": "C011",
+      "event_title": "Myanmar disguising Iranian sanctioned fuel purchases",
+      "event_reason": "Myanmar masking purchases of sanctioned Iranian jet fuel through deceptive practices",
+      "article_indexes": [
+        311
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261027-000214"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261027-000215",
+      "local_cluster_id": "C012",
+      "event_title": "Chinese beauty brands global expansion",
+      "event_reason": "Chinese beauty companies expanding internationally after domestic success",
+      "article_indexes": [
+        312
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261027-000215"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261027-000216",
+      "local_cluster_id": "C013",
+      "event_title": "Japan disaster shelter preferences",
+      "event_reason": "Survey showing 70% of Japanese prefer home shelter over evacuation centers after disasters",
+      "article_indexes": [
+        313
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261027-000216"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261027-000217",
+      "local_cluster_id": "C014",
+      "event_title": "Chinese carmakers surpass Japan in Europe",
+      "event_reason": "Chinese automotive manufacturers outselling Japanese brands in European market for first time",
+      "article_indexes": [
+        314
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261027-000217"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261027-000218",
+      "local_cluster_id": "C015",
+      "event_title": "Okinawa sanctuary tour plan cancelled",
+      "event_reason": "Premium tour to Okinawa wildlife sanctuary shelved due to local opposition",
+      "article_indexes": [
+        315
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261027-000218"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261027-000219",
+      "local_cluster_id": "C016",
+      "event_title": "Marine division chief sentence upheld",
+      "event_reason": "Supreme Court upholds 3-year sentence for ex-Marine division chief in corporal death case",
+      "article_indexes": [
+        316
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261027-000219"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261027-000220",
+      "local_cluster_id": "C017",
+      "event_title": "KOSPI market volatility",
+      "event_reason": "Korean stock market fluctuations including intraday surge, opening gains, and seven-month low",
+      "article_indexes": [
+        317,
+        322,
+        327
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261027-000220"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261027-000221",
+      "local_cluster_id": "C018",
+      "event_title": "IAEA nuclear energy conference",
+      "event_reason": "IAEA Ministerial Conference on peaceful nuclear energy use opens in Incheon, South Korea",
+      "article_indexes": [
+        318
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261027-000221"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261027-000222",
+      "local_cluster_id": "C019",
+      "event_title": "Riot squad deployment for ballot inspection",
+      "event_reason": "Police dispatching 48 riot squads during June 3 ballot inspection operations",
+      "article_indexes": [
+        319
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261027-000222"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261027-000223",
+      "local_cluster_id": "C020",
+      "event_title": "Swiss diplomat visiting North Korea",
+      "event_reason": "Top Swiss diplomat traveling to North Korea for office opening diplomatic mission",
+      "article_indexes": [
+        320
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261027-000223"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261027-000224",
+      "local_cluster_id": "C021",
+      "event_title": "Fuel price declines",
+      "event_reason": "Gasoline and diesel prices falling on Tuesday",
+      "article_indexes": [
+        321
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261027-000224"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261027-000225",
+      "local_cluster_id": "C022",
+      "event_title": "South Korea Q3 economic growth",
+      "event_reason": "South Korean economy growing 1% in Q3 driven by semiconductor industry boom",
+      "article_indexes": [
+        323
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261027-000225"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261027-000226",
+      "local_cluster_id": "C023",
+      "event_title": "Animal abuse ban law revision",
+      "event_reason": "Revised law imposing 5-year animal keeping ban on abusers taking effect next year",
+      "article_indexes": [
+        324
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261027-000226"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261027-000227",
+      "local_cluster_id": "C024",
+      "event_title": "Virtual asset tax delay consideration",
+      "event_reason": "Presidential office considering further delay in implementing cryptocurrency and virtual asset taxation",
+      "article_indexes": [
+        325
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261027-000227"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261027-000228",
+      "local_cluster_id": "C025",
+      "event_title": "South Korean foreign minister US visit",
+      "event_reason": "Foreign Minister Cho Hyun traveling to United States for G20 meeting this week",
+      "article_indexes": [
+        326
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261027-000228"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261027-000229",
+      "local_cluster_id": "C026",
+      "event_title": "Lee Chang-ho Go world record",
+      "event_reason": "Go legend Lee Chang-ho sets world record with 2,000 career wins",
+      "article_indexes": [
+        328
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261027-000229"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261027-000230",
+      "local_cluster_id": "C027",
+      "event_title": "Tuesday weather forecast",
+      "event_reason": "Clear skies expected Tuesday with sharp evening temperature drop",
+      "article_indexes": [
+        329
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261027-000230"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261027-000231",
+      "local_cluster_id": "C028",
+      "event_title": "APTA membership pursuit",
+      "event_reason": "President Lee telling farmers that Asia-Pacific trade bloc membership is inevitably pursued long-term",
+      "article_indexes": [
+        330
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261027-000231"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261027-000232",
+      "local_cluster_id": "C001",
+      "event_title": "韩国运动员参加爱知-名古屋亚残运会后回国",
+      "event_reason": "独立体育新闻事件，无其他相关文章合并",
+      "article_indexes": [
+        331
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261027-000232"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261027-000233",
+      "local_cluster_id": "C002",
+      "event_title": "巴西总统卢拉赢得第四个任期及社会动员",
+      "event_reason": "两文均涉及巴西总统卢拉第四任期胜选及相关社会政治动态",
+      "article_indexes": [
+        332,
+        351
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261027-000233"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261027-000234",
+      "local_cluster_id": "C003",
+      "event_title": "教育部计划调查学生使用AI眼镜作弊",
+      "event_reason": "独立教育政策新闻，无其他相关文章合并",
+      "article_indexes": [
+        333
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261027-000234"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261027-000235",
+      "local_cluster_id": "C004",
+      "event_title": "李在明安抚农民渔民关于太平洋贸易集团担忧",
+      "event_reason": "独立政治经济新闻，无其他相关文章合并",
+      "article_indexes": [
+        334
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261027-000235"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261027-000236",
+      "local_cluster_id": "C005",
+      "event_title": "韩股KOSPI周一下跌1.46%",
+      "event_reason": "独立金融市场新闻，无其他相关文章合并",
+      "article_indexes": [
+        335
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261027-000236"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261027-000237",
+      "local_cluster_id": "C006",
+      "event_title": "金正恩秘密访华及中韩关系强化",
+      "event_reason": "两文均报道朝鲜领导人金正恩访华及朝中关系相关事件",
+      "article_indexes": [
+        336,
+        345
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261027-000237"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261027-000238",
+      "local_cluster_id": "C007",
+      "event_title": "诗人尹东柱、金南俊获授金冠文化勋章",
+      "event_reason": "独立文化艺术新闻，无其他相关文章合并",
+      "article_indexes": [
+        337
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261027-000238"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261027-000239",
+      "local_cluster_id": "C008",
+      "event_title": "首尔狎鸥亭桥永久关闭转为步行区",
+      "event_reason": "独立城市基础设施新闻，无其他相关文章合并",
+      "article_indexes": [
+        338
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261027-000239"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261027-000240",
+      "local_cluster_id": "C009",
+      "event_title": "韩美举行自由旗空军演习及指挥权移交讨论",
+      "event_reason": "两文均涉及韩美军事合作及指挥权移交相关防务动态",
+      "article_indexes": [
+        339,
+        340
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261027-000240"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261027-000241",
+      "local_cluster_id": "C010",
+      "event_title": "央行：AI和半导体增长加剧青年就业困境",
+      "event_reason": "独立经济就业新闻报道，无其他相关文章合并",
+      "article_indexes": [
+        341
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261027-000241"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261027-000242",
+      "local_cluster_id": "C011",
+      "event_title": "朝鲜在联合国指责韩国追求核武器",
+      "event_reason": "独立朝韩外交冲突新闻，无其他相关文章合并",
+      "article_indexes": [
+        342
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261027-000242"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261027-000243",
+      "local_cluster_id": "C012",
+      "event_title": "特别顾问周三核查247万张选票选举舞弊",
+      "event_reason": "独立美国国内政治法律事件，无其他相关文章合并",
+      "article_indexes": [
+        343
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261027-000243"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261027-000244",
+      "local_cluster_id": "C013",
+      "event_title": "5.4%韩国人口具有移民或外籍背景",
+      "event_reason": "独立人口统计新闻报道，无其他相关文章合并",
+      "article_indexes": [
+        344
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261027-000244"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261027-000245",
+      "local_cluster_id": "C014",
+      "event_title": "法国特拉普袭击案后续及反种族主义集会",
+      "event_reason": "两文均报道法国特拉普袭击案调查结果及社会反应",
+      "article_indexes": [
+        346,
+        350
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261027-000245"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261027-000246",
+      "local_cluster_id": "C015",
+      "event_title": "法国社会动员及马克龙在马赛的表态",
+      "event_reason": "两文均涉及法国国内社会动员及总统马克龙的相关政治回应",
+      "article_indexes": [
+        347,
+        348
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261027-000246"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261027-000247",
+      "local_cluster_id": "C016",
+      "event_title": "法国参议院否决科西嘉自治法案",
+      "event_reason": "独立法国国内政治立法事件，无其他相关文章合并",
+      "article_indexes": [
+        349
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261027-000247"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261027-000248",
+      "local_cluster_id": "C017",
+      "event_title": "2026年金球奖揭晓：凯恩首夺及普特拉斯三获",
+      "event_reason": "独立体育赛事新闻，无其他相关文章合并",
+      "article_indexes": [
+        352
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261027-000248"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261027-000249",
+      "local_cluster_id": "C018",
+      "event_title": "Anthropic提交IPO申请",
+      "event_reason": "独立科技企业新闻，无其他相关文章合并",
+      "article_indexes": [
+        353
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261027-000249"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261027-000250",
+      "local_cluster_id": "C019",
+      "event_title": "以色列选举前 Eisenkot 带来希望",
+      "event_reason": "独立以色列政治新闻，无其他相关文章合并",
+      "article_indexes": [
+        354
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261027-000250"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261027-000251",
+      "local_cluster_id": "C020",
+      "event_title": "俄罗斯袭击基辅致至少1死10伤",
+      "event_reason": "独立俄乌冲突战况新闻，无其他相关文章合并",
+      "article_indexes": [
+        355
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261027-000251"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261027-000252",
+      "local_cluster_id": "C021",
+      "event_title": "为乌克兰提供炮弹的法国公司进入司法重整",
+      "event_reason": "独立企业新闻，无其他相关文章合并",
+      "article_indexes": [
+        356
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261027-000252"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261027-000253",
+      "local_cluster_id": "C022",
+      "event_title": "特朗普承诺百万美元征集选举欺诈证据",
+      "event_reason": "独立美国政治新闻，无其他相关文章合并",
+      "article_indexes": [
+        357
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261027-000253"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261027-000254",
+      "local_cluster_id": "C023",
+      "event_title": "民主党人要求调查特朗普与爱泼斯坦关系",
+      "event_reason": "独立美国政治法律事件，无其他相关文章合并",
+      "article_indexes": [
+        358
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261027-000254"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261027-000255",
+      "local_cluster_id": "C024",
+      "event_title": "巴黎圣日耳曼击败里昂登顶法甲",
+      "event_reason": "独立体育足球赛事新闻，无其他相关文章合并",
+      "article_indexes": [
+        359
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261027-000255"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261027-000256",
+      "local_cluster_id": "C025",
+      "event_title": "欧洲一台因主持人仇恨言论被监管机构警告",
+      "event_reason": "独立法国媒体监管新闻，无其他相关文章合并",
+      "article_indexes": [
+        360
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261027-000256"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261027-000257",
+      "local_cluster_id": "C001",
+      "event_title": "Audi CEO Criticism Over US Factory Announcement",
+      "event_reason": "Trump meeting context for Audi's US plant",
+      "article_indexes": [
+        361
+      ],
+      "batch_identifier": 13,
+      "member_cluster_ids": [
+        "EVT-20261027-000257"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 13"
+    },
+    {
+      "cluster_id": "EVT-20261027-000258",
+      "local_cluster_id": "C002",
+      "event_title": "US-EU Trade Truce Risk Over Airbus Loan",
+      "event_reason": "Trump official warning on $3.4B Airbus loan",
+      "article_indexes": [
+        362
+      ],
+      "batch_identifier": 13,
+      "member_cluster_ids": [
+        "EVT-20261027-000258"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 13"
+    },
+    {
+      "cluster_id": "EVT-20261027-000259",
+      "local_cluster_id": "C003",
+      "event_title": "Flavio Bolsonaro Travel Ban and Opposition",
+      "event_reason": "Brazil court travel ban and his opposition vows",
+      "article_indexes": [
+        363,
+        388
+      ],
+      "batch_identifier": 13,
+      "member_cluster_ids": [
+        "EVT-20261027-000259"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 13"
+    },
+    {
+      "cluster_id": "EVT-20261027-000260",
+      "local_cluster_id": "C004",
+      "event_title": "Ballon d'Or 2026: Harry Kane and Alexia Putellas Win",
+      "event_reason": "Kane ends England's drought, Putellas wins third",
+      "article_indexes": [
+        364,
+        390
+      ],
+      "batch_identifier": 13,
+      "member_cluster_ids": [
+        "EVT-20261027-000260"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 13"
+    },
+    {
+      "cluster_id": "EVT-20261027-000261",
+      "local_cluster_id": "C005",
+      "event_title": "NATO Powers Pledge Greater Defence Role",
+      "event_reason": "European NATO powers reaffirm US alliance",
+      "article_indexes": [
+        365
+      ],
+      "batch_identifier": 13,
+      "member_cluster_ids": [
+        "EVT-20261027-000261"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 13"
+    },
+    {
+      "cluster_id": "EVT-20261027-000262",
+      "local_cluster_id": "C006",
+      "event_title": "Mecca Pact Nations Talk with Iran on Middle East War",
+      "event_reason": "Diplomatic talks to prevent renewed conflict",
+      "article_indexes": [
+        366
+      ],
+      "batch_identifier": 13,
+      "member_cluster_ids": [
+        "EVT-20261027-000262"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 13"
+    },
+    {
+      "cluster_id": "EVT-20261027-000263",
+      "local_cluster_id": "C007",
+      "event_title": "Fact-Checking European Protest Videos",
+      "event_reason": "Viral videos amid claims of chaos in Europe",
+      "article_indexes": [
+        367
+      ],
+      "batch_identifier": 13,
+      "member_cluster_ids": [
+        "EVT-20261027-000263"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 13"
+    },
+    {
+      "cluster_id": "EVT-20261027-000264",
+      "local_cluster_id": "C008",
+      "event_title": "Anthropic IPO Filing Financials",
+      "event_reason": "Soaring sales and steep losses in filing",
+      "article_indexes": [
+        368
+      ],
+      "batch_identifier": 13,
+      "member_cluster_ids": [
+        "EVT-20261027-000264"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 13"
+    },
+    {
+      "cluster_id": "EVT-20261027-000265",
+      "local_cluster_id": "C009",
+      "event_title": "Serbia Election Fraud and Student Movement Rise",
+      "event_reason": "Fraud impact and student movement post-election",
+      "article_indexes": [
+        369,
+        372
+      ],
+      "batch_identifier": 13,
+      "member_cluster_ids": [
+        "EVT-20261027-000265"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 13"
+    },
+    {
+      "cluster_id": "EVT-20261027-000266",
+      "local_cluster_id": "C010",
+      "event_title": "Fall of El-Fasher One Year Anniversary",
+      "event_reason": "Analysis of the fall one year on",
+      "article_indexes": [
+        370
+      ],
+      "batch_identifier": 13,
+      "member_cluster_ids": [
+        "EVT-20261027-000266"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 13"
+    },
+    {
+      "cluster_id": "EVT-20261027-000267",
+      "local_cluster_id": "C011",
+      "event_title": "Trump Vote Fraud Bounty Offer",
+      "event_reason": "$1 million reward for tipoffs on vote fraud",
+      "article_indexes": [
+        371
+      ],
+      "batch_identifier": 13,
+      "member_cluster_ids": [
+        "EVT-20261027-000267"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 13"
+    },
+    {
+      "cluster_id": "EVT-20261027-000268",
+      "local_cluster_id": "C012",
+      "event_title": "Lula's Re-election Impacts in Brazil",
+      "event_reason": "Lula upset Bolsonaro, Amazon hopes, reactions",
+      "article_indexes": [
+        373,
+        376,
+        378,
+        380
+      ],
+      "batch_identifier": 13,
+      "member_cluster_ids": [
+        "EVT-20261027-000268"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 13"
+    },
+    {
+      "cluster_id": "EVT-20261027-000269",
+      "local_cluster_id": "C013",
+      "event_title": "Israel Election Tensions with Iran and Expats",
+      "event_reason": "Netanyahu vs Eisenkot, expat voting issues",
+      "article_indexes": [
+        374,
+        377,
+        381
+      ],
+      "batch_identifier": 13,
+      "member_cluster_ids": [
+        "EVT-20261027-000269"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 13"
+    },
+    {
+      "cluster_id": "EVT-20261027-000270",
+      "local_cluster_id": "C014",
+      "event_title": "UN Ethnic Cleansing Concerns in Hebron",
+      "event_reason": "UN cites ethnic cleansing over displacement",
+      "article_indexes": [
+        375
+      ],
+      "batch_identifier": 13,
+      "member_cluster_ids": [
+        "EVT-20261027-000270"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 13"
+    },
+    {
+      "cluster_id": "EVT-20261027-000271",
+      "local_cluster_id": "C015",
+      "event_title": "French Student Union Mobilization",
+      "event_reason": "Continued mobilisation after PM meeting",
+      "article_indexes": [
+        379
+      ],
+      "batch_identifier": 13,
+      "member_cluster_ids": [
+        "EVT-20261027-000271"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 13"
+    },
+    {
+      "cluster_id": "EVT-20261027-000272",
+      "local_cluster_id": "C016",
+      "event_title": "Macklemore Charity Concerts for Palestine",
+      "event_reason": "Stadium shows to raise funds",
+      "article_indexes": [
+        382
+      ],
+      "batch_identifier": 13,
+      "member_cluster_ids": [
+        "EVT-20261027-000272"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 13"
+    },
+    {
+      "cluster_id": "EVT-20261027-000273",
+      "local_cluster_id": "C017",
+      "event_title": "France Protests and Macron's Emergency Stance",
+      "event_reason": "Macron rules out state of emergency",
+      "article_indexes": [
+        383
+      ],
+      "batch_identifier": 13,
+      "member_cluster_ids": [
+        "EVT-20261027-000273"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 13"
+    },
+    {
+      "cluster_id": "EVT-20261027-000274",
+      "local_cluster_id": "C018",
+      "event_title": "Jordan Strikes Syria Over Church Attack",
+      "event_reason": "Retaliatory strikes killing civilians",
+      "article_indexes": [
+        384,
+        385,
+        387
+      ],
+      "batch_identifier": 13,
+      "member_cluster_ids": [
+        "EVT-20261027-000274"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 13"
+    },
+    {
+      "cluster_id": "EVT-20261027-000275",
+      "local_cluster_id": "C019",
+      "event_title": "Bundeswehr Space Commander on Aliens",
+      "event_reason": "Interview on extraterrestrial life",
+      "article_indexes": [
+        386
+      ],
+      "batch_identifier": 13,
+      "member_cluster_ids": [
+        "EVT-20261027-000275"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 13"
+    },
+    {
+      "cluster_id": "EVT-20261027-000276",
+      "local_cluster_id": "C020",
+      "event_title": "Yemen Crisis and Maritime Law",
+      "event_reason": "Call for world powers to defend maritime law",
+      "article_indexes": [
+        389
+      ],
+      "batch_identifier": 13,
+      "member_cluster_ids": [
+        "EVT-20261027-000276"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 13"
+    },
+    {
+      "cluster_id": "EVT-20261027-000277",
+      "local_cluster_id": "C001",
+      "event_title": "2026年金球奖揭晓",
+      "event_reason": "Harry Kane和Alexia Putellas同时获得男子和女子金球奖，属于同一颁奖典礼事件",
+      "article_indexes": [
+        391,
+        418
+      ],
+      "batch_identifier": 14,
+      "member_cluster_ids": [
+        "EVT-20261027-000277"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 14"
+    },
+    {
+      "cluster_id": "EVT-20261027-000278",
+      "local_cluster_id": "C002",
+      "event_title": "特朗普政府与FBI前局长James Comey法律纠纷",
+      "event_reason": "均涉及特朗普政府与James Comey的法律案件",
+      "article_indexes": [
+        392,
+        409
+      ],
+      "batch_identifier": 14,
+      "member_cluster_ids": [
+        "EVT-20261027-000278"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 14"
+    },
+    {
+      "cluster_id": "EVT-20261027-000279",
+      "local_cluster_id": "C003",
+      "event_title": "摩纳哥Antoine de Massy死亡事件",
+      "event_reason": "独立刑事/死亡事件，无其他相关文章",
+      "article_indexes": [
+        393
+      ],
+      "batch_identifier": 14,
+      "member_cluster_ids": [
+        "EVT-20261027-000279"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 14"
+    },
+    {
+      "cluster_id": "EVT-20261027-000280",
+      "local_cluster_id": "C004",
+      "event_title": "特朗普美国政治与选举争议",
+      "event_reason": "均涉及特朗普在美国的政治活动和选举相关争议（Midterms选举欺诈指控、Epstein调查）",
+      "article_indexes": [
+        394,
+        420
+      ],
+      "batch_identifier": 14,
+      "member_cluster_ids": [
+        "EVT-20261027-000280"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 14"
+    },
+    {
+      "cluster_id": "EVT-20261027-000281",
+      "local_cluster_id": "C005",
+      "event_title": "巴黎枪击案",
+      "event_reason": "独立刑事案件，嫌疑人否认种族主义动机",
+      "article_indexes": [
+        395
+      ],
+      "batch_identifier": 14,
+      "member_cluster_ids": [
+        "EVT-20261027-000281"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 14"
+    },
+    {
+      "cluster_id": "EVT-20261027-000282",
+      "local_cluster_id": "C006",
+      "event_title": "法国学校抗议与教育 reform",
+      "event_reason": "独立社会事件，法国政府应对学校抗议的教育改革",
+      "article_indexes": [
+        396
+      ],
+      "batch_identifier": 14,
+      "member_cluster_ids": [
+        "EVT-20261027-000282"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 14"
+    },
+    {
+      "cluster_id": "EVT-20261027-000283",
+      "local_cluster_id": "C007",
+      "event_title": "科技行业重大商业变动",
+      "event_reason": "Anthropic申请IPO和微软裁员6万均为科技巨头重大商业重组事件",
+      "article_indexes": [
+        397,
+        403
+      ],
+      "batch_identifier": 14,
+      "member_cluster_ids": [
+        "EVT-20261027-000283"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 14"
+    },
+    {
+      "cluster_id": "EVT-20261027-000284",
+      "local_cluster_id": "C008",
+      "event_title": "俄罗斯演员设计师生于狱中",
+      "event_reason": "独立政治事件，俄罗斯因政治原因导致的艺术家死亡",
+      "article_indexes": [
+        398
+      ],
+      "batch_identifier": 14,
+      "member_cluster_ids": [
+        "EVT-20261027-000284"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 14"
+    },
+    {
+      "cluster_id": "EVT-20261027-000285",
+      "local_cluster_id": "C009",
+      "event_title": "特朗普质疑巴西大选结果",
+      "event_reason": "特朗普公开称巴西总统选举结果被操纵，两篇报道为同一事件不同角度",
+      "article_indexes": [
+        399,
+        417
+      ],
+      "batch_identifier": 14,
+      "member_cluster_ids": [
+        "EVT-20261027-000285"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 14"
+    },
+    {
+      "cluster_id": "EVT-20261027-000286",
+      "local_cluster_id": "C010",
+      "event_title": "以色列选举与内塔尼亚胡危机",
+      "event_reason": "以色列选举期间内塔尼亚胡政府应对策略及海外选民关键作用",
+      "article_indexes": [
+        400,
+        407
+      ],
+      "batch_identifier": 14,
+      "member_cluster_ids": [
+        "EVT-20261027-000286"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 14"
+    },
+    {
+      "cluster_id": "EVT-20261027-000287",
+      "local_cluster_id": "C011",
+      "event_title": "Kehlsteinhaus烧毁后重建争议",
+      "event_reason": "独立历史建筑火灾后续讨论",
+      "article_indexes": [
+        401
+      ],
+      "batch_identifier": 14,
+      "member_cluster_ids": [
+        "EVT-20261027-000287"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 14"
+    },
+    {
+      "cluster_id": "EVT-20261027-000288",
+      "local_cluster_id": "C012",
+      "event_title": "Paula Moltzan滑雪世界杯胜利",
+      "event_reason": "独立体育事件，高山滑雪世界杯胜利",
+      "article_indexes": [
+        402
+      ],
+      "batch_identifier": 14,
+      "member_cluster_ids": [
+        "EVT-20261027-000288"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 14"
+    },
+    {
+      "cluster_id": "EVT-20261027-000289",
+      "local_cluster_id": "C013",
+      "event_title": "德国联邦总统继任讨论",
+      "event_reason": "独立政治事件，CDU讨论Steinmeier继任者",
+      "article_indexes": [
+        404
+      ],
+      "batch_identifier": 14,
+      "member_cluster_ids": [
+        "EVT-20261027-000289"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 14"
+    },
+    {
+      "cluster_id": "EVT-20261027-000290",
+      "local_cluster_id": "C014",
+      "event_title": "约旦河西岸人权侵犯指控",
+      "event_reason": "联合国调查员指控以色列在约旦河西岸实施酷刑和强奸，与巴勒斯坦人流离失所相关",
+      "article_indexes": [
+        405,
+        416
+      ],
+      "batch_identifier": 14,
+      "member_cluster_ids": [
+        "EVT-20261027-000290"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 14"
+    },
+    {
+      "cluster_id": "EVT-20261027-000291",
+      "local_cluster_id": "C015",
+      "event_title": "Star Trek演员Walter Koenig去世",
+      "event_reason": "独立娱乐新闻，演员去世",
+      "article_indexes": [
+        406
+      ],
+      "batch_identifier": 14,
+      "member_cluster_ids": [
+        "EVT-20261027-000291"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 14"
+    },
+    {
+      "cluster_id": "EVT-20261027-000292",
+      "local_cluster_id": "C016",
+      "event_title": "Lufthansa离开德国战略争议",
+      "event_reason": "独立商业新闻，Lufthansa CEO Spohr为离开德国战略辩护",
+      "article_indexes": [
+        408
+      ],
+      "batch_identifier": 14,
+      "member_cluster_ids": [
+        "EVT-20261027-000292"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 14"
+    },
+    {
+      "cluster_id": "EVT-20261027-000293",
+      "local_cluster_id": "C017",
+      "event_title": "美国零售企业俄罗斯业务争议",
+      "event_reason": "Metro等大型企业在俄罗斯的战争赞助争议及业务剥离",
+      "article_indexes": [
+        410,
+        411
+      ],
+      "batch_identifier": 14,
+      "member_cluster_ids": [
+        "EVT-20261027-000293"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 14"
+    },
+    {
+      "cluster_id": "EVT-20261027-000294",
+      "local_cluster_id": "C018",
+      "event_title": "AfD政治家Wilko Möller判决生效",
+      "event_reason": "独立司法事件，Hitlergruß判决生效",
+      "article_indexes": [
+        412
+      ],
+      "batch_identifier": 14,
+      "member_cluster_ids": [
+        "EVT-20261027-000294"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 14"
+    },
+    {
+      "cluster_id": "EVT-20261027-000295",
+      "local_cluster_id": "C019",
+      "event_title": "德国政党地域差异分析",
+      "event_reason": "独立政治评论，Green和Left政党地域差异",
+      "article_indexes": [
+        413
+      ],
+      "batch_identifier": 14,
+      "member_cluster_ids": [
+        "EVT-20261027-000295"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 14"
+    },
+    {
+      "cluster_id": "EVT-20261027-000296",
+      "local_cluster_id": "C020",
+      "event_title": "乌克兰战争外交动态",
+      "event_reason": "斯洛伐克外长访问莫斯科引发的俄俄乌关系外交事件",
+      "article_indexes": [
+        414,
+        415
+      ],
+      "batch_identifier": 14,
+      "member_cluster_ids": [
+        "EVT-20261027-000296"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 14"
+    },
+    {
+      "cluster_id": "EVT-20261027-000297",
+      "local_cluster_id": "C021",
+      "event_title": "瑞士莱茵河发现人体残肢",
+      "event_reason": "独立刑事/悬疑事件，瑞士边境发现尸体残骸",
+      "article_indexes": [
+        419
+      ],
+      "batch_identifier": 14,
+      "member_cluster_ids": [
+        "EVT-20261027-000297"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 14"
+    },
+    {
+      "cluster_id": "EVT-20261027-000298",
+      "local_cluster_id": "C001",
+      "event_title": "德国海上风电许可证返还争议",
+      "event_reason": "巴伐利亚州致函联邦政府要求返还Offshore风电许可证，涉及能源政策与国内政治博弈。",
+      "article_indexes": [
+        421
+      ],
+      "batch_identifier": 15,
+      "member_cluster_ids": [
+        "EVT-20261027-000298"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 15"
+    },
+    {
+      "cluster_id": "EVT-20261027-000299",
+      "local_cluster_id": "C002",
+      "event_title": "罗马尼亚破获俄罗斯间谍网",
+      "event_reason": "乌克兰战争背景下，罗马尼亚国家安全部门宣布摧毁一个被指控的俄罗斯间谍网络。",
+      "article_indexes": [
+        422
+      ],
+      "batch_identifier": 15,
+      "member_cluster_ids": [
+        "EVT-20261027-000299"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 15"
+    },
+    {
+      "cluster_id": "EVT-20261027-000300",
+      "local_cluster_id": "C003",
+      "event_title": "法国总统就学生抗议做出让步",
+      "event_reason": "马克龙政府针对持续的学生抗议运动提出具体妥协措施。",
+      "article_indexes": [
+        423
+      ],
+      "batch_identifier": 15,
+      "member_cluster_ids": [
+        "EVT-20261027-000300"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 15"
+    },
+    {
+      "cluster_id": "EVT-20261027-000301",
+      "local_cluster_id": "C004",
+      "event_title": "法院裁决打击Google Earth",
+      "event_reason": "德国法院做出对Google Earth不利的判决，构成重大法律打击。",
+      "article_indexes": [
+        424
+      ],
+      "batch_identifier": 15,
+      "member_cluster_ids": [
+        "EVT-20261027-000301"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 15"
+    },
+    {
+      "cluster_id": "EVT-20261027-000302",
+      "local_cluster_id": "C005",
+      "event_title": "苹果折叠iPhone硬件问题",
+      "event_reason": "苹果官方确认部分折叠iPhone设备存在硬件缺陷。",
+      "article_indexes": [
+        425
+      ],
+      "batch_identifier": 15,
+      "member_cluster_ids": [
+        "EVT-20261027-000302"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 15"
+    },
+    {
+      "cluster_id": "EVT-20261027-000303",
+      "local_cluster_id": "C006",
+      "event_title": "微软大规模裁员",
+      "event_reason": "微软向6万名员工提供遣散费，反映科技巨头内部重大组织调整。",
+      "article_indexes": [
+        426
+      ],
+      "batch_identifier": 15,
+      "member_cluster_ids": [
+        "EVT-20261027-000303"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 15"
+    },
+    {
+      "cluster_id": "EVT-20261027-000304",
+      "local_cluster_id": "C007",
+      "event_title": "登山者喜马拉雅山遇难",
+      "event_reason": "一名德国登山者在阿玛达布拉姆峰坠落1500米身亡。",
+      "article_indexes": [
+        427
+      ],
+      "batch_identifier": 15,
+      "member_cluster_ids": [
+        "EVT-20261027-000304"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 15"
+    },
+    {
+      "cluster_id": "EVT-20261027-000305",
+      "local_cluster_id": "C008",
+      "event_title": "Anthropic创始人财富激增",
+      "event_reason": "Anthropic创始人在AI估值飙升背景下个人财富预计达到290亿美元。",
+      "article_indexes": [
+        428
+      ],
+      "batch_identifier": 15,
+      "member_cluster_ids": [
+        "EVT-20261027-000305"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 15"
+    },
+    {
+      "cluster_id": "EVT-20261027-000306",
+      "local_cluster_id": "C009",
+      "event_title": "《星际迷航》演员去世",
+      "event_reason": "享年90岁的《星际迷航》演员Walter Koenig逝世。",
+      "article_indexes": [
+        429
+      ],
+      "batch_identifier": 15,
+      "member_cluster_ids": [
+        "EVT-20261027-000306"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 15"
+    },
+    {
+      "cluster_id": "EVT-20261027-000307",
+      "local_cluster_id": "C010",
+      "event_title": "Brinkmann私生活信件曝光",
+      "event_reason": "德国政治人物Brinkmann的个人信件内容引发关于其私生活的讨论。",
+      "article_indexes": [
+        430
+      ],
+      "batch_identifier": 15,
+      "member_cluster_ids": [
+        "EVT-20261027-000307"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 15"
+    },
+    {
+      "cluster_id": "EVT-20261027-000308",
+      "local_cluster_id": "C011",
+      "event_title": "冥想的心理健康风险",
+      "event_reason": "报道指出冥想对心理敏感人群可能存在的负面影响。",
+      "article_indexes": [
+        431
+      ],
+      "batch_identifier": 15,
+      "member_cluster_ids": [
+        "EVT-20261027-000308"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 15"
+    },
+    {
+      "cluster_id": "EVT-20261027-000309",
+      "local_cluster_id": "C012",
+      "event_title": "无教练铁人三项训练指南",
+      "event_reason": "关于如何在没有专业教练指导的情况下进行铁人三项训练的科普。",
+      "article_indexes": [
+        432
+      ],
+      "batch_identifier": 15,
+      "member_cluster_ids": [
+        "EVT-20261027-000309"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 15"
+    },
+    {
+      "cluster_id": "EVT-20261027-000310",
+      "local_cluster_id": "C013",
+      "event_title": "未修缮旧房出售建议",
+      "event_reason": "针对拥有需要翻新旧房产业主的五个出售技巧。",
+      "article_indexes": [
+        433
+      ],
+      "batch_identifier": 15,
+      "member_cluster_ids": [
+        "EVT-20261027-000310"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 15"
+    },
+    {
+      "cluster_id": "EVT-20261027-000311",
+      "local_cluster_id": "C014",
+      "event_title": "奥迪CEO遭批评",
+      "event_reason": "奥迪高管在与特朗普会面后遭到舆论严厉批评。",
+      "article_indexes": [
+        434
+      ],
+      "batch_identifier": 15,
+      "member_cluster_ids": [
+        "EVT-20261027-000311"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 15"
+    },
+    {
+      "cluster_id": "EVT-20261027-000312",
+      "local_cluster_id": "C015",
+      "event_title": "巴西选举争议与特朗普立场",
+      "event_reason": "博索纳罗挑战选举结果，特朗普可能对其背后的支持立场，以及塞尔维亚选举分析共同反映了全球民粹主义与选举政治的动荡。",
+      "article_indexes": [
+        435,
+        436,
+        444
+      ],
+      "batch_identifier": 15,
+      "member_cluster_ids": [
+        "EVT-20261027-000312"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 15"
+    },
+    {
+      "cluster_id": "EVT-20261027-000313",
+      "local_cluster_id": "C016",
+      "event_title": "塞尔维亚选举与地缘政治",
+      "event_reason": "塞尔维亚学生运动赢得选举，分析其国内政治（武契奇）与欧盟关系的实质。",
+      "article_indexes": [
+        437,
+        439
+      ],
+      "batch_identifier": 15,
+      "member_cluster_ids": [
+        "EVT-20261027-000313"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 15"
+    },
+    {
+      "cluster_id": "EVT-20261027-000314",
+      "local_cluster_id": "C017",
+      "event_title": "法兰克福FDP遭批评",
+      "event_reason": "法兰克福FDP地方分会因与AfD相关决议受到外界批评。",
+      "article_indexes": [
+        438
+      ],
+      "batch_identifier": 15,
+      "member_cluster_ids": [
+        "EVT-20261027-000314"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 15"
+    },
+    {
+      "cluster_id": "EVT-20261027-000315",
+      "local_cluster_id": "C018",
+      "event_title": "法国动荡与欧元区危机担忧",
+      "event_reason": "FaZ播客探讨法国骚乱和债务问题是否会导致下一次欧元危机。",
+      "article_indexes": [
+        440
+      ],
+      "batch_identifier": 15,
+      "member_cluster_ids": [
+        "EVT-20261027-000315"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 15"
+    },
+    {
+      "cluster_id": "EVT-20261027-000316",
+      "local_cluster_id": "C019",
+      "event_title": "科技巨头商业动态传闻",
+      "event_reason": "Digitalwirtschaft播客报道SpaceX收购Tesla传闻及Zuckerberg迁居威胁。",
+      "article_indexes": [
+        441
+      ],
+      "batch_identifier": 15,
+      "member_cluster_ids": [
+        "EVT-20261027-000316"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 15"
+    },
+    {
+      "cluster_id": "EVT-20261027-000317",
+      "local_cluster_id": "C020",
+      "event_title": "苏丹无人机袭击死亡人数上升",
+      "event_reason": "苏丹冲突中无人机袭击导致数百人死亡，人道主义危机加剧。",
+      "article_indexes": [
+        442
+      ],
+      "batch_identifier": 15,
+      "member_cluster_ids": [
+        "EVT-20261027-000317"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 15"
+    },
+    {
+      "cluster_id": "EVT-20261027-000318",
+      "local_cluster_id": "C021",
+      "event_title": "德国投资保护法合宪性审查",
+      "event_reason": "法律界质疑Dobrindt推动的投资保护法案是否违宪。",
+      "article_indexes": [
+        443
+      ],
+      "batch_identifier": 15,
+      "member_cluster_ids": [
+        "EVT-20261027-000318"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 15"
+    },
+    {
+      "cluster_id": "EVT-20261027-000319",
+      "local_cluster_id": "C022",
+      "event_title": "伊朗地区合作峰会",
+      "event_reason": "伊朗、沙特、土耳其和巴基斯坦在德黑兰举行会议加强区域合作。",
+      "article_indexes": [
+        445
+      ],
+      "batch_identifier": 15,
+      "member_cluster_ids": [
+        "EVT-20261027-000319"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 15"
+    },
+    {
+      "cluster_id": "EVT-20261027-000320",
+      "local_cluster_id": "C023",
+      "event_title": "老龄化护理预防前景",
+      "event_reason": "老年医学专家Polidori指出三分之一的护理需求可通过预防避免或延缓。",
+      "article_indexes": [
+        446
+      ],
+      "batch_identifier": 15,
+      "member_cluster_ids": [
+        "EVT-20261027-000320"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 15"
+    },
+    {
+      "cluster_id": "EVT-20261027-000321",
+      "local_cluster_id": "C024",
+      "event_title": "Shamonda病毒威胁农业",
+      "event_reason": "牲畜疫情Shamonda病毒对农业生产和粮食安全构成严重威胁。",
+      "article_indexes": [
+        447
+      ],
+      "batch_identifier": 15,
+      "member_cluster_ids": [
+        "EVT-20261027-000321"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 15"
+    },
+    {
+      "cluster_id": "EVT-20261027-000322",
+      "local_cluster_id": "C025",
+      "event_title": "柏林房东撤离 vergesellschaftung",
+      "event_reason": "因Berlin公寓国有化（Vergesellschaftung）计划，投资者撤出柏林房地产市场。",
+      "article_indexes": [
+        448
+      ],
+      "batch_identifier": 15,
+      "member_cluster_ids": [
+        "EVT-20261027-000322"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 15"
+    },
+    {
+      "cluster_id": "EVT-20261027-000323",
+      "local_cluster_id": "C026",
+      "event_title": "工人阶层文化复兴评论",
+      "event_reason": "专栏文章探讨社会文化中对‘工人’身份和价值的重新发现。",
+      "article_indexes": [
+        449
+      ],
+      "batch_identifier": 15,
+      "member_cluster_ids": [
+        "EVT-20261027-000323"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 15"
+    },
+    {
+      "cluster_id": "EVT-20261027-000324",
+      "local_cluster_id": "C027",
+      "event_title": "AfD媒体曝光率调查",
+      "event_reason": "数据分析揭示AfD在电视脱口秀中的实际邀请频率及话题分布。",
+      "article_indexes": [
+        450
+      ],
+      "batch_identifier": 15,
+      "member_cluster_ids": [
+        "EVT-20261027-000324"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 15"
+    },
+    {
+      "cluster_id": "EVT-20261027-000325",
+      "local_cluster_id": "C001",
+      "event_title": "德国电子烟监管与香精禁令争议",
+      "event_reason": "德国电子香烟监管政策及香精禁令相关报道",
+      "article_indexes": [
+        451
+      ],
+      "batch_identifier": 16,
+      "member_cluster_ids": [
+        "EVT-20261027-000325"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 16"
+    },
+    {
+      "cluster_id": "EVT-20261027-000326",
+      "local_cluster_id": "C002",
+      "event_title": "巴西股市因Lula胜选下跌",
+      "event_reason": "巴西股市因Lula胜选出现下跌和交易暂停事件",
+      "article_indexes": [
+        452
+      ],
+      "batch_identifier": 16,
+      "member_cluster_ids": [
+        "EVT-20261027-000326"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 16"
+    },
+    {
+      "cluster_id": "EVT-20261027-000327",
+      "local_cluster_id": "C003",
+      "event_title": "AI芯片商主导美国企业盈利增长",
+      "event_reason": "两家AI芯片制造商占美国企业盈利增长的34%现象",
+      "article_indexes": [
+        453
+      ],
+      "batch_identifier": 16,
+      "member_cluster_ids": [
+        "EVT-20261027-000327"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 16"
+    },
+    {
+      "cluster_id": "EVT-20261027-000328",
+      "local_cluster_id": "C004",
+      "event_title": "Sebastian Haffner著作讨论",
+      "event_reason": "对Sebastian Haffner作品《Die Tochter》的文学评论",
+      "article_indexes": [
+        454
+      ],
+      "batch_identifier": 16,
+      "member_cluster_ids": [
+        "EVT-20261027-000328"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 16"
+    },
+    {
+      "cluster_id": "EVT-20261027-000329",
+      "local_cluster_id": "C005",
+      "event_title": "Kerstin Preiwuß书籍评论",
+      "event_reason": "关于Kerstin Preiwuß书籍出版及其内容评价",
+      "article_indexes": [
+        455
+      ],
+      "batch_identifier": 16,
+      "member_cluster_ids": [
+        "EVT-20261027-000329"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 16"
+    },
+    {
+      "cluster_id": "EVT-20261027-000330",
+      "local_cluster_id": "C006",
+      "event_title": "制作人Gisela Marx逝世",
+      "event_reason": "德国制作人Gisela Marx去世新闻",
+      "article_indexes": [
+        456
+      ],
+      "batch_identifier": 16,
+      "member_cluster_ids": [
+        "EVT-20261027-000330"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 16"
+    },
+    {
+      "cluster_id": "EVT-20261027-000331",
+      "local_cluster_id": "C007",
+      "event_title": "意大利社会动荡",
+      "event_reason": "意大利国内示威与政府执法引发的社会紧张局势",
+      "article_indexes": [
+        457
+      ],
+      "batch_identifier": 16,
+      "member_cluster_ids": [
+        "EVT-20261027-000331"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 16"
+    },
+    {
+      "cluster_id": "EVT-20261027-000332",
+      "local_cluster_id": "C008",
+      "event_title": "Cronimet集团废料业务",
+      "event_reason": "Cronimet集团在废金属与废料处理领域的业务动态",
+      "article_indexes": [
+        458
+      ],
+      "batch_identifier": 16,
+      "member_cluster_ids": [
+        "EVT-20261027-000332"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 16"
+    },
+    {
+      "cluster_id": "EVT-20261027-000333",
+      "local_cluster_id": "C009",
+      "event_title": "年轻创业者成功指南",
+      "event_reason": "关于年轻创业者创业所需素质和建议的讨论",
+      "article_indexes": [
+        459
+      ],
+      "batch_identifier": 16,
+      "member_cluster_ids": [
+        "EVT-20261027-000333"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 16"
+    },
+    {
+      "cluster_id": "EVT-20261027-000334",
+      "local_cluster_id": "C010",
+      "event_title": "世界职业棒球大赛对决",
+      "event_reason": "世界大赛（World Series）中两支弱队的决赛对决",
+      "article_indexes": [
+        460
+      ],
+      "batch_identifier": 16,
+      "member_cluster_ids": [
+        "EVT-20261027-000334"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 16"
+    },
+    {
+      "cluster_id": "EVT-20261027-000335",
+      "local_cluster_id": "C011",
+      "event_title": "世界足球先生评选事件",
+      "event_reason": "Ballon d'Or获奖者相关新闻提前泄露事件",
+      "article_indexes": [
+        461
+      ],
+      "batch_identifier": 16,
+      "member_cluster_ids": [
+        "EVT-20261027-000335"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 16"
+    },
+    {
+      "cluster_id": "EVT-20261027-000336",
+      "local_cluster_id": "C012",
+      "event_title": "足球丑闻德比后续",
+      "event_reason": "足球比赛中的丑闻德比事件及其社会反应",
+      "article_indexes": [
+        462
+      ],
+      "batch_identifier": 16,
+      "member_cluster_ids": [
+        "EVT-20261027-000336"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 16"
+    },
+    {
+      "cluster_id": "EVT-20261027-000337",
+      "local_cluster_id": "C013",
+      "event_title": "女子足球低薪现状",
+      "event_reason": "女子足球运动员薪酬过低需兼职工作的社会问题",
+      "article_indexes": [
+        463
+      ],
+      "batch_identifier": 16,
+      "member_cluster_ids": [
+        "EVT-20261027-000337"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 16"
+    },
+    {
+      "cluster_id": "EVT-20261027-000338",
+      "local_cluster_id": "C014",
+      "event_title": "伦敦街道漫步政策变化",
+      "event_reason": "伦敦部分街道取消罚款允许市民休闲漫步的新规",
+      "article_indexes": [
+        464
+      ],
+      "batch_identifier": 16,
+      "member_cluster_ids": [
+        "EVT-20261027-000338"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 16"
+    },
+    {
+      "cluster_id": "EVT-20261027-000339",
+      "local_cluster_id": "C015",
+      "event_title": "无国界医生行动风险上升",
+      "event_reason": "无国界医生组织指其医疗行动危险性增加的新闻",
+      "article_indexes": [
+        465
+      ],
+      "batch_identifier": 16,
+      "member_cluster_ids": [
+        "EVT-20261027-000339"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 16"
+    },
+    {
+      "cluster_id": "EVT-20261027-000340",
+      "local_cluster_id": "C016",
+      "event_title": "巴伐利亚住宅枪击案",
+      "event_reason": "巴伐利亚一男子在自家门口被枪杀、嫌疑人潜逃事件",
+      "article_indexes": [
+        466
+      ],
+      "batch_identifier": 16,
+      "member_cluster_ids": [
+        "EVT-20261027-000340"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 16"
+    },
+    {
+      "cluster_id": "EVT-20261027-000341",
+      "local_cluster_id": "C017",
+      "event_title": "邮轮与集装箱船碰撞事故",
+      "event_reason": "Mein Schiff 3邮轮与集装箱船碰撞，船长受调查",
+      "article_indexes": [
+        467
+      ],
+      "batch_identifier": 16,
+      "member_cluster_ids": [
+        "EVT-20261027-000341"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 16"
+    },
+    {
+      "cluster_id": "EVT-20261027-000342",
+      "local_cluster_id": "C018",
+      "event_title": "犹太移民对时尚民主化的影响",
+      "event_reason": "关于犹太移民如何推动时尚民主化的文化研究文章",
+      "article_indexes": [
+        468
+      ],
+      "batch_identifier": 16,
+      "member_cluster_ids": [
+        "EVT-20261027-000342"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 16"
+    },
+    {
+      "cluster_id": "EVT-20261027-000343",
+      "local_cluster_id": "C019",
+      "event_title": "Bridges室内乐团演出评论",
+      "event_reason": "对Bridges Kammerorchester打破传统格局的音乐会评论",
+      "article_indexes": [
+        469
+      ],
+      "batch_identifier": 16,
+      "member_cluster_ids": [
+        "EVT-20261027-000343"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 16"
+    },
+    {
+      "cluster_id": "EVT-20261027-000344",
+      "local_cluster_id": "C020",
+      "event_title": "莱茵-美因地区违法赛车与袭警事件",
+      "event_reason": "莱茵-美因地区非法赛车及袭击警察的警情报告",
+      "article_indexes": [
+        470
+      ],
+      "batch_identifier": 16,
+      "member_cluster_ids": [
+        "EVT-20261027-000344"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 16"
+    },
+    {
+      "cluster_id": "EVT-20261027-000345",
+      "local_cluster_id": "C021",
+      "event_title": "德国铁路莱茵右线工程延期",
+      "event_reason": "德国铁路（DB）莱茵右线项目未能按期完工的报道",
+      "article_indexes": [
+        471
+      ],
+      "batch_identifier": 16,
+      "member_cluster_ids": [
+        "EVT-20261027-000345"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 16"
+    },
+    {
+      "cluster_id": "EVT-20261027-000346",
+      "local_cluster_id": "C022",
+      "event_title": "La Trinca西班牙融合餐厅",
+      "event_reason": "La Trinca餐厅主打高水准西班牙融合菜的美食评论",
+      "article_indexes": [
+        472
+      ],
+      "batch_identifier": 16,
+      "member_cluster_ids": [
+        "EVT-20261027-000346"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 16"
+    },
+    {
+      "cluster_id": "EVT-20261027-000347",
+      "local_cluster_id": "C023",
+      "event_title": "阿尔布山地养羊业困境",
+      "event_reason": "德国阿尔布地区养羊业面临的经营困难挑战",
+      "article_indexes": [
+        473
+      ],
+      "batch_identifier": 16,
+      "member_cluster_ids": [
+        "EVT-20261027-000347"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 16"
+    },
+    {
+      "cluster_id": "EVT-20261027-000348",
+      "local_cluster_id": "C024",
+      "event_title": "BMW iX5氢能车型试驾",
+      "event_reason": "对宝马BMW iX5氢能汽车的试驾体验与评价",
+      "article_indexes": [
+        474
+      ],
+      "batch_identifier": 16,
+      "member_cluster_ids": [
+        "EVT-20261027-000348"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 16"
+    },
+    {
+      "cluster_id": "EVT-20261027-000349",
+      "local_cluster_id": "C025",
+      "event_title": "Martin Löffler作品评述",
+      "event_reason": "关于艺术家或作家Martin Löffler作品的文化评论",
+      "article_indexes": [
+        475
+      ],
+      "batch_identifier": 16,
+      "member_cluster_ids": [
+        "EVT-20261027-000349"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 16"
+    },
+    {
+      "cluster_id": "EVT-20261027-000350",
+      "local_cluster_id": "C026",
+      "event_title": "全球昆虫数量百年衰退数据",
+      "event_reason": "基于100年数据分析昆虫种群急剧减少的区域分布",
+      "article_indexes": [
+        476
+      ],
+      "batch_identifier": 16,
+      "member_cluster_ids": [
+        "EVT-20261027-000350"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 16"
+    },
+    {
+      "cluster_id": "EVT-20261027-000351",
+      "local_cluster_id": "C027",
+      "event_title": "工业用地转物流地产",
+      "event_reason": "工业空地转型为物流仓储房地产的商业趋势报道",
+      "article_indexes": [
+        477
+      ],
+      "batch_identifier": 16,
+      "member_cluster_ids": [
+        "EVT-20261027-000351"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 16"
+    },
+    {
+      "cluster_id": "EVT-20261027-000352",
+      "local_cluster_id": "C028",
+      "event_title": "中国在线巨头探索之旅",
+      "event_reason": "关于中国大型互联网平台企业的考察或体验报道",
+      "article_indexes": [
+        478
+      ],
+      "batch_identifier": 16,
+      "member_cluster_ids": [
+        "EVT-20261027-000352"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 16"
+    },
+    {
+      "cluster_id": "EVT-20261027-000353",
+      "local_cluster_id": "C029",
+      "event_title": "科尼希斯坦图书拍卖活动",
+      "event_reason": "科尼希斯坦举办的图书拍卖会及相关文化活动",
+      "article_indexes": [
+        479
+      ],
+      "batch_identifier": 16,
+      "member_cluster_ids": [
+        "EVT-20261027-000353"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 16"
+    },
+    {
+      "cluster_id": "EVT-20261027-000354",
+      "local_cluster_id": "C030",
+      "event_title": "俄罗斯参议员提议加强市场监管",
+      "event_reason": "俄罗斯联邦委员会向 Роспотребнадзор 提议加强商品流通管控",
+      "article_indexes": [
+        480
+      ],
+      "batch_identifier": 16,
+      "member_cluster_ids": [
+        "EVT-20261027-000354"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 16"
+    },
+    {
+      "cluster_id": "EVT-20261027-000355",
+      "local_cluster_id": "C001",
+      "event_title": "俄乌战争相关动态",
+      "event_reason": "涉及乌克兰去工业化、城市防御准备及俄军赫爾松方向戒严，均围绕俄乌冲突军事与战时状态。",
+      "article_indexes": [
+        481,
+        483,
+        486
+      ],
+      "batch_identifier": 17,
+      "member_cluster_ids": [
+        "EVT-20261027-000355"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 17"
+    },
+    {
+      "cluster_id": "EVT-20261027-000356",
+      "local_cluster_id": "C002",
+      "event_title": "俄罗斯国内经济与社会事务",
+      "event_reason": "涉及前罗斯纳诺董事长巨额债务追缴及俄罗斯高薪行业分布，均属于俄罗斯国内经济与司法事件。",
+      "article_indexes": [
+        484,
+        485
+      ],
+      "batch_identifier": 17,
+      "member_cluster_ids": [
+        "EVT-20261027-000356"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 17"
+    },
+    {
+      "cluster_id": "EVT-20261027-000357",
+      "local_cluster_id": "C003",
+      "event_title": "国际体育赛事与荣誉",
+      "event_reason": "涉及哈里·凯恩获得金球奖及世界大赛中的精彩扑救，均属于体育竞技领域的事件。",
+      "article_indexes": [
+        482,
+        503
+      ],
+      "batch_identifier": 17,
+      "member_cluster_ids": [
+        "EVT-20261027-000357"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 17"
+    },
+    {
+      "cluster_id": "EVT-20261027-000358",
+      "local_cluster_id": "C004",
+      "event_title": "俄罗斯司法案件进展",
+      "event_reason": "分别涉及多利纳公寓诈骗案上诉、苏莱曼诺夫谋杀案调查终结及莱尔切克案件调查员失职，均属于俄罗斯司法诉讼事件。",
+      "article_indexes": [
+        487,
+        489,
+        493
+      ],
+      "batch_identifier": 17,
+      "member_cluster_ids": [
+        "EVT-20261027-000358"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 17"
+    },
+    {
+      "cluster_id": "EVT-20261027-000359",
+      "local_cluster_id": "C005",
+      "event_title": "俄罗斯外交与地缘政治",
+      "event_reason": "涉及俄伊关系及非洲自然资源，均属于俄罗斯对外关系与国际资源战略范畴。",
+      "article_indexes": [
+        490,
+        491
+      ],
+      "batch_identifier": 17,
+      "member_cluster_ids": [
+        "EVT-20261027-000359"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 17"
+    },
+    {
+      "cluster_id": "EVT-20261027-000360",
+      "local_cluster_id": "C006",
+      "event_title": " miscellaneous_non_event_news",
+      "event_reason": "包含伦敦郊区、云豹、桥梁、越南湖泊、斯里兰卡古城等无明确单一事件关联的地理或自然知识类资讯。",
+      "article_indexes": [
+        488,
+        492,
+        494,
+        495,
+        496,
+        497,
+        498,
+        499,
+        500
+      ],
+      "batch_identifier": 17,
+      "member_cluster_ids": [
+        "EVT-20261027-000360"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 17"
+    },
+    {
+      "cluster_id": "EVT-20261027-000361",
+      "local_cluster_id": "C007",
+      "event_title": "科技与企业新闻",
+      "event_reason": "涉及AP天气资讯及Fanatics与OpenAI合作，属于科技与企业动态。",
+      "article_indexes": [
+        501,
+        502
+      ],
+      "batch_identifier": 17,
+      "member_cluster_ids": [
+        "EVT-20261027-000361"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 17"
+    },
+    {
+      "cluster_id": "EVT-20261027-000362",
+      "local_cluster_id": "C008",
+      "event_title": "德国宗教与政治评论",
+      "event_reason": "涉及德国宗教教育及总统对总理的评价，均属于德国国内政治与宗教议题。",
+      "article_indexes": [
+        504,
+        505
+      ],
+      "batch_identifier": 17,
+      "member_cluster_ids": [
+        "EVT-20261027-000362"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 17"
+    },
+    {
+      "cluster_id": "EVT-20261027-000363",
+      "local_cluster_id": "C009",
+      "event_title": "中国时政与党媒报道",
+      "event_reason": "均来自人民日报，涉及习近平讲话出版、中央巡视进驻教育部、事业单位条例公布及红色文化评论，属于同一批次的中国官方时政新闻。",
+      "article_indexes": [
+        506,
+        507,
+        508,
+        509,
+        510
+      ],
+      "batch_identifier": 17,
+      "member_cluster_ids": [
+        "EVT-20261027-000363"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 17"
+    },
+    {
+      "cluster_id": "EVT-20261027-000364",
+      "local_cluster_id": "C001",
+      "event_title": "丰收时节看稻香里的新品种与种业创新",
+      "event_reason": "两篇均来自人民日报2026-10-27，报道黑龙江松粳60、湖南中安早35、广东吉丰优866等水稻新品种及种业创新成果",
+      "article_indexes": [
+        511,
+        512
+      ],
+      "batch_identifier": 18,
+      "member_cluster_ids": [
+        "EVT-20261027-000364"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 18"
+    },
+    {
+      "cluster_id": "EVT-20261027-000365",
+      "local_cluster_id": "C002",
+      "event_title": "陪诊服务国家标准将于11月1日实施",
+      "event_reason": "两篇均来自人民日报2026-10-27，报道《社会化陪同就医服务基本要求》国家标准内容、陪诊师职责边界及规范建议",
+      "article_indexes": [
+        513,
+        514
+      ],
+      "batch_identifier": 18,
+      "member_cluster_ids": [
+        "EVT-20261027-000365"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 18"
+    },
+    {
+      "cluster_id": "EVT-20261027-000366",
+      "local_cluster_id": "C003",
+      "event_title": "产业基础能力提升规划印发与数字家庭建设试点",
+      "event_reason": "两篇均来自人民日报2026-10-27，分别报道《产业基础能力提升十五五规划》由工信部等8部门印发，以及发改委公布首批重大应用场景、六城市将开展数字家庭建设",
+      "article_indexes": [
+        515,
+        516
+      ],
+      "batch_identifier": 18,
+      "member_cluster_ids": [
+        "EVT-20261027-000366"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 18"
+    },
+    {
+      "cluster_id": "EVT-20261027-000367",
+      "local_cluster_id": "C004",
+      "event_title": "外国企业家访沪交流与中国发展智慧国际论坛",
+      "event_reason": "两篇均来自人民日报2026-10-27，分别报道第38次上海市市长国际企业家咨询会议外国企业家点赞中国发展活力，以及肯尼亚记者撰写的从长征足迹读懂中国发展智慧国际论坛文章",
+      "article_indexes": [
+        517,
+        518
+      ],
+      "batch_identifier": 18,
+      "member_cluster_ids": [
+        "EVT-20261027-000367"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 18"
+    },
+    {
+      "cluster_id": "EVT-20261027-000368",
+      "local_cluster_id": "C005",
+      "event_title": "德国总统施泰因迈尔访华与全球治理论坛发布愿景文件",
+      "event_reason": "两篇均来自人民日报2026-10-27，分别报道德国总统施泰因迈尔10月27日至31日对中国进行国事访问，以及2026全球治理论坛（雄安）发布《论坛愿景文件》",
+      "article_indexes": [
+        519,
+        520
+      ],
+      "batch_identifier": 18,
+      "member_cluster_ids": [
+        "EVT-20261027-000368"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 18"
+    },
+    {
+      "cluster_id": "EVT-20261027-000369",
+      "local_cluster_id": "C006",
+      "event_title": "长征胜利90周年展览与冰岛外长访华",
+      "event_reason": "两篇均来自人民日报2026-10-27，分别报道驻华外交官参观纪念长征胜利90周年主题展览，以及冰岛外交部长贡纳尔斯多蒂尔10月26日至31日访华",
+      "article_indexes": [
+        521,
+        522
+      ],
+      "batch_identifier": 18,
+      "member_cluster_ids": [
+        "EVT-20261027-000369"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 18"
+    },
+    {
+      "cluster_id": "EVT-20261027-000370",
+      "local_cluster_id": "C007",
+      "event_title": "中朝共同纪念抗美援朝出国作战76周年与中国-东盟青年文化周",
+      "event_reason": "两篇均来自人民日报2026-10-27，分别报道10月25日在平壤中朝友谊塔举行的纪念活动，以及2026中国-东盟青年文化周在北京开幕",
+      "article_indexes": [
+        523,
+        524
+      ],
+      "batch_identifier": 18,
+      "member_cluster_ids": [
+        "EVT-20261027-000370"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 18"
+    },
+    {
+      "cluster_id": "EVT-20261027-000371",
+      "local_cluster_id": "C008",
+      "event_title": "外交部外空治理立场与西藏巴青县地震救援现场",
+      "event_reason": "两篇均来自人民日报2026-10-27，分别报道外交部发言人介绍《关于加强外空治理的中国立场》10项主张，以及西藏那曲市巴青县地震救援中医护人员温情接力救治伤员",
+      "article_indexes": [
+        525,
+        526
+      ],
+      "batch_identifier": 18,
+      "member_cluster_ids": [
+        "EVT-20261027-000371"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 18"
+    },
+    {
+      "cluster_id": "EVT-20261027-000372",
+      "local_cluster_id": "C009",
+      "event_title": "西藏巴青县地震灾情数据与应急响应记者手记",
+      "event_reason": "两篇均来自人民日报2026-10-27，分别报道截至10月25日巴青县地震转移安置、救治伤患、板房搭建等数据，以及记者手记强调迅速响应靠平时功夫",
+      "article_indexes": [
+        527,
+        528
+      ],
+      "batch_identifier": 18,
+      "member_cluster_ids": [
+        "EVT-20261027-000372"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 18"
+    },
+    {
+      "cluster_id": "EVT-20261027-000373",
+      "local_cluster_id": "C010",
+      "event_title": "河南渑池县推行三问三请办好民生实事",
+      "event_reason": "两篇均来自人民日报2026-10-27，报道渑池县遵循问需于民请群众点题、问计于民请群众支招、问效于民请群众评议原则办好民生实事",
+      "article_indexes": [
+        529,
+        530
+      ],
+      "batch_identifier": 18,
+      "member_cluster_ids": [
+        "EVT-20261027-000373"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 18"
+    },
+    {
+      "cluster_id": "EVT-20261027-000374",
+      "local_cluster_id": "C011",
+      "event_title": "邵奇惠同志逝世与党的二十届五中全会召开",
+      "event_reason": "两篇均来自人民日报2026-10-27，分别报道邵奇惠同志逝世简讯，以及党的二十届五中全会10月26日至29日在京召开研究全面从严治党重大问题",
+      "article_indexes": [
+        531,
+        532
+      ],
+      "batch_identifier": 18,
+      "member_cluster_ids": [
+        "EVT-20261027-000374"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 18"
+    },
+    {
+      "cluster_id": "EVT-20261027-000375",
+      "local_cluster_id": "C012",
+      "event_title": "一江碧水悟思想评论员观察",
+      "event_reason": "人民日报2026-10-27评论员观察文章，以洱海和呼伦湖治理为例阐述习近平生态文明思想与党的思想建设关系",
+      "article_indexes": [
+        533
+      ],
+      "batch_identifier": 18,
+      "member_cluster_ids": [
+        "EVT-20261027-000375"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 18"
+    },
+    {
+      "cluster_id": "EVT-20261027-000376",
+      "local_cluster_id": "C013",
+      "event_title": "内蒙古草原保护与文化遗产保护框架英文版报道",
+      "event_reason": "人民日报2026-10-27英文版文章，介绍内蒙古草原保护实践及中国2026-2030文化遗产保护大框架",
+      "article_indexes": [
+        534
+      ],
+      "batch_identifier": 18,
+      "member_cluster_ids": [
+        "EVT-20261027-000376"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 18"
+    },
+    {
+      "cluster_id": "EVT-20261027-000377",
+      "local_cluster_id": "C014",
+      "event_title": "读懂课本里的长征微观栏目",
+      "event_reason": "人民日报2026-10-27微观栏目文章，探讨长征题材课文的教育意义及青少年传承长征精神",
+      "article_indexes": [
+        535
+      ],
+      "batch_identifier": 18,
+      "member_cluster_ids": [
+        "EVT-20261027-000377"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 18"
+    },
+    {
+      "cluster_id": "EVT-20261027-000378",
+      "local_cluster_id": "C015",
+      "event_title": "法治护航海南自由贸易港建设",
+      "event_reason": "人民日报2026-10-27报道全国人大常委会执法检查组对海南自由贸易港法实施情况的检查，涵盖贸易投资自由便利、法治保障、新质生产力培育等方面",
+      "article_indexes": [
+        536
+      ],
+      "batch_identifier": 18,
+      "member_cluster_ids": [
+        "EVT-20261027-000378"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 18"
+    },
+    {
+      "cluster_id": "EVT-20261027-000379",
+      "local_cluster_id": "C016",
+      "event_title": "一个人的长征一家人的团圆守望",
+      "event_reason": "人民日报2026-10-27报道江西退休党员黄振贵重走长征路343天8000多公里，并帮助老红军柴友福后人寻亲圆梦",
+      "article_indexes": [
+        537
+      ],
+      "batch_identifier": 18,
+      "member_cluster_ids": [
+        "EVT-20261027-000379"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 18"
+    },
+    {
+      "cluster_id": "EVT-20261027-000380",
+      "local_cluster_id": "C017",
+      "event_title": "央行设立债市非银大额赎回互换便利",
+      "event_reason": "人民日报2026-10-27报道中国人民银行决定设立该便利，在特定情景下支持资管机构应对群体性流动性风险",
+      "article_indexes": [
+        538
+      ],
+      "batch_identifier": 18,
+      "member_cluster_ids": [
+        "EVT-20261027-000380"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 18"
+    },
+    {
+      "cluster_id": "EVT-20261027-000381",
+      "local_cluster_id": "C018",
+      "event_title": "垃圾分类进校园图片报道",
+      "event_reason": "人民日报2026-10-27图片报道，陕西渭南市垃圾分类主题活动走进高新区渭河学校",
+      "article_indexes": [
+        539
+      ],
+      "batch_identifier": 18,
+      "member_cluster_ids": [
+        "EVT-20261027-000381"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 18"
+    },
+    {
+      "cluster_id": "EVT-20261027-000382",
+      "local_cluster_id": "C019",
+      "event_title": "长三角高铁新线试运行与空气质量改善",
+      "event_reason": "人民日报2026-10-27报道淮蚌、淮阜、巢马3条高铁同日试运行使长三角高铁里程超8500公里，以及前三季度全国PM2.5平均浓度同比下降3.9%",
+      "article_indexes": [
+        540
+      ],
+      "batch_identifier": 18,
+      "member_cluster_ids": [
+        "EVT-20261027-000382"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 18"
+    },
+    {
+      "cluster_id": "EVT-20261027-000383",
+      "local_cluster_id": "C001",
+      "event_title": "北京推动落叶缓扫拉长市民赏秋周期",
+      "event_reason": "文章541标题虽误标但正文实为北京落叶缓扫政策；文章542标题正确，二者报道同一事件。",
+      "article_indexes": [
+        541,
+        542
+      ],
+      "batch_identifier": 19,
+      "member_cluster_ids": [
+        "EVT-20261027-000383"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 19"
+    },
+    {
+      "cluster_id": "EVT-20261027-000384",
+      "local_cluster_id": "C002",
+      "event_title": "东北虎豹国家公园生态保护与建设成效",
+      "event_reason": "文章543版面对应544正文，内容完整报道东北虎豹国家公园保护情况。",
+      "article_indexes": [
+        543,
+        544
+      ],
+      "batch_identifier": 19,
+      "member_cluster_ids": [
+        "EVT-20261027-000384"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 19"
+    },
+    {
+      "cluster_id": "EVT-20261027-000385",
+      "local_cluster_id": "C003",
+      "event_title": "一带一路绿色创新大会2026在香港举行",
+      "event_reason": "文章545版面对应546正文，共同报道大会举行及相关成果。",
+      "article_indexes": [
+        545,
+        546
+      ],
+      "batch_identifier": 19,
+      "member_cluster_ids": [
+        "EVT-20261027-000385"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 19"
+    },
+    {
+      "cluster_id": "EVT-20261027-000386",
+      "local_cluster_id": "C004",
+      "event_title": "六部门印发老旧街区厂区改造提升指导意见",
+      "event_reason": "文章报道住房城乡建设部等6部门联合印发指导意见，明确改造提升1500个老旧街区厂区任务。",
+      "article_indexes": [
+        547
+      ],
+      "batch_identifier": 19,
+      "member_cluster_ids": [
+        "EVT-20261027-000386"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 19"
+    },
+    {
+      "cluster_id": "EVT-20261027-000387",
+      "local_cluster_id": "C005",
+      "event_title": "前三季度快递业务量数据发布",
+      "event_reason": "文章报道国家邮政局发布的2026年前三季度快递业务量累计完成1513亿件的数据。",
+      "article_indexes": [
+        548
+      ],
+      "batch_identifier": 19,
+      "member_cluster_ids": [
+        "EVT-20261027-000387"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 19"
+    },
+    {
+      "cluster_id": "EVT-20261027-000388",
+      "local_cluster_id": "C006",
+      "event_title": "苏州桂花市集活动",
+      "event_reason": "文章549版面对应550正文，报道苏州桂花市集情况及市花拓展消费新场景。",
+      "article_indexes": [
+        549,
+        550
+      ],
+      "batch_identifier": 19,
+      "member_cluster_ids": [
+        "EVT-20261027-000388"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 19"
+    },
+    {
+      "cluster_id": "EVT-20261027-000389",
+      "local_cluster_id": "C007",
+      "event_title": "四川黑水彩林秋景",
+      "event_reason": "文章为图片报道，展示四川省阿坝州黑水县洛哩措彩林最佳观赏期景观。",
+      "article_indexes": [
+        551
+      ],
+      "batch_identifier": 19,
+      "member_cluster_ids": [
+        "EVT-20261027-000389"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 19"
+    },
+    {
+      "cluster_id": "EVT-20261027-000390",
+      "local_cluster_id": "C008",
+      "event_title": "宁夏葡萄酒产业发展与世界葡萄与葡萄酒大会召开",
+      "event_reason": "文章552版面对应553正文，报道第四十七届世界葡萄与葡萄酒大会在银川举行及宁夏葡萄酒产业成就。",
+      "article_indexes": [
+        552,
+        553
+      ],
+      "batch_identifier": 19,
+      "member_cluster_ids": [
+        "EVT-20261027-000390"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 19"
+    },
+    {
+      "cluster_id": "EVT-20261027-000391",
+      "local_cluster_id": "C009",
+      "event_title": "南方区域电力市场正式运行",
+      "event_reason": "文章554版面对应555正文，共同报道2026年10月24日南方区域电力市场转入正式运行事件。",
+      "article_indexes": [
+        554,
+        555
+      ],
+      "batch_identifier": 19,
+      "member_cluster_ids": [
+        "EVT-20261027-000391"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 19"
+    },
+    {
+      "cluster_id": "EVT-20261027-000392",
+      "local_cluster_id": "C010",
+      "event_title": "全面从严治党理论文章",
+      "event_reason": "文章刊载于人民日报第09版理论版，阐述坚持不懈把全面从严治党向纵深推进的理论。",
+      "article_indexes": [
+        556
+      ],
+      "batch_identifier": 19,
+      "member_cluster_ids": [
+        "EVT-20261027-000392"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 19"
+    },
+    {
+      "cluster_id": "EVT-20261027-000393",
+      "local_cluster_id": "C011",
+      "event_title": "汲取古代城市建设治理智慧",
+      "event_reason": "文章报道清华大学教授吴廷海关于汲取我国古代城市建设治理智慧推动城市工作的观点。",
+      "article_indexes": [
+        557
+      ],
+      "batch_identifier": 19,
+      "member_cluster_ids": [
+        "EVT-20261027-000393"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 19"
+    },
+    {
+      "cluster_id": "EVT-20261027-000394",
+      "local_cluster_id": "C012",
+      "event_title": "促进农业生态价值转化",
+      "event_reason": "文章刊载于人民日报第09版，涉及促进农业生态价值转化的专题深思内容。",
+      "article_indexes": [
+        558
+      ],
+      "batch_identifier": 19,
+      "member_cluster_ids": [
+        "EVT-20261027-000394"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 19"
+    },
+    {
+      "cluster_id": "EVT-20261027-000395",
+      "local_cluster_id": "C013",
+      "event_title": "厦门援宁干部五年工作回顾与编辑手记",
+      "event_reason": "文章559正文报道李惠琴在宁夏闽宁镇五年工作；文章560为编辑手记，二者同属一组报道。",
+      "article_indexes": [
+        559,
+        560
+      ],
+      "batch_identifier": 19,
+      "member_cluster_ids": [
+        "EVT-20261027-000395"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 19"
+    },
+    {
+      "cluster_id": "EVT-20261027-000396",
+      "local_cluster_id": "C014",
+      "event_title": "综合交通枢纽十五五规划印发",
+      "event_reason": "文章标题提及《综合交通枢纽发展“十五五”规划》印发。",
+      "article_indexes": [
+        561
+      ],
+      "batch_identifier": 19,
+      "member_cluster_ids": [
+        "EVT-20261027-000396"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 19"
+    },
+    {
+      "cluster_id": "EVT-20261027-000397",
+      "local_cluster_id": "C015",
+      "event_title": "AI智能终端消费中心展示",
+      "event_reason": "文章为图片报道，展示江苏南京AI智能体集散中心内的AI智能终端消费中心场景。",
+      "article_indexes": [
+        562
+      ],
+      "batch_identifier": 19,
+      "member_cluster_ids": [
+        "EVT-20261027-000397"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 19"
+    },
+    {
+      "cluster_id": "EVT-20261027-000398",
+      "local_cluster_id": "C016",
+      "event_title": "旱塬丰收农业发展",
+      "event_reason": "文章报道西北地区旱塬丰收及农业发展的新闻。",
+      "article_indexes": [
+        563
+      ],
+      "batch_identifier": 19,
+      "member_cluster_ids": [
+        "EVT-20261027-000398"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 19"
+    },
+    {
+      "cluster_id": "EVT-20261027-000399",
+      "local_cluster_id": "C017",
+      "event_title": "前三季度工业企业销售收入增长",
+      "event_reason": "文章报道国家税务总局发布的2026年前三季度工业企业销售收入同比增长7.4%的数据。",
+      "article_indexes": [
+        564
+      ],
+      "batch_identifier": 19,
+      "member_cluster_ids": [
+        "EVT-20261027-000399"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 19"
+    },
+    {
+      "cluster_id": "EVT-20261027-000400",
+      "local_cluster_id": "C018",
+      "event_title": "湖南古丈县快递进村全覆盖",
+      "event_reason": "文章报道湖南省湘西州古丈县103个建制村实现快递服务全覆盖的农村物流建设进展。",
+      "article_indexes": [
+        565
+      ],
+      "batch_identifier": 19,
+      "member_cluster_ids": [
+        "EVT-20261027-000400"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 19"
+    },
+    {
+      "cluster_id": "EVT-20261027-000401",
+      "local_cluster_id": "C019",
+      "event_title": "人民日报第10版版面信息",
+      "event_reason": "文章为人民日报第10版版面责编信息及广告内容。",
+      "article_indexes": [
+        566
+      ],
+      "batch_identifier": 19,
+      "member_cluster_ids": [
+        "EVT-20261027-000401"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 19"
+    },
+    {
+      "cluster_id": "EVT-20261027-000402",
+      "local_cluster_id": "C020",
+      "event_title": "干部作风转变与12345热线考核改革",
+      "event_reason": "文章567报道辽宁、江西、山东等地干部作风转变举措；文章568报道四川雅安12345热线考核改革，均涉及作风建设主题。",
+      "article_indexes": [
+        567,
+        568
+      ],
+      "batch_identifier": 19,
+      "member_cluster_ids": [
+        "EVT-20261027-000402"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 19"
+    },
+    {
+      "cluster_id": "EVT-20261027-000403",
+      "local_cluster_id": "C021",
+      "event_title": "甘肃部署全民消防安全素质提升行动",
+      "event_reason": "文章报道甘肃省16部门联合印发方案部署全民消防安全素质提升行动。",
+      "article_indexes": [
+        569
+      ],
+      "batch_identifier": 19,
+      "member_cluster_ids": [
+        "EVT-20261027-000403"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 19"
+    },
+    {
+      "cluster_id": "EVT-20261027-000404",
+      "local_cluster_id": "C022",
+      "event_title": "全国公安机关警务实战教官技能比武",
+      "event_reason": "文章报道2026年全国公安机关警务实战教官技能比武在浙江杭州举行。",
+      "article_indexes": [
+        570
+      ],
+      "batch_identifier": 19,
+      "member_cluster_ids": [
+        "EVT-20261027-000404"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 19"
+    },
+    {
+      "cluster_id": "EVT-20261027-000405",
+      "local_cluster_id": "C001",
+      "event_title": "《事业单位登记管理条例》发布",
+      "event_reason": "三篇文章分别刊登了条例正文、答记者问及版面信息，属于同一国务院条例的发布事件",
+      "article_indexes": [
+        573,
+        574,
+        575
+      ],
+      "batch_identifier": 20,
+      "member_cluster_ids": [
+        "EVT-20261027-000405"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 20"
+    },
+    {
+      "cluster_id": "EVT-20261027-000406",
+      "local_cluster_id": "C002",
+      "event_title": "中国体操世锦赛获奖及体育新闻",
+      "event_reason": "五篇文章报道了体操世锦赛中国队成绩（团体夺冠等）及其他体育新闻，属于同一天体育版面的具体赛事与活动事件",
+      "article_indexes": [
+        576,
+        577,
+        578,
+        579,
+        580
+      ],
+      "batch_identifier": 20,
+      "member_cluster_ids": [
+        "EVT-20261027-000406"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 20"
+    },
+    {
+      "cluster_id": "EVT-20261027-000407",
+      "local_cluster_id": "C003",
+      "event_title": "重庆梁平低空经济发展",
+      "event_reason": "两篇文章从不同角度报道重庆梁平区竞逐低空经济新赛道、打造西部低空之城的具体事件",
+      "article_indexes": [
+        581,
+        582
+      ],
+      "batch_identifier": 20,
+      "member_cluster_ids": [
+        "EVT-20261027-000407"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 20"
+    },
+    {
+      "cluster_id": "EVT-20261027-000408",
+      "local_cluster_id": "C004",
+      "event_title": "国际新闻汇总",
+      "event_reason": "七篇文章报道了西非经济、联合国乡村振兴奖项、澜湄青年运动会、日本前首相逝世、巴西总统选举、津巴布韦制裁、德国能源转型等不同的国际事件，因事件互异无法合并，但作为同一天国际版面的新闻聚类",
+      "article_indexes": [
+        583,
+        584,
+        585,
+        586,
+        587,
+        588,
+        589
+      ],
+      "batch_identifier": 20,
+      "member_cluster_ids": [
+        "EVT-20261027-000408"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 20"
+    },
+    {
+      "cluster_id": "EVT-20261027-000409",
+      "local_cluster_id": "C005",
+      "event_title": "二氧化碳固定和生物转化国际联盟成立",
+      "event_reason": "独立报道二氧化碳固定和生物转化国际联盟在天津成立的具体事件",
+      "article_indexes": [
+        571
+      ],
+      "batch_identifier": 20,
+      "member_cluster_ids": [
+        "EVT-20261027-000409"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 20"
+    },
+    {
+      "cluster_id": "EVT-20261027-000410",
+      "local_cluster_id": "C006",
+      "event_title": "秦兵马俑制作人员构成研究",
+      "event_reason": "独立报道秦兵马俑制作可能有女性和少年参与的研究成果，无其他文章与之构成同一具体事件",
+      "article_indexes": [
+        572
+      ],
+      "batch_identifier": 20,
+      "member_cluster_ids": [
+        "EVT-20261027-000410"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 20"
+    }
+  ],
+  "saved_at": "2026-10-27T14:03:06.019926+08:00"
+}
