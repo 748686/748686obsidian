@@ -5,7 +5,7 @@ status: active
 importance: 2
 confidence: 0.4
 created_at: 2026-10-17
-last_updated: 2026-10-17
+last_updated: 2026-10-28
 ---
 
 # Vanessa Emde
@@ -60,3 +60,16 @@ last_updated: 2026-10-17
 ### 相关知识
 
 - [[柏林左翼党]]
+
+## 知识更新｜2026-10-28
+
+德国左翼党（Die Linke）柏林分部成员Vanessa Emde涉及党内除名程序争议，党内正在讨论排除其成员资格所需的必要条件。
+
+### 新增事实
+
+- Vanessa Emde面临德国左翼党（Die Linke）柏林分部排除成员资格的程序性争议
+
+### 来源 EventUnit
+
+- `EVT-20261028-000219`
+
