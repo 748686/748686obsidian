@@ -1,0 +1,109 @@
+name: 748686 智能知识学习系统
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 选择运行模式
+        required: true
+        default: 检查
+        type: choice
+        options:
+          - 检查
+          - 学科列表
+          - 飞书启动
+
+  schedule:
+    - cron: '0 0 * * *'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: intelligent-learning-system
+  cancel-in-progress: false
+
+jobs:
+
+  run:
+
+    runs-on: ubuntu-latest
+
+    timeout-minutes: 360
+
+    defaults:
+      run:
+        working-directory: 智能知识学习系统
+
+    steps:
+
+      # ==================================================
+      # 1. 获取 GitHub 仓库
+      # ==================================================
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # ==================================================
+      # 2. 配置 Python
+      # ==================================================
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: 智能知识学习系统/requirements.txt
+
+      # ==================================================
+      # 3. 安装依赖
+      # ==================================================
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # ==================================================
+      # 4. 注册中心检查
+      # ==================================================
+
+      - name: System Check
+        if: github.event_name == 'schedule' || inputs.action == '检查'
+        run: |
+          python 主程序.py --检查
+
+      # ==================================================
+      # 5. 显示学科列表
+      # ==================================================
+
+      - name: Subject List
+        if: github.event_name == 'workflow_dispatch' && inputs.action == '学科列表'
+        run: |
+          python 主程序.py --学科列表
+
+      # ==================================================
+      # 6. 启动飞书机器人
+      # ==================================================
+
+      - name: Start Feishu Bot
+        if: github.event_name == 'workflow_dispatch' && inputs.action == '飞书启动'
+
+        env:
+
+          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
+
+          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+
+          AGNES_BASE_URL: ${{ vars.AGNES_BASE_URL }}
+
+          AGNES_MODEL: ${{ vars.AGNES_MODEL }}
+
+          AGNES_IMAGE_MODEL: ${{ vars.AGNES_IMAGE_MODEL }}
+
+          SYSTEM_TIMEZONE: Asia/Shanghai
+
+        run: |
+          python 主程序.py --飞书启动
