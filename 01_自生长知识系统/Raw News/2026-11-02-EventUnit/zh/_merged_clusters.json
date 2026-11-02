@@ -5,67 +5,13 @@
   "clusters": [
     {
       "event_id": "EVT-20261102-000221",
-      "event_title": "Healey minimum wage policy shift",
-      "event_reason": "Both articles report on UK Chancellor John Healey's potential change to minimum wage policy for younger workers.",
+      "event_title": "LLM行为研究与异常调查：Magma与CASSA合作及学术探讨",
+      "event_reason": "系统预判断已明确指出Cluster 1和Cluster 4报道的是同一具体AI技术事件，属于同一正在持续发展的单一现实科研事件，因此合并。Cluster 4虽名为'建议栏目'，但其内容被识别为该科研事件的延伸讨论或建议部分。",
       "article_indexes": [
         1,
-        2
-      ]
-    },
-    {
-      "event_id": "EVT-20261102-000222",
-      "event_title": "Global news coverage from Horizon Daily",
-      "event_reason": "These are mostly Horizon daily report index entries, page editor credits, or partial metadata for diverse global stories including Chinese state media, Russian news, tech/culture, and international events.",
-      "article_indexes": [
-        3,
-        5,
-        6,
-        7,
-        8,
-        10,
-        11,
-        12,
-        14,
-        19,
-        20,
-        21,
-        22,
-        23,
-        24,
-        25,
-        26,
-        27,
-        28,
-        29,
-        30
-      ]
-    },
-    {
-      "event_id": "EVT-20261102-000223",
-      "event_title": "Middle East and Ukraine military tensions",
-      "event_reason": "Covers separate but related military conflicts: Gulf states fearing Iran retaliation and Russian strikes on Ukraine.",
-      "article_indexes": [
+        2,
         4,
-        9
-      ]
-    },
-    {
-      "event_id": "EVT-20261102-000224",
-      "event_title": "US Senate midterm elections and health topics",
-      "event_reason": "Articles covering US Senate race polls, Democratic strength, voter perspectives, walking speed longevity study, NYC marathon runner, and a Wall St law firm update.",
-      "article_indexes": [
-        13,
-        15,
-        16,
-        17,
-        18
-      ]
-    },
-    {
-      "event_id": "EVT-20261102-000225",
-      "event_title": "AI模型行为研究与异常调查",
-      "event_reason": "Cluster 5 reports on Magma and CASSA cooperation investigating LLM model unexpected behaviors, while Cluster 6 contains multiple academic research papers exploring LLM behavior analogies, agent classification, and capability assessment. Both focus on LLM behavioral anomalies and agency nature research, belonging to different aspects (industry investigation and academic research) of the same technological event.",
-      "article_indexes": [
+        9,
         31,
         32,
         33,
@@ -81,22 +27,8 @@
         43,
         44,
         45,
-        46
-      ]
-    },
-    {
-      "event_id": "EVT-20261102-000228",
-      "event_title": "奥地利总理访华",
-      "event_reason": "独立外交事件：奥地利总理对中国进行正式访问",
-      "article_indexes": [
-        47
-      ]
-    },
-    {
-      "event_id": "EVT-20261102-000229",
-      "event_title": "人民日报综合新闻",
-      "event_reason": "日报多个版面综合报道，包括进博会、核电项目、南水北调等多元内容",
-      "article_indexes": [
+        46,
+        47,
         48,
         49,
         50,
@@ -109,39 +41,44 @@
         57,
         58,
         59,
-        60
-      ]
-    },
-    {
-      "event_id": "EVT-20261102-000230",
-      "event_title": "Horizon日报编辑信息",
-      "event_reason": "编辑团队信息，无实质事件内容",
-      "article_indexes": [
-        61
-      ]
-    },
-    {
-      "event_id": "EVT-20261102-000231",
-      "event_title": "老宅文物保护与居住问题",
-      "event_reason": "文物保护政策下的老宅利用问题探讨",
-      "article_indexes": [
-        62
-      ]
-    },
-    {
-      "event_id": "EVT-20261102-000232",
-      "event_title": "建筑垃圾堵塞消防通道",
-      "event_reason": "小区消防安全隐患事件",
-      "article_indexes": [
-        63
-      ]
-    },
-    {
-      "event_id": "EVT-20261102-000233",
-      "event_title": "建议栏目",
-      "event_reason": "报纸建议类栏目内容",
-      "article_indexes": [
+        60,
+        61,
+        62,
+        63,
         64
+      ]
+    },
+    {
+      "event_id": "EVT-20261102-000222",
+      "event_title": "全球综合新闻与选举健康专题报道",
+      "event_reason": "Cluster 2为Horizon Daily的全球新闻索引条目，Cluster 3涵盖美国参议员中期选举及健康主题文章。两者均为综合性新闻简报类内容，报道分散的时事信息，作为当日新闻汇总的整体事件合并处理。",
+      "article_indexes": [
+        3,
+        5,
+        6,
+        7,
+        8,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30
       ]
     },
     {
@@ -323,7 +260,7 @@
     {
       "event_id": "EVT-20261102-000256",
       "event_title": "报纸版面编辑与广告信息",
-      "event_reason": "这些Cluster均报道报纸版面编辑人员名单及广告内容，属于非新闻性的版面信息汇总，可归并为同一类版面信息事件",
+      "event_reason": "Cluster 5和Cluster 9均属于报纸版面元数据（编辑人员名单及广告内容），非新闻事件，合并处理",
       "article_indexes": [
         87,
         94,
@@ -334,15 +271,36 @@
     },
     {
       "event_id": "EVT-20261102-000257",
-      "event_title": "生态环境保护与治理进展",
-      "event_reason": "四个Cluster围绕中国生态环境保护、治理及数据发布，属于同一生态环境主题的持续报道",
+      "event_title": "中国生态文明建设与环境治理进展",
+      "event_reason": "Cluster 7、8、9、10分别涉及生态保护秋景报道、生态修复系统治理评论、全国地表水水质数据发布、海南热带雨林国家公园古树名木普查。这些内容共同反映了当前中国在生态环境系统性治理、水质改善监测及生物多样性保护方面的具体政策执行与成效发布，属于同一宏观主题下的具体环境治理事件群。",
       "article_indexes": [
         88,
         89,
         90,
-        91,
-        92,
-        93,
+        91
+      ]
+    },
+    {
+      "event_id": "EVT-20261102-000261",
+      "event_title": "内蒙古2667公里穿沙公路开工",
+      "event_reason": "内蒙古地区道路基础设施建设工程启动，属独立基建事件",
+      "article_indexes": [
+        92
+      ]
+    },
+    {
+      "event_id": "EVT-20261102-000262",
+      "event_title": "两款车型‘文秀’‘娇龙’上市",
+      "event_reason": "汽车行业产品发布事件，与其他文章无关联",
+      "article_indexes": [
+        93
+      ]
+    },
+    {
+      "event_id": "EVT-20261102-000264",
+      "event_title": "游泳/举重体育赛事报道",
+      "event_reason": "均报道体育竞技相关内容（短池长池知识、赛事场景、裴鑫依破纪录），属同一体育新闻事件群",
+      "article_indexes": [
         96,
         97,
         98,
@@ -433,8 +391,8 @@
     },
     {
       "event_id": "EVT-20261102-000297",
-      "event_title": "Lifestyle/Culture Feature Articles",
-      "event_reason": "这些Cluster（蒲公英、图片报道、摘野葡萄、远行、寻蛋卷、编辑周淑仪）均为独立的非新闻类特写或生活文化文章，彼此之间没有共同的具体现实世界事件关联，各自独立成事。",
+      "event_title": "Various Lifestyle/Feature Articles",
+      "event_reason": "These clusters (Dandelion Seeds, Picture Report, Picking Wild Grapes, Running Far Away, Seeking Egg Rolls, Editor Zhou Shuyi) appear to be independent lifestyle, cultural, or niche feature articles with no overlapping specific event details. They are kept separate as they do not form a single unified narrative or event.",
       "article_indexes": [
         121,
         122,
@@ -447,7 +405,7 @@
     {
       "event_id": "EVT-20261102-000275",
       "event_title": "美国参议院选举动态",
-      "event_reason": "Cluster 25报道美国参议院选举最终民调及蓝色浪潮趋势，Cluster 26报道密歇根州参议员竞选争议（El-Sayed与Stevens冲突），两者均为2026年美国参议院选举期间的具体竞选事件，属于同一选举周期的不同侧面报道，但鉴于地域和具体候选人不同，若严格区分则为独立事件；然而考虑到它们同属美国参议院选举这一正在持续发展的单一政治进程中的紧密关联部分，可合并为美国参议院选举动态事件",
+      "event_reason": "Cluster 19（全国最终民调/蓝色浪潮）与Cluster 20（密歇根州候选人冲突）均报道同一时间节点下美国中期选举参议院席位的争夺情况，属于同一正在持续发展的单一政治事件。",
       "article_indexes": [
         127,
         128,
@@ -699,19 +657,16 @@
     },
     {
       "event_id": "EVT-20261102-000313",
-      "event_title": "Florida Learjet crash",
-      "event_reason": "A Learjet carrying 9 people crashed in Palm Beach County, Florida, killing all aboard.",
+      "event_title": "Spanish Train Crash Victims Including Cambridge Scientist",
+      "event_reason": "Both clusters cover the same specific train crash accident in Spain. Cluster 12 (internal groups) already merged articles about the crash and victims. Cluster 30 covers reporting on fatalities from the same Spain train crash. These are the same real-world accident.",
       "article_indexes": [
         162,
-        166
-      ]
-    },
-    {
-      "event_id": "EVT-20261102-000314",
-      "event_title": "DOJ sanctions on voting analysis",
-      "event_reason": "The DOJ urged sanctions against a database analysis critical of its noncitizen voting claims.",
-      "article_indexes": [
-        164
+        164,
+        166,
+        179,
+        180,
+        199,
+        200
       ]
     },
     {
@@ -740,28 +695,18 @@
     },
     {
       "event_id": "EVT-20261102-000318",
-      "event_title": "Antonelli world champion",
-      "event_reason": "Federico Antonelli becomes world champion while Verstappen wins in Mexico.",
+      "event_title": "Kimi Antonelli F1 World Championship and Lewis Hamilton Comments",
+      "event_reason": "These clusters describe the same specific F1 racing event weekend in Mexico where Kimi Antonelli won the world championship and Lewis Hamilton made comments. The internal judgment confirms they refer to the same real-world event.",
       "article_indexes": [
-        169
-      ]
-    },
-    {
-      "event_id": "EVT-20261102-000319",
-      "event_title": "A&E warning system for children",
-      "event_reason": "A new warning system in A&E departments to flag sick children deteriorating quickly.",
-      "article_indexes": [
-        170
-      ]
-    },
-    {
-      "event_id": "EVT-20261102-000320",
-      "event_title": "King Charles III Antigua visit",
-      "event_reason": "King Charles III addressed slavery in Antigua, faced rain at a parade, and the PM discussed a UK apology.",
-      "article_indexes": [
+        169,
+        170,
         171,
         172,
-        177
+        177,
+        184,
+        185,
+        186,
+        191
       ]
     },
     {
@@ -774,17 +719,10 @@
     },
     {
       "event_id": "EVT-20261102-000322",
-      "event_title": "Karl Bushby completes trek",
-      "event_reason": "Karl Bushby crossed the Humber Bridge after a 28-year trek around the world.",
+      "event_title": "UK Slavery Reparations Stance and King Charles III Visit",
+      "event_reason": "These are related aspects of the same specific diplomatic/national discourse on UK slavery reparations happening concurrently. Cluster 25 covers King Charles III's visit to Antigua where slavery was addressed, and Cluster 26 covers the UK diplomatic position on slavery reparations at the Commonwealth summit. The internal judgment explicitly states these are related aspects of the same discourse.",
       "article_indexes": [
-        174
-      ]
-    },
-    {
-      "event_id": "EVT-20261102-000323",
-      "event_title": "Binance crypto hack aftermath and operational update",
-      "event_reason": "Both clusters describe the same specific incident: the record-breaking Binance crypto hack. Cluster 2 covers the $3.6bn withdrawal aftermath, and Cluster 15 covers the resumption of withdrawals. These are different facets of the same ongoing real-world event.",
-      "article_indexes": [
+        174,
         175,
         193
       ]
@@ -799,67 +737,31 @@
     },
     {
       "event_id": "EVT-20261102-000325",
-      "event_title": "Nowak family pain and police probe into officer using handcuffs",
-      "event_reason": "Both clusters describe the same specific incident involving the death of a youth in police custody and the subsequent family pain and police investigation. Cluster 4 focuses on the family's distress over the footage, and Cluster 6 covers the police probe into the officer's actions. These are interconnected parts of the same unfolding event.",
+      "event_title": "UK police probe into officer using handcuffs on youth",
+      "event_reason": "Cluster 15 mentions a family's pain over footage of their dying son being handcuffed. Cluster 18 describes a UK police investigation into an incident involving an officer using handcuffs on a youth. These refer to the same specific incident involving police use of handcuffs on a youth in the UK.",
       "article_indexes": [
         178,
         181
       ]
     },
     {
-      "event_id": "EVT-20261102-000326",
-      "event_title": "Spanish train crash victims and reporting",
-      "event_reason": "Cluster 5 already identifies that its members (original clusters 16 and 17 in the input numbering context) refer to the same Spanish train crash. Cluster 21 provides additional details on the victims and tributes from the same incident. Both describe the same specific accident event.",
-      "article_indexes": [
-        179,
-        180,
-        199,
-        200
-      ]
-    },
-    {
       "event_id": "EVT-20261102-000329",
-      "event_title": "Palestine Action protest arrests at US embassy",
-      "event_reason": "Both report on the same pro-Palestine Action protest outside the US embassy in London resulting in over 300 arrests.",
+      "event_title": "Binance Crypto Hack Aftermath and Withdrawal Resumption",
+      "event_reason": "These are contiguous parts of the same ongoing specific event: the Binance hack incident. Cluster 29 reports on users withdrawing funds following the hack, and Cluster 30 reports on the resumption of withdrawals after the hack. The internal judgment confirms these refer to the same specific event.",
       "article_indexes": [
         182,
+        183,
         210
       ]
     },
     {
-      "event_id": "EVT-20261102-000330",
-      "event_title": "Cate McHugh wins The Voice UK",
-      "event_reason": "Entertainment news about a specific TV show winner.",
-      "article_indexes": [
-        183
-      ]
-    },
-    {
-      "event_id": "EVT-20261102-000331",
-      "event_title": "Kimi Antonelli F1 history and Hamilton comments",
-      "event_reason": "Articles covering Kimi Antonelli's Formula 1 achievements and Lewis Hamilton's comments on Ferrari's struggles.",
-      "article_indexes": [
-        184,
-        185,
-        186
-      ]
-    },
-    {
       "event_id": "EVT-20261102-000332",
-      "event_title": "Iraola players diving comments",
-      "event_reason": "Football manager comments regarding tactical fouls/diving.",
+      "event_title": "Liverpool vs Arsenal match analysis and tactical comments",
+      "event_reason": "Cluster 23 covers the Liverpool vs Arsenal match analysis. Cluster 22 covers football manager Iraola's comments on players diving/tactical fouls. While Iraola manages Wolves, these are separate football events. Wait, re-evaluating. Cluster 22 is about Iraola (Wolves manager) comments. Cluster 23 is Liverpool vs Arsenal. These are different matches/teams. Do not merge.",
       "article_indexes": [
-        187
-      ]
-    },
-    {
-      "event_id": "EVT-20261102-000333",
-      "event_title": "Liverpool vs Arsenal match analysis",
-      "event_reason": "Both clusters report on the same specific football match where Arsenal defeated Liverpool to take the lead. Cluster 5 provides analysis and Cluster 30 reports the result, representing the same specific event.",
-      "article_indexes": [
+        187,
         188,
-        189,
-        243
+        189
       ]
     },
     {
@@ -868,14 +770,6 @@
       "event_reason": "Sports news about a tennis player's career recovery.",
       "article_indexes": [
         190
-      ]
-    },
-    {
-      "event_id": "EVT-20261102-000335",
-      "event_title": "UK slavery reparations Commonwealth stance",
-      "event_reason": "UK diplomatic position on slavery reparations at the Commonwealth summit.",
-      "article_indexes": [
-        191
       ]
     },
     {
@@ -912,24 +806,10 @@
     },
     {
       "event_id": "EVT-20261102-000341",
-      "event_title": "UK Domestic Politics, Policy and Economy",
-      "event_reason": "Clusters 1, 5, 10, 11, 12, 23, 24, and 25 all relate to the same overarching specific context: the current UK political landscape and policy environment under the Labour government. Cluster 1 (house prices) and 12 (economic agenda) are part of the economic policy backdrop. Cluster 5 (EU student funding), 10 (migrant settlement rules), and 11 (National Grid) are specific policy proposals/changes. Cluster 23 (Slave Trade apology debate) and 24 (Domestic politics/policy including Green Party, minimum wage, asylum, etc.) and 25 (Tommy Robinson conviction affecting far-right politics) are direct political events within this same timeframe and region. They collectively form the single unfolding event of 'UK Governance and Political Developments' in this news cycle.",
+      "event_title": "UK house price decline",
+      "event_reason": "Economic housing market trends in the UK.",
       "article_indexes": [
-        197,
-        202,
-        207,
-        208,
-        209,
-        226,
-        227,
-        228,
-        229,
-        230,
-        231,
-        232,
-        234,
-        237,
-        240
+        197
       ]
     },
     {
@@ -949,6 +829,14 @@
       ]
     },
     {
+      "event_id": "EVT-20261102-000345",
+      "event_title": "UK EU student funding proposal",
+      "event_reason": "UK government policy proposal regarding education funding for EU students.",
+      "article_indexes": [
+        202
+      ]
+    },
+    {
       "event_id": "EVT-20261102-000346",
       "event_title": "Petrol bomb attack on French riot police",
       "event_reason": "Civil unrest and criminal investigation in France.",
@@ -958,20 +846,13 @@
     },
     {
       "event_id": "EVT-20261102-000347",
-      "event_title": "US-Iran Tensions and Diplomatic-Military Developments",
-      "event_reason": "Cluster 7 covers US-Iran talks regarding the Hormuz Strait. Cluster 19 covers potential escalation of US-Iran conflict and Gulf military preparations. These represent different facets of the same ongoing specific geopolitical event: the tension between the US and Iran.",
+      "event_title": "US-Iran Tensions and Conflict Preparations",
+      "event_reason": "Cluster 6 (EVT-20261102-000347) already explicitly groups EVT-20261102-000347 and EVT-20261102-000359. The event judgment states that Cluster 7 involves diplomatic negotiations on the Strait of Hormuz and Cluster 19 involves military preparations for potential US-Iran conflict escalation, and both relate to the same specific ongoing geopolitical tension. Cluster 7 (EVT-20261102-000348) represents the diplomatic/negotiation facet of this same US-Iran tension, making it part of the same continuing real-world event.",
       "article_indexes": [
         204,
+        205,
         221,
         222
-      ]
-    },
-    {
-      "event_id": "EVT-20261102-000348",
-      "event_title": "Delhi protests against Modi",
-      "event_reason": "Political demonstrations in India against the current government.",
-      "article_indexes": [
-        205
       ]
     },
     {
@@ -983,15 +864,41 @@
       ]
     },
     {
+      "event_id": "EVT-20261102-000350",
+      "event_title": "UK migrant settlement rules",
+      "event_reason": "UK immigration policy changes regarding residency timelines.",
+      "article_indexes": [
+        207
+      ]
+    },
+    {
+      "event_id": "EVT-20261102-000351",
+      "event_title": "UK National Grid substation plan",
+      "event_reason": "Infrastructure development for energy distribution in Teesside.",
+      "article_indexes": [
+        208
+      ]
+    },
+    {
+      "event_id": "EVT-20261102-000352",
+      "event_title": "UK economic agenda mapping",
+      "event_reason": "Political analysis of UK fiscal policy planning.",
+      "article_indexes": [
+        209
+      ]
+    },
+    {
       "event_id": "EVT-20261102-000353",
-      "event_title": "US 2026 Midterm Elections and Market Impact",
-      "event_reason": "Cluster 13 covers the US Midterm Elections directly (Trump's campaign activities). Cluster 16 covers bond investors' reactions to the same US Midterm Elections. These are two aspects of the same specific event: the 2026 US Midterm Elections.",
+      "event_title": "US 2026 Midterm Elections and Trumpism Impact",
+      "event_reason": "Cluster 7 covers campaign activities, endorsements, and bond investor reactions to the midterms. Cluster 27 covers the impact of Trump's non-citizen voter lists and the global impact of Trumpism on the same midterm election process. Both represent different facets of the同一正在持续发展的单一现实事件 (same specific ongoing political event) of the 2026 US midterm elections and its political consequences.",
       "article_indexes": [
         211,
         212,
         215,
         216,
-        217
+        217,
+        252,
+        265
       ]
     },
     {
@@ -1052,6 +959,23 @@
       ]
     },
     {
+      "event_id": "EVT-20261102-000363",
+      "event_title": "UK Political and Legal Developments",
+      "event_reason": "Cluster 4 (Slave Trade Apology Debate), Cluster 5 (UK Domestic Politics and Policy), and Cluster 6 (Tommy Robinson Conviction) all pertain to specific political, legal, and policy developments within the United Kingdom. They form a coherent set of concurrent domestic UK events involving government positions, political party actions, and high-profile legal convictions affecting the UK political landscape.",
+      "article_indexes": [
+        226,
+        227,
+        228,
+        229,
+        230,
+        231,
+        232,
+        234,
+        237,
+        240
+      ]
+    },
+    {
       "event_id": "EVT-20261102-000366",
       "event_title": "Global and Miscellaneous Events",
       "event_reason": "Covers diverse unrelated events including fashion innovation, nature discoveries, sports news, and other international stories.",
@@ -1077,6 +1001,14 @@
       "event_reason": "First anniversary of Japan-supported Grand Egyptian Museum operations",
       "article_indexes": [
         242
+      ]
+    },
+    {
+      "event_id": "EVT-20261102-000369",
+      "event_title": "Arsenal beats Liverpool for lead",
+      "event_reason": "Arsenal wins against Liverpool to move into first place",
+      "article_indexes": [
+        243
       ]
     },
     {
@@ -1137,21 +1069,12 @@
       ]
     },
     {
-      "event_id": "EVT-20261102-000377",
-      "event_title": "US midterms and Trumpism",
-      "event_reason": "Cluster 8和Cluster 22已判断为同一核心事件（2026年美国中期选举及其国际影响），属于同一正在发展的单一政治现实事件，应合并处理。",
-      "article_indexes": [
-        252,
-        265,
-        267
-      ]
-    },
-    {
       "event_id": "EVT-20261102-000378",
-      "event_title": "Next gen home-help robots",
-      "event_reason": "Woman developing next generation home-help robots",
+      "event_title": "全球人形/服务机器人智能化趋势：从居家辅助到AI能力升级",
+      "event_reason": "Cluster 1报道女性开发者研发下一代家用辅助机器人，Cluster 4报道中国机器人制造商将重心从运动能力转向AI能力。两者共同反映了2026年服务机器人领域向AI智能化转型的具体产业动态，属于同一技术演进趋势下的不同地域（欧美vs中国）具体事件表现。",
       "article_indexes": [
-        253
+        253,
+        256
       ]
     },
     {
@@ -1168,14 +1091,6 @@
       "event_reason": "Japanese broadcaster Wowow bets on streaming venture with NTT Docomo as subscriptions fall",
       "article_indexes": [
         255
-      ]
-    },
-    {
-      "event_id": "EVT-20261102-000381",
-      "event_title": "China robotics race for brains",
-      "event_reason": "China's robot makers shift focus from movement to AI capabilities",
-      "article_indexes": [
-        256
       ]
     },
     {
@@ -1254,6 +1169,14 @@
       ]
     },
     {
+      "event_id": "EVT-20261102-000392",
+      "event_title": "Military drone headquarters launch",
+      "event_reason": "Military launches new headquarters to strengthen drone and counter-drone capabilities",
+      "article_indexes": [
+        267
+      ]
+    },
+    {
       "event_id": "EVT-20261102-000393",
       "event_title": "美中俄就朝鲜半岛问题磋商",
       "event_reason": "多篇报道讨论美国、中国、俄罗斯三方就朝鲜半岛问题进行潜在峰会的磋商。",
@@ -1312,26 +1235,19 @@
     },
     {
       "event_id": "EVT-20261102-000394",
-      "event_title": "韩国外长出席G20讨论议题",
-      "event_reason": "韩国外长在G20期间分别与多国官员会谈并提及朝韩对话及DMZ地雷事件。",
+      "event_title": "朝鲜半岛安全局势与外交磋商",
+      "event_reason": "Cluster 8报道韩国外长在G20讨论朝韩对话及DMZ地雷事件，Cluster 9报道朝鲜黑客活动与军事试验。两者均为朝鲜半岛安全局势的具体表现（外交/军事/网络行动），且相互关联：地雷事件与军事威胁是同一安全链条的不同侧面。",
       "article_indexes": [
         279,
-        280
-      ]
-    },
-    {
-      "event_id": "EVT-20261102-000395",
-      "event_title": "朝鲜黑客活动与军事试验",
-      "event_reason": "分别报道FBI指控朝鲜进行巨额加密货币盗窃以及朝鲜测试集束弹头武器的消息。",
-      "article_indexes": [
+        280,
         281,
         282
       ]
     },
     {
       "event_id": "EVT-20261102-000402",
-      "event_title": "泽连斯基政策与表态批评",
-      "event_reason": "同一政治人物相关的具体事件：Cluster 2批评泽连斯基未从错误中吸取教训，Cluster 6批评泽连斯基关于与普京会面的声明是虚张声势，两者均是对泽连斯基同一时期政治行为和言论的批评报道，属于同一政治舆论事件的不同侧面。",
+      "event_title": "泽连斯基政策批评及会面表态争议",
+      "event_reason": "两个Cluster均针对泽连斯基在俄乌冲突背景下的具体言论和立场（与普京会面表态、未吸取教训）进行批评，属于同一政治人物在同一地缘政治背景下的具体争议事件链条。",
       "article_indexes": [
         283,
         287
@@ -1364,12 +1280,20 @@
     },
     {
       "event_id": "EVT-20261102-000407",
-      "event_title": "俄乌战争相关动态",
-      "event_reason": "同一冲突背景下的具体事件集群：Cluster 7报道乌克兰天然气消费下降（战争影响），Cluster 8报道萨马拉州遭乌克兰军队攻击（军事行动），Cluster 9报道俄气经乌输欧谈判（能源地缘政治），三者均属于俄乌战争这一持续发展的单一现实事件的不同具体表现。",
+      "event_title": "人民日报国际版完整出版内容",
+      "event_reason": "Cluster 23明确指出Cluster 1与其共同构成人民日报国际版的完整出版事件，属于同一版面内容的新闻与编辑信息集合。",
       "article_indexes": [
         288,
         289,
-        291
+        291,
+        359,
+        360,
+        364,
+        365,
+        366,
+        367,
+        371,
+        372
       ]
     },
     {
@@ -1439,7 +1363,7 @@
     {
       "event_id": "EVT-20261102-000418",
       "event_title": "党的二十届五中全会及全面从严治党决定",
-      "event_reason": "同一政策发布事件：Cluster 18报道中共中央发布关于持之以恒推进全面从严治党的决定，Cluster 19报道党的二十届五中全会审议并通过同一决定，包括决定全文、官方说明、单行本出版及社会各界学习贯彻反响，两者是同一政策事件的不同报道角度和发布阶段，属于同一具体现实世界事件。",
+      "event_reason": "Cluster 18报道决定发布，Cluster 19报道全会审议并通过该决定及反响，指向同一核心政治事件。",
       "article_indexes": [
         300,
         301,
@@ -1535,20 +1459,34 @@
     },
     {
       "event_id": "EVT-20261102-000428",
-      "event_title": "人民日报2026年11月2日第11-15版综合新闻集群",
-      "event_reason": "Clusters 3至7均为人民日报同一天（11月2日）不同版面（11-15版）的综合新闻报道，涵盖文化、社会民生、生态、体育经济、国际等主题。虽然内容各异，但属于同一报纸日期的版面新闻集合，可视为同一出版物的综合新闻事件。",
+      "event_title": "人民日报第11版文化综合报道",
+      "event_reason": "五篇文章均来自人民日报11月2日第11版（文化版），内容涵盖梨园戏传承、扬州校企合作、重庆粮食安全及版面责编信息，属于同一版面的综合新闻集群。",
       "article_indexes": [
         334,
         335,
         336,
         337,
-        338,
+        338
+      ]
+    },
+    {
+      "event_id": "EVT-20261102-000429",
+      "event_title": "人民日报第12版社会民生综合报道",
+      "event_reason": "六篇文章均来自人民日报11月2日第12版（社会版），内容涉及残疾预防计划、民政职业技能大赛、基层医疗建设、质量认证规范、南京人才周及云南县域发展，属于同一版面的社会民生新闻集群。",
+      "article_indexes": [
         339,
         340,
         341,
         342,
         343,
-        344,
+        344
+      ]
+    },
+    {
+      "event_id": "EVT-20261102-000430",
+      "event_title": "人民日报第13版生态综合报道",
+      "event_reason": "八篇文章均来自人民日报11月2日第13版（生态版），内容涵盖多地生态修复实践、水质数据、古树普查、穿沙公路及新品种月季上市，属于同一版面的生态环境新闻集群。",
+      "article_indexes": [
         345,
         346,
         347,
@@ -1556,15 +1494,20 @@
         349,
         350,
         351,
-        352,
+        352
+      ]
+    },
+    {
+      "event_id": "EVT-20261102-000431",
+      "event_title": "人民日报第14版体育与经济综合报道",
+      "event_reason": "六篇文章均来自人民日报11月2日第14版，前三篇报道游泳锦标赛徐嘉余破纪录及举重世锦赛，后三篇报道村BA总决赛及南京江北新区发展，虽内容跨度大但同属该版面日期的独立报道集合。",
+      "article_indexes": [
         353,
         354,
         355,
         356,
         357,
-        358,
-        359,
-        360
+        358
       ]
     },
     {
@@ -1589,22 +1532,6 @@
       "event_reason": "汇总联合国生物多样性公约第十七次缔约方大会成果及德国纽伦堡国际发明展的绿色智能创新情况。",
       "article_indexes": [
         363
-      ]
-    },
-    {
-      "event_id": "EVT-20261102-000436",
-      "event_title": "人民日报版署编辑团队信息",
-      "event_reason": "Cluster 3（原判定将6和7合并）、Cluster 7（财经版）、Cluster 11（科技版）、Cluster 15（副刊版）均为人民日报不同版面的编辑署名页，属于同一媒体机构的版面构成事实，结构属性完全一致，可归并为日报编辑团队信息事件。",
-      "article_indexes": [
-        364,
-        365,
-        366,
-        367,
-        371,
-        372,
-        376,
-        377,
-        381
       ]
     },
     {
@@ -1633,12 +1560,10 @@
     },
     {
       "event_id": "EVT-20261102-000442",
-      "event_title": "人工智能安全与自主可控创新",
-      "event_reason": "Cluster 2已明确判断：Cluster 4论述AI技术自主可控，Cluster 6介绍利用贝叶斯神经网络等技术应对生成式AI安全风险（防范深度伪造），两者聚焦同一具体现实事件——中国在人工智能领域推进技术自主可控并同步强化AI安全治理，属于同一正在持续发展的单一现实事件的不同维度。因此将原Cluster 2和原Cluster 6合并。",
+      "event_title": "人工智能自主可控创新",
+      "event_reason": "论述人工智能发展需建立在自主可控、安全可信的技术底座上，跨越成本、场景和生态门槛。",
       "article_indexes": [
-        373,
-        375,
-        380
+        373
       ]
     },
     {
@@ -1650,21 +1575,26 @@
       ]
     },
     {
-      "event_id": "EVT-20261102-000446",
-      "event_title": "中国铁路与阅读推广",
-      "event_reason": "记述作者参与铁路系统荐书活动，感慨中国高铁发展成就及铁路服务的人性化温度。",
+      "event_id": "EVT-20261102-000444",
+      "event_title": "AI换脸检测技术",
+      "event_reason": "介绍利用贝叶斯神经网络等技术识别AI换脸等伪造内容，应对生成式人工智能安全风险。",
       "article_indexes": [
-        378
+        375
       ]
     },
     {
-      "event_id": "EVT-20261102-000447",
-      "event_title": "杂文写作三忌",
-      "event_reason": "探讨杂文写作应避免俗题、熟典和强说，强调立论周正与阐说之美的要求。",
+      "event_id": "EVT-20261102-000445",
+      "event_title": "人民日报副刊版面编辑署名与文学随笔",
+      "event_reason": "Cluster 8、12均为人民日报第19、20版的编辑署名页（元数据），Cluster 9为高铁阅读随笔，Cluster 10为杂文写作技巧，Cluster 11为蒲公英扎根故事。这些内容均来自同一张报纸的副刊版面，属于同一出版物的当期内容集合，共同构成了该日期人民日报副刊版的实际内容事件。",
       "article_indexes": [
-        379
+        376,
+        377,
+        378,
+        379,
+        380,
+        381
       ]
     }
   ],
-  "saved_at": "2026-11-02T15:50:35.344266+08:00"
+  "saved_at": "2026-11-02T17:17:46.278236+08:00"
 }
