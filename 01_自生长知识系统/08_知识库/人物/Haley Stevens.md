@@ -66,3 +66,16 @@ last_updated: 2026-11-03
 - [[Sara Haines]]
 - [[Mike Rogers]]
 - [[Donald Trump]]
+
+## 知识更新｜2026-11-03
+
+记录美国密歇根州政治人物Haley Stevens在2026年11月3日引发的民主党内部分歧事件，作为中期选举背景下的微观案例。
+
+### 新增事实
+
+- Haley Stevens因支持Mike Rogers被民主党人指责为'卑鄙的背叛'，导致民主党内部短暂分裂后重新团结。
+
+### 来源 EventUnit
+
+- `EVT-20261103-000169`
+
