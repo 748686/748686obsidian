@@ -89,3 +89,28 @@ Russell Brand正接受强奸案审判，案件已进入第三周审理阶段。
 ### 相关知识
 
 - [[美联社]]
+
+
+---
+
+## 知识更新 · 2026-11-03
+
+- 来源事件：EVT-20261103-000403
+- 置信度：0.8
+- 重要性：3
+
+### 本次变化
+
+British comedian and presenter involved in ongoing litigation against Channel 4 concerning a documentary.
+
+### 新增事实
+
+- Russell Brand initiated a lawsuit against Channel 4.
+
+### 变化
+
+- Added legal dispute context: Brand is suing Channel 4, with court testimony reportedly characterizing him as not a rapist or psychopath.
+
+### 相关知识
+
+- [[Channel 4]]
