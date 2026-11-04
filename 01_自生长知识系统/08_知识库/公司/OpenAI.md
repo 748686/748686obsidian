@@ -5,7 +5,7 @@ status: active
 importance: 4
 confidence: 0.7
 created_at: 2026-09-04
-last_updated: 2026-10-23
+last_updated: 2026-11-04
 ---
 
 # OpenAI
@@ -2465,3 +2465,17 @@ OpenAI于2026年11月4日更新其模型规格说明，并作为Cisco防御策�
 
 - [[Cisco]]
 - [[Ollama]]
+
+## 知识更新｜2026-11-04
+
+2026年11月4日，关注到OpenAI更新其模型规范（Model Specification）的事件，但该事件缺乏原文支撑，仅停留在元数据层面。同时，Rob Wiblin的文章《Being a pain in the ass to AI companies is a real job now》反映了针对AI公司（如OpenAI）的专业化监督与批评正在成为一种新兴的职业化趋势，这为理解OpenAI面临的合规压力提供了宏观背景。
+
+### 新增事实
+
+- OpenAI在2026年11月更新了模型规范（Model Spec），但具体细节因源文缺失而未可知
+
+### 来源 EventUnit
+
+- `EVT-20261104-000016`
+- `EVT-20261104-000019`
+
