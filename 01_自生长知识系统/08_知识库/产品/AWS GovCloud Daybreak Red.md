@@ -88,3 +88,17 @@ AWS GovCloud (US-East) 发布的新服务，归属AWS AI基础设施扩展战略
 
 - [[OpenAI]]
 - [[GPT-5.6]]
+
+## 知识更新｜2026-11-05
+
+AWS GovCloud (US-East) 宣布发布的网络安全专用AI模型服务，归属AWS AI基础设施扩展战略，部分来源称基于OpenAI GPT-5.6模型，旨在服务于政府及国防客户。
+
+### 新增事实
+
+- AWS GovCloud发布名为Daybreak Red的网络安全专用模型服务
+- 该服务面向批准客户，可能改变美国政府及国防客户的网络安全工具格局
+
+### 来源 EventUnit
+
+- `EVT-20261105-000395`
+
