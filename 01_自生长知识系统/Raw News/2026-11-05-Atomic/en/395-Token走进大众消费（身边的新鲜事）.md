@@ -1,0 +1,30 @@
+---
+title: "Token走进大众消费（身边的新鲜事）"
+date: 2026-11-05
+type: "新闻"
+source: "AP"
+language: "en"
+horizon_score: null
+original_source: "Horizon"
+original_url: "http://paper.people.com.cn/rmrb/pc/content/202611/05/content_30189575.html"
+status: "待AI处理"
+---
+
+# Token走进大众消费（身边的新鲜事）
+
+## Horizon Summary
+
+rss · 人民日报\(People&\#x27;s Daily\) · Nov 5, 00:26
+
+---
+
+### [11版 - 本版责编：陈 娟 杨笑雨 董汶鑫](http://paper.people.com.cn/rmrb/pc/content/202611/05/content_30189575.html) ⭐️ ?/10
+
+## 原文信息
+
+- Source: AP
+- Original URL: http://paper.people.com.cn/rmrb/pc/content/202611/05/content_30189575.html
+
+## AI处理状态
+
+等待后续 AI 二次处理及 27 Skills 分析。
