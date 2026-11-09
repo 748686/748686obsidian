@@ -1,0 +1,50 @@
+---
+title: "[Trump’s proposed Russia deal raises NATO alarm as ex-commander warns Putin seeks influence over Europe](#item-tech-news-132) ⭐️ ?/10"
+date: 2026-11-09
+type: "news"
+source: "news.google.com"
+source_url: "https://news.google.com/rss/articles/CBMixwFBVV95cUxPS1VnaWFTRENkVThTNzhzdnFaVWV3ZnZMSDhPbzBwdTlvamZKTXJLdFhRS3g0UUpzSHE1ZExZU3RTd0I2SmpaTW1yN0JHTGtPUnBtWFUwbmIweHpqdzczbzhZN1dfRzJ4UmNVZFo4M3piMnVOUXM0ekl2UEpoaHVGSnZQbk9hRU5SbXB1c0s0WVpXYjhTUzRpOUFoQTk2djZFNDV1Mk02UTZtMndtREZUQWsxeHRHOXpIWWlRbUh0TmlUeGNIX1pv0gHMAUFVX3lxTE5GUHBjYXlZLWtJYzgyVUlmdDIyVk1KRWdQX1hmazVoNXJvMHg3Q21lZXlXVExtNUZDeUMyV0liMXN5TGxFa3Zka0ZneHdhRS1hdlJKUTNocWs3ZnV2bW94aHl1cDNLMDVjQnhIWVJneFM3akRlMU1RQ08wZkdnTG5ZSDNQLTFOSzMzNWpfRUk4c1lxdGRhLVhSVFNSVDNrZHhwbTIzMTZTb2UtQllhUEdNcDRVVXlUTElqcXhrOE1FVkpldmpxM2xGbzNNTA?oc=5&hl=en-US&gl=US&ceid=US:en"
+language: "zh"
+horizon_score: null
+source_status: "fetched"
+content_status: "partial"
+search_method: "rss"
+match_score: 0.85
+ai_status: "pending"
+original_title: "Google News"
+author: ""
+---
+
+# [Trump’s proposed Russia deal raises NATO alarm as ex-commander warns Putin seeks influence over Europe](#item-tech-news-132) ⭐️ ?/10
+
+## Horizon 摘要
+
+# [Trump’s proposed Russia deal raises NATO alarm as ex-commander warns Putin seeks influence over Europe](#item-tech-news-132) ⭐️ ?/10
+
+## Horizon 摘要
+
+Horizon 日报中未提供该条目的完整正文。
+
+## 原文信息
+
+- Source: Unknown
+- Original URL: 未从 Horizon 日报中找到
+
+## AI处理状态
+
+等待后续 AI 二次处理及 27 Skills 分析。
+
+## 原文信息
+
+- Source: news.google.com
+- Original URL: https://news.google.com/rss/articles/CBMixwFBVV95cUxPS1VnaWFTRENkVThTNzhzdnFaVWV3ZnZMSDhPbzBwdTlvamZKTXJLdFhRS3g0UUpzSHE1ZExZU3RTd0I2SmpaTW1yN0JHTGtPUnBtWFUwbmIweHpqdzczbzhZN1dfRzJ4UmNVZFo4M3piMnVOUXM0ekl2UEpoaHVGSnZQbk9hRU5SbXB1c0s0WVpXYjhTUzRpOUFoQTk2djZFNDV1Mk02UTZtMndtREZUQWsxeHRHOXpIWWlRbUh0TmlUeGNIX1pv0gHMAUFVX3lxTE5GUHBjYXlZLWtJYzgyVUlmdDIyVk1KRWdQX1hmazVoNXJvMHg3Q21lZXlXVExtNUZDeUMyV0liMXN5TGxFa3Zka0ZneHdhRS1hdlJKUTNocWs3ZnV2bW94aHl1cDNLMDVjQnhIWVJneFM3akRlMU1RQ08wZkdnTG5ZSDNQLTFOSzMzNWpfRUk4c1lxdGRhLVhSVFNSVDNrZHhwbTIzMTZTb2UtQllhUEdNcDRVVXlUTElqcXhrOE1FVkpldmpxM2xGbzNNTA?oc=5&hl=en-US&gl=US&ceid=US:en
+- Original Title: Google News
+- Description: Comprehensive up-to-date news coverage, aggregated from sources all over the world by Google News.
+
+## 原文正文
+
+Google News
+
+## AI 处理状态
+
+等待 27 Skills 进行后续处理。
