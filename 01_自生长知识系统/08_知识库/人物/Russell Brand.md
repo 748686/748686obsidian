@@ -5,7 +5,7 @@ status: active
 importance: 3
 confidence: 0.9
 created_at: 2026-10-17
-last_updated: 2026-10-17
+last_updated: 2026-11-07
 ---
 
 # Russell Brand
@@ -300,3 +300,17 @@ British comedian and presenter involved in ongoing litigation against Channel 4 
 
 - [[Andrew Brand]]
 - [[英国媒体行业]]
+
+## 知识更新｜2026-11-07
+
+英国喜剧演员拉塞尔·布兰德卷入两项法律争议：一是面临女性提出的指控；二是其代理大律师因与记者发生冲突，主动向监管机构的Watchdog进行自我报备。
+
+### 新增事实
+
+- Russell Brand面临来自女性的指控
+- 其代理大律师因与记者冲突向监管Watchdog自我报告
+
+### 来源 EventUnit
+
+- `EVT-20261107-000118`
+

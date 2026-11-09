@@ -5,7 +5,7 @@ status: active
 importance: 4
 confidence: 0.8
 created_at: 2026-09-14
-last_updated: 2026-10-26
+last_updated: 2026-11-07
 ---
 
 # Anthropic
@@ -1526,3 +1526,16 @@ Anthropic是METR在2026年10月进行评估的对象，评估内容涉及其AI�
 ### 相关知识
 
 - [[METR]]
+
+## 知识更新｜2026-11-07
+
+Anthropic传闻以1.5万亿美元估值推进IPO，与AI板块整体抛售形成背离，反映市场对头部AI模型公司价值的重新评估。
+
+### 新增事实
+
+- Anthropic传闻以1.5万亿美元估值推进IPO
+
+### 来源 EventUnit
+
+- `EVT-20261107-000226`
+
