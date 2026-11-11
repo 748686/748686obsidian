@@ -1,0 +1,4456 @@
+{
+  "version": "6.5.3",
+  "date": "2026-11-11",
+  "language": "en",
+  "clusters": [
+    {
+      "cluster_id": "EVT-20261111-000001",
+      "local_cluster_id": "C001",
+      "event_title": "Hegseth Impeachment Effort Shelved",
+      "event_reason": "Both articles report on House Republicans dropping the effort to impeach Defense Secretary Pete Hegseth.",
+      "article_indexes": [
+        1,
+        5
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261111-000001"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261111-000002",
+      "local_cluster_id": "C002",
+      "event_title": "LDP Reprimands Ishiba for Tax Vote Walkout",
+      "event_reason": "Japanese political event regarding consumption tax vote protest.",
+      "article_indexes": [
+        2
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261111-000002"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261111-000003",
+      "local_cluster_id": "C003",
+      "event_title": "S. Korea Neutrality in US-Iran Conflict",
+      "event_reason": "South Korea reaffirming neutral stance in US-Iran tensions.",
+      "article_indexes": [
+        3
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261111-000003"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261111-000004",
+      "local_cluster_id": "C004",
+      "event_title": "China Non-ferrous Metals Profits Surge",
+      "event_reason": "Chinese economic news on non-ferrous metals industry performance.",
+      "article_indexes": [
+        4
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261111-000004"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261111-000005",
+      "local_cluster_id": "C005",
+      "event_title": "Alina Habba Loses Trump Contract",
+      "event_reason": "Legal/business dispute between Alina Habba and Trump administration.",
+      "article_indexes": [
+        6
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261111-000005"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261111-000006",
+      "local_cluster_id": "C006",
+      "event_title": "ChatGPT Business Integration Launch",
+      "event_reason": "OpenAI/Anthropic feature announcement for business use in chatbots.",
+      "article_indexes": [
+        7
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261111-000006"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261111-000007",
+      "local_cluster_id": "C007",
+      "event_title": "Zhangjiakou Green Computing Power",
+      "event_reason": "Chinese infrastructure project integrating renewable energy with data centers.",
+      "article_indexes": [
+        8
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261111-000007"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261111-000008",
+      "local_cluster_id": "C008",
+      "event_title": "Ollama v0.40.17 Release",
+      "event_reason": "Software release of open-source LLM inference engine.",
+      "article_indexes": [
+        9
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261111-000008"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261111-000009",
+      "local_cluster_id": "C009",
+      "event_title": "María Elvira Salazar Re-Election",
+      "event_reason": "US Congressional election result in Florida.",
+      "article_indexes": [
+        10
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261111-000009"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261111-000010",
+      "local_cluster_id": "C010",
+      "event_title": "Kennedy Family Blocks Arlington Memorial",
+      "event_reason": "Legal challenge by Kennedy family against Trump's Arlington memorial arch.",
+      "article_indexes": [
+        11
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261111-000010"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261111-000011",
+      "local_cluster_id": "C011",
+      "event_title": "VSCode 1.145.3 Release",
+      "event_reason": "Software update for Microsoft Visual Studio Code.",
+      "article_indexes": [
+        12
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261111-000011"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261111-000012",
+      "local_cluster_id": "C012",
+      "event_title": "AI for Caregivers",
+      "event_reason": "Technology application helping caregivers in daily life.",
+      "article_indexes": [
+        13
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261111-000012"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261111-000013",
+      "local_cluster_id": "C013",
+      "event_title": "China Cyber Governance Legislation",
+      "event_reason": "Chinese policy article on internet regulation and governance.",
+      "article_indexes": [
+        14
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261111-000013"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261111-000014",
+      "local_cluster_id": "C014",
+      "event_title": "People's Daily Editorial on Economic凭证",
+      "event_reason": "Chinese state media commentary on economic instruments.",
+      "article_indexes": [
+        15
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261111-000014"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261111-000015",
+      "local_cluster_id": "C015",
+      "event_title": "Rural Economic Development Story",
+      "event_reason": "Chinese People's Daily feature on rural commerce.",
+      "article_indexes": [
+        16
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261111-000015"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261111-000016",
+      "local_cluster_id": "C016",
+      "event_title": "China AI International Cooperation",
+      "event_reason": "Chinese policy piece on AI capacity building cooperation.",
+      "article_indexes": [
+        17
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261111-000016"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261111-000017",
+      "local_cluster_id": "C017",
+      "event_title": "Sakana AI IPO Plans",
+      "event_reason": "Japanese AI startup Sakana AI considering public listing.",
+      "article_indexes": [
+        18
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261111-000017"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261111-000018",
+      "local_cluster_id": "C018",
+      "event_title": "China Trade Surplus and AI Exports",
+      "event_reason": "Articles reporting China's trade surplus surpassing $1 trillion driven by AI and exports, with related customs/trade data.",
+      "article_indexes": [
+        19,
+        28
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261111-000018"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261111-000019",
+      "local_cluster_id": "C019",
+      "event_title": "US Envoy S. Korea Business Environment",
+      "event_reason": "US diplomatic push for fair business treatment of American firms in South Korea.",
+      "article_indexes": [
+        20
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261111-000019"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261111-000020",
+      "local_cluster_id": "C020",
+      "event_title": "Quzhou Carbon Account System",
+      "event_reason": "Chinese local government innovation in carbon accounting.",
+      "article_indexes": [
+        21
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261111-000020"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261111-000021",
+      "local_cluster_id": "C021",
+      "event_title": "People's Daily Photo Feature",
+      "event_reason": "Image report section from Chinese state media.",
+      "article_indexes": [
+        22
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261111-000021"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261111-000022",
+      "local_cluster_id": "C022",
+      "event_title": "China Employment Policy Commentary",
+      "event_reason": "Chinese editorial on high-quality full employment strategies.",
+      "article_indexes": [
+        23
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261111-000022"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261111-000023",
+      "local_cluster_id": "C023",
+      "event_title": "TPUSA Spokesperson Responds to Kirk Death Mockery",
+      "event_reason": "Response to media figures mocking Charlie Kirk's death.",
+      "article_indexes": [
+        24
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261111-000023"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261111-000024",
+      "local_cluster_id": "C024",
+      "event_title": "US Evacuates Aircraft from UK Base Due to Iran Threat",
+      "event_reason": "US military movement from UK base citing Iranian threat escalation.",
+      "article_indexes": [
+        25
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261111-000024"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261111-000025",
+      "local_cluster_id": "C025",
+      "event_title": "PPP Protests Against Special Counsel Bill",
+      "event_reason": "Puerto Rico political party protests against special counsel legislation.",
+      "article_indexes": [
+        26
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261111-000025"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261111-000026",
+      "local_cluster_id": "C026",
+      "event_title": "People's Daily Civilization Commentary",
+      "event_reason": "Chinese editorial on cultural civilization continuity.",
+      "article_indexes": [
+        27
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261111-000026"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261111-000027",
+      "local_cluster_id": "C027",
+      "event_title": "Tianjin Power Grid Service Quality",
+      "event_reason": "Chinese state grid company service improvement report.",
+      "article_indexes": [
+        29
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261111-000027"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261111-000028",
+      "local_cluster_id": "C028",
+      "event_title": "Yasukuni Shrine Secrets Exposed",
+      "event_reason": "Japanese right-wing historical controversy regarding Yasukuni Shrine documents.",
+      "article_indexes": [
+        30
+      ],
+      "batch_identifier": 1,
+      "member_cluster_ids": [
+        "EVT-20261111-000028"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 1"
+    },
+    {
+      "cluster_id": "EVT-20261111-000029",
+      "local_cluster_id": "C001",
+      "event_title": "黑龙江谱华威乳业发展",
+      "event_reason": "独立企业报道，无其他关联文章",
+      "article_indexes": [
+        31
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261111-000029"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261111-000030",
+      "local_cluster_id": "C002",
+      "event_title": "密西西比州参议员竞选选票截止日期",
+      "event_reason": "独立选举事件，无其他关联文章",
+      "article_indexes": [
+        32
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261111-000030"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261111-000031",
+      "local_cluster_id": "C003",
+      "event_title": "佛罗里达飞机事故黑匣子回收",
+      "event_reason": "独立航空事故，无其他关联文章",
+      "article_indexes": [
+        33
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261111-000031"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261111-000032",
+      "local_cluster_id": "C004",
+      "event_title": " DHS黑客事件与移民拘留中心争议",
+      "event_reason": "均涉及特朗普政府移民政策及DHS安全事件",
+      "article_indexes": [
+        34,
+        35
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261111-000032"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261111-000033",
+      "local_cluster_id": "C005",
+      "event_title": "非法移民试图闯入联合航空驾驶舱",
+      "event_reason": "独立航空安全事件，与DHS黑客事件不同",
+      "article_indexes": [
+        36
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261111-000033"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261111-000034",
+      "local_cluster_id": "C006",
+      "event_title": "参议员Duckworth推动VA识别有毒物质威胁",
+      "event_reason": "独立退伍军人健康政策事件",
+      "article_indexes": [
+        37
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261111-000034"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261111-000035",
+      "local_cluster_id": "C007",
+      "event_title": "英国名人流言蜚语与法律诉讼",
+      "event_reason": "均涉及Jonathan Ross、Walliams和Brand的法律纠纷",
+      "article_indexes": [
+        38,
+        39
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261111-000035"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261111-000036",
+      "local_cluster_id": "C008",
+      "event_title": "伊朗支持的嫌疑人策划RAF Fairford袭击",
+      "event_reason": "独立恐怖主义威胁事件",
+      "article_indexes": [
+        40
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261111-000036"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261111-000037",
+      "local_cluster_id": "C009",
+      "event_title": "俄乌冲突前线城市现状",
+      "event_reason": "独立战争报道",
+      "article_indexes": [
+        41
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261111-000037"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261111-000038",
+      "local_cluster_id": "C010",
+      "event_title": "非技术新闻内容",
+      "event_reason": "明确标识为无关内容",
+      "article_indexes": [
+        42
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261111-000038"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261111-000039",
+      "local_cluster_id": "C011",
+      "event_title": "法国穆罕默德·法耶德调查逮捕",
+      "event_reason": "独立刑事调查事件",
+      "article_indexes": [
+        43
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261111-000039"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261111-000040",
+      "local_cluster_id": "C012",
+      "event_title": "美国军用飞机离开英国基地",
+      "event_reason": "独立军事调动事件",
+      "article_indexes": [
+        44
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261111-000040"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261111-000041",
+      "local_cluster_id": "C013",
+      "event_title": "曼联主教练人选讨论",
+      "event_reason": "独立体育管理事件",
+      "article_indexes": [
+        45
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261111-000041"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261111-000042",
+      "local_cluster_id": "C014",
+      "event_title": "WTA决赛诺斯科娃击败高芙",
+      "event_reason": "独立网球赛事结果",
+      "article_indexes": [
+        46
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261111-000042"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261111-000043",
+      "local_cluster_id": "C015",
+      "event_title": "麦克托米奈世界杯心脏治疗披露",
+      "event_reason": "独立体育健康事件",
+      "article_indexes": [
+        47
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261111-000043"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261111-000044",
+      "local_cluster_id": "C016",
+      "event_title": "索尼投资本土动漫增长战略",
+      "event_reason": "独立企业战略报道",
+      "article_indexes": [
+        48
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261111-000044"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261111-000045",
+      "local_cluster_id": "C017",
+      "event_title": "印尼副总统面临调查",
+      "event_reason": "独立政治事件",
+      "article_indexes": [
+        49
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261111-000045"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261111-000046",
+      "local_cluster_id": "C018",
+      "event_title": "印尼Bundang公交车撞车事故",
+      "event_reason": "独立交通事故",
+      "article_indexes": [
+        50
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261111-000046"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261111-000047",
+      "local_cluster_id": "C019",
+      "event_title": "梅根父亲脱踝部监控器再被捕",
+      "event_reason": "独立王室相关司法事件",
+      "article_indexes": [
+        51
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261111-000047"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261111-000048",
+      "local_cluster_id": "C020",
+      "event_title": "综合国际新闻混合格式页",
+      "event_reason": "包含多篇不同主题新闻的汇编页",
+      "article_indexes": [
+        52
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261111-000048"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261111-000049",
+      "local_cluster_id": "C021",
+      "event_title": "宁夏开放发展调研",
+      "event_reason": "独立地区经济报道",
+      "article_indexes": [
+        53
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261111-000049"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261111-000050",
+      "local_cluster_id": "C022",
+      "event_title": "中国国际进口博览会闭幕",
+      "event_reason": "独立经贸活动报道",
+      "article_indexes": [
+        54
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261111-000050"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261111-000051",
+      "local_cluster_id": "C023",
+      "event_title": "APEC中国年外交活动",
+      "event_reason": "独立多边外交报道",
+      "article_indexes": [
+        55
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261111-000051"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261111-000052",
+      "local_cluster_id": "C024",
+      "event_title": "王毅与斯洛伐克外长会谈",
+      "event_reason": "独立双边外交活动",
+      "article_indexes": [
+        56
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261111-000052"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261111-000053",
+      "local_cluster_id": "C025",
+      "event_title": "双11消费趋势分析",
+      "event_reason": "独立电商经济报道",
+      "article_indexes": [
+        57
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261111-000053"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261111-000054",
+      "local_cluster_id": "C026",
+      "event_title": "一带一路合作专题",
+      "event_reason": "独立政策宣传内容",
+      "article_indexes": [
+        58
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261111-000054"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261111-000055",
+      "local_cluster_id": "C027",
+      "event_title": "报纸版面编辑信息",
+      "event_reason": "纯编辑署名信息",
+      "article_indexes": [
+        59
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261111-000055"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261111-000056",
+      "local_cluster_id": "C028",
+      "event_title": "报纸版面编辑信息",
+      "event_reason": "纯编辑署名信息",
+      "article_indexes": [
+        60
+      ],
+      "batch_identifier": 2,
+      "member_cluster_ids": [
+        "EVT-20261111-000056"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 2"
+    },
+    {
+      "cluster_id": "EVT-20261111-000057",
+      "local_cluster_id": "C001",
+      "event_title": "Trump Administration and Related Figures",
+      "event_reason": "Articles concern Trump's policies, the JFK gravesite monument controversy, political fallout, and related legal/behavioral updates.",
+      "article_indexes": [
+        63,
+        64,
+        65,
+        78,
+        89
+      ],
+      "batch_identifier": 3,
+      "member_cluster_ids": [
+        "EVT-20261111-000057"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 3"
+    },
+    {
+      "cluster_id": "EVT-20261111-000058",
+      "local_cluster_id": "C002",
+      "event_title": "US Foreign and Border Policy",
+      "event_reason": "Trump's Iran tensions and Supreme Court decision on US border construction in Big Bend.",
+      "article_indexes": [
+        66,
+        67
+      ],
+      "batch_identifier": 3,
+      "member_cluster_ids": [
+        "EVT-20261111-000058"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 3"
+    },
+    {
+      "cluster_id": "EVT-20261111-000059",
+      "local_cluster_id": "C003",
+      "event_title": "Train Attack and Political Incidents",
+      "event_reason": "Train attack driver details, fuel tax cuts extension, PPP street protests against special counsel bill, and South Korea Cheonghae unit expansion.",
+      "article_indexes": [
+        68,
+        69,
+        70,
+        71
+      ],
+      "batch_identifier": 3,
+      "member_cluster_ids": [
+        "EVT-20261111-000059"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 3"
+    },
+    {
+      "cluster_id": "EVT-20261111-000060",
+      "local_cluster_id": "C004",
+      "event_title": "AI Governance and Freelance Impact",
+      "event_reason": "AI adoption in education, freelance work effects, legal strategies, and LLM activation evasion detection.",
+      "article_indexes": [
+        72,
+        73,
+        74,
+        75
+      ],
+      "batch_identifier": 3,
+      "member_cluster_ids": [
+        "EVT-20261111-000060"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 3"
+    },
+    {
+      "cluster_id": "EVT-20261111-000061",
+      "local_cluster_id": "C005",
+      "event_title": "Chinese Domestic News and Commentary",
+      "event_reason": "Includes People's Daily sections and policy commentaries on poverty alleviation, water infrastructure, governance, and social commentary.",
+      "article_indexes": [
+        61,
+        62,
+        76,
+        77,
+        79,
+        80,
+        81,
+        82,
+        83,
+        84,
+        85,
+        86,
+        87,
+        88
+      ],
+      "batch_identifier": 3,
+      "member_cluster_ids": [
+        "EVT-20261111-000061"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 3"
+    },
+    {
+      "cluster_id": "EVT-20261111-000062",
+      "local_cluster_id": "C006",
+      "event_title": "GOP Leadership Selection",
+      "event_reason": "Jordan and Thune chosen as GOP leaders after losses.",
+      "article_indexes": [
+        90
+      ],
+      "batch_identifier": 3,
+      "member_cluster_ids": [
+        "EVT-20261111-000062"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 3"
+    },
+    {
+      "cluster_id": "EVT-20261111-000063",
+      "local_cluster_id": "C001",
+      "event_title": "11-month-old boy found buried alive after abduction by father",
+      "event_reason": "Single article about a missing child found buried alive after being taken by his father.",
+      "article_indexes": [
+        91
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261111-000063"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261111-000064",
+      "local_cluster_id": "C002",
+      "event_title": "Surviving rising waters advice from first responders",
+      "event_reason": "Public safety advisory on flood survival from first responders.",
+      "article_indexes": [
+        92
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261111-000064"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261111-000065",
+      "local_cluster_id": "C003",
+      "event_title": "David Walliams accused and named shamed in press",
+      "event_reason": "UK press coverage involving allegations against David Walliams.",
+      "article_indexes": [
+        93
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261111-000065"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261111-000066",
+      "local_cluster_id": "C004",
+      "event_title": "Prince William plans Duchy sell-off affecting tenant farmers",
+      "event_reason": "Royal Duchy land sale policy change requiring tenants to buy farms or leave.",
+      "article_indexes": [
+        94
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261111-000066"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261111-000067",
+      "local_cluster_id": "C005",
+      "event_title": "Justice Minister Nominee awaits facts on malicious prosecution",
+      "event_reason": "Political-legal news regarding allegations of malicious prosecution against a president.",
+      "article_indexes": [
+        95
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261111-000067"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261111-000068",
+      "local_cluster_id": "C006",
+      "event_title": "Tteumsae Ramen named spiciest among popular brands",
+      "event_reason": "Consumer report ranking ramen spiciness.",
+      "article_indexes": [
+        96
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261111-000068"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261111-000069",
+      "local_cluster_id": "C007",
+      "event_title": "Special Counsel raids Gyeonggi election offices",
+      "event_reason": "South Korean election fraud investigation and raids.",
+      "article_indexes": [
+        97
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261111-000069"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261111-000070",
+      "local_cluster_id": "C008",
+      "event_title": "Questioning verifiable metrics overestimating RSI",
+      "event_reason": "Academic/technical inquiry into Rapid Sequence Induction metrics.",
+      "article_indexes": [
+        98
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261111-000070"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261111-000071",
+      "local_cluster_id": "C009",
+      "event_title": "Characterizing secondary structure representation in ESM-2",
+      "event_reason": "AI research paper on protein structure representation in ESM-2.",
+      "article_indexes": [
+        99
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261111-000071"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261111-000072",
+      "local_cluster_id": "C010",
+      "event_title": "Debate on AI welfare without consciousness",
+      "event_reason": "Ethical discussion on moral patienthood and AI consciousness.",
+      "article_indexes": [
+        100
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261111-000072"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261111-000073",
+      "local_cluster_id": "C011",
+      "event_title": "Safety testing delay protocols for internal deployments",
+      "event_reason": "AI governance proposal for mandatory safety testing delays.",
+      "article_indexes": [
+        101
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261111-000073"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261111-000074",
+      "local_cluster_id": "C012",
+      "event_title": "San Francisco Rationalist Dinner",
+      "event_reason": "Social gathering event notice.",
+      "article_indexes": [
+        102
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261111-000074"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261111-000075",
+      "local_cluster_id": "C013",
+      "event_title": "Manifund team scores AI safety milestones",
+      "event_reason": "News about AI safety research milestones by Manifund.",
+      "article_indexes": [
+        103
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261111-000075"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261111-000076",
+      "local_cluster_id": "C014",
+      "event_title": "Uncertainty about GDM CoT training",
+      "event_reason": "Technical investigation into Generative Diffusion Models training data.",
+      "article_indexes": [
+        104
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261111-000076"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261111-000077",
+      "local_cluster_id": "C015",
+      "event_title": "Interpretability advances favor capabilities over alignment",
+      "event_reason": "AI theory argument regarding interpretability impact.",
+      "article_indexes": [
+        105
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261111-000077"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261111-000078",
+      "local_cluster_id": "C016",
+      "event_title": "AI Safety becoming Environmentalism analogy",
+      "event_reason": "Opinion piece comparing AI safety movement to environmentalism.",
+      "article_indexes": [
+        106
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261111-000078"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261111-000079",
+      "local_cluster_id": "C017",
+      "event_title": "US policy aiding China AI catch-up",
+      "event_reason": "Geopolitical analysis of US-China AI competition dynamics.",
+      "article_indexes": [
+        107
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261111-000079"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261111-000080",
+      "local_cluster_id": "C018",
+      "event_title": "Xi Jinping poverty alleviation book published",
+      "event_reason": "Chinese political news regarding publication of Xi Jinping's works.",
+      "article_indexes": [
+        108
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261111-000080"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261111-000081",
+      "local_cluster_id": "C019",
+      "event_title": "Law-based internet governance editorial",
+      "event_reason": "Chinese state media editorial on cyber governance and the 15th Five-Year Plan.",
+      "article_indexes": [
+        109
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261111-000081"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261111-000082",
+      "local_cluster_id": "C020",
+      "event_title": "Revised Foundation Management Regulations published",
+      "event_reason": "Chinese regulatory update on foundation management.",
+      "article_indexes": [
+        110
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261111-000082"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261111-000083",
+      "local_cluster_id": "C021",
+      "event_title": "Ningxia opening up development report",
+      "event_reason": "Chinese economic reporting on Ningxia region development.",
+      "article_indexes": [
+        111
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261111-000083"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261111-000084",
+      "local_cluster_id": "C022",
+      "event_title": "Zhao Leji meets Colombian delegation",
+      "event_reason": "Chinese diplomatic meeting with Colombian party officials.",
+      "article_indexes": [
+        112
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261111-000084"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261111-000085",
+      "local_cluster_id": "C023",
+      "event_title": "Wang Huning meets Lao delegation",
+      "event_reason": "Chinese diplomatic meeting with Laotian officials.",
+      "article_indexes": [
+        113
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261111-000085"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261111-000086",
+      "local_cluster_id": "C024",
+      "event_title": "Kexun carbon account innovation in Zhejiang",
+      "event_reason": "Chinese environmental policy implementation in Quzhou.",
+      "article_indexes": [
+        114
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261111-000086"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261111-000087",
+      "local_cluster_id": "C025",
+      "event_title": "Wang Yi phone call with French Foreign Minister",
+      "event_reason": "China-France diplomatic communication.",
+      "article_indexes": [
+        115
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261111-000087"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261111-000088",
+      "local_cluster_id": "C026",
+      "event_title": "Critique of Japan's re-militarization",
+      "event_reason": "Chinese opinion piece criticizing Japan's military expansion.",
+      "article_indexes": [
+        116
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261111-000088"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261111-000089",
+      "local_cluster_id": "C027",
+      "event_title": "China-Turkey green development forum",
+      "event_reason": "Bilateral economic forum in Istanbul.",
+      "article_indexes": [
+        117
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261111-000089"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261111-000090",
+      "local_cluster_id": "C028",
+      "event_title": "Wang Dongfeng meets Lao official Busadi",
+      "event_reason": "Chinese diplomatic meeting with Laotian delegation.",
+      "article_indexes": [
+        118
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261111-000090"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261111-000091",
+      "local_cluster_id": "C029",
+      "event_title": "Paris Peace Forum calls for multilateral cooperation",
+      "event_reason": "International diplomacy event coverage.",
+      "article_indexes": [
+        119
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261111-000091"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261111-000092",
+      "local_cluster_id": "C030",
+      "event_title": "LiuHX meets Congo-Brazzaville and Italian guests",
+      "event_reason": "Chinese diplomatic meetings with multiple foreign delegations.",
+      "article_indexes": [
+        120
+      ],
+      "batch_identifier": 4,
+      "member_cluster_ids": [
+        "EVT-20261111-000092"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 4"
+    },
+    {
+      "cluster_id": "EVT-20261111-000093",
+      "local_cluster_id": "C001",
+      "event_title": "党的二十届五中全会精神学习宣传",
+      "event_reason": "宣讲团集中宣讲会议精神",
+      "article_indexes": [
+        121,
+        128
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261111-000093"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261111-000094",
+      "local_cluster_id": "C002",
+      "event_title": "实体书店发展支持",
+      "event_reason": "支持实体书店服务全民阅读并焕发新活力",
+      "article_indexes": [
+        123,
+        124
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261111-000094"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261111-000095",
+      "local_cluster_id": "C003",
+      "event_title": "福州一带一路媒体合作与成果展",
+      "event_reason": "丝路文明论坛、媒体合作倡议发布及成果展在福州举行",
+      "article_indexes": [
+        143,
+        144,
+        146,
+        147,
+        148
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261111-000095"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261111-000096",
+      "local_cluster_id": "C004",
+      "event_title": "提升产业创新能力服务高质量发展",
+      "event_reason": "独立政策主题文章",
+      "article_indexes": [
+        122
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261111-000096"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261111-000097",
+      "local_cluster_id": "C005",
+      "event_title": "中国记协举办新闻茶座",
+      "event_reason": "独立新闻行业活动",
+      "article_indexes": [
+        125
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261111-000097"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261111-000098",
+      "local_cluster_id": "C006",
+      "event_title": "一老一小保障措施",
+      "event_reason": "独立民生保障政策主题",
+      "article_indexes": [
+        126
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261111-000098"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261111-000099",
+      "local_cluster_id": "C007",
+      "event_title": "报纸编辑人员公示",
+      "event_reason": "版次编辑人员名单，非具体事件",
+      "article_indexes": [
+        127
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261111-000099"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261111-000100",
+      "local_cluster_id": "C008",
+      "event_title": "香港发展历史智慧汲取",
+      "event_reason": "独立政论文章",
+      "article_indexes": [
+        129
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261111-000100"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261111-000101",
+      "local_cluster_id": "C009",
+      "event_title": "图片报道",
+      "event_reason": "版面图片内容说明",
+      "article_indexes": [
+        130
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261111-000101"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261111-000102",
+      "local_cluster_id": "C010",
+      "event_title": "慰问退伍红军老战士",
+      "event_reason": "独立时政活动",
+      "article_indexes": [
+        131
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261111-000102"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261111-000103",
+      "local_cluster_id": "C011",
+      "event_title": "最美五老先进事迹发布",
+      "event_reason": "独立宣传表彰活动",
+      "article_indexes": [
+        132
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261111-000103"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261111-000104",
+      "local_cluster_id": "C012",
+      "event_title": "消防领域国家标准发布",
+      "event_reason": "独立标准发布通知",
+      "article_indexes": [
+        133
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261111-000104"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261111-000105",
+      "local_cluster_id": "C013",
+      "event_title": "数智化在西藏书籍首发",
+      "event_reason": "独立出版物发布活动",
+      "article_indexes": [
+        134
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261111-000105"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261111-000106",
+      "local_cluster_id": "C014",
+      "event_title": "报纸编辑人员公示",
+      "event_reason": "版次编辑人员名单",
+      "article_indexes": [
+        135
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261111-000106"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261111-000107",
+      "local_cluster_id": "C015",
+      "event_title": "基金会管理条例修订",
+      "event_reason": "独立行政法规修订解读",
+      "article_indexes": [
+        136
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261111-000107"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261111-000108",
+      "local_cluster_id": "C016",
+      "event_title": "办气韵生动副刊",
+      "event_reason": "独立编辑业务文章",
+      "article_indexes": [
+        137
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261111-000108"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261111-000109",
+      "local_cluster_id": "C017",
+      "event_title": "促进创新药安全合理配备使用",
+      "event_reason": "四部门独立政策发文",
+      "article_indexes": [
+        138
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261111-000109"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261111-000110",
+      "local_cluster_id": "C018",
+      "event_title": "建行助力革命老区发展",
+      "event_reason": "独立金融机构服务报道",
+      "article_indexes": [
+        139
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261111-000110"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261111-000111",
+      "local_cluster_id": "C019",
+      "event_title": "报纸编辑人员公示",
+      "event_reason": "版次编辑人员名单",
+      "article_indexes": [
+        140
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261111-000111"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261111-000112",
+      "local_cluster_id": "C020",
+      "event_title": "区域协调发展快递流向观察",
+      "event_reason": "独立经济数据分析报道",
+      "article_indexes": [
+        141
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261111-000112"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261111-000113",
+      "local_cluster_id": "C021",
+      "event_title": "发展产业金融服务中心科创",
+      "event_reason": "独立金融服务主题",
+      "article_indexes": [
+        142
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261111-000113"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261111-000114",
+      "local_cluster_id": "C022",
+      "event_title": "图片报道",
+      "event_reason": "版面图片内容说明",
+      "article_indexes": [
+        145
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261111-000114"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261111-000115",
+      "local_cluster_id": "C023",
+      "event_title": "报纸编辑人员公示",
+      "event_reason": "版次编辑人员名单",
+      "article_indexes": [
+        149
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261111-000115"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261111-000116",
+      "local_cluster_id": "C024",
+      "event_title": "东风梦想车大赛冠军庆贺",
+      "event_reason": "独立企业赛事活动报道",
+      "article_indexes": [
+        150
+      ],
+      "batch_identifier": 5,
+      "member_cluster_ids": [
+        "EVT-20261111-000116"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 5"
+    },
+    {
+      "cluster_id": "EVT-20261111-000117",
+      "local_cluster_id": "C001",
+      "event_title": "中华人民共和国南极活动与环境保护法",
+      "event_reason": "中国南极活动环境保护法律发布",
+      "article_indexes": [
+        151
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261111-000117"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261111-000118",
+      "local_cluster_id": "C002",
+      "event_title": "民企为行业数智化转型提供算力支持",
+      "event_reason": "民营企业赋能十五五期间各行业数字化转型的算力保障工作",
+      "article_indexes": [
+        152
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261111-000118"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261111-000119",
+      "local_cluster_id": "C003",
+      "event_title": "今年第二批质量督察工作启动",
+      "event_reason": "中国政府启动年度第二批质量督察行动",
+      "article_indexes": [
+        153
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261111-000119"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261111-000120",
+      "local_cluster_id": "C004",
+      "event_title": "人民日报版面编辑信息",
+      "event_reason": "新闻版面的编辑人员署名信息",
+      "article_indexes": [
+        154
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261111-000120"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261111-000121",
+      "local_cluster_id": "C005",
+      "event_title": "基金会管理条例公布",
+      "event_reason": "同一条例在报纸不同版面的刊登",
+      "article_indexes": [
+        155,
+        156
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261111-000121"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261111-000122",
+      "local_cluster_id": "C006",
+      "event_title": "南昌市东湖区融合发展新模式",
+      "event_reason": "南昌市东湖区推动商文旅体健融合的城市发展实践",
+      "article_indexes": [
+        157
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261111-000122"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261111-000123",
+      "local_cluster_id": "C007",
+      "event_title": "杭州余杭建设中轴线吸引年轻人",
+      "event_reason": "杭州余杭区城市建设与人才引进发展举措",
+      "article_indexes": [
+        158
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261111-000123"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261111-000124",
+      "local_cluster_id": "C008",
+      "event_title": "消费市场与生活方式观察",
+      "event_reason": "涉及电商消费变革、海鲜价格、文创产品等消费生活话题",
+      "article_indexes": [
+        159,
+        160,
+        161,
+        162
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261111-000124"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261111-000125",
+      "local_cluster_id": "C009",
+      "event_title": "副刊文化随笔与图片报道",
+      "event_reason": "包含散文、随笔、图片报道等文学副刊内容",
+      "article_indexes": [
+        163,
+        164,
+        165,
+        166,
+        167,
+        168,
+        169,
+        170
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261111-000125"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261111-000126",
+      "local_cluster_id": "C010",
+      "event_title": "美国国会关于Hegseth的弹劾审议",
+      "event_reason": "共和党阻止对Hegseth的弹劾努力及对其声明的分析",
+      "article_indexes": [
+        171,
+        172
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261111-000126"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261111-000127",
+      "local_cluster_id": "C011",
+      "event_title": "Nvidia间谍丑闻与Jensen Huang",
+      "event_reason": "涉及Nvidia相关间谍活动的调查报道及特朗普访华期间的信息",
+      "article_indexes": [
+        173,
+        174
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261111-000127"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261111-000128",
+      "local_cluster_id": "C012",
+      "event_title": "抗抑郁药长期疗效比较研究",
+      "event_reason": "关于21种抗抑郁药长期缓解效果的医学研究",
+      "article_indexes": [
+        175
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261111-000128"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261111-000129",
+      "local_cluster_id": "C013",
+      "event_title": "演员Stacy Keach逝世",
+      "event_reason": "著名演员Stacy Keach去世享年85岁",
+      "article_indexes": [
+        176
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261111-000129"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261111-000130",
+      "local_cluster_id": "C014",
+      "event_title": "美国ICE移民执法政策变化",
+      "event_reason": "ICE新政策限制拘留者位置信息以及遣返航班事件",
+      "article_indexes": [
+        177,
+        178
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261111-000130"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261111-000131",
+      "local_cluster_id": "C015",
+      "event_title": "纽约嘻哈高中教育特色",
+      "event_reason": "纽约市首所嘻哈高中学生的日常文化活动",
+      "article_indexes": [
+        179
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261111-000131"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261111-000132",
+      "local_cluster_id": "C016",
+      "event_title": "以色列对特朗普政策的批评",
+      "event_reason": "关于以色列应摆脱特朗普影响的政治评论文章",
+      "article_indexes": [
+        180
+      ],
+      "batch_identifier": 6,
+      "member_cluster_ids": [
+        "EVT-20261111-000132"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 6"
+    },
+    {
+      "cluster_id": "EVT-20261111-000133",
+      "local_cluster_id": "C001",
+      "event_title": "Democratic Party Supermajority Prospects",
+      "event_reason": "Article discusses the political path for Democrats to achieve a congressional supermajority.",
+      "article_indexes": [
+        181
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261111-000133"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261111-000134",
+      "local_cluster_id": "C002",
+      "event_title": "Los Angeles Car Crash",
+      "event_reason": "Reports on a specific vehicle crashing into pedestrians in LA resulting in deaths.",
+      "article_indexes": [
+        182
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261111-000134"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261111-000135",
+      "local_cluster_id": "C003",
+      "event_title": "DHS ICE Body Cam Investigation",
+      "event_reason": "The DHS watchdog is investigating ICE's compliance with body camera policies.",
+      "article_indexes": [
+        183
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261111-000135"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261111-000136",
+      "local_cluster_id": "C004",
+      "event_title": "Dorris Markle Legal Issues",
+      "event_reason": "Meghan Markle's father was jailed for allegedly removing his ankle monitor.",
+      "article_indexes": [
+        184
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261111-000136"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261111-000137",
+      "local_cluster_id": "C005",
+      "event_title": "Supreme Court Federal Agency Fines",
+      "event_reason": "The Supreme Court is hearing arguments regarding the fine-imposing power of federal agencies.",
+      "article_indexes": [
+        185
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261111-000137"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261111-000138",
+      "local_cluster_id": "C006",
+      "event_title": "N.J. Wire Fraud Investigation",
+      "event_reason": "A police chief in New Jersey defended the timing of an announcement regarding a wire fraud investigation.",
+      "article_indexes": [
+        186
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261111-000138"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261111-000139",
+      "local_cluster_id": "C007",
+      "event_title": "Karen Read Settlement",
+      "event_reason": "Massachusetts State Police agreed to pay a settlement to Karen Read.",
+      "article_indexes": [
+        187
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261111-000139"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261111-000140",
+      "local_cluster_id": "C008",
+      "event_title": "Death Penalty Support Decline",
+      "event_reason": "A Gallup poll indicates death penalty support is at a 50-year low.",
+      "article_indexes": [
+        188
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261111-000140"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261111-000141",
+      "local_cluster_id": "C009",
+      "event_title": "Cape Cod Indigenous Land Return",
+      "event_reason": "An indigenous-led group received a plot of land in Cape Cod taken from Native Americans.",
+      "article_indexes": [
+        189
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261111-000141"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261111-000142",
+      "local_cluster_id": "C010",
+      "event_title": "US Inflation Data",
+      "event_reason": "Reports that inflation slowed in October but prices remain high.",
+      "article_indexes": [
+        190
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261111-000142"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261111-000143",
+      "local_cluster_id": "C011",
+      "event_title": "Johnnie Robbie Joins CMLL",
+      "event_reason": "Pro wrestling star Johnnie Robbie signed a contract with the Mexican promotion CMLL.",
+      "article_indexes": [
+        191
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261111-000143"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261111-000144",
+      "local_cluster_id": "C012",
+      "event_title": "FBI Terrorist List IRGC Operative",
+      "event_reason": "An IRGC operative was added to the FBI's Most Wanted Terrorists list for an alleged plot.",
+      "article_indexes": [
+        192
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261111-000144"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261111-000145",
+      "local_cluster_id": "C013",
+      "event_title": "Ayesha Curry Movie Backlash",
+      "event_reason": "Ayesha Curry responded to backlash regarding her movie character inspired by Steph Curry.",
+      "article_indexes": [
+        193
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261111-000145"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261111-000146",
+      "local_cluster_id": "C014",
+      "event_title": "Michael Wilson Season Finale",
+      "event_reason": "Arizona Cardinals player Michael Wilson is out for the season due to a neck fracture.",
+      "article_indexes": [
+        194
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261111-000146"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261111-000147",
+      "local_cluster_id": "C015",
+      "event_title": "Jennifer Welch and Kirk Support",
+      "event_reason": "TV host Jennifer Welch cheered a brewery that called Pat Kirk an awful human being.",
+      "article_indexes": [
+        195
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261111-000147"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261111-000148",
+      "local_cluster_id": "C016",
+      "event_title": "SEC Officiating Criticism",
+      "event_reason": "SEC Commissioner Greg Sankey criticized announcers for calling out poor officiating.",
+      "article_indexes": [
+        196
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261111-000148"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261111-000149",
+      "local_cluster_id": "C017",
+      "event_title": "LAX Near Mid-Air Collision",
+      "event_reason": "An American Airlines plane nearly collided with an Air France jet after takeoff at LAX.",
+      "article_indexes": [
+        197
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261111-000149"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261111-000150",
+      "local_cluster_id": "C018",
+      "event_title": "WNBA Media Criticism",
+      "event_reason": "The WNBA faced criticism for media asking fans to focus only on basketball.",
+      "article_indexes": [
+        198
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261111-000150"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261111-000151",
+      "local_cluster_id": "C019",
+      "event_title": "NFL Trade Deadline and Analysis",
+      "event_reason": "All articles concern the NFL trade deadline outcomes, winners/losers analysis, and player movements involving Kirk Cousins and Jonathan Taylor.",
+      "article_indexes": [
+        199,
+        202,
+        203,
+        206
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261111-000151"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261111-000152",
+      "local_cluster_id": "C020",
+      "event_title": "Hegseth Impeachment Efforts",
+      "event_reason": "Both articles cover the push by House Republicans to impeach Pete Hegseth and the subsequent blocking/tabling of that effort.",
+      "article_indexes": [
+        200,
+        210
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261111-000152"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261111-000153",
+      "local_cluster_id": "C021",
+      "event_title": "Dave Edler Car Crash",
+      "event_reason": "Former MLB player Dave Edler was critically injured in a car crash that killed his wife.",
+      "article_indexes": [
+        201
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261111-000153"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261111-000154",
+      "local_cluster_id": "C022",
+      "event_title": "Bob Boone Death",
+      "event_reason": "Baseball Hall of Famer Bob Boone died at age 78.",
+      "article_indexes": [
+        204
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261111-000154"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261111-000155",
+      "local_cluster_id": "C023",
+      "event_title": "Ilhan Omar Legal Troubles",
+      "event_reason": "Representative Ilhan Omar was seen meeting with lawyers amid federal probes.",
+      "article_indexes": [
+        205
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261111-000155"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261111-000156",
+      "local_cluster_id": "C024",
+      "event_title": "Whoopi Goldberg on Democrats",
+      "event_reason": "Whoopi Goldberg criticized Democratic infighting and leadership.",
+      "article_indexes": [
+        207
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261111-000156"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261111-000157",
+      "local_cluster_id": "C025",
+      "event_title": "Connor Hellebuyck Departure",
+      "event_reason": "Ice hockey player Connor Hellebuyck cited online death threats as a reason for leaving Winnipeg.",
+      "article_indexes": [
+        208
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261111-000157"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261111-000158",
+      "local_cluster_id": "C026",
+      "event_title": "US Citizen Killed in Mexico",
+      "event_reason": "A 7-year-old American girl was killed during a Mexican cartel operation.",
+      "article_indexes": [
+        209
+      ],
+      "batch_identifier": 7,
+      "member_cluster_ids": [
+        "EVT-20261111-000158"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 7"
+    },
+    {
+      "cluster_id": "EVT-20261111-000159",
+      "local_cluster_id": "C001",
+      "event_title": "ABC News Live broadcast",
+      "event_reason": "LIVE broadcast from ABC News with no specific event details.",
+      "article_indexes": [
+        211
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261111-000159"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261111-000160",
+      "local_cluster_id": "C002",
+      "event_title": "Girl rescued from wave in Oregon",
+      "event_reason": "Rescue of a girl nearly swept away by a wave in Oregon.",
+      "article_indexes": [
+        212
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261111-000160"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261111-000161",
+      "local_cluster_id": "C003",
+      "event_title": "Officer shot 6 times celebrates wedding",
+      "event_reason": "Wedding celebration of an officer who was shot six times.",
+      "article_indexes": [
+        213
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261111-000161"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261111-000162",
+      "local_cluster_id": "C004",
+      "event_title": "Woman rescuing foxes",
+      "event_reason": "Woman living her dream to save foxes in need.",
+      "article_indexes": [
+        214
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261111-000162"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261111-000163",
+      "local_cluster_id": "C005",
+      "event_title": "House panel rebukes DOJ on Epstein case",
+      "event_reason": "House panel rebuking the DOJ's handling of the Epstein case.",
+      "article_indexes": [
+        215
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261111-000163"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261111-000164",
+      "local_cluster_id": "C006",
+      "event_title": "California Prop 40 rejected",
+      "event_reason": "Rejection of California's Prop 40 billionaire tax measure.",
+      "article_indexes": [
+        216
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261111-000164"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261111-000165",
+      "local_cluster_id": "C007",
+      "event_title": "Jimmy Carter's family farm preserved",
+      "event_reason": "Preservation and public opening of Jimmy Carter's family farm.",
+      "article_indexes": [
+        217
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261111-000165"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261111-000166",
+      "local_cluster_id": "C008",
+      "event_title": "US soldier spying for Russia arrested in UK",
+      "event_reason": "Arrest of a US Army soldier suspected of spying for Russia in the UK.",
+      "article_indexes": [
+        218
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261111-000166"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261111-000167",
+      "local_cluster_id": "C009",
+      "event_title": "Prince George's artwork featured",
+      "event_reason": "Prince George's artwork featured in Country Life magazine.",
+      "article_indexes": [
+        219
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261111-000167"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261111-000168",
+      "local_cluster_id": "C010",
+      "event_title": "SAS war crimes inquiry evidence",
+      "event_reason": "New photos presented as essential evidence of possible SAS war crimes in an inquiry.",
+      "article_indexes": [
+        220
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261111-000168"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261111-000169",
+      "local_cluster_id": "C011",
+      "event_title": "US House blocks Hegseth impeachment",
+      "event_reason": "US House blocking the bid to impeach Defence Secretary Pete Hegseth.",
+      "article_indexes": [
+        221
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261111-000169"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261111-000170",
+      "local_cluster_id": "C012",
+      "event_title": "Antidepressant escitalopram effectiveness",
+      "event_reason": "Analysis finding antidepressant escitalopram more effective at preventing relapse.",
+      "article_indexes": [
+        222
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261111-000170"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261111-000171",
+      "local_cluster_id": "C013",
+      "event_title": "Trump defamation case against BBC proceeds",
+      "event_reason": "Judge allowing Trump's $10bn defamation case against BBC to proceed.",
+      "article_indexes": [
+        223
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261111-000171"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261111-000172",
+      "local_cluster_id": "C014",
+      "event_title": "Students using AI for assessments",
+      "event_reason": "Regulator warning about students passing university assessments using AI.",
+      "article_indexes": [
+        224
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261111-000172"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261111-000173",
+      "local_cluster_id": "C015",
+      "event_title": "Toy sales surge pre-Christmas",
+      "event_reason": "Surge in toy sales due to stickers and building sets boosting pre-Christmas demand.",
+      "article_indexes": [
+        225
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261111-000173"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261111-000174",
+      "local_cluster_id": "C016",
+      "event_title": "David Walliams career and controversies",
+      "event_reason": "Overview of David Walliams' career and controversies including Britain's Got Talent and Little Britain.",
+      "article_indexes": [
+        226
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261111-000174"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261111-000175",
+      "local_cluster_id": "C017",
+      "event_title": "Australia encourages Brits to move to outback",
+      "event_reason": "Australia wanting Brits to swap Sydney for the outback.",
+      "article_indexes": [
+        227
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261111-000175"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261111-000176",
+      "local_cluster_id": "C018",
+      "event_title": "Kenyans fear El Niño floods",
+      "event_reason": "Kenyans fearing the impact of predicted El Niño floods.",
+      "article_indexes": [
+        228
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261111-000176"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261111-000177",
+      "local_cluster_id": "C019",
+      "event_title": "Nvidia investigates Chinese spy affair",
+      "event_reason": "Nvidia hiring a US law firm to investigate an alleged Chinese spy affair.",
+      "article_indexes": [
+        229
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261111-000177"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261111-000178",
+      "local_cluster_id": "C020",
+      "event_title": "Census language options proposal",
+      "event_reason": "MP suggesting census include black English and Asian English options.",
+      "article_indexes": [
+        230
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261111-000178"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261111-000179",
+      "local_cluster_id": "C021",
+      "event_title": "Monaco summit for Carrick and Man Utd",
+      "event_reason": "Monaco summit to decide the future of Carrick and Manchester United.",
+      "article_indexes": [
+        231
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261111-000179"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261111-000180",
+      "local_cluster_id": "C022",
+      "event_title": "Feyi-Waboso injury comparison",
+      "event_reason": "Sinfield comparing injured Feyi-Waboso to Robinson.",
+      "article_indexes": [
+        232
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261111-000180"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261111-000181",
+      "local_cluster_id": "C023",
+      "event_title": "Lewis Hamilton visits Gaza aid facilities",
+      "event_reason": "Lewis Hamilton visiting Egypt's Rafah crossing and Gaza aid facilities.",
+      "article_indexes": [
+        233
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261111-000181"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261111-000182",
+      "local_cluster_id": "C024",
+      "event_title": "UK warns Argentina over Falklands oil",
+      "event_reason": "UK warning that Falkland Islanders face devastating consequences if Argentina blocks oil project.",
+      "article_indexes": [
+        234
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261111-000182"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261111-000183",
+      "local_cluster_id": "C025",
+      "event_title": "John Kerry on green energy",
+      "event_reason": "John Kerry saying US and world must follow China's lead on green energy.",
+      "article_indexes": [
+        235
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261111-000183"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261111-000184",
+      "local_cluster_id": "C026",
+      "event_title": "David Jones store closures",
+      "event_reason": "David Jones closing half its stores triggering mass job losses under urgent restructure.",
+      "article_indexes": [
+        236
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261111-000184"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261111-000185",
+      "local_cluster_id": "C027",
+      "event_title": "Labor keeps ABC/SBS ombudsmen",
+      "event_reason": "Labor refusing to scrap ABC and SBS ombudsmen in favor of external body.",
+      "article_indexes": [
+        237
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261111-000185"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261111-000186",
+      "local_cluster_id": "C028",
+      "event_title": "Mick Gatto gold bracelet inquiry",
+      "event_reason": "Underworld figure Mick Gatto giving CFEMU official gold bracelet after construction site assault, per royal commission.",
+      "article_indexes": [
+        238
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261111-000186"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261111-000187",
+      "local_cluster_id": "C029",
+      "event_title": "Foo Fighters tribute to miner",
+      "event_reason": "Foo Fighters interrupting Sydney concert to pay tribute to Beaconsfield miner Todd Russell.",
+      "article_indexes": [
+        239
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261111-000187"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261111-000188",
+      "local_cluster_id": "C030",
+      "event_title": "Rising Tide banned from Newcastle coal port protests",
+      "event_reason": "Rising Tide banned from using council land for protests at world’s largest coal port in Newcastle.",
+      "article_indexes": [
+        240
+      ],
+      "batch_identifier": 8,
+      "member_cluster_ids": [
+        "EVT-20261111-000188"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 8"
+    },
+    {
+      "cluster_id": "EVT-20261111-000189",
+      "local_cluster_id": "C001",
+      "event_title": "US-Russia-Ukraine Peace Talks",
+      "event_reason": "Both articles cover the resumption of productive trilateral negotiations aimed at ending the Russia-Ukraine war.",
+      "article_indexes": [
+        245,
+        265
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261111-000189"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261111-000190",
+      "local_cluster_id": "C002",
+      "event_title": "Impeachment of Pete Hegseth Blocked",
+      "event_reason": "Both articles report on House Republicans blocking the effort to impeach US Defence Secretary Pete Hegseth.",
+      "article_indexes": [
+        256,
+        268
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261111-000190"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261111-000191",
+      "local_cluster_id": "C003",
+      "event_title": "Israel New Knesset Formation",
+      "event_reason": "Both articles discuss the swearing-in of the new Knesset and the political maneuvering regarding the Prime Ministership.",
+      "article_indexes": [
+        246,
+        247
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261111-000191"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261111-000192",
+      "local_cluster_id": "C004",
+      "event_title": "Trump Defamation Lawsuit Against BBC",
+      "event_reason": "Federal judge allows Trump's $10bn defamation lawsuit against the BBC to proceed.",
+      "article_indexes": [
+        241
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261111-000192"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261111-000193",
+      "local_cluster_id": "C005",
+      "event_title": "Mohamed Al Fayed Sexual Abuse Investigation",
+      "event_reason": "French police raid the Ritz hotel as part of the investigation into Mohamed Al Fayed.",
+      "article_indexes": [
+        242
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261111-000193"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261111-000194",
+      "local_cluster_id": "C006",
+      "event_title": "Britain EU Electricity Market Access",
+      "event_reason": "UK minister states Britain is willing to discuss paying into the EU to join the electricity market.",
+      "article_indexes": [
+        243
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261111-000194"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261111-000195",
+      "local_cluster_id": "C007",
+      "event_title": "Naval Defence Initiative",
+      "event_reason": "Russian naval aggression prompts a new defensive initiative involving allied nations.",
+      "article_indexes": [
+        244
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261111-000195"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261111-000196",
+      "local_cluster_id": "C008",
+      "event_title": "Sheikh Hasina Return to Bangladesh",
+      "event_reason": "Disgraced former Bangladeshi leader Sheikh Hasina plans to return from exile.",
+      "article_indexes": [
+        248
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261111-000196"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261111-000197",
+      "local_cluster_id": "C009",
+      "event_title": "Sonia Gandhi Memoir",
+      "event_reason": "Analysis of key takeaways from Sonia Gandhi's new memoir regarding Indian politics and personal history.",
+      "article_indexes": [
+        249
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261111-000197"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261111-000198",
+      "local_cluster_id": "C010",
+      "event_title": "England Social Care Crisis",
+      "event_reason": "Reports on the chaos in England's social care system, including leadership failures and long wait times for wheelchairs.",
+      "article_indexes": [
+        250,
+        251
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261111-000198"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261111-000199",
+      "local_cluster_id": "C011",
+      "event_title": "Bank of England Inflation Response",
+      "event_reason": "Concerns that the Bank of England's response to inflation risks keeping interest rates higher for longer.",
+      "article_indexes": [
+        252
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261111-000199"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261111-000200",
+      "local_cluster_id": "C012",
+      "event_title": "Thomas Markle Jail Sentence",
+      "event_reason": "Meghan Markle's father jailed for cutting off his ankle monitor.",
+      "article_indexes": [
+        253
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261111-000200"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261111-000201",
+      "local_cluster_id": "C013",
+      "event_title": "Iranian Operative Charged in UK Attack",
+      "event_reason": "US prosecutors charge an Iranian operative allegedly responsible for an attack on a UK air force base.",
+      "article_indexes": [
+        254
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261111-000201"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261111-000202",
+      "local_cluster_id": "C014",
+      "event_title": "Los Angeles Pedestrian Crash",
+      "event_reason": "Three people killed after a driver crashed into pedestrians in Los Angeles.",
+      "article_indexes": [
+        255
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261111-000202"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261111-000203",
+      "local_cluster_id": "C015",
+      "event_title": "University of Mississippi racial Incident",
+      "event_reason": "Two white students at the University of Mississippi make monkey gestures captured on Ring video.",
+      "article_indexes": [
+        257
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261111-000203"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261111-000204",
+      "local_cluster_id": "C016",
+      "event_title": "Death of Stacy Keach",
+      "event_reason": "Actor Stacy Keach, known for Mike Hammer, dies at age 85.",
+      "article_indexes": [
+        258
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261111-000204"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261111-000205",
+      "local_cluster_id": "C017",
+      "event_title": "Murder of Bob Lee Sentencing",
+      "event_reason": "Nima Momeni sentenced to 16 years to life for the murder of Cash App founder Bob Lee.",
+      "article_indexes": [
+        259
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261111-000205"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261111-000206",
+      "local_cluster_id": "C018",
+      "event_title": "Anthropic IPO Valuation",
+      "event_reason": "Bankers prepare to increase Anthropic's IPO valuation to $1.5 trillion or more.",
+      "article_indexes": [
+        260
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261111-000206"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261111-000207",
+      "local_cluster_id": "C019",
+      "event_title": "Alice Huang Connections",
+      "event_reason": "Feature article on Alice Huang's complex web of connections.",
+      "article_indexes": [
+        261
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261111-000207"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261111-000208",
+      "local_cluster_id": "C020",
+      "event_title": "Trump Alamo Strategy",
+      "event_reason": "Analysis of Trump adopting an 'Alamo route' strategy in his political or policy approach.",
+      "article_indexes": [
+        262
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261111-000208"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261111-000209",
+      "local_cluster_id": "C021",
+      "event_title": "VW China Strategy Shift",
+      "event_reason": "Volkswagen pivots strategy as its 'In China, For China' approach loses effectiveness.",
+      "article_indexes": [
+        263
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261111-000209"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261111-000210",
+      "local_cluster_id": "C022",
+      "event_title": "US Soldier Spy Arrest UK",
+      "event_reason": "Senior US soldier arrested in the UK on suspicion of spying for Russia.",
+      "article_indexes": [
+        264
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261111-000210"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261111-000211",
+      "local_cluster_id": "C023",
+      "event_title": "Megaspeed Trade Blacklist Delay",
+      "event_reason": "US Commerce Department delays adding Megaspeed to a trade blacklist.",
+      "article_indexes": [
+        266
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261111-000211"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261111-000212",
+      "local_cluster_id": "C024",
+      "event_title": "Nvidia Jensen Huang Probe",
+      "event_reason": "Nvidia hires a former US prosecutor to lead the probe into Jensen Huang.",
+      "article_indexes": [
+        267
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261111-000212"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261111-000213",
+      "local_cluster_id": "C025",
+      "event_title": "Oil Prices and Iran Threat",
+      "event_reason": "Oil falls below $90 as Trump pulls back from threats to strike Iran.",
+      "article_indexes": [
+        269
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261111-000213"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261111-000214",
+      "local_cluster_id": "C026",
+      "event_title": "Japanese Savers and Government Bonds",
+      "event_reason": "Lucrative returns are luring Japanese savers back into government bonds.",
+      "article_indexes": [
+        270
+      ],
+      "batch_identifier": 9,
+      "member_cluster_ids": [
+        "EVT-20261111-000214"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 9"
+    },
+    {
+      "cluster_id": "EVT-20261111-000215",
+      "local_cluster_id": "C001",
+      "event_title": "US Inflation and Fed Rate Bets",
+      "event_reason": "Article discusses US Treasuries and inflation data influencing Federal Reserve rate expectations.",
+      "article_indexes": [
+        271
+      ],
+      "batch_identifier": 10,
+      "member_cluster_ids": [
+        "EVT-20261111-000215"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 10"
+    },
+    {
+      "cluster_id": "EVT-20261111-000216",
+      "local_cluster_id": "C002",
+      "event_title": "UK Counter-Terrorism and Iran Plots",
+      "event_reason": "Both articles relate to UK security incidents involving alleged Russian or Iranian operatives.",
+      "article_indexes": [
+        272,
+        294
+      ],
+      "batch_identifier": 10,
+      "member_cluster_ids": [
+        "EVT-20261111-000216"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 10"
+    },
+    {
+      "cluster_id": "EVT-20261111-000217",
+      "local_cluster_id": "C003",
+      "event_title": "UK Domestic Economy and Social Issues",
+      "event_reason": "Articles cover UK welfare cuts, economic stagnation for youth, health inequalities, and retail worker issues.",
+      "article_indexes": [
+        273,
+        275,
+        278,
+        280,
+        281
+      ],
+      "batch_identifier": 10,
+      "member_cluster_ids": [
+        "EVT-20261111-000217"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 10"
+    },
+    {
+      "cluster_id": "EVT-20261111-000218",
+      "local_cluster_id": "C004",
+      "event_title": "David Walliams Legal Allegations",
+      "event_reason": "All articles report on criminal or legal allegations regarding David Walliams.",
+      "article_indexes": [
+        274,
+        276,
+        277,
+        285,
+        286,
+        287
+      ],
+      "batch_identifier": 10,
+      "member_cluster_ids": [
+        "EVT-20261111-000218"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 10"
+    },
+    {
+      "cluster_id": "EVT-20261111-000219",
+      "local_cluster_id": "C005",
+      "event_title": "Pharma Insulin Supply Risks",
+      "event_reason": "Article warns that focus on weight-loss drugs may jeopardize insulin supply.",
+      "article_indexes": [
+        279
+      ],
+      "batch_identifier": 10,
+      "member_cluster_ids": [
+        "EVT-20261111-000219"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 10"
+    },
+    {
+      "cluster_id": "EVT-20261111-000220",
+      "local_cluster_id": "C006",
+      "event_title": "Middle East Tensions and Oil Markets",
+      "event_reason": "Articles cover falling oil prices due to Iran war de-escalation hopes and related regional instability.",
+      "article_indexes": [
+        282,
+        283,
+        298
+      ],
+      "batch_identifier": 10,
+      "member_cluster_ids": [
+        "EVT-20261111-000220"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 10"
+    },
+    {
+      "cluster_id": "EVT-20261111-000221",
+      "local_cluster_id": "C007",
+      "event_title": "COP31 Climate Summit",
+      "event_reason": "Article covers the COP31 climate conference and Greta Thunberg's warnings.",
+      "article_indexes": [
+        284
+      ],
+      "batch_identifier": 10,
+      "member_cluster_ids": [
+        "EVT-20261111-000221"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 10"
+    },
+    {
+      "cluster_id": "EVT-20261111-000222",
+      "local_cluster_id": "C008",
+      "event_title": "WTA Finals Tennis Results",
+      "event_reason": "Article reports on tennis results at the WTA Finals.",
+      "article_indexes": [
+        288
+      ],
+      "batch_identifier": 10,
+      "member_cluster_ids": [
+        "EVT-20261111-000222"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 10"
+    },
+    {
+      "cluster_id": "EVT-20261111-000223",
+      "local_cluster_id": "C009",
+      "event_title": "Japan vs England Rugby Match",
+      "event_reason": "Article discusses the upcoming rugby match between Japan and England involving coach Eddie Jones.",
+      "article_indexes": [
+        289
+      ],
+      "batch_identifier": 10,
+      "member_cluster_ids": [
+        "EVT-20261111-000223"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 10"
+    },
+    {
+      "cluster_id": "EVT-20261111-000224",
+      "local_cluster_id": "C010",
+      "event_title": "NFL Trade: Kirk Cousins",
+      "event_reason": "Article reports on the NFL trade sending Kirk Cousins to the Minnesota Vikings.",
+      "article_indexes": [
+        290
+      ],
+      "batch_identifier": 10,
+      "member_cluster_ids": [
+        "EVT-20261111-000224"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 10"
+    },
+    {
+      "cluster_id": "EVT-20261111-000225",
+      "local_cluster_id": "C011",
+      "event_title": "Osaka Cigarette Littering",
+      "event_reason": "Article reports on Osaka's struggle with cigarette littering.",
+      "article_indexes": [
+        291
+      ],
+      "batch_identifier": 10,
+      "member_cluster_ids": [
+        "EVT-20261111-000225"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 10"
+    },
+    {
+      "cluster_id": "EVT-20261111-000226",
+      "local_cluster_id": "C012",
+      "event_title": "US-China Tech and NVIDIA",
+      "event_reason": "Articles cover US-China tech tensions, Microsoft's lobbying, and NVIDIA's challenges in Taiwan.",
+      "article_indexes": [
+        292,
+        293
+      ],
+      "batch_identifier": 10,
+      "member_cluster_ids": [
+        "EVT-20261111-000226"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 10"
+    },
+    {
+      "cluster_id": "EVT-20261111-000227",
+      "local_cluster_id": "C013",
+      "event_title": "Toyota Indiana Manufacturing",
+      "event_reason": "Article reports on Toyota building mini cars and rebooting the Scion brand in Indiana.",
+      "article_indexes": [
+        295
+      ],
+      "batch_identifier": 10,
+      "member_cluster_ids": [
+        "EVT-20261111-000227"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 10"
+    },
+    {
+      "cluster_id": "EVT-20261111-000228",
+      "local_cluster_id": "C014",
+      "event_title": "Anthropic IPO Plans",
+      "event_reason": "Article details Anthropic's target for a $64.4 billion IPO.",
+      "article_indexes": [
+        296
+      ],
+      "batch_identifier": 10,
+      "member_cluster_ids": [
+        "EVT-20261111-000228"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 10"
+    },
+    {
+      "cluster_id": "EVT-20261111-000229",
+      "local_cluster_id": "C015",
+      "event_title": "US Spy Agency Suicides",
+      "event_reason": "Article covers scrutiny of suicides at US spy and cyber agencies by Congress.",
+      "article_indexes": [
+        297
+      ],
+      "batch_identifier": 10,
+      "member_cluster_ids": [
+        "EVT-20261111-000229"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 10"
+    },
+    {
+      "cluster_id": "EVT-20261111-000230",
+      "local_cluster_id": "C016",
+      "event_title": "Russia-Ukraine Peace Talks",
+      "event_reason": "Article reports on US calls for new European security arrangements during Russia-Ukraine negotiations.",
+      "article_indexes": [
+        299
+      ],
+      "batch_identifier": 10,
+      "member_cluster_ids": [
+        "EVT-20261111-000230"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 10"
+    },
+    {
+      "cluster_id": "EVT-20261111-000231",
+      "local_cluster_id": "C017",
+      "event_title": "Pakistani Farmers vs German Firms",
+      "event_reason": "Article covers Pakistani farmers seeking compensation from German firms for flood damage.",
+      "article_indexes": [
+        300
+      ],
+      "batch_identifier": 10,
+      "member_cluster_ids": [
+        "EVT-20261111-000231"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 10"
+    },
+    {
+      "cluster_id": "EVT-20261111-000232",
+      "local_cluster_id": "C001",
+      "event_title": "France Supermarket Hack",
+      "event_reason": "Iran-linked cyberattack on French supermarket infrastructure",
+      "article_indexes": [
+        301
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261111-000232"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261111-000233",
+      "local_cluster_id": "C002",
+      "event_title": "Eisenkot Targets Netanyahu Legacy",
+      "event_reason": "Israeli politician Eisenkot challenges Netanyahu in parliament",
+      "article_indexes": [
+        302
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261111-000233"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261111-000234",
+      "local_cluster_id": "C003",
+      "event_title": "US House Blocks Hegseth Impeachment",
+      "event_reason": "US legislative action regarding Defense Secretary impeachment proceedings",
+      "article_indexes": [
+        303
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261111-000234"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261111-000235",
+      "local_cluster_id": "C004",
+      "event_title": "Japan SDF Retirement Age Proposal",
+      "event_reason": "Japanese legislative proposal to increase Self-Defense Forces retirement age to 65",
+      "article_indexes": [
+        304
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261111-000235"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261111-000236",
+      "local_cluster_id": "C005",
+      "event_title": "UK Arrests US Soldier for Spying",
+      "event_reason": "UK arrest of American soldier on Russia espionage allegations",
+      "article_indexes": [
+        305
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261111-000236"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261111-000237",
+      "local_cluster_id": "C006",
+      "event_title": "War Approaches Russia",
+      "event_reason": "Conflict implications coming home to Russian territory",
+      "article_indexes": [
+        306
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261111-000237"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261111-000238",
+      "local_cluster_id": "C007",
+      "event_title": "US-Japan-South Korea Alliance Strain",
+      "event_reason": "Analysis of potential weakening trilateral security alliance",
+      "article_indexes": [
+        307
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261111-000238"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261111-000239",
+      "local_cluster_id": "C008",
+      "event_title": "SoftBank $7B Loss",
+      "event_reason": "SoftBank financial loss driven by US data center cost increases",
+      "article_indexes": [
+        308
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261111-000239"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261111-000240",
+      "local_cluster_id": "C009",
+      "event_title": "Japan COP31 Environmental Showcase",
+      "event_reason": "Japan planned environmental technology display at COP31 climate summit",
+      "article_indexes": [
+        309
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261111-000240"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261111-000241",
+      "local_cluster_id": "C010",
+      "event_title": "US Allies Trump Lame-Duck Plan",
+      "event_reason": "Allies developing strategies for potential Trump lame-duck period",
+      "article_indexes": [
+        310
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261111-000241"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261111-000242",
+      "local_cluster_id": "C011",
+      "event_title": "Macron Angkor Visit",
+      "event_reason": "French President's Cambodia visit highlighting cultural custodial role",
+      "article_indexes": [
+        311
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261111-000242"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261111-000243",
+      "local_cluster_id": "C012",
+      "event_title": "Japan Social Media Kids Limits",
+      "event_reason": "Japanese proposal to restrict children's social media exposure",
+      "article_indexes": [
+        312
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261111-000243"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261111-000244",
+      "local_cluster_id": "C013",
+      "event_title": "Financial Security Agency Hack",
+      "event_reason": "Hack targeting agency responsible for financial security data breach",
+      "article_indexes": [
+        313
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261111-000244"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261111-000245",
+      "local_cluster_id": "C014",
+      "event_title": "South Korea October Employment",
+      "event_reason": "South Korea adds 139,000 jobs in October employment report",
+      "article_indexes": [
+        314
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261111-000245"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261111-000246",
+      "local_cluster_id": "C015",
+      "event_title": "Korea Justice Minister Nominee",
+      "event_reason": "Justice minister nominee testimony amid presidential indictment controversy",
+      "article_indexes": [
+        315
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261111-000246"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261111-000247",
+      "local_cluster_id": "C016",
+      "event_title": "Gas Diesel Price Drop",
+      "event_reason": "Wednesday decline in gasoline and diesel fuel prices",
+      "article_indexes": [
+        316
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261111-000247"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261111-000248",
+      "local_cluster_id": "C017",
+      "event_title": "KOSPI Wednesday Open",
+      "event_reason": "KOSPI opens 0.56% lower on Wednesday trading",
+      "article_indexes": [
+        317
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261111-000248"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261111-000249",
+      "local_cluster_id": "C018",
+      "event_title": "Korea Ukraine Diplomatic Meeting",
+      "event_reason": "South Korea and Ukraine top diplomats meet after North Korean POW dispute",
+      "article_indexes": [
+        318
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261111-000249"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261111-000250",
+      "local_cluster_id": "C019",
+      "event_title": "Korea President Information Integrity",
+      "event_reason": "President Lee urges efforts against false and distorted information",
+      "article_indexes": [
+        319
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261111-000250"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261111-000251",
+      "local_cluster_id": "C020",
+      "event_title": "Korea Semiconductors Exports Surge",
+      "event_reason": "Conglomerate Q3 exports double year-on-year driven by semiconductors",
+      "article_indexes": [
+        320
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261111-000251"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261111-000252",
+      "local_cluster_id": "C021",
+      "event_title": "Former PM Han Detention Release",
+      "event_reason": "Former Prime Minister Han expected release from detention November 20",
+      "article_indexes": [
+        321
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261111-000252"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261111-000253",
+      "local_cluster_id": "C022",
+      "event_title": "Kim Yo-jong UN Criticism",
+      "event_reason": "North Korea official denounces UN chief for inter-Korean dialogue urging",
+      "article_indexes": [
+        322
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261111-000253"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261111-000254",
+      "local_cluster_id": "C023",
+      "event_title": "KIST Forest Climate Testbed",
+      "event_reason": "Korean research institute establishes forest climate change study testbed",
+      "article_indexes": [
+        323
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261111-000254"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261111-000255",
+      "local_cluster_id": "C024",
+      "event_title": "KOSPI AI Rebound",
+      "event_reason": "KOSPI rebounds as AI investment sentiment improves",
+      "article_indexes": [
+        324
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261111-000255"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261111-000256",
+      "local_cluster_id": "C025",
+      "event_title": "Seoul Metro Strike Threat",
+      "event_reason": "Seoul Metro largest labor union threatens general strike over unmet demands",
+      "article_indexes": [
+        325
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261111-000256"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261111-000257",
+      "local_cluster_id": "C026",
+      "event_title": "Korea School Hours Policy",
+      "event_reason": "Education commission decides against public opinion on extended school hours",
+      "article_indexes": [
+        326
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261111-000257"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261111-000258",
+      "local_cluster_id": "C027",
+      "event_title": "Korea Weather Forecast",
+      "event_reason": "Wednesday fog and temperature swing weather prediction for inland areas",
+      "article_indexes": [
+        327
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261111-000258"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261111-000259",
+      "local_cluster_id": "C028",
+      "event_title": "Korea Anti-Piracy Mission Expansion",
+      "event_reason": "South Korean cabinet expands Cheonghae anti-piracy unit capabilities amid Iran conflict",
+      "article_indexes": [
+        328
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261111-000259"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261111-000260",
+      "local_cluster_id": "C029",
+      "event_title": "KOSPI Tuesday Performance",
+      "event_reason": "KOSPI gains 4.39% on Tuesday trading session",
+      "article_indexes": [
+        329
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261111-000260"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261111-000261",
+      "local_cluster_id": "C030",
+      "event_title": "Korea Special Counsel Bill Clash",
+      "event_reason": "Political parties continue disputes over special counsel legislation",
+      "article_indexes": [
+        330
+      ],
+      "batch_identifier": 11,
+      "member_cluster_ids": [
+        "EVT-20261111-000261"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 11"
+    },
+    {
+      "cluster_id": "EVT-20261111-000262",
+      "local_cluster_id": "C001",
+      "event_title": "俄罗斯列宁格勒及罗斯托夫地区遭无人机袭击",
+      "event_reason": "多篇报道均涉及俄罗斯列宁格勒州和罗斯托夫州上空击落大量无人机（UPA）的事件，属同一场袭击事件的不同方面报道",
+      "article_indexes": [
+        333,
+        335,
+        338,
+        343
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261111-000262"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261111-000263",
+      "local_cluster_id": "C002",
+      "event_title": "乌克兰军事情报局收录俄罗斯名人数据库",
+      "event_reason": "两篇文章分别报道乌克兰情报部门将两位俄罗斯公众人物（尼基塔·米哈尔科夫、伊戈尔·克鲁托伊）纳入数据库，属于同一事件的不同对象",
+      "article_indexes": [
+        332,
+        337
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261111-000263"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261111-000264",
+      "local_cluster_id": "C003",
+      "event_title": "人民日报2026年11月11日第3版、5版、10版、17-18版内容",
+      "event_reason": "所有文章均来自人民日报同一版面日期的不同版块，反映中国进博会成果、外交活动、消费趋势及'一带一路'合作等国内政治经济事务",
+      "article_indexes": [
+        352,
+        353,
+        354,
+        355,
+        356,
+        357,
+        358,
+        359
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261111-000264"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261111-000265",
+      "local_cluster_id": "C004",
+      "event_title": "韩法外交官讨论双边关系和全球问题",
+      "event_reason": "报道韩国与法国外长就双边关系和全球问题举行会谈，无其他相关报道可合并",
+      "article_indexes": [
+        331
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261111-000265"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261111-000266",
+      "local_cluster_id": "C005",
+      "event_title": "黑色星期五期间诈骗分子设置虚假抽奖活动",
+      "event_reason": "报道俄罗斯黑色星期五期间出现的诈骗行为，无其他相关报道",
+      "article_indexes": [
+        334
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261111-000266"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261111-000267",
+      "local_cluster_id": "C006",
+      "event_title": "俄罗斯在职人员养老金差异统计",
+      "event_reason": "报道俄罗斯养老金差异数据，无其他相关文章",
+      "article_indexes": [
+        336
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261111-000267"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261111-000268",
+      "local_cluster_id": "C007",
+      "event_title": "中俄美协商AI在核武器使用中的问题",
+      "event_reason": "报道中国、俄罗斯和美国就人工智能在核武器领域的使用进行协调谈判，无其他相关文章",
+      "article_indexes": [
+        339
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261111-000268"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261111-000269",
+      "local_cluster_id": "C008",
+      "event_title": "被缅甸诈骗电话中心解救的俄罗斯人返回俄罗斯",
+      "event_reason": "报道一名俄罗斯公民从缅甸诈骗中心获救后回国的事件，无其他相关文章",
+      "article_indexes": [
+        340
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261111-000269"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261111-000270",
+      "local_cluster_id": "C009",
+      "event_title": "克拉斯诺达尔建议学生居家学习",
+      "event_reason": "报道俄罗斯克拉斯诺达尔地区因安全原因建议学校停课，无其他相关文章",
+      "article_indexes": [
+        341
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261111-000270"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261111-000271",
+      "local_cluster_id": "C010",
+      "event_title": "立陶宛因不明飞行物发布空袭警报",
+      "event_reason": "报道立陶宛因不明飞行物触发防空警报的事件，无其他相关文章",
+      "article_indexes": [
+        342
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261111-000271"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261111-000272",
+      "local_cluster_id": "C011",
+      "event_title": "帮派活动报道",
+      "event_reason": "标题模糊的帮派活动新闻，无法与其他文章关联",
+      "article_indexes": [
+        344
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261111-000272"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261111-000273",
+      "local_cluster_id": "C012",
+      "event_title": "美国约塞米蒂国家公园景观报道",
+      "event_reason": "关于美国加州约塞米蒂国家公园的自然景观报道，无其他相关文章",
+      "article_indexes": [
+        345
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261111-000273"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261111-000274",
+      "local_cluster_id": "C013",
+      "event_title": "土耳其耶尔科普鲁瀑布旅游报道",
+      "event_reason": "关于土耳其耶尔科普鲁瀑布的旅游介绍，无其他相关文章",
+      "article_indexes": [
+        346
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261111-000274"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261111-000275",
+      "local_cluster_id": "C014",
+      "event_title": "泰国丹特瓦达旅游景点介绍",
+      "event_reason": "关于泰国丹特瓦达碧蓝池塘和热带绿植的旅游报道，无其他相关文章",
+      "article_indexes": [
+        347
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261111-000275"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261111-000276",
+      "local_cluster_id": "C015",
+      "event_title": "玩耍的小猫图片",
+      "event_reason": "宠物相关内容，无其他相关文章",
+      "article_indexes": [
+        348
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261111-000276"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261111-000277",
+      "local_cluster_id": "C016",
+      "event_title": "欧洲池龟浪漫时刻报道",
+      "event_reason": "关于欧洲池龟的自然行为观察，无其他相关文章",
+      "article_indexes": [
+        349
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261111-000277"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261111-000278",
+      "local_cluster_id": "C017",
+      "event_title": "冰岛约库萨隆冰河湖介绍",
+      "event_reason": "关于冰岛最大冰川泻湖的旅游介绍，无其他相关文章",
+      "article_indexes": [
+        350
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261111-000278"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261111-000279",
+      "local_cluster_id": "C018",
+      "event_title": "激光动力水下AI机器人部署",
+      "event_reason": "报道超过2000个配备激光的水下AI机器人被部署，属科技创新类新闻，无其他相关文章",
+      "article_indexes": [
+        351
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261111-000279"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261111-000280",
+      "local_cluster_id": "C019",
+      "event_title": "水网建设进度更新",
+      "event_reason": "报道中国水利基础设施建设进展，虽来源标注BBC但内容属中国新闻，无其他相关文章",
+      "article_indexes": [
+        360
+      ],
+      "batch_identifier": 12,
+      "member_cluster_ids": [
+        "EVT-20261111-000280"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 12"
+    },
+    {
+      "cluster_id": "EVT-20261111-000281",
+      "local_cluster_id": "C001",
+      "event_title": "人民日报要闻（11月11日）",
+      "event_reason": "均报道同一版次（第01版）要闻，相互为版内导航条目",
+      "article_indexes": [
+        361,
+        362
+      ],
+      "batch_identifier": 13,
+      "member_cluster_ids": [
+        "EVT-20261111-000281"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 13"
+    },
+    {
+      "cluster_id": "EVT-20261111-000282",
+      "local_cluster_id": "C002",
+      "event_title": "人民日报要闻（11月11日 继续）",
+      "event_reason": "均报道同一版次（第01/03版）要闻，相互为版内导航条目",
+      "article_indexes": [
+        363,
+        364,
+        365,
+        366,
+        367,
+        368,
+        369,
+        370,
+        371
+      ],
+      "batch_identifier": 13,
+      "member_cluster_ids": [
+        "EVT-20261111-000282"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 13"
+    },
+    {
+      "cluster_id": "EVT-20261111-000283",
+      "local_cluster_id": "C003",
+      "event_title": "二十届五中全会精神宣讲与调研",
+      "event_reason": "均报道中央宣讲团11月10日在全国人大、办公厅、政协机关及地方宣讲党的二十届五中全会精神",
+      "article_indexes": [
+        372,
+        373
+      ],
+      "batch_identifier": 13,
+      "member_cluster_ids": [
+        "EVT-20261111-000283"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 13"
+    },
+    {
+      "cluster_id": "EVT-20261111-000284",
+      "local_cluster_id": "C004",
+      "event_title": "支持实体书店服务全民阅读",
+      "event_reason": "均报道八部门联合印发支持实体书店通知及具体实践成效",
+      "article_indexes": [
+        374,
+        375
+      ],
+      "batch_identifier": 13,
+      "member_cluster_ids": [
+        "EVT-20261111-000284"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 13"
+    },
+    {
+      "cluster_id": "EVT-20261111-000285",
+      "local_cluster_id": "C005",
+      "event_title": "中国记协新闻茶座与一老一小民生",
+      "event_reason": "均为人民日报第04版独立新闻事件，无共同具体事件",
+      "article_indexes": [
+        376,
+        377
+      ],
+      "batch_identifier": 13,
+      "member_cluster_ids": [
+        "EVT-20261111-000285"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 13"
+    },
+    {
+      "cluster_id": "EVT-20261111-000286",
+      "local_cluster_id": "C006",
+      "event_title": "人民日报要闻/评论版（11月11日）",
+      "event_reason": "均报道同一版次（第05/06版）内容，相互为版内导航条目",
+      "article_indexes": [
+        378,
+        379,
+        380,
+        381,
+        382,
+        383,
+        384,
+        385,
+        386
+      ],
+      "batch_identifier": 13,
+      "member_cluster_ids": [
+        "EVT-20261111-000286"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 13"
+    },
+    {
+      "cluster_id": "EVT-20261111-000287",
+      "local_cluster_id": "C007",
+      "event_title": "人民日报要闻版（11月11日 下半部分）",
+      "event_reason": "均报道同一版次（第07版）内容，相互为版内导航条目",
+      "article_indexes": [
+        387,
+        388,
+        389,
+        390
+      ],
+      "batch_identifier": 13,
+      "member_cluster_ids": [
+        "EVT-20261111-000287"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 13"
+    },
+    {
+      "cluster_id": "EVT-20261111-000288",
+      "local_cluster_id": "C001",
+      "event_title": "人民日报2026年11月11日版面新闻聚合",
+      "event_reason": "所有文章均来自人民日报2026年11月11日不同版次，涵盖要闻、经济、特别报道、广告、综合、文件、消费及副刊等版面内容。",
+      "article_indexes": [
+        391,
+        392,
+        393,
+        394,
+        395,
+        396,
+        397,
+        398,
+        399,
+        400,
+        401,
+        402,
+        403,
+        404,
+        405,
+        406,
+        407,
+        408,
+        409,
+        410,
+        411,
+        412,
+        413,
+        414,
+        415,
+        416
+      ],
+      "batch_identifier": 14,
+      "member_cluster_ids": [
+        "EVT-20261111-000288"
+      ],
+      "global_id_source": "python_global_registry",
+      "global_registry_source": "Batch 14"
+    }
+  ],
+  "saved_at": "2026-11-11T13:01:03.403221+08:00"
+}
