@@ -1,0 +1,50 @@
+---
+title: "[Ilhan Omar huddles with her DC-based lawyers during her first day back on Capitol Hill amid federal probes](#item-tech-news-166) ⭐️ ?/10"
+date: 2026-11-11
+type: "news"
+source: "news.google.com"
+source_url: "https://news.google.com/rss/articles/CBMitwFBVV95cUxPWG5qU2dFMGNackZrYlM0Y2VRRmxJMWxpMGFYd25RZlpIM1EyMF8zY0Uwd0hNS25BNHd3cnFmSFJEYW14bGF1Qmk1enl6N2ozU09uU0o5OURHRTJOV3gyd0RvSGozMWl0MXpoMTR0a0h0Wm9BQmg5WUhSUGVPbGRoNUxJUGJndzJIZkpPdU1uS0Q2aTExS05XeUFta0hnZ2l5WDlJUFg0N2Q0WVlwUVJiUU03b2M5ak3SAbwBQVVfeXFMTjd2ZENTaGV6M3dxNzhPWWZibjQyNDFmTnExOEdlSTk3WFhIY1ppTXZBbUlGZ2p0SDBaV3M0UTNKZDZoazc0UFFQbjhxMjEzTS1ndW5kOFVycHVoUlJWeTdxOVV4Y1piYjlHWEU4S2dJQ3R6V2hFb2JYLW4xcENvbUpJX0FhSTVQVWl2RTFBSklpcGE1REhaaEVfa3NxakxDaS1FQWE5YXNfWHBPQ1E3eGVIZnMtYnRsZW5Va2s?oc=5&hl=en-US&gl=US&ceid=US:en"
+language: "en"
+horizon_score: null
+source_status: "fetched"
+content_status: "partial"
+search_method: "rss"
+match_score: 0.8571
+ai_status: "pending"
+original_title: "Google News"
+author: ""
+---
+
+# [Ilhan Omar huddles with her DC-based lawyers during her first day back on Capitol Hill amid federal probes](#item-tech-news-166) ⭐️ ?/10
+
+## Horizon 摘要
+
+# [Ilhan Omar huddles with her DC-based lawyers during her first day back on Capitol Hill amid federal probes](#item-tech-news-166) ⭐️ ?/10
+
+## Horizon Summary
+
+The Horizon digest did not provide a full body for this item.
+
+## 原文信息
+
+- Source: AP
+- Original URL: 未从 Horizon 日报中找到
+
+## AI处理状态
+
+等待后续 AI 二次处理及 27 Skills 分析。
+
+## 原文信息
+
+- Source: news.google.com
+- Original URL: https://news.google.com/rss/articles/CBMitwFBVV95cUxPWG5qU2dFMGNackZrYlM0Y2VRRmxJMWxpMGFYd25RZlpIM1EyMF8zY0Uwd0hNS25BNHd3cnFmSFJEYW14bGF1Qmk1enl6N2ozU09uU0o5OURHRTJOV3gyd0RvSGozMWl0MXpoMTR0a0h0Wm9BQmg5WUhSUGVPbGRoNUxJUGJndzJIZkpPdU1uS0Q2aTExS05XeUFta0hnZ2l5WDlJUFg0N2Q0WVlwUVJiUU03b2M5ak3SAbwBQVVfeXFMTjd2ZENTaGV6M3dxNzhPWWZibjQyNDFmTnExOEdlSTk3WFhIY1ppTXZBbUlGZ2p0SDBaV3M0UTNKZDZoazc0UFFQbjhxMjEzTS1ndW5kOFVycHVoUlJWeTdxOVV4Y1piYjlHWEU4S2dJQ3R6V2hFb2JYLW4xcENvbUpJX0FhSTVQVWl2RTFBSklpcGE1REhaaEVfa3NxakxDaS1FQWE5YXNfWHBPQ1E3eGVIZnMtYnRsZW5Va2s?oc=5&hl=en-US&gl=US&ceid=US:en
+- Original Title: Google News
+- Description: Comprehensive up-to-date news coverage, aggregated from sources all over the world by Google News.
+
+## 原文正文
+
+Google News
+
+## AI 处理状态
+
+等待 27 Skills 进行后续处理。
