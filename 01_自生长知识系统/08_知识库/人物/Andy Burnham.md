@@ -5,7 +5,7 @@ status: active
 importance: 2
 confidence: 0.8
 created_at: 2026-09-27
-last_updated: 2026-10-03
+last_updated: 2026-11-15
 ---
 
 # Andy Burnham
@@ -431,3 +431,16 @@ Andy Burnham（英国工党候选人，曾任大曼彻斯特市长）在2026年�
 
 - [[Greater Manchester]]
 - [[Youth Unemployment]]
+
+## 知识更新｜2026-11-15
+
+英国曼彻斯特市长安迪·伯纳姆于2026年11月15日发表批评性声明，指出英国从脱欧中遭受了净损失。该言论反映了英国国内对脱欧后果的持续争议，但需进一步核实原文以确认具体语境。
+
+### 新增事实
+
+- Andy Burnham 批评英国脱欧导致净损失
+
+### 来源 EventUnit
+
+- `EVT-20261115-000306`
+
