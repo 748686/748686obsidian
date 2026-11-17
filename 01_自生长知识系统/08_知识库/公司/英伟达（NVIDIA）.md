@@ -3,7 +3,7 @@ type: 公司
 name: 英伟达（NVIDIA）
 status: active
 created_at: 2026-11-09
-last_updated: 2026-11-09
+last_updated: 2026-11-16
 ---
 
 # 英伟达（NVIDIA）
@@ -58,3 +58,20 @@ last_updated: 2026-11-09
 - [[Scott Bessent]]
 - [[黄仁勋（Jensen Huang）]]
 - [[Megaspeed公司]]
+
+## 知识更新｜2026-11-16
+
+英伟达面临严重的内部治理危机与外部政治干预双重压力。美国财政部长Scott Bessent公开建议英伟达“整顿”并任命外部CEO，直接威胁现任CEO黄仁勋的领导地位，反映了半导体供应链地缘政治化升级及国家安全利益对公司治理的直接干预。
+
+### 新增事实
+
+- 美国财长Scott Bessent公开建议英伟达整顿并任命外部CEO
+- 现任CEO黄仁勋的领导地位受到直接威胁
+- 前高管Alice Huang离职，涉及Megaspeed公司关联传闻
+- 国会加速推动更严格的AI芯片出口管制立法
+
+### 来源 EventUnit
+
+- `EVT-20261116-000372`
+- `EVT-20261116-000376`
+
