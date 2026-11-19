@@ -5,7 +5,7 @@ status: active
 importance: 4
 confidence: 0.8
 created_at: 2026-09-14
-last_updated: 2026-09-28
+last_updated: 2026-11-19
 ---
 
 # Dario Amodei
@@ -662,3 +662,18 @@ Anthropic CEO兼联合创始人，将主持Anthropic纳斯达克上市敲钟仪�
 ### 相关知识
 
 - [[Anthropic]]
+
+## 知识更新｜2026-11-19
+
+Anthropic CEO。主导了2026年Anthropic的IPO，发行价83美元/股，成为AI行业进入公众资本市场验证期的关键人物。
+
+### 新增事实
+
+- Anthropic IPO定价83美元/股，2026年上半年收入162.86亿美元（同比+1000%+），净亏损800亿美元
+- 未来12个月算力承诺超700亿美元，到2030年超4500亿美元
+- 七位联合创始人将因此成为亿万富翁
+
+### 来源 EventUnit
+
+- `EVT-20261119-000253`
+
