@@ -201,3 +201,25 @@ Nvidia launched an internal board investigation concerning CEO allegations invol
 
 - [[Scott Bessent]]
 - [[Jensen Huang]]
+
+
+---
+
+## 知识更新 · 2026-11-19
+
+- 来源事件：EVT-20261119-000378
+- 置信度：0.85
+- 重要性：3
+
+### 本次变化
+
+面临美国国会关于CEO Jensen Huang及Howard Lutnick作证的听证压力。
+
+### 新增事实
+
+- 共和党人推动要求Nvidia CEO Jensen Huang和Howard Lutnick作证。
+
+### 相关知识
+
+- [[Jensen Huang]]
+- [[Howard Lutnick]]
