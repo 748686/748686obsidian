@@ -5,7 +5,7 @@ status: active
 importance: 2
 confidence: 0.9
 created_at: 2026-10-24
-last_updated: 2026-10-24
+last_updated: 2026-11-18
 ---
 
 # Marco Rubio
@@ -65,3 +65,17 @@ last_updated: 2026-10-24
 
 - [[United States]]
 - [[Cybersecurity]]
+
+## 知识更新｜2026-11-18
+
+2026年11月18日，美国国务卿马尔科·鲁比奥在多次科技中断后公开否认美国遭受系统性攻击，反映了网络战背景下政府定调与潜在风险之间的张力。
+
+### 新增事实
+
+- 美国国务卿Marco Rubio公开否认美国正遭受系统性攻击
+- 声明背景为近期发生多起科技中断事件
+
+### 来源 EventUnit
+
+- `EVT-20261118-000347`
+

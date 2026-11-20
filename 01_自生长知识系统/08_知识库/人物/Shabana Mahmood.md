@@ -5,7 +5,7 @@ status: active
 importance: 4
 confidence: 0.9
 created_at: 2026-11-03
-last_updated: 2026-11-03
+last_updated: 2026-11-18
 ---
 
 # Shabana Mahmood
@@ -90,3 +90,17 @@ last_updated: 2026-11-03
 ### 相关知识
 
 - [[UK immigration policy]]
+
+## 知识更新｜2026-11-18
+
+英国现任内政大臣（Home Secretary），于2026年11月发起针对英国全境警察力量的“快速培训计划”，旨在强化执法机构的运营指挥结构和领导力。
+
+### 新增事实
+
+- 2026年11月启动警察领导力快速培训计划
+- 职责涵盖强化英国各地警察力量的运营指挥结构
+
+### 来源 EventUnit
+
+- `EVT-20261118-000138`
+

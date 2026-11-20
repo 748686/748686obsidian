@@ -5,7 +5,7 @@ status: active
 importance: 2
 confidence: 0.4
 created_at: 2026-11-20
-last_updated: 2026-11-20
+last_updated: 2026-11-18
 ---
 
 # Thomas Markle
@@ -37,3 +37,17 @@ last_updated: 2026-11-20
 
 - 来源事件：EVT-20261120-000125
 - 本次动作：CREATE
+
+## 知识更新｜2026-11-18
+
+2026年11月18日，Thomas Markle在菲律宾面临儿童性虐待材料（CSAM）相关法律程序。菲律宾警方请求检察官对其提出指控，但信源高度受限。
+
+### 新增事实
+
+- 菲律宾警方请求检察官对Thomas Markle提出涉及儿童性虐待材料（CSAM）的指控
+- 信源仅为美联社（AP）单一报道，原始文章缺失且状态为unresolved
+
+### 来源 EventUnit
+
+- `EVT-20261118-000345`
+

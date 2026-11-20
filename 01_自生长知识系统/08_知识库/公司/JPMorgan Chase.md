@@ -3,7 +3,7 @@ type: 公司
 name: JPMorgan Chase
 status: active
 created_at: 2026-11-17
-last_updated: 2026-11-17
+last_updated: 2026-11-20
 ---
 
 # JPMorgan Chase
@@ -81,3 +81,17 @@ last_updated: 2026-11-17
 ### 相关知识
 
 - [[Mastercard]]
+
+## 知识更新｜2026-11-20
+
+美国主要金融机构JPMorgan Chase（大通银行）和Mastercard遭受网络攻击，导致客户数据泄露，宏观评估认为网络局势‘严峻/紧迫’但‘非末日’。
+
+### 新增事实
+
+- 两大美国金融机构遭网络攻击导致数据泄露
+- 评估认为当前网络局势‘严峻/紧迫’但‘非末日’场景，系统具备韧性
+
+### 来源 EventUnit
+
+- `EVT-20261120-000499`
+
