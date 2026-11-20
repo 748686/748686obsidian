@@ -358,3 +358,27 @@ British comedian and presenter involved in ongoing litigation against Channel 4 
 ### 相关知识
 
 - [[英国政府]]
+
+
+---
+
+## 知识更新 · 2026-11-20
+
+- 来源事件：EVT-20261120-000159
+- 置信度：0.3
+- 重要性：2
+
+### 本次变化
+
+喜剧演员，因在服刑期间被指控通过YouTube实施骚扰而引发调查；谷歌拒绝移除其内容引发立法呼吁。
+
+### 新增事实
+
+- Russell Brand目前处于服刑期间
+- Brand被调查指控利用YouTube平台实施骚扰行为
+- 谷歌拒绝移除Brand的相关内容
+
+### 相关知识
+
+- [[YouTube]]
+- [[谷歌]]
