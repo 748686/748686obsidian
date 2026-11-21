@@ -5,7 +5,7 @@ status: active
 importance: 5
 confidence: 0.9
 created_at: 2026-11-19
-last_updated: 2026-11-19
+last_updated: 2026-11-21
 ---
 
 # Anthropic IPO
@@ -40,3 +40,17 @@ AI公司Anthropic于2026年11月完成IPO定价，发行价83美元/股，成为
 
 - 来源事件：EVT-20261119-000330
 - 本次动作：CREATE
+
+## 知识更新｜2026-11-21
+
+确认Anthropic完成首次公开募股（IPO），发行价83美元，成为首家上市的顶尖AI安全公司，7位创始人跻身十亿美元富翁行列，标志AI安全优先路线商业化验证。
+
+### 新增事实
+
+- Anthropic完成历史性IPO，发行价83美元
+- 成为首家上市的顶尖AI公司，7位创始人跻身亿万富翁
+
+### 来源 EventUnit
+
+- `EVT-20261121-000133`
+

@@ -5,7 +5,7 @@ status: active
 importance: 4
 confidence: 0.8
 created_at: 2026-09-14
-last_updated: 2026-11-18
+last_updated: 2026-11-21
 ---
 
 # Anthropic
@@ -2587,3 +2587,16 @@ Anthropic于2026年11月完成首次公开募股（IPO），成为首家上市�
 
 - [[加拿大]]
 - [[新斯科舍省]]
+
+## 知识更新｜2026-11-21
+
+Anthropic已完成首次公开募股（IPO），成为首家上市的顶尖AI公司，标志着AI安全优先路线的商业化验证。
+
+### 新增事实
+
+- Anthropic完成IPO，成为首家上市的顶尖AI公司
+
+### 来源 EventUnit
+
+- `EVT-20261121-000021`
+
