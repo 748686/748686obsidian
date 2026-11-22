@@ -5,7 +5,7 @@ status: active
 importance: 3
 confidence: 0.85
 created_at: 2026-11-18
-last_updated: 2026-11-18
+last_updated: 2026-11-22
 ---
 
 # GPT-6.2
@@ -87,3 +87,17 @@ OpenAI发布的新一代语言模型，包含'Astra'和'Sol'两个变体。
 
 - [[OpenAI]]
 - [[人工智能安全]]
+
+## 知识更新｜2026-11-22
+
+OpenAI发布GPT-6.2系列（Astra与Sol版本）。GPT-6 Astra协助完成了标准模型格点定义证明，体现了AI在基础科学计算中的突破潜力。
+
+### 新增事实
+
+- GPT-6.2系列包含Astra与Sol两个版本
+- GPT-6 Astra协助完成标准模型格点定义证明
+
+### 来源 EventUnit
+
+- `EVT-20261122-000230`
+
