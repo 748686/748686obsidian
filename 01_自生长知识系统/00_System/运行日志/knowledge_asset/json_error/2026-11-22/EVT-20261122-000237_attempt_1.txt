@@ -1,0 +1,48 @@
+748686 Knowledge Asset JSON Diagnostic
+
+date:
+2026-11-22
+
+event_id:
+EVT-20261122-000237
+
+attempt:
+1
+
+error_type:
+ValueError
+
+error:
+无法解析 AI JSON | JSONDecodeError line=9 column=34 pos=277: Expecting ',' delimiter
+
+======================================================================
+AI RAW RESPONSE
+======================================================================
+
+{
+  "event_id": "EVT-20261122-000237",
+  "long_term_value": 1,
+  "summary": "该事件名义上记录美国家庭结构变化统计，但关联的源文章内容实为英国村庄脱离英国，存在严重的源文错位。输入内容主要为系统诊断报告，揭示数据污染问题，而非提供有效的社会学统计数据。",
+  "knowledge_assets": [],
+  "relationships": [],
+  "knowledge_gaps": [
+    {
+      "question": "单身房主家庭比例创历史新高"的具体数据来源和统计机构是什么？
+      "reason": "合并理由中的核心统计数据在源文章中完全缺失，缺乏实证支持，需确认是否存在其他未被引用的源文章。",
+      "importance": 3
+    },
+    {
+      "question": "为何英国地方政治新闻（Barnham村投票）被错误合并至美国家庭结构统计事件中？
+      "reason": "这反映了知识系统在源文匹配或合并逻辑上存在缺陷，需排查数据清洗流程。",
+      "importance": 4
+    }
+  ],
+  "contradictions": [
+    {
+      "subject": "事件主题与源内容的一致性",
+      "description": "事件标题声称关于'美国家庭结构变化'，但唯一关联源文章ARTICLE #182内容为'英国村庄脱离英国'，两者在地理和议题上完全矛盾。",
+      "reason": "源文章内容与事件标签严重不符，可能源于错误的链接或数据污染。",
+      "importance": 5
+    }
+  ]
+}
